@@ -1,32 +1,42 @@
 - en: Chapter 4\. How Go Uses the CPU Resource (or Two)
+  id: totrans-0
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 第四章\. 如何使用 CPU 资源（或两个）
 - en: 'One of the most useful abstractions we can make is to treat properties of our
     hardware and infrastructure systems as resources. CPU, memory, data storage, and
     the network are similar to resources in the natural world: they are finite, they
     are physical objects in the real world, and they must be distributed and shared
     between various key players in the ecosystem.'
+  id: totrans-1
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: 我们可以做出的最有用的抽象之一是将硬件和基础设施系统的属性视为资源。CPU、内存、数据存储和网络类似于自然界中的资源：它们是有限的，是现实世界中的物理对象，并且必须在生态系统的各个关键参与者之间分配和共享。
 - en: ''
+  id: totrans-2
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: Susan J. Fowler, [*Production-Ready Microservices*](https://oreil.ly/8xO1v)
     (O’Reilly, 2016)
+  id: totrans-3
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: Susan J. Fowler，《*可生产的微服务*》（[O’Reilly, 2016](https://oreil.ly/8xO1v)）
 - en: As you learned in [“Behind Performance”](ch01.html#ch-eff-s-performance), software
     efficiency depends on how our program uses the hardware resources. If the same
     functionality uses fewer resources, our efficiency increases and the requirements
     and net cost of running such a program decrease. For example, if we use less CPU
     time (CPU “resource”) or fewer resources with slower access time (e.g., disk),
     we usually reduce the latency of our software.
+  id: totrans-4
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如您在 [“性能背后”](ch01.html#ch-eff-s-performance) 中所学到的，软件效率取决于我们的程序如何使用硬件资源。如果相同的功能使用更少的资源，我们的效率就会提高，并且运行这样的程序的需求和净成本会降低。例如，如果我们使用更少的
+    CPU 时间（CPU “资源”）或具有较慢访问时间的更少资源（例如磁盘），通常可以减少软件的延迟。
 - en: This might sound simple, but in modern computers, these resources interact with
     each other in a complex, nontrivial way. Furthermore, more than one process is
     using these resources, so our program does not use them directly. Instead, these
@@ -37,28 +47,38 @@
     a “guest” operating system that thinks it’s all the hardware that exists. In the
     end, operating systems and virtualization mechanisms create layers between our
     program and the actual physical devices that store or compute our data.
+  id: totrans-5
   prefs: []
   type: TYPE_NORMAL
+  zh: 这听起来可能很简单，但在现代计算机中，这些资源以复杂且非平凡的方式相互交互。此外，多个进程使用这些资源，因此我们的程序并不直接使用它们。相反，操作系统为我们管理这些资源。如果这还不够复杂，特别是在云环境中，我们经常进一步“虚拟化”硬件，以便可以以隔离的方式跨许多个体系统共享它们。这意味着“主机”有方法将部分单个
+    CPU 或磁盘访问授予“客户”操作系统，后者认为这是所有存在的硬件。最终，操作系统和虚拟化机制在我们的程序与实际存储或计算我们数据的物理设备之间创建了层次。
 - en: To understand how to write efficient code or improve our program’s efficiency
     effectively, we have to learn the characteristics, purpose, and limits of the
     typical computer resources like CPU, different types of storage, and network.
     There is no shortcut here. Furthermore, we can’t ignore understanding how these
     physical components are managed by the operating system and typical virtualization
     layers.
+  id: totrans-6
   prefs: []
   type: TYPE_NORMAL
+  zh: 要理解如何编写高效的代码或有效提升程序的效率，我们必须深入了解典型计算机资源如 CPU、不同类型存储和网络的特性、目的和限制。这里没有捷径。此外，我们不能忽视操作系统和典型虚拟化层如何管理这些物理组件。
 - en: In this chapter, we will examine our program execution from the point of view
     of the CPU. We will discuss how Go uses CPUs for single and multiple core tasking.
+  id: totrans-7
   prefs: []
   type: TYPE_NORMAL
+  zh: 在本章中，我们将从 CPU 的角度来审视我们的程序执行。我们将讨论 Go 如何在单个和多核任务中使用 CPU。
 - en: We won’t discuss all types of computer architectures with all mechanisms of
     all existing operating systems, as this would be impossible to fit in one book,
     never mind one chapter. So instead, this chapter will focus on a typical x86-64
     CPU architecture with Intel or AMD, ARM CPUs, and the modern Linux operating system.
     This should get you started and give you a jumping-off point if you ever run your
     program on other, unique types of hardware or operating systems.
+  id: totrans-8
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们不会讨论所有类型的计算机架构以及所有现有操作系统的所有机制，因为这在一本书中是不可能完成的，更不用说一章了。因此，本章将专注于典型的 x86-64
+    CPU 架构，包括 Intel 或 AMD、ARM CPU 和现代 Linux 操作系统。这应该让您开始，并为您提供一个跳板，如果您曾经在其他独特类型的硬件或操作系统上运行您的程序。
 - en: We will start with exploring CPU in a modern computer architecture to understand
     how modern computers are designed, mainly focusing on the CPU, or processor. Then
     I will introduce the Assembly language, which will help us understand how the
@@ -71,31 +91,47 @@
     on outnumbered CPU cores and how the Go runtime scheduler leverages that to implement
     an efficient concurrency framework for us to use. We will finish with the summary
     on when to use concurrency.
+  id: totrans-9
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们将从探索现代计算机架构中的 CPU 开始，以理解现代计算机是如何设计的，主要关注 CPU 或处理器。然后我将介绍汇编语言，这将帮助我们理解 CPU
+    核心执行指令的方式。之后，我们将深入了解 Go 编译器，以增进我们对进行`go build`时发生的事情的认识。此外，我们将深入讨论 CPU 和内存墙问题，展示现代
+    CPU 硬件为何如此复杂。这个问题直接影响在这些超关键路径上编写高效代码。最后，我们将进入多任务处理的领域，解释操作系统调度程序如何尝试在数量不足的 CPU
+    核心上分发数千个执行程序，以及 Go 运行时调度程序如何利用这一点为我们实现高效的并发框架。我们将以何时使用并发的总结结束。
 - en: Mechanical Sympathy
+  id: totrans-10
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 机械同情心
 - en: Initially, this chapter might get overwhelming, especially if you are new to
     low-level programming. Yet, awareness of what is happening will help us understand
     the optimizations, so focus on understanding high-level patterns and characteristics
     of each resource (e.g., how the Go scheduler works). We don’t need to know how
     to write machine code manually or how to, blindfolded, manufacture the computer.
+  id: totrans-11
   prefs: []
   type: TYPE_NORMAL
+  zh: 最初，这一章节可能会让人感到不知所措，特别是对低级编程新手来说。然而，了解正在发生的事情将有助于我们理解优化，因此要专注于理解每个资源的高级模式和特性（例如
+    Go 调度器的工作原理）。我们不需要知道如何手动编写机器码，或者如何盲目地制造计算机。
 - en: Instead, let’s treat this with curiosity about how things work under the computer
     case in general. In other words, we need to have [mechanical sympathy](https://oreil.ly/Co2IM).
+  id: totrans-12
   prefs: []
   type: TYPE_NORMAL
+  zh: 相反，让我们对计算机箱底下的事情如何运作充满好奇。换句话说，我们需要对[机械同情心](https://oreil.ly/Co2IM)抱有好奇心。
 - en: To understand how the CPU architecture works, we need to explain how modern
     computers operate. So let’s dive into that in the next section.
+  id: totrans-13
   prefs: []
   type: TYPE_NORMAL
+  zh: 要理解 CPU 架构的工作原理，我们需要解释现代计算机的运行方式。因此，让我们在下一节深入探讨这个问题。
 - en: CPU in a Modern Computer Architecture
+  id: totrans-14
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 现代计算机架构中的 CPU
 - en: All we do while programming in Go is construct a set of statements that tells
     the computer what to do, step-by-step. Given predefined language constructs like
     variables, loops, control mechanisms, arithmetic, and I/O operations, we can implement
@@ -104,21 +140,28 @@
     developers, we have to describe how the program will operate. This is also how
     hardware is designed nowadays—it is imperative too. It waits for program instructions,
     optional input data, and the desired place for output.
+  id: totrans-15
   prefs: []
   type: TYPE_NORMAL
+  zh: 在 Go 编程中，我们所做的一切就是构建一组语句，告诉计算机逐步执行什么操作。借助预定义的语言结构，如变量、循环、控制机制、算术和 I/O 操作，我们可以实现与存储在不同介质中的数据交互的任何算法。这也是为什么像
+    Go 这样的流行编程语言被称为命令式语言——作为开发人员，我们必须描述程序的操作方式。现代硬件的设计也是如此——这也是命令式的。它等待程序指令、可选的输入数据以及所需的输出位置。
 - en: Programming wasn’t always so simple. Before general-purpose machines, engineers
     had to design fixed program hardware to achieve requested functionality, e.g.,
     a desk calculator. Adding a feature, fixing a bug, or optimizing required changing
     the circuits and manufacturing new devices. Probably not the easiest time to be
     a “programmer”!
+  id: totrans-16
   prefs: []
   type: TYPE_NORMAL
+  zh: 编程并不总是如此简单。在通用目的机器出现之前，工程师们必须设计固定程序硬件以实现请求的功能，例如台式计算器。添加功能、修复错误或优化都需要改变电路并制造新设备。可能不是成为“程序员”的最轻松时期！
 - en: Fortunately, around the 1950s, a few inventors worldwide figured out the opportunity
     for the universal machine that could be programmed using a set of predefined instructions
     stored in memory. One of the first people to document this idea was a great mathematician,
     John von Neumann, and his team.
+  id: totrans-17
   prefs: []
   type: TYPE_NORMAL
+  zh: 幸运的是，大约在1950年代，世界各地的一些发明家发现了一种可以使用存储在内存中的一组预定义指令来编程的通用机器的机会。最早记录这一想法的之一是伟大的数学家约翰·冯·诺伊曼及其团队。
 - en: It is evident that the machine must be capable of storing in some manner not
     only the digital information needed in a given computation ..., the intermediate
     results of the computation (which may be wanted for varying lengths of time),
@@ -126,19 +169,25 @@
     numerical data. ... For an all-purpose machine, it must be possible to instruct
     the device to carry out whatsoever computation that can be formulated in numerical
     terms.
+  id: totrans-18
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: 显然，设备必须能够以某种方式存储不仅计算中所需的数字信息，... 还有计算的中间结果（可能需要存储不同长度的时间），以及控制实际计算例程的指令。...
+    对于通用机器，必须能够指示设备执行以数字形式表达的任何计算。
 - en: ''
+  id: totrans-19
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: Arthur W. Burks, Herman H. Goldstine, and John von Neumann, *Preliminary Discussion
     of the Logical Design of an Electronic Computing Instrument* (Institute for Advanced
     Study, 1946)
+  id: totrans-20
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: Arthur W. Burks、Herman H. Goldstine 和 John von Neumann，《电子计算仪器逻辑设计初步讨论》（高级研究院，1946年）
 - en: What’s noteworthy is that most modern general-purpose computers (e.g., PCs,
     laptops, and servers) are based on John von Neumann’s design. This assumes that
     program instructions can be stored and fetched similar to storing and reading
@@ -148,22 +197,31 @@
     sound like a novel idea now, it established how general-purpose machines work.
     We call this Von Neumann computer architecture, and you can see its modern, evolved
     variation in [Figure 4-1](#img-uma).^([1](ch04.html#idm45606836099536))
+  id: totrans-21
   prefs: []
   type: TYPE_NORMAL
+  zh: 值得注意的是，大多数现代通用计算机（如PC、笔记本电脑和服务器）基于John von Neumann的设计。这假设程序指令可以像存储和读取程序数据（指令输入和输出）一样被存储和提取。我们通过从主存储器（或高速缓存）中的特定内存地址读取字节来获取要执行的指令（例如`add`）和数据（例如加法操作数）。虽然现在听起来并不像一个新颖的想法，但它确立了通用机器的工作方式。我们称之为冯·诺依曼计算机体系结构，你可以在[图
+    4-1](#img-uma)中看到其现代演变的变体。^([1](ch04.html#idm45606836099536))
 - en: '![efgo 0401](assets/efgo_0401.png)'
+  id: totrans-22
   prefs: []
   type: TYPE_IMG
+  zh: '![efgo 0401](assets/efgo_0401.png)'
 - en: Figure 4-1\. High-level computer architecture with a single multicore CPU and
     uniform memory access (UMA)
+  id: totrans-23
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 4-1\. 带有单个多核 CPU 和统一内存访问（UMA）的高级计算机架构
 - en: At the heart of modern architecture, we see a CPU consisting of multiple cores
     (four to six physical cores are the norm in the 2020s PCs). Each core can execute
     desired instructions with certain data saved in random-access memory (RAM) or
     any other memory layers like registers or L-caches (discussed later).
+  id: totrans-24
   prefs: []
   type: TYPE_NORMAL
+  zh: 在现代架构的核心，我们看到一个CPU由多个核心组成（2020年代PC中四到六个物理核心是常见的）。每个核心可以执行带有存储在随机访问内存（RAM）或任何其他存储器层中的特定数据的所需指令。
 - en: The RAM explained in [Chapter 5](ch05.html#ch-hardware2) performs the duty of
     the main, fast, volatile memory that can store our data and program code as long
     as the computer is powered. In addition, the memory controller makes sure RAM
@@ -172,29 +230,40 @@
     From a high-level view, an I/O device means anything that accepts sending or receiving
     a stream of bytes, for example, mouse, keyboard, speaker, monitor, HDD or SSD
     disk, network interface, GPU, and thousands more.
+  id: totrans-25
   prefs: []
   type: TYPE_NORMAL
+  zh: 在[第 5 章](ch05.html#ch-hardware2)中解释的RAM承担了主要、快速、易失性内存的职责，它可以在计算机通电的同时存储我们的数据和程序代码。此外，内存控制器确保RAM得到持续的电源供应，以保持RAM芯片上的信息。最后，CPU可以与各种外部或内部输入/输出（I/O）设备进行交互。从高层次来看，I/O设备指的是接受发送或接收字节流的任何内容，例如鼠标、键盘、扬声器、显示器、HDD或SSD磁盘、网络接口、GPU等等，数量众多。
 - en: Roughly speaking, CPU, RAM, and popular I/O devices like disks and network interfaces
     are the essential parts of computer architecture. This is what we use as “resources”
     in our RAERs mentioned in [“Efficiency Requirements Should Be Formalized”](ch03.html#ch-conq-req-formal)
     and what we are usually optimizing for in our software development.
+  id: totrans-26
   prefs: []
   type: TYPE_NORMAL
+  zh: 大致来说，CPU、RAM 和流行的I/O设备（如磁盘和网络接口）是计算机架构的基本组成部分。这是我们在《“效率要求应该被形式化”》中提到的RAERs中使用的“资源”，也是我们在软件开发中通常进行优化的对象。
 - en: 'In this chapter, we will focus on the brain of our general-purpose machines—the
     CPU. When should we care about CPU resources? Typically, from an efficiency standpoint,
     we should start looking at our Go process CPU resource usage when either of the
     following occurs:'
+  id: totrans-27
   prefs: []
   type: TYPE_NORMAL
+  zh: 在本章中，我们将关注我们通用计算机的大脑——CPU。我们何时应该关注 CPU 资源？从效率的角度来看，当以下情况之一发生时，我们应该开始关注我们 Go
+    进程的 CPU 资源使用情况：
 - en: Our machine can’t do other tasks because our process uses all the available
     CPU resource computing capacity.
+  id: totrans-28
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们的机器无法执行其他任务，因为我们的进程使用了所有可用的 CPU 资源计算能力。
 - en: Our process runs unexpectedly slow, while we see higher CPU consumption.
+  id: totrans-29
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们的进程运行得出乎意料地慢，而我们却看到更高的 CPU 消耗。
 - en: There are many techniques to troubleshoot these symptoms, but we must first
     understand the CPU’s internal working and program execution basics. This is the
     key to efficient Go programming. Furthermore, it explains the numerous optimization
@@ -202,44 +271,64 @@
     (and other languages), we should avoid using linked lists like structures if we
     plan to iterate over them a lot, despite their theoretical advantages like quick
     insertion and deletion?
+  id: totrans-30
   prefs: []
   type: TYPE_NORMAL
+  zh: 有许多技术可以排除这些症状，但我们必须首先了解 CPU 的内部工作原理和程序执行基础。这是进行高效 Go 编程的关键。此外，它解释了最初可能让我们惊讶的许多优化技术。例如，你知道为什么在
+    Go（和其他语言中），如果我们计划经常迭代它们，我们应该避免使用类似链表的结构，尽管它们在理论上有快速插入和删除的优势吗？
 - en: Before we learn why, we must understand how the CPU core executes our programs.
     Surprisingly, I found that the best way to explain this is by learning how the
     Assembly language works. Trust me on this; it might be easier than you think!
+  id: totrans-31
   prefs: []
   type: TYPE_NORMAL
+  zh: 在我们了解为什么之前，我们必须理解 CPU 核心如何执行我们的程序。令人惊讶的是，我发现通过学习汇编语言工作的方式来解释这一点是最好的。相信我，这可能比你想象的要容易！
 - en: Assembly
+  id: totrans-32
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 汇编语言
 - en: The CPU core, indirectly, can execute programs we write. For example, consider
     the simple Go code in [Example 4-1](#code-sum).
+  id: totrans-33
   prefs: []
   type: TYPE_NORMAL
+  zh: CPU 核心间接地可以执行我们编写的程序。例如，考虑在 [Example 4-1](#code-sum) 中的简单 Go 代码。
 - en: Example 4-1\. Simple function that reads numbers from a file and returns the
     total sum
+  id: totrans-34
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 4-1\. 从文件中读取数字并返回总和的简单函数
 - en: '[PRE0]'
+  id: totrans-35
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE0]'
 - en: '[![1](assets/1.png)](#co_how_go_uses_the_cpu_resource__or_two__CO1-1)'
+  id: totrans-36
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_how_go_uses_the_cpu_resource__or_two__CO1-1)'
 - en: The main arithmetic operation in this function adds a parsed number from the
     file into a `ret` integer variable representing the total sum.
+  id: totrans-37
   prefs: []
   type: TYPE_NORMAL
+  zh: 这个函数中的主要算术操作将从文件中解析的数字添加到表示总和的整数变量 `ret` 中。
 - en: While such language is far from, let’s say, spoken English, unfortunately, it
     is still too complex and incomprehensible for the CPU. It is not “machine-readable”
     code. Thankfully every programming language has a dedicated tool called a compiler^([2](ch04.html#idm45606835882864))
     that (among other things discussed in [“Understanding Go Compiler”](#ch-hw-compilation))
     translates our higher-level code to machine code. You might be familiar with a
     `go build` command that invokes a default Go compiler.
+  id: totrans-38
   prefs: []
   type: TYPE_NORMAL
+  zh: 虽然这种语言远非口语英语，不幸的是，对于 CPU 来说，它仍然太复杂和难以理解。这不是“机器可读”的代码。幸运的是，每种编程语言都有一个专门的工具称为编译器^([2](ch04.html#idm45606835882864))，它（除了其他讨论在[“理解
+    Go 编译器”](#ch-hw-compilation)中的内容）将我们的高级代码转换为机器代码。你可能熟悉`go build`命令，它调用默认的 Go 编译器。
 - en: The machine code is a sequence of instructions written in binary format (famous
     zeros and ones). In principle, each instruction is represented by a number (`opcode`)
     followed by optional operands in the form of a constant value or address in the
@@ -247,8 +336,12 @@
     directly on the CPU chip that can be used to store intermediate results. For example,
     on AMD64 CPU, we have sixteen 64-bit general-purpose registers referred to as
     RAX, RBX, RDX, RBP, RSI, RDI, RSP, and R8-R15.
+  id: totrans-39
   prefs: []
   type: TYPE_NORMAL
+  zh: 机器码是用二进制格式编写的指令序列（著名的零和一）。原则上，每条指令由一个数字（`opcode`）表示，后面是形式为常量值或主存中地址的可选操作数。我们还可以引用几个
+    CPU 核心寄存器，这些寄存器是直接安装在 CPU 芯片上的小“槽”，用于存储中间结果。例如，在 AMD64 CPU 上，我们有十六个 64 位通用寄存器，分别称为
+    RAX、RBX、RDX、RBP、RSI、RDI、RSP，以及 R8-R15。
 - en: While translating to machine code, the compiler often adds additional code like
     extra memory safety bound checks. It automatically changes our code for known
     efficiency patterns for a given architecture. Sometimes this might not be what
@@ -256,6 +349,7 @@
     some efficiency problems is sometimes useful. Another advanced example of humans
     needing to read machine code is when we need to reverse engineer programs without
     source code.
+  id: totrans-40
   prefs: []
   type: TYPE_NORMAL
 - en: Unfortunately, machine code is impossible to read for humans unless you are
@@ -265,24 +359,29 @@
     Assembly. The Assembly language represents the lowest code level that can be practically
     read and (in theory) written by human developers. It also represents well what
     will be interpreted by the CPU when converted to machine code.
+  id: totrans-41
   prefs: []
   type: TYPE_NORMAL
 - en: 'It is worth mentioning that we can disassemble compiled code into various Assembly
     dialects. For example:'
+  id: totrans-42
   prefs: []
   type: TYPE_NORMAL
 - en: To [Intel syntax](https://oreil.ly/alpt4) using the standard Linux tool [`objdump
     -d -M intel <binary>`](https://oreil.ly/kZO3j)
+  id: totrans-43
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: To [AT&T syntax](https://oreil.ly/k6bKs) using the similar command [`objdump
     -d -M att <binary>`](https://oreil.ly/cmAW9)
+  id: totrans-44
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: To [Go “pseudo” assembly language](https://oreil.ly/lT07J) using Go tooling
     [`go tool objdump -s <binary>`](https://oreil.ly/5I9t2)
+  id: totrans-45
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -293,9 +392,11 @@
     and close enough for our purposes. It can show all compilation optimization discussed
     in [“Understanding Go Compiler”](#ch-hw-compilation). This is why Go Assembly
     is what we will use throughout this book.
+  id: totrans-46
   prefs: []
   type: TYPE_NORMAL
 - en: Do I Need to Understand Assembly?
+  id: totrans-47
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -307,22 +408,28 @@
     for understanding the changes the compiler applies to our code when translating
     to machine code. Sometimes these might surprise us! Finally, it also tells us
     how the CPU works.
+  id: totrans-48
   prefs: []
   type: TYPE_NORMAL
 - en: In [Example 4-2](#code-sum-asm) we can see a tiny, disassembled part of the
     compiled [Example 4-1](#code-sum) (using `go tool objsdump -s`) that represents
     `ret += num` statement.^([3](ch04.html#idm45606835843408))
+  id: totrans-49
   prefs: []
   type: TYPE_NORMAL
 - en: Example 4-2\. Addition part of code in Go Assembly language decompiled from
     the compiled [Example 4-1](#code-sum)
+  id: totrans-50
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
 - en: '[PRE1]'
+  id: totrans-51
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE1]'
 - en: '[![1](assets/1.png)](#co_how_go_uses_the_cpu_resource__or_two__CO2-1)'
+  id: totrans-52
   prefs: []
   type: TYPE_NORMAL
 - en: The first line represents a [quadword (64 bit) MOV instruction](https://oreil.ly/SDE5R)
@@ -330,15 +437,18 @@
     in register `SP` plus 80 bytes and put that into the `SI` register.^([4](ch04.html#idm45606835798912))
     The compiler decided that `SI` will store the initial value of the return argument
     in our function, so the `ret` integer variable for the `ret+=num` operation.
+  id: totrans-53
   prefs: []
   type: TYPE_NORMAL
 - en: '[![2](assets/2.png)](#co_how_go_uses_the_cpu_resource__or_two__CO2-2)'
+  id: totrans-54
   prefs: []
   type: TYPE_NORMAL
 - en: As a second instruction, we tell the CPU to add a quadword value from the `AX`
     register to the `SI` register. The compiler used the `AX` register to store the
     `num` integer variable, which we parsed from the `string` in previous instructions
     (outside of this snippet).
+  id: totrans-55
   prefs: []
   type: TYPE_NORMAL
 - en: The preceding example shows `MOVQ` and `ADDQ` instructions. To make things more
@@ -352,6 +462,7 @@
     input/output model, etc. There are various [ISAs](https://oreil.ly/TLxJn) for
     different types of CPUs. For example, both 32-bit and 64-bit Intel and AMD processors
     use x86 ISA, and ARM uses its ARM ISA (for example, new [Apple M chips use ARMv8.6-A](https://oreil.ly/NZqT1)).
+  id: totrans-56
   prefs: []
   type: TYPE_NORMAL
 - en: As far as Go developers are concerned, the ISA defines a set of instructions
@@ -360,9 +471,11 @@
     ISA (architecture) and the type of the desired operating system. In the next section,
     let’s look at how the default Go compiler works. On the way, we will uncover mechanisms
     to help the Go compiler produce efficient and fast machine code.
+  id: totrans-57
   prefs: []
   type: TYPE_NORMAL
 - en: Understanding Go Compiler
+  id: totrans-58
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -376,8 +489,12 @@
     produce the executable (“binary”) that the operating system can execute. During
     the initial start, called *loading*, other shared libraries can be dynamically
     loaded too (e.g., Go plug-ins).
+  id: totrans-59
   prefs: []
   type: TYPE_NORMAL
+  zh: 关于构建有效编译器的话题可以填写几本书。然而，在本书中，我们将试图理解作为对高效代码感兴趣的 Go 开发人员必须了解的 Go 编译器基础知识。通常，我们在典型操作系统上执行的
+    Go 代码涉及许多内容，不仅仅是编译。首先，我们需要使用编译器编译它，然后我们必须使用链接器将不同的目标文件链接在一起，包括可能的共享库。这些编译和链接过程通常称为*构建*，它们生成操作系统可以执行的可执行文件（“二进制文件”）。在初始启动时，称为*加载*，还可以动态加载其他共享库（例如
+    Go 插件）。
 - en: There are many code-building methods for Go code, designed for different target
     environments. For example, [Tiny Go](https://oreil.ly/c2C5E) is optimized to produce
     binaries for microcontrollers, [gopherjs](https://oreil.ly/D83Jq) produces JavaScript
@@ -386,8 +503,12 @@
     default and most popular Go compiler and linking mechanism available in the `go
     build` command. The compiler itself is written in Go (initially in C). The rough
     documentation and source code can be found [here](https://oreil.ly/qcrLt).
+  id: totrans-60
   prefs: []
   type: TYPE_NORMAL
+  zh: 有许多针对不同目标环境设计的 Go 代码构建方法。例如，[Tiny Go](https://oreil.ly/c2C5E) 优化生成微控制器的二进制文件，[gopherjs](https://oreil.ly/D83Jq)
+    生成用于浏览器执行的 JavaScript，而 [android](https://oreil.ly/83Wm1) 则生成可在 Android 操作系统上执行的程序。但是，本书将重点放在
+    `go build` 命令中默认和最流行的 Go 编译器和链接机制上。编译器本身是用 Go 编写的（最初是用 C 编写的）。可以在[这里](https://oreil.ly/qcrLt)找到粗略的文档和源代码。
 - en: The `go build` can build our code into many different outputs. We can build
     executables that require system libraries to be dynamically linked on startup.
     We can build shared libraries or even C-compatible shared libraries. Yet the most
@@ -396,8 +517,12 @@
     binary does not need any system dependency of a specific version in a certain
     directory. It is a default build mode for code with a starting `main` function
     that can also be explicitly invoked using `go build -buildmode=exe`.
+  id: totrans-61
   prefs: []
   type: TYPE_NORMAL
+  zh: '`go build` 可以将我们的代码构建成许多不同的输出。我们可以构建需要在启动时动态链接系统库的可执行文件。我们可以构建共享库，甚至是兼容 C 的共享库。然而，使用
+    Go 的最常见和推荐的方式是构建将所有依赖项静态链接的可执行文件。它提供了更好的体验，其中我们的二进制文件的调用不需要特定目录中特定版本的系统依赖项。对于具有起始
+    `main` 函数的代码，默认构建模式也可以通过 `go build -buildmode=exe` 明确调用。'
 - en: The `go build` command invokes both compilation and linking. While the linking
     phase also performs certain optimizations and checks, the compiler probably performs
     the most complex duty. The Go compiler focuses on a single package at once. It
@@ -406,22 +531,30 @@
     and prepares important metadata for debugging purposes. We need to “collaborate”
     with the compiler (and operating system and hardware) to write efficient Go and
     not work against it.
+  id: totrans-62
   prefs: []
   type: TYPE_NORMAL
+  zh: '`go build` 命令既调用编译又调用链接。虽然链接阶段也执行某些优化和检查，但编译器可能执行最复杂的任务。Go 编译器一次只专注于一个包。它将包的源代码编译为目标架构和操作系统支持的本机代码。此外，它还验证、优化该代码，并为调试目的准备重要的元数据。我们需要与编译器（以及操作系统和硬件）“合作”，以编写高效的
+    Go 代码，而不是反其道而行之。'
 - en: I tell everyone, if you’re not sure how to do something, ask the question around
     what is the most idiomatic way to do this in Go. Because many of those answers
     are already tuned to being sympathetic with the operating system of the hardware.
+  id: totrans-63
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: 我告诉每个人，如果不确定如何做某事，请问问在 Go 中最惯用的方式是什么。因为许多答案已经调整为与硬件的操作系统相容。
 - en: ''
+  id: totrans-64
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: Bill Kennedy, [“Bill Kennedy on Mechanical Sympathy”](https://oreil.ly/X3XzI)
+  id: totrans-65
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: Bill Kennedy，《机械同情心上的比尔·肯尼迪》。
 - en: To make things more interesting, `go build` also offers a special cross-compilation
     mode if you want to compile a mix of Go code that uses functions implemented in
     C, C++, or even Fortran! This is possible if you enable a mode called [`cgo`](https://oreil.ly/Xjh9U),
@@ -432,54 +565,76 @@
     binaries for different architectures and operating systems. Luckily, most of the
     libraries are either pure Go or are using pieces of Assembly that can be included
     in the Go binary without `cgo`.
+  id: totrans-66
   prefs: []
   type: TYPE_NORMAL
+  zh: 为了使事情更有趣，`go build` 还提供了一个特殊的交叉编译模式，如果您想要编译使用 C、C++ 或甚至 Fortran 实现的函数混合的 Go
+    代码！如果您启用了一个称为 [`cgo`](https://oreil.ly/Xjh9U) 的模式，这是可能的。不幸的是，`cgo` [不建议使用](https://oreil.ly/QojX3)，应尽量避免使用它。它会使构建过程变慢，C
+    和 Go 之间传递数据的性能值得怀疑，并且非 `cgo` 编译已经足够强大，可以为不同架构和操作系统交叉编译二进制文件。幸运的是，大多数库要么是纯 Go 的，要么是使用可以包含在
+    Go 二进制文件中的汇编代码片段，而无需 `cgo`。
 - en: To understand the impact of the compiler on our code, see the stages the Go
     compiler performs in [Figure 4-2](#img-hw-comp). While `go build` includes such
     compilation, we can trigger just the compilation (without linking) alone using
     `go tool compile`.
+  id: totrans-67
   prefs: []
   type: TYPE_NORMAL
+  zh: 要了解编译器对我们的代码的影响，可以看看 Go 编译器在 [Figure 4-2](#img-hw-comp) 中执行的阶段。虽然 `go build`
+    包括这样的编译，但我们可以仅使用 `go tool compile` 触发单独的编译（不链接）。
 - en: '![efgo 0402](assets/efgo_0402.png)'
+  id: totrans-68
   prefs: []
   type: TYPE_IMG
+  zh: '![efgo 0402](assets/efgo_0402.png)'
 - en: Figure 4-2\. Stages performed by the Go compiler on each Go package
+  id: totrans-69
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 4-2\. Go 编译器对每个 Go 包执行的阶段
 - en: 'As mentioned previously, the whole process resides around the packages you
     use in your Go program. Each package is compiled in separation, allowing parallel
     compilation and separation of concerns. The compilation flow presented in [Figure 4-2](#img-hw-comp)
     works as follows:'
+  id: totrans-70
   prefs: []
   type: TYPE_NORMAL
+  zh: 如前所述，整个过程围绕您在 Go 程序中使用的包展开。每个包都在单独编译，允许并行编译和关注点分离。图 4-2 中展示的编译流程如下：
 - en: The Go source code is first tokenized and parsed. The syntax is checked. The
     syntax tree references files and file positions to produce meaningful error and
     debugging information.
+  id: totrans-71
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: Go 源代码首先被标记化和解析。语法被检查。语法树引用文件和文件位置，以产生有意义的错误和调试信息。
 - en: An abstract syntax tree (AST) is built. Such a tree notion is a common abstraction
     that allows developers to create algorithms that easily transform or check parsed
     statements. While in AST form, code is initially type-checked. Declared but not
     used items are detected.
+  id: totrans-72
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 构建抽象语法树（AST）。这样的树是一种常见的抽象，允许开发人员创建能够轻松转换或检查解析语句的算法。在 AST 形式中，代码首先进行类型检查。检测出声明但未使用的项。
 - en: The first pass of optimization is performed. For example, the initial dead code
     is eliminated, so the binary size can be smaller and less code needs to be compiled.
     Then, escape analysis (mentioned in [“Go Memory Management”](ch05.html#ch-hw-go-mem))
     is performed to decide which variables can be placed on the stack and which have
     to be allocated on the heap. On top of that, in this stage, function inlining
     occurs for simple and small functions.
+  id: totrans-73
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 首先执行优化的第一遍。例如，初始的死代码被消除，因此二进制大小可以更小，编译的代码量也更少。接着进行逃逸分析（见 [“Go 内存管理”](ch05.html#ch-hw-go-mem)），以决定哪些变量可以放在堆栈上，哪些必须分配到堆上。此外，在这个阶段，对于简单和小型函数，还会进行函数内联。
 - en: Function Inlining
+  id: totrans-74
   prefs:
   - PREF_IND
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 函数内联
 - en: Functions^([6](ch04.html#idm45606835723216)) in programming language allow us
     to create abstractions, hide complexities, and reduce repeated code. Yet the cost
     of calling execution is nonzero. For example, [a function with a single argument
@@ -487,69 +642,91 @@
     So, while the cost is fixed and typically at the level of nanoseconds, it can
     matter if we have thousands of these calls in the hot path and the function body
     is small enough that this execution call matters.
+  id: totrans-75
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
+  zh: 编程语言中的函数^([6](ch04.html#idm45606835723216)) 允许我们创建抽象，隐藏复杂性，并减少重复代码。然而，调用执行的成本不为零。例如，[具有单个参数调用的函数需要额外的约
+    10 条 CPU 指令](https://oreil.ly/4OPbI)^([7](ch04.html#idm45606835721776))。因此，虽然成本固定且通常在纳秒级别，但如果我们在热路径中有数千个这样的调用，并且函数体足够小，这个执行调用可能会有影响。
 - en: There are also other benefits of inlining. For example, the compiler can apply
     other optimizations more effectively in code with fewer functions and does not
     need to use heap or large stack memory (with copy) to pass arguments between function
     scopes. Heap and stack are explained in [“Go Memory Management”](ch05.html#ch-hw-go-mem).
+  id: totrans-76
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
+  zh: 内联还有其他好处。例如，编译器可以更有效地在代码中应用其他优化，尤其是在函数更少的情况下，并且不需要在函数作用域之间传递参数时使用堆或大型栈内存（通过复制）。堆和栈的解释请参见[“Go内存管理”](ch05.html#ch-hw-go-mem)。
 - en: The compiler automatically substitutes some function calls with the exact copy
     of its body. This is called *inlining* or [*inline expansion*](https://oreil.ly/JGde3).
     The logic is quite smart. For instance, from Go 1.9, the compiler can [inline
     both leaf and mid-stack functions](https://oreil.ly/CX2v0).
+  id: totrans-77
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
+  zh: 编译器会自动用其正文的精确副本替换某些函数调用。这称为*内联*或[*内联扩展*](https://oreil.ly/JGde3)。其逻辑非常智能。例如，从Go
+    1.9开始，编译器可以[内联叶和中栈函数](https://oreil.ly/CX2v0)。
 - en: Manual Inlining Is Rarely Needed
+  id: totrans-78
   prefs:
   - PREF_IND
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 很少需要手动内联
 - en: It is tempting for beginner engineers to micro-optimize by manually inlining
     some of their functions. However, while developers had to do it in the early days
     of programming, this functionality is a fundamental duty of the compiler, which
     usually knows better when and how to inline a function. Use that fact by focusing
     on your code readability and maintainability first regarding the choice of functions.
     Inline manually only as a last resort, and always measure.
+  id: totrans-79
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
+  zh: 对于初学者工程师来说，通过手动内联一些函数进行微优化是很诱人的。然而，尽管在编程的早期阶段开发人员必须这样做，但这种功能通常是编译器的基本职责，它通常更了解何时以及如何内联函数。利用这一事实，首先关注代码的可读性和可维护性，只在最后的情况下手动内联，并始终进行测量。
 - en: After early optimizations on the AST, the tree is converted to the Static Single
     Assignment (SSA) form. This low-level, more explicit representation makes it easier
     to perform further optimization passes using a set of rules. For example, with
     the help of the SSA, the compiler can easily find places of unnecessary variable
     assignments.^([8](ch04.html#idm45606835712848))
+  id: totrans-80
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 在对AST进行了早期优化之后，树被转换为静态单赋值（SSA）形式。这种底层更明确的表示形式使得使用一组规则进行进一步优化更加容易。例如，借助SSA的帮助，编译器可以轻松地找到不必要的变量赋值位置。^([8](ch04.html#idm45606835712848))
 - en: The compiler applies further machine-independent optimization rules. So, for
     example, statements like `y := 0*x` will be simplified to `y :=0`. The complete
     list of rules is [enormous](https://oreil.ly/QTljA) and only confirms how complex
     this space is. Furthermore, some code pieces can be replaced by an [intrinsic
     function](https://oreil.ly/FMjT0)—heavily optimized equivalent code (e.g., in
     raw Assembly).
+  id: totrans-81
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 编译器应用进一步的机器无关优化规则。例如，语句如`y := 0*x`将简化为`y := 0`。完整的规则列表是[巨大的](https://oreil.ly/QTljA)，并且只能确认这个领域有多复杂。此外，一些代码片段可以由[内置函数](https://oreil.ly/FMjT0)替换——这是经过高度优化的等效代码（例如原始汇编）。
 - en: Based on `GOARCH` and `GOOS` environment variables, the compiler invokes the
     `genssa` function that converts SSA to the machine code for the desired architecture
     (ISA) and operating system.
+  id: totrans-82
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 根据`GOARCH`和`GOOS`环境变量，编译器调用`genssa`函数将SSA转换为所需架构（ISA）和操作系统的机器码。
 - en: Further ISA- and operating system–specific optimizations are applied.
+  id: totrans-83
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 进一步的ISA和操作系统特定优化被应用。
 - en: Package machine code that is not dead is built into a single object file (with
     the *.o* suffix) and debug information.
+  id: totrans-84
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 未死的包机器码被构建为单个对象文件（带有*.o*后缀）和调试信息。
 - en: The final “object file” is compressed into a `tar` file called a Go *archive*,
     usually with *.a* file suffix.^([9](ch04.html#idm45606835698096)) Such archive
     files for each package can be used by Go linker (or other linkers) to combine
@@ -558,8 +735,11 @@
     to execute and use it. Typically for Linux, it will be an [Executable and Linkable
     Format](https://oreil.ly/jnicX) (ELF). On Windows, it might be [Portable Executable](https://oreil.ly/SdohW)
     (PE).
+  id: totrans-85
   prefs: []
   type: TYPE_NORMAL
+  zh: 最终的“目标文件”被压缩为一个名为Go *archive*的`tar`文件，通常带有*.a*文件后缀。^([9](ch04.html#idm45606835698096))
+    每个包的这种存档文件可以被Go链接器（或其他链接器）使用，以组合成一个单一的可执行文件，通常称为*二进制文件*。根据操作系统的不同，这样的文件遵循特定的格式，告诉系统如何执行和使用它。对于Linux来说，通常是[可执行和可链接格式](https://oreil.ly/jnicX)（ELF）。在Windows上，可能是[便携式可执行格式](https://oreil.ly/SdohW)（PE）。
 - en: The machine code is not the only part of such a binary file. It also carries
     the program’s static data, like global variables and constants. The executable
     file also contains a lot of debugging information that can take a considerable
@@ -570,8 +750,13 @@
     code. Many debugging tools use it, for example, [“Profiling in Go”](ch09.html#ch-obs-profiling)
     and the aforementioned `objdump` tool. For compatibility with debugging software
     like Delve or GDB, the DWARF table is also attached to the binary file.^([10](ch04.html#idm45606835689456))
+  id: totrans-86
   prefs: []
   type: TYPE_NORMAL
+  zh: 二进制文件中的机器代码并非唯一的部分。它还包含程序的静态数据，如全局变量和常量。可执行文件还包含大量调试信息，这些信息会占用相当大的二进制文件大小，例如简单的符号表、基本类型信息（用于反射）和
+    [PC-to-line 映射](https://oreil.ly/akAR2)（指令地址对应源代码中的行）。这些额外信息能够帮助宝贵的调试工具将机器代码与源代码链接起来。例如，许多调试工具使用它，如
+    [“Go 中的性能分析”](ch09.html#ch-obs-profiling) 和前述的 `objdump` 工具。为了与 Delve 或 GDB 等调试软件兼容，二进制文件还附加了
+    DWARF 表。^([10](ch04.html#idm45606835689456))
 - en: On top of the already long list of responsibilities, the Go compiler must perform
     extra steps to ensure Go [memory safety](https://oreil.ly/kkCRb). For instance,
     the compiler can often tell during compile time that some commands will use a
@@ -579,96 +764,142 @@
     for our program). However, there are cases when this cannot be determined during
     compilation, so additional checks have to be done at runtime, e.g., extra bound
     checks or nil checks.
+  id: totrans-87
   prefs: []
   type: TYPE_NORMAL
+  zh: 除了已有的责任清单外，Go 编译器必须执行额外的步骤，以确保 Go [内存安全性](https://oreil.ly/kkCRb)。例如，编译器通常可以在编译时确定某些命令将使用一个安全的内存空间（包含预期的数据结构并为我们的程序保留），但有时在编译期间无法确定，因此需要在运行时执行额外的检查，例如额外的边界检查或空指针检查。
 - en: We will discuss this in more detail in [“Go Memory Management”](ch05.html#ch-hw-go-mem),
     but for our conversation about CPU, we need to acknowledge that such checks can
     take our valuable CPU time. While the Go compiler tries to eliminate these checks
     when unnecessary (e.g., in the bound check elimination stage during SSA optimizations),
     there might be cases where we need to write code in a way that helps the compiler
     eliminate some checks.^([11](ch04.html#idm45606835684112))
+  id: totrans-88
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们将在 [“Go 内存管理”](ch05.html#ch-hw-go-mem) 中更详细地讨论这个问题，但是在我们关于 CPU 的对话中，我们需要认识到这些检查会占用我们宝贵的
+    CPU 时间。虽然 Go 编译器在不必要时会尽力消除这些检查（例如在 SSA 优化的边界检查消除阶段），但在某些情况下，我们可能需要以一种有助于编译器消除某些检查的方式编写代码。^([11](ch04.html#idm45606835684112))
 - en: 'There are many different configuration options for the Go build process. The
     first large batch of options can be passed through `go build -ldflags="<flags>"`,
     which represents [linker command options](https://oreil.ly/g8dvv) (the `ld` prefix
     traditionally stands for [Linux linker](https://oreil.ly/uJEda)). For example:'
+  id: totrans-89
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于 Go 构建过程，有许多不同的配置选项。第一批大批选项可以通过 `go build -ldflags="<flags>"` 传递，这代表 [链接器命令选项](https://oreil.ly/g8dvv)（`ld`
+    前缀传统上代表 [Linux 链接器](https://oreil.ly/uJEda)）。例如：
 - en: We can omit the DWARF table, thus reducing the binary size using `-ldflags="-w"`
     (recommended for production build if you don’t use debuggers there).
+  id: totrans-90
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们可以通过 `-ldflags="-w"` 来省略 DWARF 表，从而减小二进制文件大小（如果您在生产环境中不使用调试器，则推荐使用此选项）。
 - en: We can further reduce the size with `-ldflags= "-s -w"`, removing the DWARF
     and symbols tables with other debug information. I would not recommend the latter
     option, as non-DWARF elements allow important runtime routines, like gathering
     profiles.
+  id: totrans-91
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 类似地，使用 `-ldflags= "-s -w"` 可以进一步减小二进制文件的大小，删除 DWARF 和其他调试信息中的符号表。我不建议使用后者选项，因为非
+    DWARF 元素允许重要的运行时例程，例如收集配置文件。
 - en: 'Similarly, `go build -gcflags="<flags>"` represents [Go compiler options](https://oreil.ly/rRtRs)
     (`gc` stands for `Go Compiler`; don’t confuse it with GC, which means garbage
     collection, as explained in [“Garbage Collection”](ch05.html#ch-hw-garbage)).
     For example:'
+  id: totrans-92
   prefs: []
   type: TYPE_NORMAL
+  zh: 类似地，`go build -gcflags="<flags>"` 代表 [Go 编译器选项](https://oreil.ly/rRtRs)（`gc`
+    代表 `Go Compiler`；不要与 GC 混淆，后者指的是垃圾回收，如 [“垃圾回收”](ch05.html#ch-hw-garbage) 中所述）。例如：
 - en: '`-gcflags="-S"` prints Go Assembly from the source code.'
+  id: totrans-93
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '`-gcflags="-S"` 打印出 Go 汇编代码。'
 - en: '`-gcflags="-N"` disables all compiler optimizations.'
+  id: totrans-94
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '`-gcflags="-N"` 禁用所有编译器优化。'
 - en: '`-gcflags="-m=<number>` builds the code while printing the main optimization
     decisions, where the number represents the level of detail. See [Example 4-3](#code-comp-sum)
     for the automatic compiler optimizations made on our `Sum` function in [Example 4-1](#code-sum).'
+  id: totrans-95
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '`-gcflags="-m=<number>` 在打印主要优化决策的同时构建代码，其中数字表示详细级别。参见[示例 4-3](#code-comp-sum)
+    中我们在 [示例 4-1](#code-sum) 中的 `Sum` 函数上自动编译器优化。'
 - en: Example 4-3\. Output of `go build -gcflags="-m=1" sum.go` on [Example 4-1](#code-sum)
     code
+  id: totrans-96
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 4-3\. `go build -gcflags="-m=1" sum.go` 在 [示例 4-1](#code-sum) 代码上的输出
 - en: '[PRE2]'
+  id: totrans-97
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE2]'
 - en: '[![1](assets/1.png)](#co_how_go_uses_the_cpu_resource__or_two__CO3-1)'
+  id: totrans-98
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_how_go_uses_the_cpu_resource__or_two__CO3-1)'
 - en: '`os.ReadFile` and `bytes.Split` are short enough, so the compiler can copy
     the whole body of the `Sum` function.'
+  id: totrans-99
   prefs: []
   type: TYPE_NORMAL
+  zh: '`os.ReadFile` 和 `bytes.Split` 足够简短，所以编译器可以复制 `Sum` 函数的整个主体。'
 - en: '[![2](assets/2.png)](#co_how_go_uses_the_cpu_resource__or_two__CO3-3)'
+  id: totrans-100
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_how_go_uses_the_cpu_resource__or_two__CO3-3)'
 - en: The `fileName` argument is “leaking,” meaning this function keeps its parameter
     alive after it returns (it can still be on stack, though).
+  id: totrans-101
   prefs: []
   type: TYPE_NORMAL
+  zh: '`fileName` 参数“泄漏”，意味着这个函数在返回后仍然保持其参数活动状态（尽管可能仍在堆栈上）。'
 - en: '[![3](assets/3.png)](#co_how_go_uses_the_cpu_resource__or_two__CO3-4)'
+  id: totrans-102
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_how_go_uses_the_cpu_resource__or_two__CO3-4)'
 - en: Memory for `[]byte("\n")` will be allocated on the stack. Messages like this
     help debug escape analysis. Learn more about it [here](https://oreil.ly/zBCyO).
+  id: totrans-103
   prefs: []
   type: TYPE_NORMAL
+  zh: '`[]byte("\n")` 的内存将分配在堆栈上。像这样的消息有助于调试逃逸分析。在这里了解更多信息：[链接](https://oreil.ly/zBCyO)。'
 - en: '[![4](assets/4.png)](#co_how_go_uses_the_cpu_resource__or_two__CO3-5)'
+  id: totrans-104
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![4](assets/4.png)](#co_how_go_uses_the_cpu_resource__or_two__CO3-5)'
 - en: Memory for `string(line)` will be allocated in a more expensive heap.
+  id: totrans-105
   prefs: []
   type: TYPE_NORMAL
+  zh: '`string(line)` 的内存将分配在更昂贵的堆中。'
 - en: The compiler will print more details with an increased `-m` number. For example,
     `-m=3` will explain why certain decisions were made. This option is handy when
     we expect certain optimization (inlining or keeping variables on the stack) to
     occur, but we still see an overhead while benchmarking in our TFBO cycle ([“Efficiency-Aware
     Development Flow”](ch03.html#ch-conq-eff-flow)).
+  id: totrans-106
   prefs: []
   type: TYPE_NORMAL
+  zh: 当增加 `-m` 数字时，编译器将打印更多详细信息。例如，`-m=3` 将解释为什么会做出某些决策。在我们预期某些优化（如内联或保持变量在堆栈上）发生时，但在我们的
+    TFBO 周期（“效率感知开发流程”](ch03.html#ch-conq-eff-flow)）的基准测试中仍然看到开销时，此选项非常方便。
 - en: The Go compiler implementation is highly tested and mature, but there are limitless
     ways of writing the same functionality. There might be edge cases when our implementation
     confuses the compiler, so it does not apply certain naive implementations. Benchmarking
@@ -676,19 +907,27 @@
     help. More detailed optimizations can also be printed using further options. For
     example, `-gcflags="-d=ssa/check_bce/debug=1"` prints all bound check elimination
     optimizations.
+  id: totrans-107
   prefs: []
   type: TYPE_NORMAL
+  zh: Go 编译器实现经过高度测试和成熟，但编写相同功能的方法有无数种。当我们的实现让编译器困惑时，可能不会应用某些天真的实现。通过性能基准测试是否存在问题，分析代码并确认
+    `-m` 选项有助于解决问题。更详细的优化也可以使用进一步的选项打印出来。例如，`-gcflags="-d=ssa/check_bce/debug=1"`
+    打印出所有边界检查消除优化。
 - en: The Simpler the Code, the More Effective Compiler Optimizations Will Be
+  id: totrans-108
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 代码越简单，编译器的优化效果就会越好
 - en: Too-clever code is hard to read and makes it difficult to maintain programmed
     functionality. But it also can confuse the compiler that tries to match patterns
     with their optimized equivalents. Using idiomatic code, keeping your functions
     and loops straightforward, increases the chances that the compiler applies the
     optimizations so you don’t need to!
+  id: totrans-109
   prefs: []
   type: TYPE_NORMAL
+  zh: 太聪明的代码难以阅读，并使得维护编程功能变得困难。但它也会使得试图匹配优化等效的模式的编译器感到困惑。使用惯用代码，保持函数和循环简单直接，增加编译器应用优化的机会，这样你就不需要！
 - en: Knowing compiler internals helps, especially when it comes to more advanced
     optimizations tricks, which among other things, help compilers optimize our code.
     Unfortunately, it also means our optimizations might be a bit fragile regarding
@@ -698,8 +937,12 @@
     by the compiler might not trigger inline in the next version of the Go compiler.
     This is why it’s even more important to benchmark and closely observe the efficiency
     of your program when you switch to a different Go version.
+  id: totrans-110
   prefs: []
   type: TYPE_NORMAL
+  zh: 熟悉编译器内部特性是有帮助的，尤其是在涉及更高级优化技巧时，这些技巧帮助编译器优化我们的代码。不幸的是，这也意味着我们的优化在不同编译器版本之间可能有些脆弱性。Go
+    团队保留更改编译器实现和标志的权利，因为它们不属于任何规范的一部分。这可能意味着你编写的一个允许编译器自动内联的函数，在下一个版本的 Go 编译器中可能不会触发内联。因此，当你切换到不同版本的
+    Go 时，更加重要的是进行基准测试并密切观察程序的效率。
 - en: To sum up, the compilation process has a crucial role in offloading programmers
     from pretty tedious work. Without compiler optimizations, we would need to write
     more code to get to the same efficiency level while sacrificing readability and
@@ -711,8 +954,12 @@
     the compiler could further eliminate or function that could be inlined but was
     not. In very extreme cases, there might be even a value to write a dedicated assembly
     code and import it from the Go code.^([12](ch04.html#idm45606835565472))
+  id: totrans-111
   prefs: []
   type: TYPE_NORMAL
+  zh: 总之，编译过程在解放程序员免于繁琐工作方面起着至关重要的作用。没有编译器优化，我们需要编写更多代码才能达到相同的效率水平，同时牺牲可读性和可移植性。相反，如果你专注于使你的代码简单化，你可以相信
+    Go 编译器会做一个足够好的工作。如果你需要提高特定热路径的效率，最好再次确认编译器是否按预期进行了操作。例如，编译器可能没有将我们的代码与常见的优化匹配；可能有一些额外的内存安全检查编译器可以进一步消除，或者可能有可以内联但未被内联的函数。在极端情况下，可能需要编写专门的汇编代码，并从
+    Go 代码中导入它。^([12](ch04.html#idm45606835565472))
 - en: The Go building process constructs fully executable machine code from our Go
     source code. The operating system loads machine code to memory and writes the
     first instruction address to the program counter (PC) register when it needs to
@@ -722,12 +969,18 @@
     on additional hardware optimizations that change how these instructions are executed.
     Understanding these mechanisms will allow us to control the efficiency and speed
     of our Go programs even better. Let’s uncover this problem in the next section.
+  id: totrans-112
   prefs: []
   type: TYPE_NORMAL
+  zh: Go 的构建过程从我们的 Go 源代码中构建出完全可执行的机器码。当操作系统需要执行时，将机器码加载到内存中，并将第一条指令地址写入程序计数器（PC）寄存器。从那里开始，CPU
+    核心可以逐条计算每条指令。乍一看，这可能意味着 CPU 的工作相对简单。但不幸的是，内存墙问题导致 CPU 制造商不断进行额外的硬件优化，改变这些指令执行的方式。理解这些机制将使我们更好地控制我们的
+    Go 程序的效率和速度。让我们在下一节揭示这个问题。
 - en: CPU and Memory Wall Problem
+  id: totrans-113
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: CPU 和内存墙问题
 - en: To understand the memory wall and its consequences, let’s dive briefly into
     CPU core internals. The details and implementation of the CPU core change over
     time for better efficiency (usually getting more complex), but the fundamentals
@@ -735,8 +988,11 @@
     manages reads from memory through various L-caches (from smallest and fastest),
     decodes program instructions, coordinates their execution in the Arithmetic Logic
     Unit (ALU), and handles interruptions.
+  id: totrans-114
   prefs: []
   type: TYPE_NORMAL
+  zh: 要理解内存墙及其后果，让我们简要深入探讨 CPU 核心内部。CPU 核心的详细信息和实现随时间改变以获得更好的效率（通常变得更加复杂），但基本原理保持不变。原则上，控制单元（如
+    [图 4-1](#img-uma) 所示）通过各种 L-cache（从最小且最快的开始）管理从内存中读取的操作，解码程序指令，协调它们在算术逻辑单元（ALU）中的执行，并处理中断。
 - en: An important fact is that the CPU works in cycles. Most CPUs in one cycle can
     perform one instruction on one set of tiny data. This pattern is called the Single
     Instruction Single Data (SISD) in characteristics mentioned in [Flynn’s taxonomy](https://oreil.ly/oQu0M),
@@ -745,8 +1001,10 @@
     with special instructions like SSE, which allows the same arithmetic operation
     on four floating numbers in one cycle. Unfortunately, these instructions are not
     straightforward to use in Go and are therefore quite rarely seen.
+  id: totrans-115
   prefs: []
   type: TYPE_NORMAL
+  zh: 一个重要的事实是CPU按周期工作。大多数CPU在一个周期内可以对一组小数据执行一条指令。这种模式被称为冯·诺依曼结构的特征中提到的“单指令单数据（SISD）”，这是冯·诺依曼结构的关键方面。一些CPU还允许使用特殊指令如SSE进行“单指令多数据（SIMD）”处理，允许在一个周期内对四个浮点数进行相同的算术运算。不幸的是，这些指令在Go语言中使用起来并不直接，因此相当少见。
 - en: Meanwhile, registers are the fastest local storage available to the CPU core.
     Because they are small circuits wired directly into the ALU, it takes only one
     CPU cycle to read their data. Unfortunately, there are also only a few of them
@@ -756,8 +1014,10 @@
     are reserved for CPU use. For example, the [PC register](https://oreil.ly/TvHVd)
     holds the address of the next instruction that the CPU should fetch, decode, and
     execute.
+  id: totrans-116
   prefs: []
   type: TYPE_NORMAL
+  zh: 同时，寄存器是CPU核心可用的最快本地存储。由于它们是直接连接到ALU的小电路，仅需一个CPU周期即可读取它们的数据。不幸的是，它们数量有限（取决于CPU，通常为16个用于一般用途），且其大小通常不超过64位。这意味着它们在程序生命周期中被用作短期变量。一些寄存器可以用于我们的机器码，而另一些则保留给CPU使用。例如，[PC寄存器](https://oreil.ly/TvHVd)保存着CPU应该获取、解码和执行的下一条指令的地址。
 - en: Computation is all about the data. As we learned in [Chapter 1](ch01.html#ch-efficiency-matters),
     there is lots of data nowadays, scattered around different storage mediums—uncomparably
     more than what’s available to store in a single CPU register. Moreover, a single
@@ -770,28 +1030,37 @@
     is not the most important problem since our CPU cores are already…​too fast! It’s
     a fact we cannot make faster memory, which causes the main efficiency issues in
     CPUs nowadays.
+  id: totrans-117
   prefs: []
   type: TYPE_NORMAL
+  zh: 计算完全围绕数据展开。正如我们在[第1章](ch01.html#ch-efficiency-matters)中学到的那样，如今有大量数据分散在不同的存储介质中——比可以存储在单个CPU寄存器中的数据量要多得多。此外，单个CPU周期比从主存储器（RAM）访问数据快——平均快100倍，这是我们在附录A中粗略的延迟数学计算中得出的结论，本书将沿用这些计算。正如我们在“硬件越来越快且便宜”的误解讨论中所述，技术使我们能够创建具有动态时钟速度的CPU核心，但其最大值始终约为4
+    GHz。有趣的是，我们不能制造更快的CPU核心并不是最重要的问题，因为我们的CPU核心已经……太快了！事实上，我们无法制造更快的内存才是当前CPU主要效率问题的原因。
 - en: We can execute something in the ballpark of 36 billion instructions every second.
     Unfortunately, most of that time is spent waiting for data. About 50% of the time
     in almost every application. In some applications upwards of 75% of the time is
     spent waiting for data rather than executing instructions. If this horrifies you,
     good. It should.
+  id: totrans-118
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: 我们可以每秒执行大约360亿条指令。不幸的是，大部分时间都花在等待数据上。几乎每个应用程序中约50%的时间都在等待数据。在某些应用程序中，高达75%的时间都是在等待数据而不是执行指令。如果这让你感到恐惧，那就对了。确实应该如此。
 - en: ''
+  id: totrans-119
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: Chandler Carruth, [“Efficiency with Algorithms, Performance with Data Structures”](https://oreil.ly/I55mm)
+  id: totrans-120
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: Chandler Carruth，《“算法效率，数据结构性能”》（https://oreil.ly/I55mm）
 - en: The aforementioned problem is often referred to as a [“memory wall” problem](https://oreil.ly/l5zgk).
     As a result of this problem, we risk wasting dozens, if not hundreds, of CPU cycles
     per single instruction, since fetching that instruction and data (and then saving
     the results) takes ages.
+  id: totrans-121
   prefs: []
   type: TYPE_NORMAL
 - en: This problem is so prominent that it has triggered recent discussions about
@@ -800,6 +1069,7 @@
     more popular. These workloads are especially affected by the memory wall problem
     because most of the time is spent performing complex matrix math calculations,
     which require traversing large amounts of memory.^([14](ch04.html#idm45606835540240))
+  id: totrans-122
   prefs: []
   type: TYPE_NORMAL
 - en: 'The memory wall problem effectively limits how fast our programs do their job.
@@ -809,9 +1079,11 @@
     will discuss below: the hierarchical cache system, pipelining, out-of-order execution,
     and hyperthreading. These directly impact our low-level Go code efficiency, especially
     in terms of how fast our program will be executed.'
+  id: totrans-123
   prefs: []
   type: TYPE_NORMAL
 - en: Hierachical Cache System
+  id: totrans-124
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
@@ -824,13 +1096,16 @@
     from the main memory (RAM). The way the CPU is using L-caches is presented in
     [Figure 4-3](#img-hw-lcaches).^([15](ch04.html#idm45606835530224)) In the example,
     we will use a simple CPU instruction `MOVQ`, explained in [Example 4-2](#code-sum-asm).
+  id: totrans-125
   prefs: []
   type: TYPE_NORMAL
 - en: '![efgo 0403](assets/efgo_0403.png)'
+  id: totrans-126
   prefs: []
   type: TYPE_IMG
 - en: Figure 4-3\. The “look up” cache method performed by the CPU to read bytes from
     the main memory through L-caches
+  id: totrans-127
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
@@ -842,6 +1117,7 @@
     main memory (RAM). In any of these misses, the CPU will try to fetch the complete
     “cache line” (typically 64 bytes, so eight times the size of the register), save
     it in all caches, and only use these specific bytes.
+  id: totrans-128
   prefs: []
   type: TYPE_NORMAL
 - en: Reading more bytes at once (cache line) is useful as it takes the same latency
@@ -849,6 +1125,7 @@
     Statistically, it is also likely that the next operation needs bytes next to the
     previously accessed area. L-caches partially mitigate the memory latency problem
     and reduce the overall amount of data to be transferred, preserving memory bandwidth.
+  id: totrans-129
   prefs: []
   type: TYPE_NORMAL
 - en: The first direct consequence of having L-caches in our CPUs is that the smaller
@@ -857,9 +1134,11 @@
     expensive cache misses. The second result is that instructions on sequential data
     will be faster since cache lines typically contain multiple items stored next
     to each other.
+  id: totrans-130
   prefs: []
   type: TYPE_NORMAL
 - en: Pipelining and Out-of-Order Execution
+  id: totrans-131
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
@@ -874,46 +1153,60 @@
     For example, in an [initial 5-stage pipeline system](https://oreil.ly/ccBg2) (modern
     CPUs have 14–24 stages!), a single CPU core computes 5 instructions at the same
     time within a cycle, as presented in [Figure 4-4](#img-hw-cpupipe).
+  id: totrans-132
   prefs: []
   type: TYPE_NORMAL
 - en: '![efgo 0404](assets/efgo_0404.png)'
+  id: totrans-133
   prefs: []
   type: TYPE_IMG
 - en: Figure 4-4\. Example five-stage pipeline
+  id: totrans-134
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
 - en: 'The classic five-stage pipeline consists of five operations:'
+  id: totrans-135
   prefs: []
   type: TYPE_NORMAL
 - en: '`IF`'
+  id: totrans-136
   prefs: []
   type: TYPE_NORMAL
 - en: Fetch the instruction to execute.
+  id: totrans-137
   prefs: []
   type: TYPE_NORMAL
 - en: '`ID`'
+  id: totrans-138
   prefs: []
   type: TYPE_NORMAL
 - en: Decode the instruction.
+  id: totrans-139
   prefs: []
   type: TYPE_NORMAL
 - en: '`EX`'
+  id: totrans-140
   prefs: []
   type: TYPE_NORMAL
 - en: Start the execution of the instruction.
+  id: totrans-141
   prefs: []
   type: TYPE_NORMAL
 - en: '`MEM`'
+  id: totrans-142
   prefs: []
   type: TYPE_NORMAL
 - en: Fetch the operands for the execution.
+  id: totrans-143
   prefs: []
   type: TYPE_NORMAL
 - en: '`WB`'
+  id: totrans-144
   prefs: []
   type: TYPE_NORMAL
 - en: Write back the result of the operation (if any).
+  id: totrans-145
   prefs: []
   type: TYPE_NORMAL
 - en: To make it even more complex, as we discussed in the L-caches section, it is
@@ -924,6 +1217,7 @@
     data and execution unit (if possible) rather than by their original order in the
     program. For our purposes, it is enough to think about it as a complex, more dynamic
     pipeline that utilizes internal queues for more efficient CPU execution.
+  id: totrans-146
   prefs: []
   type: TYPE_NORMAL
 - en: The resulting pipelined and out-of-order CPU execution is complex, but the preceding
@@ -937,6 +1231,7 @@
     In these systems, the execution flow of the single CPU core can be preempted many
     times a second, which might matter in extreme cases. We will discuss how to influence
     such behavior in [“Operating System Scheduler”](#ch-hw-os-scheduler).
+  id: totrans-147
   prefs: []
   type: TYPE_NORMAL
 - en: The second consequence is that the more predictive our code is, the better.
@@ -953,11 +1248,13 @@
     help the CPU predict branches and might result in faster code. Some methods are
     applied automatically by the [Go compiler](https://oreil.ly/VqKzx), but sometimes,
     manual improvements have to be added.
+  id: totrans-148
   prefs: []
   type: TYPE_NORMAL
 - en: Generally speaking, the simpler the code, with fewer nested conditionals and
     loops, the better for the branch predictor. This is why we often hear that the
     code that “leans to the left” is faster.
+  id: totrans-149
   prefs: []
   type: TYPE_NORMAL
 - en: In my experience [I saw] repeatedly that code that wants to be fast, go to the
@@ -967,23 +1264,28 @@
     write bad code in the Linux kernel. You can’t write slow code there. ... The moment
     you have too many ifs and decision points ... in your code, the efficiency is
     out of the window.
+  id: totrans-150
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: ''
+  id: totrans-151
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: Andrei Alexandrescu, [“Speed Is Found in the Minds of People”](https://oreil.ly/6mERC)
+  id: totrans-152
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: The existence of branch predictors and speculative approaches in the CPU has
     another consequence. It causes contiguous memory data structures to perform much
     better in pipelined CPU architecture with L-caches.
+  id: totrans-153
   prefs: []
   type: TYPE_NORMAL
 - en: Contiguous Memory Structure Matters
+  id: totrans-154
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -995,9 +1297,11 @@
     what instruction we will do next until we visit the node and check that pointer.
     This effectively limits the speculation capabilities, causing inefficient CPU
     usage.
+  id: totrans-155
   prefs: []
   type: TYPE_NORMAL
 - en: Hyper-Threading
+  id: totrans-156
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
@@ -1012,6 +1316,7 @@
     more without impacting the latency of the process execution. In addition, extra
     registers in SMT enable CPUs to allow for faster context switches between multiple
     threads running on a single physical core.
+  id: totrans-157
   prefs: []
   type: TYPE_NORMAL
 - en: SMT has to be supported and integrated with the operating system. You should
@@ -1019,19 +1324,25 @@
     if your CPU supports Hyper-Threading, check the “thread(s) per core” information
     in the specifications. For example, using the `lscpu` Linux command in [Example 4-4](#code-lscpu),
     my CPU has two threads, meaning Hyper-Threading is available.
+  id: totrans-158
   prefs: []
   type: TYPE_NORMAL
 - en: Example 4-4\. Output of the `lscpu` command on my Linux laptop
+  id: totrans-159
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
 - en: '[PRE3]'
+  id: totrans-160
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE3]'
 - en: '[![1](assets/1.png)](#co_how_go_uses_the_cpu_resource__or_two__CO4-1)'
+  id: totrans-161
   prefs: []
   type: TYPE_NORMAL
 - en: My CPU supports SMT, and it’s enabled on my Linux installation.
+  id: totrans-162
   prefs: []
   type: TYPE_NORMAL
 - en: The SMT is usually enabled by default but can be turned to on demand on newer
@@ -1042,41 +1353,50 @@
     single computer. Yet, in some extreme cases, it might be worth dedicating full
     physical core to a single process to ensure the highest quality of service. Generally,
     a benchmark on each specific hardware should tell us.
+  id: totrans-163
   prefs: []
   type: TYPE_NORMAL
 - en: To sum up, all the aforementioned CPU optimizations and the corresponding programming
     techniques utilizing that knowledge tend to be used only at the very end of the
     optimization cycle and only when we want to squeeze out the last dozen nanoseconds
     on the critical path.
+  id: totrans-164
   prefs: []
   type: TYPE_NORMAL
 - en: Three Principles of Writing CPU-Efficient Code on Critical Path
+  id: totrans-165
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
 - en: 'The three basic rules that will yield CPU-friendly code are as follows:'
+  id: totrans-166
   prefs: []
   type: TYPE_NORMAL
 - en: Use algorithms that do less work.
+  id: totrans-167
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Focus on writing low-complexity code that will be easier to optimize for the
     compiler and CPU branch predictors. Ideally, separate “hot” from “cold” code.
+  id: totrans-168
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Favor contiguous memory data structures when you plan to iterate or traverse
     over them a lot.
+  id: totrans-169
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: With this brief understanding of CPU hardware dynamics, let’s dive deeper into
     the essential software types that allow us to run thousands of programs simultaneously
     on shared hardware—schedulers.
+  id: totrans-170
   prefs: []
   type: TYPE_NORMAL
 - en: Schedulers
+  id: totrans-171
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -1085,6 +1405,7 @@
     scheduled in a certain place at a certain time in a car factory to avoid downtime.
     We might also need to schedule a meeting among certain attendees with only certain
     time slots of the day free.
+  id: totrans-172
   prefs: []
   type: TYPE_NORMAL
 - en: In modern computers or clusters of servers, we have thousands of programs that
@@ -1092,6 +1413,7 @@
     That’s why the industry developed many types of scheduling software (commonly
     called *schedulers*) focused on allocating these programs to free resources on
     many levels.
+  id: totrans-173
   prefs: []
   type: TYPE_NORMAL
 - en: In this section, we will discuss CPU scheduling. Starting from the bottom level,
@@ -1101,9 +1423,11 @@
     program execution latency. It will also help us understand how a developer can
     utilize multiple CPU cores simultaneously, in parallel or concurrently, to achieve
     faster execution.
+  id: totrans-174
   prefs: []
   type: TYPE_NORMAL
 - en: Operating System Scheduler
+  id: totrans-175
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
@@ -1114,19 +1438,23 @@
     has many important functionalities, like managing memory, devices, network access,
     security, and more. It also ensures program execution using a configurable component
     called a scheduler.
+  id: totrans-176
   prefs: []
   type: TYPE_NORMAL
 - en: 'As a central part of resource management, the OS thread scheduler must maintain
     the following, simple, invariant: make sure that ready threads are scheduled on
     available cores.'
+  id: totrans-177
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: ''
+  id: totrans-178
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: 'J.P. Lozi et al., [“The Linux Scheduler: A Decade of Wasted Cores”](https://oreil.ly/bfiEW)'
+  id: totrans-179
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
@@ -1135,12 +1463,14 @@
     an independent set of machine code in the form of CPU instructions designed to
     run sequentially. While threads can maintain their execution state, stack, and
     register set, they cannot run out of context.
+  id: totrans-180
   prefs: []
   type: TYPE_NORMAL
 - en: Each thread runs as a part of the process. The process represents a program
     in execution and can be identified by its Process Identification Number (PID).
     When we tell Linux OS to execute our compiled program, a new process is created
     (for example, when a [`fork`](https://oreil.ly/IPKYU) system call is used).
+  id: totrans-181
   prefs: []
   type: TYPE_NORMAL
 - en: The process creation includes the assignment of a new PID, the creation of the
@@ -1150,6 +1480,7 @@
     On top of that, a new memory address space is created, which has to be protected
     from other processes. All of that information is maintained under the dedicated
     directory */proc/`<PID>`* for the duration of the program execution.
+  id: totrans-182
   prefs: []
   type: TYPE_NORMAL
 - en: 'Threads can create new threads (e.g., using the [`clone`](https://oreil.ly/6qSg3)
@@ -1158,36 +1489,46 @@
     [`fork`](https://oreil.ly/idB06)) that will run in isolation and execute the desired
     program. Threads maintain their execution state: Running, Ready, and Blocked.
     Possible transformations of these states are presented in [Figure 4-5](#img-threads).'
+  id: totrans-183
   prefs: []
   type: TYPE_NORMAL
 - en: 'Thread state tells the scheduler what the thread is doing at the moment:'
+  id: totrans-184
   prefs: []
   type: TYPE_NORMAL
 - en: Running
+  id: totrans-185
   prefs: []
   type: TYPE_NORMAL
 - en: Thread is assigned to the CPU core and is doing its job.
+  id: totrans-186
   prefs: []
   type: TYPE_NORMAL
 - en: Blocked
+  id: totrans-187
   prefs: []
   type: TYPE_NORMAL
 - en: Thread is waiting on some event that potentially takes longer than a context
     switch. For example, a thread reads from a network connection and is waiting for
     a packet or its turn on the mutex lock. This is an opportunity for the scheduler
     to step in and allow other threads to run.
+  id: totrans-188
   prefs: []
   type: TYPE_NORMAL
 - en: Ready
+  id: totrans-189
   prefs: []
   type: TYPE_NORMAL
 - en: Thread is ready for execution but is waiting for its turn.
+  id: totrans-190
   prefs: []
   type: TYPE_NORMAL
 - en: '![efgo 0405](assets/efgo_0405.png)'
+  id: totrans-191
   prefs: []
   type: TYPE_IMG
 - en: Figure 4-5\. Thread states as seen by the Linux OS scheduler
+  id: totrans-192
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
@@ -1199,6 +1540,7 @@
     events. The thread can also tell the operating system to yield itself (e.g., using
     the [`sched_yield`](https://oreil.ly/QfnCs) syscall). When preempted, it enters
     a “blocked” state, and another thread can take its place in the meantime.
+  id: totrans-193
   prefs: []
   type: TYPE_NORMAL
 - en: The naive scheduling algorithm could wait for the thread to preempt itself.
@@ -1211,6 +1553,7 @@
     which will starve all other threads in the system. For example, imagine not being
     able to type in your browser or resize a window for a minute—it would look like
     a long system freeze!
+  id: totrans-194
   prefs: []
   type: TYPE_NORMAL
 - en: 'This primary Linux scheduler implementation addresses that problem. It is called
@@ -1219,21 +1562,25 @@
     ms and 20 ms, which creates the illusion that threads are running simultaneously.
     It especially helps desktop systems, which must be responsive to human interactions.
     There are a few other important consequences of that design:'
+  id: totrans-195
   prefs: []
   type: TYPE_NORMAL
 - en: The more threads that want to be executed, the less time they will have in each
     turn. However, this can result in lower productive utilization of the CPU core,
     which starts to spend more time on expensive context switches.
+  id: totrans-196
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: On the overloaded machine, each thread has shorter turns on the CPU core and
     can also end up having fewer turns per second. While none of the threads is completely
     starved (blocked), their execution can significantly slow down.
+  id: totrans-197
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: CPU Overloading
+  id: totrans-198
   prefs:
   - PREF_IND
   - PREF_H1
@@ -1241,6 +1588,7 @@
 - en: Writing CPU-efficient code means our program wastes significantly fewer CPU
     cycles. Of course, this is always great, but the efficient implementation might
     be still doing its job very slowly if the CPU is overloaded.
+  id: totrans-199
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
@@ -1251,6 +1599,7 @@
     metric should show us CPU cores running at 100% capacity. Every thread will be
     executed slower in such a case, resulting in a frozen system, timeouts, and lack
     of responsiveness.
+  id: totrans-200
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
@@ -1262,10 +1611,12 @@
     This is why the industry defined an important metric to gather how long our program’s
     process (all its threads) spent in the “Running” state on all CPU cores. We usually
     call it CPU time and we will discuss it in [“CPU Usage”](ch06.html#ch-obs-cpu-usage).
+  id: totrans-201
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: CPU Time on an Overloaded Machine
+  id: totrans-202
   prefs:
   - PREF_IND
   - PREF_H1
@@ -1274,6 +1625,7 @@
     be careful when looking at the CPU time from some narrow window of process execution
     time. For example, lower CPU time might mean our process was not using much CPU
     during that moment, but it might also represent an overloaded CPU.
+  id: totrans-203
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
@@ -1281,6 +1633,7 @@
     virtualized environments, we tend to reserve these resources. For example, we
     can limit CPU use of one process to 200 milliseconds of CPU time per second, so
     20% of one CPU core.
+  id: totrans-204
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
@@ -1289,6 +1642,7 @@
     “niceness” flag, and different scheduling policies. Modern Linux OS even has a
     scheduling policy that uses a special real-time scheduler in place of CFS for
     threads that need to be executed in the first order.^([20](ch04.html#idm45606835364128))
+  id: totrans-205
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -1301,6 +1655,7 @@
     time before its deadline. This is why some companies develop their own schedulers
     or systems for [strict real-time programs](https://oreil.ly/oVsCz) like [Zephyr
     OS](https://oreil.ly/hV7ym).
+  id: totrans-206
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
@@ -1310,14 +1665,17 @@
     based on findings from [a famous research paper](https://oreil.ly/kUEiQ). As a
     result, threads are now smartly distributed across idle cores while ensuring migrations
     are not done too often and not among threads sharing the same resources.
+  id: totrans-207
   prefs: []
   type: TYPE_NORMAL
 - en: With a basic understanding of the OS scheduler, let’s dive into why the Go scheduler
     exists and how it enables developers to program multiple tasks to run concurrently
     on single or multiple CPU cores.
+  id: totrans-208
   prefs: []
   type: TYPE_NORMAL
 - en: Go Runtime Scheduler
+  id: totrans-209
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
@@ -1332,6 +1690,7 @@
     is blocked on a system call or I/O, the Go scheduler (not OS!) can quickly switch
     to a different goroutine, which will resume on the same thread (or a different
     one if needed).
+  id: totrans-210
   prefs: []
   type: TYPE_NORMAL
 - en: Essentially, Go has turned I/O-bound work [on the application level] into CPU-bound
@@ -1341,14 +1700,17 @@
     costing you 200 nanoseconds or 2.4K instructions. The scheduler is also helping
     with gains on cache-line efficiencies and NUMA. This is why we don’t need more
     threads than we have virtual cores.
+  id: totrans-211
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: ''
+  id: totrans-212
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: 'William Kennedy, [“Scheduling in Go: Part II—Go Scheduler”](https://oreil.ly/Z4sRA)'
+  id: totrans-213
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
@@ -1359,58 +1721,75 @@
     CPU core should be enough to get all the work in our goroutines done.^([21](ch04.html#idm45606835341536))
     This enables many readability patterns—like event loops, map-reduce, pipes, iterators,
     and more—without involving more expensive kernel multithreading.
+  id: totrans-214
   prefs: []
   type: TYPE_NORMAL
 - en: 'Using Go concurrency in the form of goroutines is an excellent way to:'
+  id: totrans-215
   prefs: []
   type: TYPE_NORMAL
 - en: Represent complex asynchronous abstractions (e.g., events)
+  id: totrans-216
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Utilize our CPU to the fullest for I/O-bound tasks
+  id: totrans-217
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Create a multithreaded application that can utilize multiple CPUs to execute
     faster
+  id: totrans-218
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Starting another goroutine is very easy in Go. It is built in the language via
     a `go <func>()` syntax. [Example 4-5](#code-goroutine) shows a function that starts
     two goroutines and finishes its work.
+  id: totrans-219
   prefs: []
   type: TYPE_NORMAL
 - en: Example 4-5\. A function that starts two goroutines
+  id: totrans-220
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
 - en: '[PRE4]'
+  id: totrans-221
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE4]'
 - en: '[![1](assets/1.png)](#co_how_go_uses_the_cpu_resource__or_two__CO5-1)'
+  id: totrans-222
   prefs: []
   type: TYPE_NORMAL
 - en: The scope of the current goroutine.
+  id: totrans-223
   prefs: []
   type: TYPE_NORMAL
 - en: '[![2](assets/2.png)](#co_how_go_uses_the_cpu_resource__or_two__CO5-2)'
+  id: totrans-224
   prefs: []
   type: TYPE_NORMAL
 - en: The scope of a new goroutine that will run concurrently any moment now.
+  id: totrans-225
   prefs: []
   type: TYPE_NORMAL
 - en: '[![3](assets/3.png)](#co_how_go_uses_the_cpu_resource__or_two__CO5-3)'
+  id: totrans-226
   prefs: []
   type: TYPE_NORMAL
 - en: '`anotherFunction` will start running concurrently any moment now.'
+  id: totrans-227
   prefs: []
   type: TYPE_NORMAL
 - en: '[![4](assets/4.png)](#co_how_go_uses_the_cpu_resource__or_two__CO5-4)'
+  id: totrans-228
   prefs: []
   type: TYPE_NORMAL
 - en: When `function` terminates, the two goroutines we started can still run.
+  id: totrans-229
   prefs: []
   type: TYPE_NORMAL
 - en: It’s important to remember that all goroutines have a flat hierarchy between
@@ -1421,6 +1800,7 @@
     and “ask” the goroutine to shut down. The only exception is the main goroutine
     that starts with the `main()` function. If the main goroutine finishes, the whole
     program terminates, killing all other goroutines forcefully.
+  id: totrans-230
   prefs: []
   type: TYPE_NORMAL
 - en: Regarding communication, goroutines, similarly to OS threads, have access to
@@ -1432,30 +1812,39 @@
     like explicit atomic function (as presented in [Example 4-6](#code-goroutine-atomic))
     or mutex (as shown in [Example 4-7](#code-goroutine-mutex)), so in other words,
     a lock.
+  id: totrans-231
   prefs: []
   type: TYPE_NORMAL
 - en: Example 4-6\. Safe multigoroutine communication through dedicated atomic addition
+  id: totrans-232
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
 - en: '[PRE5]'
+  id: totrans-233
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE5]'
 - en: '[![1](assets/1.png)](#co_how_go_uses_the_cpu_resource__or_two__CO6-1)'
+  id: totrans-234
   prefs: []
   type: TYPE_NORMAL
 - en: Notice that while we use atomic to synchronize additions between `concurrentFn`
     goroutines, we use additional `sync.WaitGroup` (another form of locking) to wait
     for all these goroutines to finish. We do the same in [Example 4-7](#code-goroutine-mutex).
+  id: totrans-235
   prefs: []
   type: TYPE_NORMAL
 - en: Example 4-7\. Safe multigoroutine communication through mutex (lock)
+  id: totrans-236
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
 - en: '[PRE6]'
+  id: totrans-237
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE6]'
 - en: The choice between atomic and lock depends on readability, efficiency requirements,
     and what operation you want to synchronize. For example, if you want to concurrently
     perform a simple operation on a number like value write or read, addition, substitution,
@@ -1463,6 +1852,7 @@
     Atomic is often more efficient than mutexes (lock) since the compiler will translate
     them into special [atomic CPU operations](https://oreil.ly/8g0yM) that can change
     data under a single memory address in a thread-safe way.^([23](ch04.html#idm45606834944896))
+  id: totrans-238
   prefs: []
   type: TYPE_NORMAL
 - en: If, however, using atomic impacts the readability of our code, the code is not
@@ -1473,23 +1863,28 @@
     there is no lock contention between them, since concurrent read of shared memory
     is safe. Only when a goroutine wants to modify that memory can it acquire a full
     lock using `Lock()` that will block all readers.
+  id: totrans-239
   prefs: []
   type: TYPE_NORMAL
 - en: On the other hand, lock and atomic are not the only choices. The Go language
     has another ace in its hand on this subject. On top of the coroutine concept,
     Go also utilizes [C. A. R. Hoare’s Communicating Sequential Processes (CSP)](https://oreil.ly/5KXA9)
     paradigm, which can also be seen as a type-safe generalization of Unix pipes.
+  id: totrans-240
   prefs: []
   type: TYPE_NORMAL
 - en: Do not communicate by sharing memory; instead, share memory by communicating.
+  id: totrans-241
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: ''
+  id: totrans-242
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: '[“Effective Go”](https://oreil.ly/G4Lmq)'
+  id: totrans-243
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
@@ -1500,49 +1895,63 @@
     flow naturally synchronizes itself, and shared data is never accessed by two goroutines
     simultaneously, ensuring thread safety.^([24](ch04.html#idm45606834933072)) Example
     channel communication is presented in [Example 4-8](#code-goroutine-channel).
+  id: totrans-244
   prefs: []
   type: TYPE_NORMAL
 - en: Example 4-8\. An example of memory-safe multigoroutine communication through
     the channel
+  id: totrans-245
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
 - en: '[PRE7]'
+  id: totrans-246
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE7]'
 - en: '[![1](assets/1.png)](#co_how_go_uses_the_cpu_resource__or_two__CO7-1)'
+  id: totrans-247
   prefs: []
   type: TYPE_NORMAL
 - en: Channel can be created in Go with the `ch := make(chan <type>, <buffer size>)`
     syntax.
+  id: totrans-248
   prefs: []
   type: TYPE_NORMAL
 - en: '[![2](assets/2.png)](#co_how_go_uses_the_cpu_resource__or_two__CO7-2)'
+  id: totrans-249
   prefs: []
   type: TYPE_NORMAL
 - en: We can send values of a given type to our channel.
+  id: totrans-250
   prefs: []
   type: TYPE_NORMAL
 - en: '[![3](assets/3.png)](#co_how_go_uses_the_cpu_resource__or_two__CO7-3)'
+  id: totrans-251
   prefs: []
   type: TYPE_NORMAL
 - en: Notice that in this example, we don’t need `sync.WaitGroup` since we abuse the
     knowledge of how many exact messages we expect to receive. If we did not have
     that information, we would need a waiting group or another mechanism.
+  id: totrans-252
   prefs: []
   type: TYPE_NORMAL
 - en: '[![4](assets/4.png)](#co_how_go_uses_the_cpu_resource__or_two__CO7-4)'
+  id: totrans-253
   prefs: []
   type: TYPE_NORMAL
 - en: We can read values of a given type from our channel.
+  id: totrans-254
   prefs: []
   type: TYPE_NORMAL
 - en: '[![5](assets/5.png)](#co_how_go_uses_the_cpu_resource__or_two__CO7-5)'
+  id: totrans-255
   prefs: []
   type: TYPE_NORMAL
 - en: Channels should also be closed if we don’t plan to send anything through them
     anymore. This releases resources and unblocks certain receiving and sending flows
     (more on that later).
+  id: totrans-256
   prefs: []
   type: TYPE_NORMAL
 - en: 'The important aspect of channels is that they can be buffered. In such a case,
@@ -1553,9 +1962,11 @@
     the channel was closed. A channel can be in three states. It’s important to remember
     how the goroutine sending or receiving from this channel behaves when switching
     between these states:'
+  id: totrans-257
   prefs: []
   type: TYPE_NORMAL
 - en: Allocated, open channel
+  id: totrans-258
   prefs: []
   type: TYPE_NORMAL
 - en: If we create a channel using `make(chan <type>)`, it’s allocated and open from
@@ -1564,24 +1975,29 @@
     with multiple cases. Similarly, the channel receive will block until someone sends
     to that channel unless we receive in a `select` statement with multiple cases
     or the channel was closed.
+  id: totrans-259
   prefs: []
   type: TYPE_NORMAL
 - en: Closed channel
+  id: totrans-260
   prefs: []
   type: TYPE_NORMAL
 - en: If we `close(ch)` the allocated channel, a send to that channel will cause panic
     and receives will return zero values immediately. This is why it is recommended
     to keep responsibility for the closing channel in the goroutine that sends the
     data (sender).
+  id: totrans-261
   prefs: []
   type: TYPE_NORMAL
 - en: Nil channel
+  id: totrans-262
   prefs: []
   type: TYPE_NORMAL
 - en: If you define channel type (`var ch chan <type>`) without allocating it using
     `make(chan <type>)`, our channel is nil. We can also “nil” an allocated channel
     by assigning nil (`ch = nil`). In this state, sending and receiving will block
     forever. Practically speaking, it’s rarely useful to nil channels.
+  id: totrans-263
   prefs: []
   type: TYPE_NORMAL
 - en: Go channels is an amazing and elegant paradigm that allows for building very
@@ -1591,6 +2007,7 @@
     channels can structure our application into robust and efficient concurrent implementation.
     We will explore some practical patterns of using channels in [“Optimizing Latency
     Using Concurrency”](ch10.html#ch-opt-latency-concurrency-example).
+  id: totrans-264
   prefs: []
   type: TYPE_NORMAL
 - en: Before we finish this section, it’s important to understand how we can tune
@@ -1600,9 +2017,11 @@
     profiles, or stack framing. The Go scheduler is pretty automatic. There aren’t
     many configuration flags. As it stands at the current moment, there are two practical
     ways developers can control concurrency in their code:^([25](ch04.html#idm45606834709824))
+  id: totrans-265
   prefs: []
   type: TYPE_NORMAL
 - en: A number of goroutines
+  id: totrans-266
   prefs: []
   type: TYPE_NORMAL
 - en: As developers, we usually control how many goroutines we create in our program.
@@ -1613,18 +2032,22 @@
     create goroutines. If used incorrectly, the goroutines can be easily leaked (leaving
     orphan goroutines), which typically wastes memory and CPU effort. We will explore
     ways to debug numbers and snapshots of goroutines in [“Goroutine”](ch09.html#ch-obs-pprof-goroutine).
+  id: totrans-267
   prefs: []
   type: TYPE_NORMAL
 - en: First Rule of Efficient Code
+  id: totrans-268
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
 - en: Always close or release the resources you use. Sometimes simple structures can
     cause colossal and unbounded waste of memory and goroutines if we forget to close
     them. We will explore common examples in [“Don’t Leak Resources”](ch11.html#ch-basic-leaks).
+  id: totrans-269
   prefs: []
   type: TYPE_NORMAL
 - en: '`GOMAXPROCS`'
+  id: totrans-270
   prefs: []
   type: TYPE_NORMAL
 - en: This important environmental variable can be set to control the number of virtual
@@ -1638,21 +2061,25 @@
     that is typically what will give you the best performance. Trim the `GOMAXPROCS`
     value down if you want your Go program to use fewer CPU cores (less parallelism)
     in exchange for potentially higher latency.
+  id: totrans-271
   prefs: []
   type: TYPE_NORMAL
 - en: Recommended GOMAXPROCS Configuration
+  id: totrans-272
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
 - en: Set `GOMAXPROCS` to the number of virtual cores you want your Go program to
     utilize at once. Typically, we want to use the whole machine; thus, the default
     value should work.
+  id: totrans-273
   prefs: []
   type: TYPE_NORMAL
 - en: For virtualized environments, especially using lightweight virtualization mechanisms
     like containers, use [Uber’s `automaxprocs` library](https://oreil.ly/ysr40),
     which will adjust `GOMAXPROCS` based on the Linux CPU limits the container is
     allowed to use, which is often what we want.
+  id: totrans-274
   prefs: []
   type: TYPE_NORMAL
 - en: Multitasking is always a tricky concept to introduce into a language. I believe
@@ -1660,12 +2087,15 @@
     which allows many readable programming patterns without sacrificing efficiency.
     We will explore practical concurrency patterns in [“Optimizing Latency Using Concurrency”](ch10.html#ch-opt-latency-concurrency-example),
     by improving the latency of [Example 4-1](#code-sum) presented in this chapter.
+  id: totrans-275
   prefs: []
   type: TYPE_NORMAL
 - en: Let’s now look into when concurrency might be useful in our Go programs.
+  id: totrans-276
   prefs: []
   type: TYPE_NORMAL
 - en: When to Use Concurrency
+  id: totrans-277
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -1675,26 +2105,31 @@
     As with everything, adding concurrency has trade-offs, and there are cases where
     we should avoid it. Let’s summarize the practical benefits and disadvantages of
     concurrent code versus sequential:'
+  id: totrans-278
   prefs: []
   type: TYPE_NORMAL
 - en: Advantages
+  id: totrans-279
   prefs: []
   type: TYPE_NORMAL
 - en: Concurrency allows us to speed up the work by splitting it into pieces and executing
     each part concurrently. As long as the synchronization and shared resources are
     not a significant bottleneck, we should expect an improved latency.
+  id: totrans-280
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Because the Go scheduler implements an efficient preemptive mechanism, concurrency
     improves CPU core utilization for I/O-bound tasks, which should translate into
     lower latency, even with a `GOMAXPROCS=1` (a single CPU core).
+  id: totrans-281
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Especially in virtual environments, we often reserve a certain CPU time for
     our programs. Concurrency allows us to distribute work across available CPU time
     in a more even way.
+  id: totrans-282
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -1703,10 +2138,12 @@
     complexities. Another example is the HTTP server. Treating each HTTP incoming
     request as a separate goroutine not only allows efficient CPU core utilization
     but also naturally fits into how code should be read and understood.
+  id: totrans-283
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Disadvantages
+  id: totrans-284
   prefs: []
   type: TYPE_NORMAL
 - en: Concurrency adds significant complexity to the code, especially when we transform
@@ -1716,6 +2153,7 @@
     potential bugs. This is one of the main reasons why I recommend postponing adding
     concurrency as long as possible. And once you have to introduce concurrency, use
     as few channels as possible for the given problem.
+  id: totrans-285
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -1723,6 +2161,7 @@
     (uncontrolled amount of goroutines in a single moment) or leaking goroutines (orphan
     goroutines). This is something we also need to care about and test against (more
     on this in [“Don’t Leak Resources”](ch11.html#ch-basic-leaks)).
+  id: totrans-286
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -1730,6 +2169,7 @@
     not free of overhead. If used wrongly, it can impact our code efficiency. Focus
     on providing enough work to each goroutine that will justify its cost. Benchmarks
     are a must-have.
+  id: totrans-287
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -1738,6 +2178,7 @@
     things, we can control the number of goroutines we spawn and how large a buffer
     of the channel we should have. Finding correct numbers requires hours of benchmarking
     and is still prone to errors.
+  id: totrans-288
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -1745,15 +2186,18 @@
     possible noisy neighbors, multicore settings, OS version, and so on. On the other
     hand, sequential, single-core code has much more deterministic and portable performance,
     which is easier to prove and compare against.
+  id: totrans-289
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: As we can see, using concurrency is not the cure for all performance problems.
     It’s just another tool in our hands that we can use to fulfill our efficiency
     goals.
+  id: totrans-290
   prefs: []
   type: TYPE_NORMAL
 - en: Adding Concurrency Should Be One of Our Last Deliberate Optimizations to Try
+  id: totrans-291
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -1763,6 +2207,7 @@
     profiler (explained in [Chapter 9](ch09.html#ch-observability3)) shows that our
     program spends CPU time only on things that are crucial to our functionality.
     Ideally, before we hit our readability limit, is the most efficient way we know.
+  id: totrans-292
   prefs: []
   type: TYPE_NORMAL
 - en: The mentioned list of disadvantages is one reason, but the second is that our
@@ -1770,9 +2215,11 @@
     For example, we thought our task was CPU bound, but after improvements, we may
     find most of the time is now spent waiting on I/O. Or we might realize we did
     not need the heavy concurrency changes after all.
+  id: totrans-293
   prefs: []
   type: TYPE_NORMAL
 - en: Summary
+  id: totrans-294
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -1780,6 +2227,7 @@
     software efficiently. With ongoing operating systems, Go language development,
     and advancements in hardware, only more optimization techniques and complexities
     will arise to decrease running costs and increase processing power.
+  id: totrans-295
   prefs: []
   type: TYPE_NORMAL
 - en: In this chapter, I hopefully gave you basics that will help you optimize your
@@ -1787,23 +2235,27 @@
     discussed the Assembly language and how it can be useful during Go development.
     Then, we explored Go compiler functionalities, optimizations, and ways to debug
     its execution.
+  id: totrans-296
   prefs: []
   type: TYPE_NORMAL
 - en: 'Later, we jumped into the main challenge for CPU execution: memory access latency
     in modern systems. Finally, we discussed the various low-level optimizations like
     L-caches, pipelining, CPU branch prediction, and Hyper-Threading.'
+  id: totrans-297
   prefs: []
   type: TYPE_NORMAL
 - en: Last, we explored the practical problems of executing our programs in production
     systems. Unfortunately, our machine’s program is rarely the only process, so efficient
     execution matters. Finally, we summarized Go’s concurrency framework’s benefits
     and disadvantages.
+  id: totrans-298
   prefs: []
   type: TYPE_NORMAL
 - en: In practice, CPU resource is essential to optimize in modern infrastructure
     to achieve faster execution and the ability to pay less for our workloads. Unfortunately,
     CPU resource is only one aspect. For example, our choice optimization might prefer
     using more memory to reduce CPU usage or vice versa.
+  id: totrans-299
   prefs: []
   type: TYPE_NORMAL
 - en: As a result, our programs typically use a lot of memory resources (plus I/O
@@ -1811,6 +2263,7 @@
     memory and I/O, it might be the first on our list of optimizations depending on
     what we want (e.g., cheaper execution, faster execution, or both). Let’s discuss
     the memory resource in the next chapter.
+  id: totrans-300
   prefs: []
   type: TYPE_NORMAL
 - en: ^([1](ch04.html#idm45606836099536-marker)) To be technically strict, modern
@@ -1818,6 +2271,7 @@
     both are stored the same on the main memory. This is the so-called modified Harvard
     architecture. At the optimization levels we aim for in this book, we can safely
     skip this level of detail.
+  id: totrans-301
   prefs: []
   type: TYPE_NORMAL
 - en: ^([2](ch04.html#idm45606835882864-marker)) For scripted (interpreted) languages,
@@ -1826,32 +2280,38 @@
     by a family of languages that use Java Virtual Machine (JVM). Such a machine can
     dynamically switch from interpreting to just-in-time (JIT) compilation for runtime
     optimizations.
+  id: totrans-302
   prefs: []
   type: TYPE_NORMAL
 - en: ^([3](ch04.html#idm45606835843408-marker)) Similar output to [Example 4-2](#code-sum-asm)
     can be obtained by compiling the source code to Assembly using `go build -gcflags
     *-S* <source>`.
+  id: totrans-303
   prefs: []
   type: TYPE_NORMAL
 - en: ^([4](ch04.html#idm45606835798912-marker)) Note that in the Go Assembly register,
     names are abstracted for portability. Since we will compile to 64-bit architecture,
     `SP` and `SI` will mean RSP and RSI registers.
+  id: totrans-304
   prefs: []
   type: TYPE_NORMAL
 - en: ^([5](ch04.html#idm45606835763760-marker)) There can be incompatibilities, but
     mostly with special-purpose instructions like cryptographic or SIMD instructions,
     which can be checked at runtime if they are available before execution.
+  id: totrans-305
   prefs: []
   type: TYPE_NORMAL
 - en: ^([6](ch04.html#idm45606835723216-marker)) Note that the structure methods,
     from a compiler perspective, are just functions, with the first argument being
     that structure, so the same inlining technique applies here.
+  id: totrans-306
   prefs: []
   type: TYPE_NORMAL
 - en: ^([7](ch04.html#idm45606835721776-marker)) A function call needs more CPU instructions
     since the program has to pass argument variables and return parameters through
     the stack, keep the current function’s state, rewind the stack after the function
     call, add the new frame stack, etc.
+  id: totrans-307
   prefs: []
   type: TYPE_NORMAL
 - en: ^([8](ch04.html#idm45606835712848-marker)) Go tooling allows us to check the
@@ -1859,23 +2319,28 @@
     environment variable. It’s as easy as building our program with `GOSSAFUNC=<function
     to see> go build` and opening the resulting *ssa.html* file. You can read more
     about it [here](https://oreil.ly/32Zbd).
+  id: totrans-308
   prefs: []
   type: TYPE_NORMAL
 - en: ^([9](ch04.html#idm45606835698096-marker)) You can unpack it with the `tar <archive>`
     or `go tool pack e <archive>` command. Go archive typically contains the object
     file and package metadata in the *__.PKGDEF* file.
+  id: totrans-309
   prefs: []
   type: TYPE_NORMAL
 - en: ^([10](ch04.html#idm45606835689456-marker)) However, there are [discussions
     to remove](https://oreil.ly/xoijc) it from the default building process.
+  id: totrans-310
   prefs: []
   type: TYPE_NORMAL
 - en: ^([11](ch04.html#idm45606835684112-marker)) [Bound check elimination](https://oreil.ly/E7FJI)
     is not explained in this book, as it’s a rare optimization idea.
+  id: totrans-311
   prefs: []
   type: TYPE_NORMAL
 - en: ^([12](ch04.html#idm45606835565472-marker)) This is very often used in standard
     libraries for critical code.
+  id: totrans-312
   prefs: []
   type: TYPE_NORMAL
 - en: ^([13](ch04.html#idm45606835552784-marker)) On top of SISD and SIMD, Flynn’s
@@ -1885,17 +2350,20 @@
     perform exactly the same computations for quadruple error checks in every NASA
     space shuttle. MIMD, on the other hand, is more common thanks to multicore or
     even multi-CPU designs.
+  id: totrans-313
   prefs: []
   type: TYPE_NORMAL
 - en: ^([14](ch04.html#idm45606835540240-marker)) This is why we see specialized chips
     (called Neural Processing Units, or NPUs) appearing in the commodity devices—for
     example, Tensor Processing Unit (TPU) in Google phones, A14 Bionic chip in iPhones,
     and dedicated NPU in the M1 chip in Apple laptops.
+  id: totrans-314
   prefs: []
   type: TYPE_NORMAL
 - en: ^([15](ch04.html#idm45606835530224-marker)) Sizes of caches can vary. Example
     sizes are taken from my laptop. You can check the sizes of your CPU caches in
     Linux by using the `sudo dmidecode -t cache` command.
+  id: totrans-315
   prefs: []
   type: TYPE_NORMAL
 - en: ^([16](ch04.html#idm45606835511424-marker)) If a CPU can in total perform up
@@ -1903,6 +2371,7 @@
     cores have IPC ⇐ 1, but one CPU has more than one core, which makes IPC > 1\.
     This makes these CPUs superscalar. IPC has quickly become a performance metric
     for CPUs.
+  id: totrans-316
   prefs: []
   type: TYPE_NORMAL
 - en: ^([17](ch04.html#idm45606835495520-marker)) Huge cost is not an overstatement.
@@ -1914,17 +2383,20 @@
     pipeline warm-up could be as high as 10,000 nanoseconds (and this is what we see
     in [Table A-1](app01.html#table-napkin-math)). During this time, we could compute
     something like 40,000 instructions.
+  id: totrans-317
   prefs: []
   type: TYPE_NORMAL
 - en: ^([18](ch04.html#idm45606835464576-marker)) In some sources, this technique
     is also called CPU threading (aka hardware threads). I will avoid this terminology
     in this book due to possible confusion with operating system threads.
+  id: totrans-318
   prefs: []
   type: TYPE_NORMAL
 - en: ^([19](ch04.html#idm45606835463680-marker)) Do not confuse Hyper-Threading logical
     cores with virtual CPUs (vCPUs) referenced when we use virtualizations like virtual
     machines. Guest operating systems use the machine’s physical or logical CPUs depending
     on host choice, but in both cases, they are called vCPUs.
+  id: totrans-319
   prefs: []
   type: TYPE_NORMAL
 - en: ^([20](ch04.html#idm45606835364128-marker)) There are [lots of good materials](https://oreil.ly/8OPW3)
@@ -1933,6 +2405,7 @@
     and affinities (pinning processes to specific cores or machines). In this book,
     we focus on writing efficient code, but we must be aware that execution environment
     tuning has an important role in ensuring quick and reliable program executions.
+  id: totrans-320
   prefs: []
   type: TYPE_NORMAL
 - en: ^([21](ch04.html#idm45606835341536-marker)) Details around Go runtime implementing
@@ -1941,22 +2414,26 @@
     moving to a blocking state as long as possible. If needed, it can steal goroutines
     from other threads, poll networks, etc., to ensure we keep the CPU busy so the
     OS does not preempt the Go process.
+  id: totrans-321
   prefs: []
   type: TYPE_NORMAL
 - en: ^([22](ch04.html#idm45606835218752-marker)) In practice, there are ways to get
     this information using debug tracing. However, we should not rely on the program
     knowing which goroutine is a parent goroutine for normal execution flow.
+  id: totrans-322
   prefs: []
   type: TYPE_NORMAL
 - en: ^([23](ch04.html#idm45606834944896-marker)) Funny enough, even atomic operations
     on CPU require some kind of locking. The difference is that instead of specialized
     locking mechanisms like [spinlock](https://oreil.ly/ZKXuN), atomic instruction
     can use faster [memory bus lock](https://oreil.ly/9jchk).
+  id: totrans-323
   prefs: []
   type: TYPE_NORMAL
 - en: ^([24](ch04.html#idm45606834933072-marker)) Assuming the programmer keeps to
     that rule. There is a way to send a pointer variable (e.g., `*string`) that points
     to shared memory, which violates the rule of sharing information through communicating.
+  id: totrans-324
   prefs: []
   type: TYPE_NORMAL
 - en: ^([25](ch04.html#idm45606834709824-marker)) I omitted two additional mechanisms
@@ -1966,10 +2443,12 @@
     yielding has become impractical. The second interesting operation, `runtime.LockOSThread()`,
     sounds useful, but it’s not designed for efficiency; rather, it pins the goroutine
     to the OS thread so we can read certain OS thread states from it.
+  id: totrans-325
   prefs: []
   type: TYPE_NORMAL
 - en: ^([26](ch04.html#idm45606834697536-marker)) I recommend watching [Chris Hines’s
     talk from GopherCon 2019](https://oreil.ly/LoFiH) to learn the low-level details
     around the Go scheduler.
+  id: totrans-326
   prefs: []
   type: TYPE_NORMAL
