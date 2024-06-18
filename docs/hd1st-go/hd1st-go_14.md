@@ -1,4 +1,4 @@
-# 第十三章 分享工作：Goroutines 和 Channels
+# 第十三章：分享工作：Goroutines 和 Channels
 
 ![image](img/f0379-01.png)
 
