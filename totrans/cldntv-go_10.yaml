@@ -1,61 +1,82 @@
 - en: Chapter 7\. Scalability
+  id: totrans-0
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 第7章 扩展性
 - en: Some of the best programming is done on paper, really. Putting it into the computer
     is just a minor detail.^([1](ch07.xhtml#idm45983630129928))
+  id: totrans-1
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: 一些最好的编程是在纸上完成的，真的。将其输入到计算机中只是一个小细节。^([1](ch07.xhtml#idm45983630129928))
 - en: ''
+  id: totrans-2
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: 'Max Kanat-Alexander, Code Simplicity: The Fundamentals of Software'
+  id: totrans-3
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: 马克斯·卡纳特-亚历山大，《代码简洁：软件基础知识》
 - en: In the summer of 2016, I joined a small company that digitized the kind of forms
     and miscellaneous paperwork that state and local governments are known and loved
     for. The state of their core application was pretty typical of early-stage startups,
     so we got to work and, by that fall, had managed to containerize it, describe
     its infrastructure in code, and fully automate its deployment.
+  id: totrans-4
   prefs: []
   type: TYPE_NORMAL
+  zh: 2016年夏天，我加入了一家小公司，该公司将各类表格和杂项文书数字化，这些文书通常是州和地方政府所熟悉和喜爱的。他们核心应用的状态相当典型于初创阶段的创业公司，因此我们着手工作，到了秋天，已经成功将其容器化，并用代码描述了其基础设施，并完全自动化了部署。
 - en: One of our clients was a small coastal city in southeastern Virginia, so when
     Hurricane Matthew—the first Category 5 Atlantic hurricane in nearly a decade—was
     forecast to make landfall not far from there, the local officials dutifully declared
     a state of emergency and used our system to create the necessary paperwork for
     citizens to fill out. Then they posted it to social media, and half a million
     people all logged in at the same time.
+  id: totrans-5
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们的一位客户是弗吉尼亚东南部的一个小型沿海城市，所以当第一个近十年来的大西洋第五级飓风“马修”预测将在附近登陆时，当地官员恪尽职守地宣布进入紧急状态，并使用我们的系统为市民创建必要的填写文书。然后他们将其发布到社交媒体上，同时有50万人同时登录。
 - en: When the pager went off, the on-call checked the metrics and found that aggregated
     CPU for the servers was pegged at 100%, and that hundreds of thousands of requests
     were timing out.
+  id: totrans-6
   prefs: []
   type: TYPE_NORMAL
+  zh: 当值班人员收到警报时，查看指标后发现服务器的聚合CPU使用率达到了100%，并且数十万个请求超时。
 - en: So, we added a zero to the desired server count, created a “to-do” task to implement
     autoscaling, and went back to our day. Within 24 hours, the rush had passed, so
     we scaled the servers in.
+  id: totrans-7
   prefs: []
   type: TYPE_NORMAL
+  zh: 所以，我们将所需的服务器数量增加了一个零，创建了一个“待办”任务来实现自动扩展，并继续我们的日常工作。在24小时内，高峰期已过，所以我们对服务器进行了扩展。
 - en: What did we learn from this, other than the benefits of autoscaling?^([2](ch07.xhtml#idm45983630123800))
+  id: totrans-8
   prefs: []
   type: TYPE_NORMAL
+  zh: 除了自动扩展的好处之外，我们从中学到了什么？^([2](ch07.xhtml#idm45983630123800))
 - en: First of all, it underscored the fact that without the ability to scale, our
     system would have certainly suffered extended downtime. But being able to add
     resources on demand meant that we could serve our users even under load far beyond
     what we had ever anticipated. As an added benefit, if any one server failed, its
     work could have been divided among the survivors.
+  id: totrans-9
   prefs: []
   type: TYPE_NORMAL
+  zh: 首先，这凸显了一个事实，即如果没有扩展能力，我们的系统肯定会遭受长时间的停机。但是能够根据需求增加资源意味着即使在我们曾经预期的远远超出的负载下，我们也能为用户提供服务。作为额外的好处，如果任何一个服务器失败，其工作可以被分配给其他幸存者。
 - en: Second, having far more resources than necessary isn’t just wasteful, it’s expensive.
     The ability to scale our instances back in when demand ebbed meant that we were
     only paying for the resources that we needed. A major plus for a startup on a
     budget.
+  id: totrans-10
   prefs: []
   type: TYPE_NORMAL
+  zh: 第二，拥有远多于所需的资源不仅是浪费的，而且是昂贵的。在需求减少时缩减我们的实例的能力意味着我们只需支付我们所需的资源费用。这对预算有限的初创公司来说是一个重大的优势。
 - en: Unfortunately, because unscalable services can seem to function perfectly well
     under initial conditions, scalability isn’t always a consideration during service
     design. While this might be perfectly adequate in the short term, services that
@@ -63,26 +84,34 @@
     limited lifetime value. What’s more, it’s often fiendishly difficult to refactor
     a service for scalability, so building with it in mind can save both time and
     money in the long run.
+  id: totrans-11
   prefs: []
   type: TYPE_NORMAL
+  zh: 不幸的是，因为不可扩展的服务在初始条件下似乎运行得很完美，所以在服务设计过程中，扩展性并不总是一个考虑因素。虽然这在短期内可能完全足够，但不能超出其最初预期的服务也意味着有限的生命周期价值。更重要的是，在服务难以重构以适应扩展性时，从一开始就考虑这一点可以在长远节省时间和金钱。
 - en: 'First and foremost, this is meant to be a Go book, or at least more of a Go
     book than an infrastructure or architecture book. While we will discuss things
     like scalable architecture and messaging patterns, much of this chapter will focus
     on demonstrating how Go can be used to produce services that lean on the other
     (non-infrastructure) part of the scalability equation: efficiency.^([3](ch07.xhtml#idm45983630119912))'
+  id: totrans-12
   prefs: []
   type: TYPE_NORMAL
+  zh: 首先，这本书主要是一本Go语言书籍，或者至少更像是一本Go语言书籍，而不是基础设施或架构书籍。虽然我们会讨论可扩展的架构和消息传递模式等内容，但本章的大部分内容将集中展示如何使用Go语言来开发依赖于扩展性方程中的其他（非基础设施）部分的服务：效率。^([3](ch07.xhtml#idm45983630119912))
 - en: What Is Scalability?
+  id: totrans-13
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 可扩展性是什么？
 - en: You may recall that concept of scalability was first introduced way back in
     [Chapter 1](ch01.xhtml#chapter_1), where it was defined as the ability of a system
     to continue to provide correct service in the face of significant changes in demand.
     By this definition, a system can be considered to be scalable if it doesn’t need
     to be redesigned to perform its intended function during steep increases in load.
+  id: totrans-14
   prefs: []
   type: TYPE_NORMAL
+  zh: 您可能还记得，可扩展性的概念最初是在[第一章](ch01.xhtml#chapter_1)中首次介绍的，其中它被定义为系统在面对需求显著变化时继续提供正确服务的能力。按照这个定义，如果一个系统在负载急剧增加时无需重新设计即可执行其预期功能，那么可以认为该系统是可扩展的。
 - en: Note that this definition^([4](ch07.xhtml#idm45983630115000)) doesn’t actually
     say anything at all about adding physical resources. Rather, it calls out a system’s
     ability to handle large swings in demand. The thing being “scaled” here is the
@@ -90,90 +119,124 @@
     of achieving scalability, it isn’t exactly the same as being scalable. To make
     things just a little more confusing, the word “scaling” can also be applied to
     a system, in which case it *does* mean a change in the amount of dedicated resources.
+  id: totrans-15
   prefs: []
   type: TYPE_NORMAL
+  zh: 请注意，这个定义^([4](ch07.xhtml#idm45983630115000)) 实际上并没有说明任何增加物理资源的内容。相反，它强调了系统处理大幅需求波动的能力。这里“扩展”的对象是需求的大小。虽然增加资源是实现可扩展性的一种完全可接受的方法，但它并不完全等同于可扩展性。为了使事情变得更加混乱一点，术语“扩展”也可以应用于系统，这种情况下它确实意味着专用资源量的变化。
 - en: 'So how do we handle high demand without adding resources? As we’ll discuss
     in [“Scaling Postponed: Efficiency”](#section_ch07_efficiency), systems built
     with *efficiency* in mind are inherently more scalable by virtue of their ability
     to gracefully absorb high levels of demand, without immediately having to resort
     to adding hardware in response to every dramatic swing in demand, and without
     having to massively over-provision “just in case.”'
+  id: totrans-16
   prefs: []
   type: TYPE_NORMAL
+  zh: 那么我们如何在不增加资源的情况下处理高需求呢？正如我们将在[“推迟扩展：效率”](#section_ch07_efficiency)中讨论的那样，考虑到*效率*的系统天生更具可扩展性，因为它们能够优雅地吸收高水平的需求，而不需要立即为每次剧烈的需求波动响应而添加硬件，也不需要因“以防万一”而大规模过度配置。
 - en: Different Forms of Scaling
+  id: totrans-17
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 不同形式的扩展
 - en: 'Unfortunately, even the most efficient of efficiency strategies has its limit,
     and eventually you’ll find yourself needing to scale your service to provide additional
     resources. There are two different ways that this can be done (see [Figure 7-1](#img_ch07_scaling)),
     each with its own associated pros and cons:'
+  id: totrans-18
   prefs: []
   type: TYPE_NORMAL
+  zh: 不幸的是，即使是最有效的效率策略也有其极限，最终您会发现自己需要扩展服务以提供额外的资源。可以通过两种不同的方式来实现这一点（见[图 7-1](#img_ch07_scaling)），每种方式都有其自身的优缺点：
 - en: Vertical scaling
+  id: totrans-19
   prefs: []
   type: TYPE_NORMAL
+  zh: 垂直扩展
 - en: A system can be *vertically scaled* (or *scaled up*) by increasing its resource
     allocations. In a public cloud, an existing server can be vertically scaled fairly
     easily just by changing its instance size, but only until you run out of larger
     instance types (or money).
+  id: totrans-20
   prefs: []
   type: TYPE_NORMAL
+  zh: 一个系统可以通过增加其资源分配来进行*垂直扩展*（或称为*向上扩展*）。在公共云中，通过更改实例大小，现有服务器可以相对容易地进行垂直扩展，但只能进行到没有更大的实例类型（或资金）为止。
 - en: Horizontal scaling
+  id: totrans-21
   prefs: []
   type: TYPE_NORMAL
+  zh: 水平扩展
 - en: A system can be *horizontally scaled* (or *scaled out*) by duplicating the system
     or service to limit the burden on any individual server. Systems using this strategy
     can typically scale to handle greater amounts of load, but as you’ll see in [“State
     and Statelessness”](#section_ch07_state_and_statelessness), the presence of state
     can make this strategy difficult or impossible for some systems.
+  id: totrans-22
   prefs: []
   type: TYPE_NORMAL
+  zh: 一个系统可以通过复制系统或服务来进行*水平扩展*（或称为*向外扩展*），以减轻任何单个服务器的负担。使用这种策略的系统通常能够扩展以处理更大量的负载，但正如您将在[“状态与无状态”](#section_ch07_state_and_statelessness)中看到的那样，状态的存在可能会使某些系统难以或无法采用这种策略。
 - en: '![cngo 0701](Images/cngo_0701.png)'
+  id: totrans-23
   prefs: []
   type: TYPE_IMG
+  zh: '![cngo 0701](Images/cngo_0701.png)'
 - en: Figure 7-1\. Vertical scaling can be an effective short-term solution; horizontal
     scaling is more technically challenging but may be a better long-term strategy
+  id: totrans-24
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 7-1。垂直扩展可以是有效的短期解决方案；水平扩展在技术上更具挑战性，但可能是更好的长期策略。
 - en: 'These two terms are used to describe the most common way of thinking about
     scaling: taking an entire system, and just making *more* of it. There are a variety
     of other scaling strategies in use, however.'
+  id: totrans-25
   prefs: []
   type: TYPE_NORMAL
+  zh: 这两个术语用于描述关于扩展的最常见的思考方式：拿整个系统，只是*多做*。然而，实际上还有许多其他的扩展策略在使用中。
 - en: Perhaps the most common of these is *functional partitioning*, which you’re
     no doubt already familiar with, if not by name. Functional partitioning involves
     decomposing complex systems into smaller functional units that can be independently
     optimized, managed, and scaled. You might recognize this as a generalization of
     a number of best practices ranging from basic program design to advanced distributed
     systems design.
+  id: totrans-26
   prefs: []
   type: TYPE_NORMAL
+  zh: 可能其中最常见的是*功能分区*，如果你还不知道它的名字，你肯定已经对它非常熟悉了。功能分区涉及将复杂的系统分解为较小的功能单元，这些单元可以独立优化、管理和扩展。你可能会认出这是从基本程序设计到高级分布式系统设计的许多最佳实践的泛化。
 - en: Another approach common in systems with large amounts of data—particularly databases—is
     *sharding*. Systems that use this strategy distribute load by dividing their data
     into partitions called *shards*, each of which holds a specific subset of the
     larger dataset. A basic example of this is presented in [“Minimizing locking with
     sharding”](#section_ch07_sharding).
+  id: totrans-27
   prefs: []
   type: TYPE_NORMAL
+  zh: 另一种常见的方法是在具有大量数据的系统中 —— 特别是数据库中 —— 使用的*分片*。采用这种策略的系统通过将数据分割为称为*分片*的分区来分配负载，每个分片保存大数据集的特定子集。一个基本的例子在
+    [“通过分片最小化锁定”](#section_ch07_sharding) 中展示。
 - en: The Four Common Bottlenecks
+  id: totrans-28
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 四种常见的瓶颈
 - en: As the demands on a system increase, there will inevitably come a point at which
     one resource just isn’t able to keep pace, effectively stalling any further efforts
     to scale. That resource has become a *bottleneck*.
+  id: totrans-29
   prefs: []
   type: TYPE_NORMAL
+  zh: 随着系统需求的增加，总会有一个点，其中一个资源无法跟上步伐，有效地阻碍了进一步扩展的努力。这个资源已经成为了*瓶颈*。
 - en: Returning the system to operable performance levels requires identifying and
     addressing the bottleneck. This can be done in the short-term by increasing the
     bottlenecked component—vertically scaling—by adding more memory or up-sizing the
     CPU, for instance. As you might recall from the discussion in [“Different Forms
     of Scaling”](#section_ch07_scalability), this approach isn’t always possible (or
     cost-effective), and it can never be relied upon forever.
+  id: totrans-30
   prefs: []
   type: TYPE_NORMAL
+  zh: 通过识别和解决瓶颈来使系统恢复可操作的性能水平。这可以通过增加瓶颈组件 —— 垂直扩展 —— 来实现，例如增加内存或升级 CPU。正如你可能从 [“不同形式的扩展”](#section_ch07_scalability)
+    讨论中记得的那样，这种方法并不总是可行（或具有成本效益），而且永远不能依赖它。
 - en: 'However, it’s often possible to address a bottleneck by enhancing or reducing
     the burden on the affected component by utilizing another resource that the system
     still has in abundance. A database might avoid disk I/O bottlenecking by caching
@@ -183,27 +246,37 @@
     systems can become victims of their own inner workings as the demand on them increases,
     and phenomena like lock contention come into play. Using resources effectively
     often means making tradeoffs.'
+  id: totrans-31
   prefs: []
   type: TYPE_NORMAL
+  zh: 然而，通常可以通过增强或减少对受影响组件的负担来解决瓶颈，利用系统仍然丰富的另一个资源。例如，数据库可以通过在 RAM 中缓存数据来避免磁盘 I/O 瓶颈；相反，一个内存需求高的服务可以将数据分页到磁盘上。水平扩展并不会使系统免疫：增加更多实例可能意味着更多的通信开销，这会给网络增加额外的负担。即使是高并发系统在需求增加时也可能成为它们自身内部工作方式的受害者，例如锁争用等现象也会发挥作用。有效地使用资源通常意味着进行权衡。
 - en: 'Of course, fixing a bottleneck requires that you first identify the constrained
     component, and while there are many different resources that can emerge as targets
     for scaling efforts—whether by actually scaling the resource or by using it more
     efficiently—such efforts tend to focus on just four resources:'
+  id: totrans-32
   prefs: []
   type: TYPE_NORMAL
+  zh: 当然，修复瓶颈需要首先识别受限组件，虽然有许多不同的资源可能成为扩展努力的目标 —— 无论是通过实际扩展资源还是更有效地使用它 —— 这些努力往往集中在仅有的四种资源上：
 - en: CPU
+  id: totrans-33
   prefs: []
   type: TYPE_NORMAL
+  zh: CPU
 - en: The number of operations per unit of time that can be performed by a system’s
     central processor and a common bottleneck for many systems. Scaling strategies
     for CPU include caching the results of expensive deterministic operations (at
     the expense of memory), or simply increasing the size or number of processors
     (at the expense of network I/O if scaling out).
+  id: totrans-34
   prefs: []
   type: TYPE_NORMAL
+  zh: 系统中央处理器每单位时间可以执行的操作数，对许多系统来说是常见的瓶颈。CPU 的扩展策略包括缓存昂贵确定性操作的结果（以内存为代价），或者简单地增加处理器的大小或数量（以扩展为代价）。
 - en: Memory
+  id: totrans-35
   prefs: []
   type: TYPE_NORMAL
+  zh: 内存
 - en: The amount of data that can be stored in main memory. While today’s systems
     can store incredible amounts of data on the order of tens or hundreds of gigabytes,
     even this can fall short, particularly for data-intensive systems that lean on
@@ -211,64 +284,91 @@
     data from memory to disk (at the expense of disk I/O) or an external dedicated
     cache (at the expense of network I/O), or simply increasing the amount of available
     memory.
+  id: totrans-36
   prefs: []
   type: TYPE_NORMAL
+  zh: 可以存储在主存储器中的数据量。尽管今天的系统可以存储数十甚至数百吉字节的数据，但即使如此，对于依赖内存以规避磁盘 I/O 速度限制的数据密集型系统来说，这仍然可能不足够。扩展策略包括将数据从内存转移到磁盘（以磁盘
+    I/O 为代价）或外部专用缓存（以网络 I/O 为代价），或者简单地增加可用内存的数量。
 - en: Disk I/O
+  id: totrans-37
   prefs: []
   type: TYPE_NORMAL
+  zh: 磁盘 I/O
 - en: The speed at which data can be read from and written to a hard disk or other
     persistent storage medium. Disk I/O is a common bottleneck on highly parallel
     systems that read and write heavily to disk, such as databases. Scaling strategies
     include caching data in RAM (at the expense of memory) or using an external dedicated
     cache (at the expense of network I/O).
+  id: totrans-38
   prefs: []
   type: TYPE_NORMAL
+  zh: 数据可以从硬盘或其他持久存储介质读取和写入的速度。磁盘 I/O 是高度并行系统的常见瓶颈，这些系统读写大量磁盘，例如数据库。扩展策略包括将数据缓存在 RAM
+    中（以内存为代价）或使用外部专用缓存（以网络 I/O 为代价）。
 - en: Network I/O
+  id: totrans-39
   prefs: []
   type: TYPE_NORMAL
+  zh: 网络 I/O
 - en: The speed at which data can be sent across a network, either from a particular
     point or in aggregate. Network I/O translates directly into *how much* data the
     network can transmit per unit of time. Scaling strategies for network I/O are
     often limited,^([5](ch07.xhtml#idm45983630066296)) but network I/O is particularly
     amenable to various optimization strategies that we’ll discuss shortly.
+  id: totrans-40
   prefs: []
   type: TYPE_NORMAL
+  zh: 数据可以从网络上的特定点或总体发送的速度。网络 I/O 直接转化为每单位时间传输的数据量。网络 I/O 的扩展策略通常有限，^([5](ch07.xhtml#idm45983630066296))
+    但网络 I/O 尤其适合各种优化策略，我们将很快讨论这些策略。
 - en: As the demand on a system increases, it’ll almost certainly find itself bottlenecked
     by one of these, and while there are efficiency strategies that can be applied,
     those tend to come at the expense of one or more other resources, so you’ll eventually
     find your system being bottlenecked *again* by another resource.
+  id: totrans-41
   prefs: []
   type: TYPE_NORMAL
+  zh: 随着系统需求的增加，几乎肯定会发现系统受到其中一个资源的瓶颈限制，虽然可以应用效率策略，但这些策略往往以牺牲一个或多个其他资源为代价，因此最终可能会发现系统再次受到另一个资源的瓶颈限制。
 - en: State and Statelessness
+  id: totrans-42
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 状态和无状态
 - en: We briefly touched on statelessness in [“Application State Versus Resource State”](ch05.xhtml#sidebar_ch05_statelessness),
     where we described application state—server-side data about the application or
     how it’s being used by a client—as something to be avoided if at all possible.
     But this time, let’s spend a little more time discussing what state is, why it
     can be problematic, and what we can do about it.
+  id: totrans-43
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们在 [“应用状态与资源状态”](ch05.xhtml#sidebar_ch05_statelessness) 中简要讨论了无状态性，其中我们描述了应用状态——关于应用程序或客户端使用方式的服务器端数据——应尽可能避免。但这次，让我们花点时间讨论一下状态是什么，为什么它可能会有问题，以及我们可以采取什么措施。
 - en: It turns out that “state” is strangely difficult to define, so I’ll do my best
     on my own. For the purposes of this book I’ll define state as the set of an application’s
     variables which, if changed, affect the behavior of the application.^([6](ch07.xhtml#idm45983630057256))
+  id: totrans-44
   prefs: []
   type: TYPE_NORMAL
+  zh: 结果表明，“状态”在定义上有些难以捉摸，所以我将尽我所能自行解释。对于本书的目的，我将状态定义为应用程序变量的集合，如果变更会影响应用程序行为。^([6](ch07.xhtml#idm45983630057256))
 - en: Application State Versus Resource State
+  id: totrans-45
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 应用状态与资源状态
 - en: Most applications have some form of state, but not all state is created equal.
     It comes in two kinds, one of which is far less desirable than the other.
+  id: totrans-46
   prefs: []
   type: TYPE_NORMAL
+  zh: 大多数应用程序都具有某种形式的状态，但并非所有状态都是平等的。它有两种形式，其中一种远不如另一种理想。
 - en: First, there’s *application state*, which exists any time an application needs
     to remember an event locally. Whenever somebody talks about a *stateful* application,
     they’re usually talking about an application that’s designed to use this kind
     of local state. “Local” is an operative word here.
+  id: totrans-47
   prefs: []
   type: TYPE_NORMAL
+  zh: 首先，有*应用状态*，它存在于应用程序需要在本地记住事件的任何时候。每当有人谈论*有状态*的应用程序时，他们通常指的是一种设计为使用这种本地状态的应用程序。“本地”是一个关键词。
 - en: Second, there’s *resource state*, which is the same for every client and which
     has nothing to do with the actions of clients, like data stored in external data
     store or managed by configuration management. It’s misleading, but saying that
@@ -276,35 +376,47 @@
     that it’s been designed in such a way that it’s free of any local persistent data.
     Its only state is resource state, often because all of its state is stored in
     some external data store.
+  id: totrans-48
   prefs: []
   type: TYPE_NORMAL
+  zh: 其次，有*资源状态*，对每个客户端都是相同的，与客户端的操作无关，比如存储在外部数据存储或由配置管理管理的数据。这可能会引起误解，但说一个应用程序是*无状态*并不意味着它没有任何数据，只是它被设计成没有任何本地持久数据。它唯一的状态是资源状态，通常因为它的所有状态都存储在某个外部数据存储中。
 - en: To illustrate the difference between the two, imagine an application that tracks
     client sessions, associating them with some application context. If users’ session
     data was maintained locally by the application, that would be considered “application
     state.” But if the data was stored in an external database, then it could be treated
     as a remote resource, and it would be “resource state.”
+  id: totrans-49
   prefs: []
   type: TYPE_NORMAL
+  zh: 为了说明两者之间的区别，想象一个跟踪客户会话并将其与某个应用程序上下文相关联的应用程序。如果用户的会话数据由应用程序在本地维护，那就被视为“应用程序状态”。但如果数据存储在外部数据库中，则可以将其视为远程资源，并且它将被视为“资源状态”。
 - en: Application state is something of the “anti-scalability.” Multiple instances
     of a stateful service will quickly find their individual states diverging due
     to different inputs being received by each replica. Server affinity provides a
     workaround to this specific condition by ensuring that each of a client’s requests
     are made to the same server, but this strategy poses a considerable data risk,
     since the failure of any single server is likely to result in a loss of data.
+  id: totrans-50
   prefs: []
   type: TYPE_NORMAL
+  zh: 应用程序状态有点像“反可扩展性”。多个有状态服务的实例会因为接收到的不同输入而迅速发现它们的各自状态开始分歧。服务器亲和力通过确保每个客户端的请求都发送到同一台服务器来提供对此特定情况的解决方法，但这种策略会带来相当大的数据风险，因为任何单个服务器的故障可能会导致数据丢失。
 - en: Advantages of Statelessness
+  id: totrans-51
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 无状态的优势
 - en: 'So far, we’ve discussed the differences between application state and resource
     state, and we’ve even suggested—without much evidence (yet)—that application state
     is bad. However, statelessness provides some very noticeable advantages:'
+  id: totrans-52
   prefs: []
   type: TYPE_NORMAL
+  zh: 到目前为止，我们已经讨论了应用程序状态和资源状态之间的差异，甚至提出了——尽管没有太多证据（尚）——应用程序状态是不好的。然而，无状态性提供了一些非常明显的优势：
 - en: Scalability
+  id: totrans-53
   prefs: []
   type: TYPE_NORMAL
+  zh: 可扩展性
 - en: The most visible and most often cited benefit is that stateless applications
     can handle each request or interaction independent of previous requests. This
     means that any service replica can handle any request, allowing applications to
@@ -312,390 +424,557 @@
     sessions or requests. This is especially important when autoscaling your service,
     because the instances, nodes, or pods hosting the service can (and usually will)
     be created and destroyed unexpectedly.
+  id: totrans-54
   prefs: []
   type: TYPE_NORMAL
+  zh: 最明显和经常被引用的好处是，无状态应用程序可以独立处理每个请求或交互，与先前的请求无关。这意味着任何服务副本都可以处理任何请求，允许应用程序在不丢失处理任何正在进行的会话或请求所需数据的情况下增长、收缩或重新启动。这在自动缩放服务时尤为重要，因为托管服务的实例、节点或Pod可以（并且通常会）意外创建和销毁。
 - en: Durability
+  id: totrans-55
   prefs: []
   type: TYPE_NORMAL
+  zh: 耐久性
 - en: 'Data that lives in exactly one place (such as a single service replica) can
     (and, at some point, *will*) get lost when that replica goes away for any reason.
     Remember: everything in “the cloud” evaporates eventually.'
+  id: totrans-56
   prefs: []
   type: TYPE_NORMAL
+  zh: 存在于一个地方的数据（例如单个服务副本）可以（并且在某个时候*会*）在该副本因任何原因而消失时丢失。请记住：所有东西在“云端”最终都会消失。
 - en: Simplicity
+  id: totrans-57
   prefs: []
   type: TYPE_NORMAL
+  zh: 简单性
 - en: Without any application state, stateless services are freed from the need to…
     well… manage their state.^([7](ch07.xhtml#idm45983630037192)) Not being burdened
     with having to maintain service-side state synchronization, consistency, and recovery
     logic^([8](ch07.xhtml#idm45983630036376)) makes stateless APIs less complex, and
     therefore easier to design, build, and maintain.
+  id: totrans-58
   prefs: []
   type: TYPE_NORMAL
+  zh: 在没有任何应用程序状态的情况下，无状态服务免于… 嗯… 管理它们的状态。^([7](ch07.xhtml#idm45983630037192)) 不需要维护服务端状态同步、一致性和恢复逻辑^([8](ch07.xhtml#idm45983630036376))
+    使得无状态API更简单，因此更易于设计、构建和维护。
 - en: Cacheability
+  id: totrans-59
   prefs: []
   type: TYPE_NORMAL
+  zh: 可缓存性
 - en: APIs provided by stateless services are relatively easy to design for cacheability.
     If a service knows that the result of a particular request will always be the
     same, regardless of who’s making it or when, the result can be safely set aside
     for easy retrieval later, increasing efficiency and reducing response time.
+  id: totrans-60
   prefs: []
   type: TYPE_NORMAL
+  zh: 无状态服务提供的API相对容易设计为可缓存。如果服务知道特定请求的结果无论何时谁发起都将始终相同，结果可以安全地存储以供以后轻松检索，从而提高效率并减少响应时间。
 - en: These might seem like four different things, but there’s overlap with respect
     to what they provide. Specifically, statelessness makes services both simpler
     and safer to build, deploy, and maintain.
+  id: totrans-61
   prefs: []
   type: TYPE_NORMAL
+  zh: 这些可能看起来是四种不同的事物，但在它们提供的内容上存在重叠。特别是无状态性使得服务更简单、更安全地构建、部署和维护。
 - en: 'Scaling Postponed: Efficiency'
+  id: totrans-62
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 延迟扩展：效率
 - en: In the context of cloud computing, we usually think of scalability in terms
     of the ability of a system to add network and computing resources. Often neglected,
     however, is the role of *efficiency* in scalability. Specifically, the ability
     for a system to handle changes in demand *without* having to add (or greatly over-provision)
     dedicated resources.
+  id: totrans-63
   prefs: []
   type: TYPE_NORMAL
+  zh: 在云计算的背景下，我们通常将可扩展性定义为系统增加网络和计算资源的能力。然而，经常被忽视的是在可扩展性中*效率*的角色。具体来说，系统处理需求变化时*不*需要添加（或极度过度预留）专用资源的能力。
 - en: While it can be argued that most people don’t care about program efficiency
     most of the time, this starts to become less true as demand on a service increases.
     If a language has a relatively high per-process concurrency overhead—often the
     case with dynamically typed languages—it will consume all available memory or
     compute resources much more quickly than a lighter-weight language, and consequently
     require resources and more scaling events to support the same demand.
+  id: totrans-64
   prefs: []
   type: TYPE_NORMAL
+  zh: 虽然可以争论大多数时候大多数人不关心程序效率，但随着对服务的需求增加，这种说法开始不那么正确。如果一种语言有相对较高的每进程并发开销——这在动态类型语言中经常发生——它将比轻量级语言更快消耗所有可用内存或计算资源，因此需要更多的资源和扩展事件来支持同样的需求。
 - en: This was a major consideration in the design of Go’s concurrency model, whose
     goroutines aren’t threads at all but lightweight routines multiplexed onto multiple
     OS threads. Each costs little more than the allocation of stack space, allowing
     potentially millions of concurrently executing routines to be created.
+  id: totrans-65
   prefs: []
   type: TYPE_NORMAL
+  zh: 这在Go语言并发模型的设计中是一个主要考虑因素，它的goroutine实际上不是线程，而是轻量级的协程多路复用到多个操作系统线程上。每个协程的成本几乎只是分配堆栈空间，允许可能同时执行数百万个协程。
 - en: As such, in this section we’ll cover a selection of Go features and tooling
     that allow us to avoid common scaling problems, such as memory leaks and lock
     contention, and to identify and fix them when they do arise.
+  id: totrans-66
   prefs: []
   type: TYPE_NORMAL
+  zh: 因此，在本节中，我们将介绍一些Go语言的特性和工具，它们允许我们避免常见的扩展问题，如内存泄漏和锁争用，并在出现这些问题时识别和修复它们。
 - en: Efficient Caching Using an LRU Cache
+  id: totrans-67
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 使用LRU缓存进行高效缓存
 - en: Caching to memory is a very flexible efficiency strategy that can be used to
     relieve pressure on anything from CPU to disk I/O or network I/O, or even just
     to reduce latency associated with remote or otherwise slow-running operations.
+  id: totrans-68
   prefs: []
   type: TYPE_NORMAL
+  zh: 将数据缓存到内存是一种非常灵活的效率策略，可以用来减轻从CPU到磁盘I/O或网络I/O的任何压力，甚至只是减少与远程或其他运行缓慢操作相关的延迟。
 - en: The concept of caching certainly *seems* straightforward. You have something
     you want to remember the value of—like the result of an expensive (but deterministic)
     calculation—and you put it in a map for later. Right?
+  id: totrans-69
   prefs: []
   type: TYPE_NORMAL
+  zh: 缓存的概念看起来当然*似乎*很简单。你有一些你希望记住值的东西——比如昂贵（但确定性的）计算的结果——然后将其放入映射中以备将来使用。对吧？
 - en: Well, you could do that, but you’ll soon start running into problems. What happens
     as the number of cores and goroutines increases? Since you didn’t consider concurrency,
     you’ll soon find your modifications stepping on one another, leading to some unpleasant
     results. Also, since we forgot to remove anything from our map, it’ll continue
     growing indefinitely until it consumes all of our memory.
+  id: totrans-70
   prefs: []
   type: TYPE_NORMAL
+  zh: 嗯，你可以这样做，但很快就会开始遇到问题。随着核心数和goroutine数量的增加，会发生什么？由于你没有考虑并发性，很快就会发现你的修改互相干扰，导致一些不愉快的结果。而且，由于我们忘记从映射中移除任何内容，它将继续无限增长，直到消耗掉所有内存。
 - en: 'What we need is a cache that:'
+  id: totrans-71
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们需要的是一个缓存，它：
 - en: Supports concurrent read, write, and delete operations
+  id: totrans-72
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 支持并发的读取、写入和删除操作
 - en: Scales well as the number of cores and goroutines increase
+  id: totrans-73
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 随着核心数和goroutine数量的增加，性能表现良好
 - en: Won’t grow without limit to consume all available memory
+  id: totrans-74
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 不会无限增长以消耗所有可用内存
 - en: 'One common solution to this dilemma is an LRU (Least Recently Used) cache:
     a particularly lovely data structure that tracks how recently each of its keys
     have been “used” (read or written). When a value is added to the cache such that
     it exceeds a predefined capacity, the cache is able to “evict” (delete) its least
     recently used value.'
+  id: totrans-75
   prefs: []
   type: TYPE_NORMAL
+  zh: 这个困境的一个常见解决方案是LRU（最近最少使用）缓存：一种特别可爱的数据结构，跟踪每个键最近被“使用”（读取或写入）的时间。当添加一个值到缓存中导致超出预定义的容量时，缓存能够“淘汰”（删除）其最近最少使用的值。
 - en: A detailed discussion of how to implement an LRU cache is beyond the scope of
     this book, but I will say that it’s quite clever. As illustrated on [Figure 7-2](#img_ch07_lru_cache),
     an LRU cache contains a doubly linked list (which actually contains the values),
     and a map that associates each key to a node in the linked list. Whenever a key
     is read or written, the appropriate node is moved to the bottom of the list, such
     that the least recently used node is always at the top.
+  id: totrans-76
   prefs: []
   type: TYPE_NORMAL
+  zh: 讨论如何实现LRU缓存的详细内容超出了本书的范围，但我会说这个方法相当巧妙。如[图 7-2](#img_ch07_lru_cache)所示，LRU缓存包含一个双向链表（实际上包含值）和一个将每个键关联到链表节点的映射。每当读取或写入一个键时，相应的节点就会移动到列表的底部，这样最近未使用的节点总是位于顶部。
 - en: There are a couple of Go LRU cache implementations available, though none in
     the core libraries (yet). Perhaps the most common can be found as part of the
     [golang/groupcache](https://oreil.ly/Q5pzk) library. However, I prefer HashiCorp’s
     open source extension to `groupcache`, [`hashicorp/golang-lru`](https://oreil.ly/25ESk),
     which is better documented and includes `sync.RWMutexes` for concurrency safety.
+  id: totrans-77
   prefs: []
   type: TYPE_NORMAL
+  zh: 有几种Go的LRU缓存实现可用，尽管目前核心库中没有（尚未）。可能最常见的是作为[golang/groupcache](https://oreil.ly/Q5pzk)库的一部分。然而，我更喜欢HashiCorp开源的扩展版本`groupcache`，[`hashicorp/golang-lru`](https://oreil.ly/25ESk)，它有更好的文档，并包含用于并发安全的`sync.RWMutexes`。
 - en: '![cngo 0702](Images/cngo_0702.png)'
+  id: totrans-78
   prefs: []
   type: TYPE_IMG
+  zh: '![cngo 0702](Images/cngo_0702.png)'
 - en: Figure 7-2\. An LRU cache contains a map and a doubly linked list, which allows
     it to discard stale items when it exceeds its capacity
+  id: totrans-79
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 7-2\. LRU缓存包含一个映射和一个双向链表，使其能够在超出容量时丢弃过时项目
 - en: 'HashiCorp’s library contains two construction functions, each of which returns
     a pointer of type `*Cache` and an `error`:'
+  id: totrans-80
   prefs: []
   type: TYPE_NORMAL
+  zh: HashiCorp的库包含两个构造函数，每个函数返回类型为`*Cache`和一个`error`的指针：
 - en: '[PRE0]'
+  id: totrans-81
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE0]'
 - en: 'The `*Cache` struct has a number of attached methods, the most useful of which
     are as follows:'
+  id: totrans-82
   prefs: []
   type: TYPE_NORMAL
+  zh: '`*Cache`结构体有许多附加方法，其中最有用的是：'
 - en: '[PRE1]'
+  id: totrans-83
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE1]'
 - en: There are several other methods as well. Take a look at [the GoDocs](https://oreil.ly/ODcff)
     for a complete list.
+  id: totrans-84
   prefs: []
   type: TYPE_NORMAL
+  zh: 还有其他几种方法。请查看[GoDocs](https://oreil.ly/ODcff)获取完整列表。
 - en: 'In the following example, we create and use an LRU cache with a capacity of
     two. To better highlight evictions, we include a callback function that prints
     some output to `stdout` whenever an eviction occurs. Note that we’ve decided to
     initialize the `cache` variable in an `init` function, a special function that’s
     automatically called before the `main` function and after the variable declarations
     have evaluated their initializers:'
+  id: totrans-85
   prefs: []
   type: TYPE_NORMAL
+  zh: 在下面的示例中，我们创建并使用了一个容量为两个的LRU缓存。为了更好地突出淘汰过程，我们包含了一个回调函数，每当发生淘汰时会向`stdout`打印一些输出。请注意，我们决定在`init`函数中初始化`cache`变量，这是一个特殊的函数，在变量声明在评估其初始值后自动调用`main`函数之前：
 - en: '[PRE2]'
+  id: totrans-86
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE2]'
 - en: In the preceding program, we create a `cache` with a capacity of two, which
     means that the addition of a third value will force the eviction of the least
     recently used value.
+  id: totrans-87
   prefs: []
   type: TYPE_NORMAL
+  zh: 在上述程序中，我们创建了一个容量为两个的`cache`，这意味着添加第三个值将迫使淘汰最近最少使用的值。
 - en: After adding the values `{1:"a"}` and `{2:"b"}` to the cache, we call `cache.Get(1)`,
     which makes `{1:"a"}` more recently used than `{2:"b"}`. So, when we add `{3:"c"}`
     in the next step, `{2:"b"}` is evicted, so the next `cache.Get(2)` shouldn’t return
     a value.
+  id: totrans-88
   prefs: []
   type: TYPE_NORMAL
+  zh: 在将 `{1:"a"}` 和 `{2:"b"}` 的值添加到缓存后，我们调用 `cache.Get(1)`，这使得 `{1:"a"}` 比 `{2:"b"}`
+    更近期被使用。因此，在下一步中当我们添加 `{3:"c"}` 时，`{2:"b"}` 将被驱逐，所以下一个 `cache.Get(2)` 不应返回任何值。
 - en: 'If we run this program we’ll be able to see this in action. We’ll expect the
     following output:'
+  id: totrans-89
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果我们运行此程序，我们将能够看到它的实际效果。我们期望以下输出：
 - en: '[PRE3]'
+  id: totrans-90
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE3]'
 - en: 'The LRU cache is an excellent data structure to use as a global cache for most
     use cases, but it does have a limitation: at very high levels of concurrency—on
     the order of several million operations per second—it will start to experience
     some contention.'
+  id: totrans-91
   prefs: []
   type: TYPE_NORMAL
+  zh: LRU 缓存是一个在大多数情况下作为全局缓存的优秀数据结构，但它也有一个局限性：在非常高的并发水平下——每秒数百万次操作——它将开始出现一些竞争问题。
 - en: Unfortunately, at the time of this writing, Go still doesn’t seem to have a
     *very* high throughput cache implementation.^([9](ch07.xhtml#idm45983629703592))
+  id: totrans-92
   prefs: []
   type: TYPE_NORMAL
+  zh: 不幸的是，在撰写本文时，Go 似乎仍然没有一个 *非常* 高吞吐量的缓存实现。^([9](ch07.xhtml#idm45983629703592))
 - en: Efficient Synchronization
+  id: totrans-93
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 高效的同步
 - en: A commonly repeated Go proverb is “don’t communicate by sharing memory; share
     memory by communicating.” In other words, channels are generally preferred over
     shared data structures.
+  id: totrans-94
   prefs: []
   type: TYPE_NORMAL
+  zh: Go 中一个常见的格言是 “不要通过共享内存来通信；通过通信来共享内存”。换句话说，通常情况下，通道优于共享数据结构。
 - en: This is a pretty powerful concept. After all, Go’s concurrency primitives—goroutines
     and channels—provide a powerful and expressive synchronization mechanism, such
     that a set of goroutines using channels to exchange references to data structures
     can often allow locks to be dispensed with altogether.
+  id: totrans-95
   prefs: []
   type: TYPE_NORMAL
+  zh: 这是一个非常强大的概念。毕竟，Go 的并发原语——goroutine 和通道——提供了一个强大而表达力强的同步机制，使得一组使用通道交换数据结构引用的goroutine通常可以完全不需要锁。
 - en: (If you’re a bit fuzzy on the details of channels and goroutines, don’t stress.
     Take a moment to flip back to [“Goroutines”](ch03.xhtml#section_ch03_goroutines).
     It’s okay. I’ll wait.)
+  id: totrans-96
   prefs: []
   type: TYPE_NORMAL
+  zh: （如果您对通道和goroutine的细节有些模糊，不要紧张。花点时间翻回 [“Goroutines”](ch03.xhtml#section_ch03_goroutines)。没关系，我会等待的。）
 - en: That being said, Go *does* provide more traditional locking mechanisms by way
     of the `sync` package. But if channels are so great, why would we want to use
     something like a `sync.Mutex`, and when would we use it?
+  id: totrans-97
   prefs: []
   type: TYPE_NORMAL
+  zh: 话虽如此，Go *确实* 提供了更传统的锁机制，例如 `sync` 包。但是，如果通道如此出色，为什么我们还要使用像 `sync.Mutex` 这样的东西？在什么情况下会使用它？
 - en: Well, as it turns out, channels *are* spectacularly useful, but they’re not
     the solution to every problem. Channels shine when you’re working with many discrete
     values, and are the better choice for passing ownership of data, distributing
     units of work, or communicating asynchronous results. Mutexes, on the other hand,
     are ideal for synchronizing access to caches or other large stateful structures.
+  id: totrans-98
   prefs: []
   type: TYPE_NORMAL
+  zh: 事实证明，通道确实非常有用，但它们并非所有问题的解决方案。当您处理许多离散值时，通道非常出色，并且在传递数据所有权、分发工作单元或通信异步结果时是更好的选择。而互斥锁则非常适合同步访问缓存或其他大型状态结构。
 - en: At the end of the day, no tool solves every problem. Ultimately, the best option
     is to use whichever is most expressive and/or most simple.
+  id: totrans-99
   prefs: []
   type: TYPE_NORMAL
+  zh: 归根结底，没有工具能解决所有问题。最终，最好的选择是使用最具表达力和/或最简单的选项。
 - en: Share memory by communicating
+  id: totrans-100
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 通过通信来共享内存
 - en: Threading is easy; locking is hard.
+  id: totrans-101
   prefs: []
   type: TYPE_NORMAL
+  zh: 多线程简单；加锁困难。
 - en: In this section we’re going to use a classic example—originally presented in
     Andrew Gerrand’s classic *Go Blog* article “Share Memory By Communicating”^([10](ch07.xhtml#idm45983629686280))—to
     demonstrate this truism and show how Go channels can make concurrency safer and
     easier to reason about.
+  id: totrans-102
   prefs: []
   type: TYPE_NORMAL
+  zh: 在本节中，我们将使用一个经典示例——最初在 Andrew Gerrand 的经典 *Go Blog* 文章 “Share Memory By Communicating”^([10](ch07.xhtml#idm45983629686280))
+    中提出——来演示这个真理，并展示 Go 通道如何使并发更安全、更易于理解。
 - en: 'Imagine, if you will, a hypothetical program that polls a list of URLs by sending
     it a GET request and waiting for the response. The catch is that each request
     can spend quite a bit of time waiting for the service to respond: anywhere from
     milliseconds to seconds (or more), depending on the service. Exactly the kind
     of operation that can benefit from a bit of concurrency, isn’t it?'
+  id: totrans-103
   prefs: []
   type: TYPE_NORMAL
+  zh: 假设有一个虚构的程序，通过发送 GET 请求并等待响应来轮询 URL 列表。问题在于，每个请求可能要花费相当长的时间等待服务响应：从毫秒到秒甚至更长，具体取决于服务情况。这种操作显然非常适合使用一些并发机制，不是吗？
 - en: 'In a traditional threading environment that depends on locking for synchronization
     you might structure its data something like the following:'
+  id: totrans-104
   prefs: []
   type: TYPE_NORMAL
+  zh: 在传统的线程环境中，依赖锁定进行同步，你可能会像以下这样结构化其数据：
 - en: '[PRE4]'
+  id: totrans-105
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE4]'
 - en: As you can see, instead of having a slice of URL strings, we have two structs—`Resource`
     and `Resources`—each of which is already saddled with a number of synchronization
     structures beyond the URL strings we really care about.
+  id: totrans-106
   prefs: []
   type: TYPE_NORMAL
+  zh: 如你所见，我们不是拥有一堆URL字符串切片，而是有两个结构体——`Resource` 和 `Resources`——每一个都已经装配了许多同步结构，超出了我们实际关心的URL字符串范畴。
 - en: 'To multithread the polling process in the traditional way, you might have a
     `Poller` function like the following running in multiple threads:'
+  id: totrans-107
   prefs: []
   type: TYPE_NORMAL
+  zh: 要以传统方式多线程轮询过程，你可能会有一个像以下这样在多个线程中运行的`Poller`函数：
 - en: '[PRE5]'
+  id: totrans-108
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE5]'
 - en: This does the job, but it has a lot of room for improvement. It’s about a page
     long, hard to read, hard to reason about, and doesn’t even include the URL polling
     logic or gracefully handle exhaustion of the `Resources` pool.
+  id: totrans-109
   prefs: []
   type: TYPE_NORMAL
+  zh: 这样做虽然能完成任务，但还有很大的改进空间。代码长达一页，难以阅读、难以推理，甚至不包括URL轮询逻辑或优雅地处理`Resources`池的耗尽。
 - en: 'Now let’s take a look at the same functionality implemented using Go channels.
     In this example, `Resource` has been reduced to its essential component (the URL
     string), and `Poller` is a function that receives `Resource` values from an input
     channel, and sends them to an output channel when they’re done:'
+  id: totrans-110
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在让我们看看使用Go通道实现相同功能的示例。在这个例子中，`Resource`已经被简化为其基本组件（URL字符串），而`Poller`是一个函数，它从输入通道接收`Resource`值，并在完成时将它们发送到输出通道：
 - en: '[PRE6]'
+  id: totrans-111
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE6]'
 - en: It’s so…simple. We’ve completely shed the clockwork locking logic in `Poller`,
     and our `Resource` data structure no longer contains bookkeeping data. In fact,
     all that’s left are the important parts.
+  id: totrans-112
   prefs: []
   type: TYPE_NORMAL
+  zh: 简直就像……简单。我们完全摒弃了`Poller`中的机械式锁定逻辑，我们的`Resource`数据结构不再包含繁琐的数据记录。事实上，剩下的都是重要的部分。
 - en: 'But what if we wanted more than one `Poller` process? Isn’t that what we were
     trying to do in the first place? The answer is, once again, gloriously simple:
     goroutines. Take a look at the following:'
+  id: totrans-113
   prefs: []
   type: TYPE_NORMAL
+  zh: 但是，如果我们想要多个`Poller`进程怎么办？这不正是我们一开始尝试做的吗？答案再次简单而又光辉：goroutines。看看下面的例子：
 - en: '[PRE7]'
+  id: totrans-114
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE7]'
 - en: By executing `numPollers` goroutines, we’re creating `numPollers` concurrent
     processes, each reading from and writing to the same channels.
+  id: totrans-115
   prefs: []
   type: TYPE_NORMAL
+  zh: 通过执行`numPollers`个goroutines，我们创建了`numPollers`个并发进程，每个都从同一个通道读取和写入。
 - en: A lot has been omitted from the previous examples to highlight the relevant
     bits. For a walkthrough of a complete, idiomatic Go program that uses these ideas,
     see the [“Share Memory By Communicating”](https://oreil.ly/HF1Ay) Codewalk.
+  id: totrans-116
   prefs: []
   type: TYPE_NORMAL
+  zh: 前面的示例中省略了很多内容，重点突出了相关部分。如果你想看一个完整、惯用的Go程序示例，使用这些思想，请参见[“通过通信共享内存”](https://oreil.ly/HF1Ay)
+    代码演示。
 - en: Reduce blocking with buffered channels
+  id: totrans-117
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 通过缓冲通道减少阻塞
 - en: At some point in this chapter you’ve probably thought to yourself, “sure, channels
     are great, but writing to channels still blocks.” After all, every send operation
     on a channel blocks until there’s a corresponding receive, right? Well, as it
     turns out, this is only *mostly* true. At least, it’s true of default, unbuffered
     channels.
+  id: totrans-118
   prefs: []
   type: TYPE_NORMAL
+  zh: 在本章的某个地方，你可能会想：“当然，通道很棒，但是写入通道仍然会阻塞。”毕竟，每次在通道上的发送操作都会阻塞，直到有相应的接收，对吧？嗯，事实证明，这只是*大体上*是真的。至少，默认的非缓冲通道是这样的。
 - en: However, as we first describe in [“Channel buffering”](ch03.xhtml#section_ch03_channel_buffering),
     it’s possible to create channels that have an internal message buffer. Send operations
     on such buffered channels only block when the buffer is full and receives from
     a channel only block when the buffer is empty.
+  id: totrans-119
   prefs: []
   type: TYPE_NORMAL
+  zh: 然而，正如我们在[“通道缓冲”](ch03.xhtml#section_ch03_channel_buffering)中首次描述的那样，可以创建具有内部消息缓冲区的通道。在这种缓冲通道上的发送操作仅在缓冲区满时阻塞，接收操作仅在缓冲区空时阻塞。
 - en: 'You may recall that buffered channels can be created by passing an additional
     capacity parameter to the `make` function to specify the size of the buffer:'
+  id: totrans-120
   prefs: []
   type: TYPE_NORMAL
+  zh: 你可能还记得，缓冲通道可以通过将额外的容量参数传递给`make`函数来创建，以指定缓冲区的大小：
 - en: '[PRE8]'
+  id: totrans-121
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE8]'
 - en: 'Buffered channels are especially useful for handling “bursty” loads. In fact,
     we already used this strategy in [Chapter 5](ch05.xhtml#chapter_5) when we initialized
     our `FileTransactionLogger`. Distilling some of the logic that’s spread through
     that chapter produces something like the following:'
+  id: totrans-122
   prefs: []
   type: TYPE_NORMAL
+  zh: 缓冲通道在处理“突发”负载时特别有用。事实上，我们在[第五章](ch05.xhtml#chapter_5)已经使用了这种策略，当我们初始化我们的`FileTransactionLogger`时。从该章节中提炼一些分散的逻辑，可以得到如下内容：
 - en: '[PRE9]'
+  id: totrans-123
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE9]'
 - en: In this segment, we have a `WritePut` function that can be called to send a
     message to an `events` channel, which is received in the `for` loop inside the
     goroutine created in the `Run` function. If `events` was a standard channel, each
     send would block until the anonymous goroutine completed a receive operation.
     That might be fine most of the time, but if several writes came in faster than
     the goroutine could process them, the upstream client would be blocked.
+  id: totrans-124
   prefs: []
   type: TYPE_NORMAL
+  zh: 在这一段中，我们有一个 `WritePut` 函数，可以调用它向一个 `events` 通道发送消息，这个通道在 `Run` 函数中创建的匿名 goroutine
+    的 `for` 循环中接收。如果 `events` 是一个标准通道，每次发送都会阻塞，直到匿名 goroutine 完成接收操作。大部分情况下这可能没问题，但如果多个写入速度比
+    goroutine 处理它们的速度快，那么上游客户端将会被阻塞。
 - en: By using a buffered channel we made it possible for this code to handle small
     bursts of up to 16 closely clustered write requests. Importantly, however, the
     17th write *would* block.
+  id: totrans-125
   prefs: []
   type: TYPE_NORMAL
+  zh: 通过使用缓冲通道，我们使得这段代码能够处理最多 16 个紧密集中的写入请求。然而，第 17 次写入*会*被阻塞。
 - en: It’s also important to consider that using buffered channels like this creates
     a risk of data loss should the program terminate before any consuming goroutines
     are able to clear the buffer.
+  id: totrans-126
   prefs: []
   type: TYPE_NORMAL
+  zh: 还需要考虑使用这样的缓冲通道会导致数据丢失的风险，即使在任何消费 goroutine 能够清空缓冲区之前程序终止。
 - en: Minimizing locking with sharding
+  id: totrans-127
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 最小化分片锁定
 - en: As lovely as channels are, as we mentioned in [“Efficient Synchronization”](#section_ch07_efficient_synchronization)
     they don’t solve *every* problem. A common example of this is a large, central
     data structure, such as a cache, that can’t be easily decomposed into discrete
     units of work.^([11](ch07.xhtml#idm45983629130744))
+  id: totrans-128
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如我们在[“高效同步”](#section_ch07_efficient_synchronization)中提到的那样，尽管通道很好用，但并不解决*所有*问题。一个常见的例子是大型中央数据结构，例如缓存，它不能轻易地分解为离散的工作单元。^([11](ch07.xhtml#idm45983629130744))
 - en: 'When shared data structures have to be concurrently accessed, it’s standard
     to use a locking mechanism, such as the mutexes provided by the `sync` package,
     as we do in [“Making Your Data Structure Concurrency-Safe”](ch05.xhtml#section_ch05_concurrency_safe).
     For example, we might create a struct that contains a map and an embedded `sync.RWMutex`:'
+  id: totrans-129
   prefs: []
   type: TYPE_NORMAL
+  zh: 当共享数据结构需要并发访问时，通常会使用锁定机制，例如 `sync` 包提供的互斥锁，就像我们在[“使您的数据结构具有并发安全性”](ch05.xhtml#section_ch05_concurrency_safe)中所做的那样。例如，我们可以创建一个包含映射和嵌入的
+    `sync.RWMutex` 的结构体：
 - en: '[PRE10]'
+  id: totrans-130
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE10]'
 - en: 'When a routine wants to write to the cache, it would carefully use `cache.Lock`
     to establish the write lock, and `cache.Unlock` to release the lock when it’s
     done. We might even want to wrap it in a convenience function as follows:'
+  id: totrans-131
   prefs: []
   type: TYPE_NORMAL
+  zh: 当一个例程想要写入缓存时，它会小心地使用 `cache.Lock` 来建立写入锁，使用 `cache.Unlock` 在完成后释放锁。我们甚至可能希望将其包装在一个便利函数中，如下所示：
 - en: '[PRE11]'
+  id: totrans-132
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE11]'
 - en: 'By design, this restricts write access to whichever routine happens to have
     the lock. This pattern generally works just fine. However, as we discussed in
     [Chapter 4](ch04.xhtml#chapter_4), as the number of concurrent processes acting
     on the data increases, the average amount of time that processes spend waiting
     for locks to be released also increases. You may remember the name for this unfortunate
     condition: lock contention.'
+  id: totrans-133
   prefs: []
   type: TYPE_NORMAL
+  zh: 根据设计，这限制了写入访问权限，只有持有锁的例程才能访问。这种模式通常运行良好。然而，正如我们在[第四章](ch04.xhtml#chapter_4)讨论的那样，随着并发处理数据的进程数量增加，进程等待锁释放的平均时间也会增加。你可能记得这种不幸的情况的名称：锁争用。
 - en: While this might be resolved in some cases by scaling the number of instances,
     this also increases complexity and latency, as distributed locks need to be established
     and writes need to establish consistency. An alternative strategy for reducing
@@ -704,14 +983,18 @@
     or more structures, each representing a part of the whole. Using this strategy,
     only a portion of the overall structure needs to be locked at a time, decreasing
     overall lock contention.
+  id: totrans-134
   prefs: []
   type: TYPE_NORMAL
+  zh: 虽然在某些情况下，通过增加实例的数量可以解决这个问题，但这也会增加复杂性和延迟，因为需要建立分布式锁定，并确保写入一致性。在一个服务实例内部减少共享数据结构周围的锁争用的替代策略是*垂直分片*，其中一个大型数据结构被分成两个或更多部分，每个部分代表整体的一部分。使用这种策略，每次只需锁定整体结构的一部分，从而减少总体锁争用。
 - en: You may recall that we discussed vertical sharding in some detail in [“Sharding”](ch04.xhtml#section_ch04_sharding).
     If you’re unclear on vertical sharding theory or implementation, feel free to
     take some time to go back and review that section.
+  id: totrans-135
   prefs: []
   type: TYPE_NORMAL
 - en: 'Memory Leaks Can…fatal error: runtime: out of memory'
+  id: totrans-136
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
@@ -722,51 +1005,62 @@
     use by the program, garbage-collected languages like Go aren’t immune to memory
     leaks. Data structures can still grow unbounded, unresolved goroutines can still
     accumulate, and even unstopped `time.Ticker` values can get away from you.
+  id: totrans-137
   prefs: []
   type: TYPE_NORMAL
 - en: In this section we’ll review a few common causes of memory leaks particular
     to Go, and how to resolve them.
+  id: totrans-138
   prefs: []
   type: TYPE_NORMAL
 - en: Leaking goroutines
+  id: totrans-139
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: I’m not aware of any actual data on the subject,^([12](ch07.xhtml#idm45983629004872))
     but based purely on my own personal experience, I strongly suspect that goroutines
     are the single largest source of memory leaks in Go.
+  id: totrans-140
   prefs: []
   type: TYPE_NORMAL
 - en: Whenever a goroutine is executed, it’s initially allocated a small memory stack—2048
     bytes—that can be dynamically adjusted up or down as it runs to suit the needs
     of the process. The precise maximum stack size depends on a lot of things,^([13](ch07.xhtml#idm45983629003416))
     but it’s essentially reflective of the amount of available physical memory.
+  id: totrans-141
   prefs: []
   type: TYPE_NORMAL
 - en: 'Normally, when a goroutine returns, its stack is either deallocated or set
     aside for recycling.^([14](ch07.xhtml#idm45983629000568)) Whether by design or
     by accident, however, not every goroutine actually returns. For example:'
+  id: totrans-142
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE12]'
+  id: totrans-143
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE12]'
 - en: 'In the previous example, the `leaky` function creates a channel and executes
     a goroutine that reads from that channel. The `leaky` function returns without
     error, but if you look closely you’ll see that no values are ever sent to `ch`,
     so the goroutine will never return and its stack will never be deallocated. There’s
     even collateral damage: because the goroutine references `ch`, that value can’t
     be cleaned up by the garbage collector.'
+  id: totrans-144
   prefs: []
   type: TYPE_NORMAL
 - en: So we now have a bona fide memory leak. If such a function is called regularly
     the total amount of memory consumed will slowly increase over time until it’s
     completely exhausted.
+  id: totrans-145
   prefs: []
   type: TYPE_NORMAL
 - en: This is a contrived example, but there are good reasons why a programmer might
     want to create long-running goroutines, so it’s usually quite hard to know whether
     such a process was created intentionally.
+  id: totrans-146
   prefs: []
   type: TYPE_NORMAL
 - en: 'So what do we do about this? Dave Cheney offers some excellent advice here:
@@ -774,353 +1068,496 @@
     you use the `go` keyword in your program to launch a goroutine, you must know
     how, and when, that goroutine will exit. If you don’t know the answer, that’s
     a potential memory leak."^([15](ch07.xhtml#idm45983628941816))'
+  id: totrans-147
   prefs: []
   type: TYPE_NORMAL
 - en: This may seem like obvious, even trivial advice, but it’s incredibly important.
     It’s all too easy to write functions that leak goroutines, and those leaks can
     be a pain to identify and find.
+  id: totrans-148
   prefs: []
   type: TYPE_NORMAL
+  zh: 这可能看起来像是显而易见的，甚至是琐碎的建议，但这非常重要。编写泄漏goroutine的函数非常容易，而这些泄漏可能很难识别和找出。
 - en: Forever ticking tickers
+  id: totrans-149
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 永远滴答作响的 `Ticker`
 - en: Very often you’ll want to add some kind of time dimension to your Go code, to
     execute it at some point in the future or repeatedly at some interval, for example.
+  id: totrans-150
   prefs: []
   type: TYPE_NORMAL
+  zh: 在你的Go代码中，经常会希望添加某种时间维度，以便将其在将来的某个时间点执行，或者以某个间隔重复执行。
 - en: 'The `time` package provides two useful tools to add such a time dimension to
     Go code execution: `time.Timer`, which fires at some point in the future, and
     `time.Ticker`, which fires repeatedly at some specified interval.'
+  id: totrans-151
   prefs: []
   type: TYPE_NORMAL
+  zh: '`time` 包提供了两个有用的工具来为Go代码执行添加时间维度： `time.Timer`，它在将来的某个时间点触发；以及 `time.Ticker`，它在指定的间隔重复触发。'
 - en: However, where `time.Timer` has a finite useful life with a defined start and
     end, `time.Ticker` has no such limitation. A `time.Ticker` can live forever. Maybe
     you can see where this is going.
+  id: totrans-152
   prefs: []
   type: TYPE_NORMAL
+  zh: 然而，`time.Timer` 有一个有限的有效生命周期，有明确定义的开始和结束；而 `time.Ticker` 则没有这样的限制。`time.Ticker`
+    可以永远存在。也许你可以看到这样的情况会导致什么结果。
 - en: 'Both Timers and Tickers use a similar mechanism: each provides a channel that’s
     sent a value whenever it fires. The following example uses both:'
+  id: totrans-153
   prefs: []
   type: TYPE_NORMAL
+  zh: 定时器和Ticker使用了类似的机制：每个都提供一个通道，在每次触发时发送一个值。以下示例同时使用了两者：
 - en: '[PRE13]'
+  id: totrans-154
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE13]'
 - en: The `timely` function executes a goroutine that loops at regular intervals by
     listening for signals from `ticker`—which occur every second—or from a `done`
     channel that returns the goroutine. The line `<-timer.C` blocks until the 5-second
     timer fires, allowing `done` to be closed, triggering the `case <-done` condition
     and ending the loop.
+  id: totrans-155
   prefs: []
   type: TYPE_NORMAL
+  zh: '`timely` 函数执行一个goroutine，通过监听来自 `ticker` 的信号——每秒发生一次——或者来自返回goroutine的 `done`
+    通道，定期循环。 `<-timer.C` 这一行将阻塞，直到5秒计时器触发，允许关闭 `done`，触发 `case <-done` 条件并结束循环。'
 - en: 'The `timely` function completes as expected, and the goroutine has a defined
     return, so you could be forgiven for thinking that everything’s fine. There’s
     a particularly sneaky bug here though: running `time.Ticker` values contain an
     active goroutine that can’t be cleaned up. Because we never stopped the timer,
     `timely` contains a memory leak.'
+  id: totrans-156
   prefs: []
   type: TYPE_NORMAL
+  zh: '`timely` 函数按预期完成，并且goroutine有一个定义的返回，因此你可能会以为一切都没问题。但这里有一个非常隐匿的bug：运行 `time.Ticker`
+    的值包含一个无法清理的活动goroutine。因为我们从未停止计时器，所以 `timely` 包含了一个内存泄漏。'
 - en: 'The solution: always be sure to stop your timers. A `defer` works quite nicely
     for this purpose:'
+  id: totrans-157
   prefs: []
   type: TYPE_NORMAL
+  zh: 解决方法：始终确保停止你的定时器。`defer` 对此目的非常有效：
 - en: '[PRE14]'
+  id: totrans-158
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE14]'
 - en: By calling `ticker.Stop()`, we shut down the underlying `Ticker`, allowing it
     to be recovered by the garbage collector and preventing a leak.
+  id: totrans-159
   prefs: []
   type: TYPE_NORMAL
+  zh: 通过调用 `ticker.Stop()`，我们关闭了底层的 `Ticker`，使其可以被垃圾回收器回收，并防止泄漏。
 - en: On Efficiency
+  id: totrans-160
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 在效率上
 - en: In this section, we covered a number of common methods for improving the efficiency
     of your programs, ranging from using an LRU cache rather than a map to constrain
     your cache’s memory footprint, to approaches for effectively synchronizing your
     processes, to preventing memory leaks. While these sections might not seem particularly
     closely connected, they’re all important for building programs that scale.
+  id: totrans-161
   prefs: []
   type: TYPE_NORMAL
+  zh: 在本节中，我们涵盖了一些常见的方法，用于改进程序的效率，从使用LRU缓存而不是映射以限制缓存的内存占用，到有效同步进程的方法，再到防止内存泄漏的方法。虽然这些部分可能看起来并不特别密切相关，但它们对构建可扩展的程序都是重要的。
 - en: Of course, there are countless other methods that I would have liked to include
     as well, but wasn’t able to given the fundamental limits imposed by time and space.
+  id: totrans-162
   prefs: []
   type: TYPE_NORMAL
+  zh: 当然，还有无数其他的方法，我本想也想包括进来，但由于时间和空间的基本限制，未能如愿。
 - en: In the next section, we’ll change themes once again to cover some common service
     architectures and their effects on scalability. These might be a little less focused
     on Go specifically, but they’re critical for a study of scalability, especially
     in a cloud native context.
+  id: totrans-163
   prefs: []
   type: TYPE_NORMAL
+  zh: 在下一节中，我们将再次改变主题，讨论一些常见的服务架构及其对可扩展性的影响。虽然这些可能与Go特别相关性不大，但在云原生环境中，它们对可扩展性的研究至关重要。
 - en: Service Architectures
+  id: totrans-164
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 服务架构
 - en: The concept of the *microservice* first appeared in the early 2010s as a refinement
     and simplification of the earlier service-oriented architecture (SOA) and a response
     to the *monoliths*—server-side applications contained within a single large executable—that
     were then the most common architectural model of choice.^([16](ch07.xhtml#idm45983628664360))
+  id: totrans-165
   prefs: []
   type: TYPE_NORMAL
+  zh: 微服务的概念首次出现在2010年代初期，作为对早期面向服务架构（SOA）的改进和简化，同时也是对当时最常见的服务器端应用程序的反应——即包含在单个大型可执行文件中的*单体*架构。^([16](ch07.xhtml#idm45983628664360))
 - en: At the time, the idea of the microservice architecture—a single application
     composed of multiple small services, each running in its own process and communicating
     with lightweight mechanisms—was revolutionary. Unlike monoliths, which require
     the entire application to be rebuilt and deployed for any change to the system,
     microservices were independently deployable by fully automated deployment mechanisms.
     This sounds small, even trivial, but its implications were (and are) vast.
+  id: totrans-166
   prefs: []
   type: TYPE_NORMAL
+  zh: 当时，微服务架构的想法——一个由多个小服务组成的单一应用程序，每个服务在自己的进程中运行并通过轻量级机制进行通信——是革命性的。与单体架构不同，后者要求重新构建和部署整个应用程序以实现任何系统变更，微服务可以通过完全自动化的部署机制独立部署。这听起来可能微不足道，甚至琐碎，但其影响是（并且仍然是）巨大的。
 - en: If you ask most programmers to compare monoliths to microservices, most of the
     answers you get will probably be something about how monoliths are slow, sluggish,
     and bloated, while microservices are small, agile, and the new hotness. Sweeping
     generalizations are always wrong, though, so let’s take a moment to ask ourselves
     whether this is true, and whether monoliths might sometimes be the right choice.
+  id: totrans-167
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果你问大多数程序员来比较单体和微服务，你可能会得到的大多数答案是关于单体运行速度慢、笨重，而微服务则小巧、灵活且是新宠。然而，一概而论总是不准确的，因此让我们花点时间思考一下这是否正确，以及单体有时是否可能是正确的选择。
 - en: We will begin by defining what we mean when we talk about monoliths and microservices.
+  id: totrans-168
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们将首先定义我们所说的单体和微服务。
 - en: The Monolith System Architecture
+  id: totrans-169
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 单体系统架构
 - en: In a *monolith architecture*, all of the functionally distinguishable aspects
     of a service are coupled together in one place. A common example is a web application
     whose user interface, data layer, and business logic are all intermingled, often
     on a single server.
+  id: totrans-170
   prefs: []
   type: TYPE_NORMAL
+  zh: 在*单体架构*中，一个服务的所有功能上的区别都耦合在一起。一个常见的例子是Web应用程序，其用户界面、数据层和业务逻辑通常混合在一起，往往在单个服务器上。
 - en: 'Traditionally, enterprise applications have been built in three main parts,
     as illustrated in [Figure 7-3](#img_ch07_arch_monolith): a client-side interface
     running on the user’s machine, a relational database where all of the application’s
     data lives, and a server-side application that handles all user input, executes
     all business logic, and reads and writes data to the database.'
+  id: totrans-171
   prefs: []
   type: TYPE_NORMAL
+  zh: 传统上，企业应用程序主要由三个部分构建，如[图7-3](#img_ch07_arch_monolith)所示：运行在用户机器上的客户端界面，包含所有应用数据的关系数据库，以及处理所有用户输入、执行所有业务逻辑并读写数据库数据的服务器端应用程序。
 - en: '![cngo 0703](Images/cngo_0703.png)'
+  id: totrans-172
   prefs: []
   type: TYPE_IMG
+  zh: '![cngo 0703](Images/cngo_0703.png)'
 - en: Figure 7-3\. In a monolith architecture, all of the functionally distinguishable
     aspects of a service are coupled together in one place
+  id: totrans-173
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图7-3\. 在单体架构中，一个服务的所有功能上的区别都耦合在一起。
 - en: At the time, this pattern made sense. All the business logic ran in a single
     process, making development easier, and you could even scale by running more monoliths
     behind a load balancer, usually using sticky sessions to maintain server affinity.
     Things were *perfectly fine*, and for many years this was by far the most common
     way of building web applications.
+  id: totrans-174
   prefs: []
   type: TYPE_NORMAL
+  zh: 当时，这种模式是合理的。所有业务逻辑在单一进程中运行，使开发更加简单，甚至可以通过在负载均衡器后运行更多的单体来扩展，通常使用粘性会话以维持服务器关联性。一切都*非常好*，多年来这一直是构建Web应用程序的最常见方式。
 - en: Even today, for relatively small or simple applications (for some definition
     of “small” and “simple”) this works perfectly well (though I still strongly recommend
     statelessness over server affinity).
+  id: totrans-175
   prefs: []
   type: TYPE_NORMAL
+  zh: 即使在今天，对于相对较小或简单的应用程序（对于“小”和“简单”的某些定义），这种方式也非常有效（尽管我仍然强烈推荐无状态性而不是服务器关联性）。
 - en: 'However, as the number of features and general complexity of a monolith increases,
     difficulties start to arise:'
+  id: totrans-176
   prefs: []
   type: TYPE_NORMAL
+  zh: 然而，随着单体架构中功能数量和复杂性的增加，开始出现了一些困难：
 - en: Monoliths are usually deployed as a single artifact, so making even a small
     change generally requires a new version of the entire monolith to be built, tested,
     and deployed.
+  id: totrans-177
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 单体应用通常作为单一的构件部署，因此即使是做出小的更改，通常也需要构建、测试和部署整个单体的新版本。
 - en: Despite even the best of intentions and efforts, monolith code tends to decrease
     in modularity over time, making it harder to make changes in one part of the service
     without affecting another part in unexpected ways.
+  id: totrans-178
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 即使有着最好的意图和努力，单体代码随着时间推移往往会降低模块化，使得在一个服务的一部分进行更改而不会以意外的方式影响另一部分变得更加困难。
 - en: Scaling the application means creating replicas of the entire application, not
     just the parts that need it.
+  id: totrans-179
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 扩展应用程序意味着创建整个应用程序的副本，而不仅仅是需要扩展的部分。
 - en: 'The larger and more complex the monolith gets, the more pronounced these effects
     tend to become. By the early- to mid-2000s, these issues were well known, leading
     frustrated programmers to experiment with breaking their big, complex services
     into smaller, independently deployable and scalable components. By 2012, this
     pattern even had a name: microservices architecture.'
+  id: totrans-180
   prefs: []
   type: TYPE_NORMAL
+  zh: 单体应用程序越大越复杂，这些效果就越明显。到了2000年代早期到中期，这些问题是众所周知的，导致沮丧的程序员尝试将他们的大型复杂服务分解为更小、可以独立部署和可扩展的组件。到了2012年，这种模式甚至有了一个名字：微服务架构。
 - en: The Microservices System Architecture
+  id: totrans-181
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 微服务系统架构
 - en: The defining characteristic of a *microservices architecture* is a service whose
     functional components have been divided into a set of discrete sub-services that
     can be independently built, tested, deployed, and scaled.
+  id: totrans-182
   prefs: []
   type: TYPE_NORMAL
+  zh: '*微服务架构*的定义特征是将其功能组件划分为一组独立构建、测试、部署和扩展的离散子服务。'
 - en: This is illustrated in [Figure 7-4](#img_ch07_arch_microservices), in which
     a user interface service—perhaps an HTML-serving web application or a public API—interacts
     with clients, but rather than handling the business logic locally, it makes secondary
     requests of one or more component services to handle some specific functionality.
     Those services might in turn even make further requests of yet more services.
+  id: totrans-183
   prefs: []
   type: TYPE_NORMAL
+  zh: 这在[图7-4](#img_ch07_arch_microservices)中有所说明，其中一个用户界面服务——可能是提供HTML的Web应用程序或公共API——与客户端进行交互，但不是在本地处理业务逻辑，而是向一个或多个组件服务发出次要请求来处理某些特定功能。这些服务甚至可能会进一步请求更多的服务。
 - en: '![cngo 0704](Images/cngo_0704.png)'
+  id: totrans-184
   prefs: []
   type: TYPE_IMG
+  zh: '![cngo 0704](Images/cngo_0704.png)'
 - en: Figure 7-4\. In a microservices architecture, functional components are divided
     into discrete subservices
+  id: totrans-185
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图7-4\. 在微服务架构中，功能组件被划分为离散的子服务
 - en: 'While the microservices architecture has a number of advantages over the monolith,
     there are significant costs to consider. On one hand, microservices provide some
     significant benefits:'
+  id: totrans-186
   prefs: []
   type: TYPE_NORMAL
+  zh: 尽管微服务架构相比单体应用具有许多优势，但也需要考虑重要的成本。一方面，微服务提供了一些显著的好处：
 - en: A clearly-defined separation of concerns supports and reinforces modularity,
     which can be very useful for larger or multiple teams.
+  id: totrans-187
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 明确定义的责任分离支持和强化了模块化，对于较大或多个团队非常有用。
 - en: Microservices should be independently deployable, making them easier to manage
     and making it possible to isolate errors and failures.
+  id: totrans-188
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 微服务应该能够独立部署，这使得它们更易管理，可以隔离错误和故障。
 - en: In a microservices system, it’s possible for different services to use the technology—language,
     development framework, data storage, etc—that’s most appropriate to its function.
+  id: totrans-189
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 在微服务系统中，不同的服务可以使用最适合其功能的技术——语言、开发框架、数据存储等。
 - en: 'These benefits shouldn’t be underestimated: the increased modularity and functional
     isolation of microservices tends to produce components that are themselves generally
     far more maintainable than a monolith with the same functionality. The resulting
     system isn’t just easier to deploy and manage, but easier to understand, reason
     about, and extend for a larger number of programmers and teams.'
+  id: totrans-190
   prefs: []
   type: TYPE_NORMAL
+  zh: 不应低估这些好处：微服务的增强模块化和功能隔离通常会产生比具有相同功能的单体应用更易于维护的组件。由此产生的系统不仅更易于部署和管理，而且更易于理解、推理和扩展，适用于更多的程序员和团队。
 - en: Warning
+  id: totrans-191
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 警告
 - en: Mixing different technologies may sound appealing in theory, but use restraint.
     Each adds new requirements for tooling and expertise. The pros and cons of adopting
     a new technology—any new technology^([17](ch07.xhtml#idm45983628631080))—should
     always be carefully considered.
+  id: totrans-192
   prefs: []
   type: TYPE_NORMAL
+  zh: 在理论上混合不同技术可能听起来很吸引人，但要慎重使用。每种技术都增加了对工具和专业知识的新要求。采纳新技术——任何新技术的利弊^([17](ch07.xhtml#idm45983628631080))——应始终经过仔细考虑。
 - en: 'The discrete nature of microservices makes them far easier to maintain, deploy,
     and scale than monoliths. However, while these are real benefits that can pay
     real dividends, there are some downsides as well:'
+  id: totrans-193
   prefs: []
   type: TYPE_NORMAL
+  zh: 微服务的离散性使得它们比单体应用程序更容易维护、部署和扩展。然而，虽然这些确实是可以带来真正回报的真正好处，但也有一些缺点：
 - en: The distributed nature of microservices makes them subject to the Fallacies
     of Distributed Computing (see [Chapter 4](ch04.xhtml#chapter_4)), which makes
     them significantly harder to program and debug.
+  id: totrans-194
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 微服务的分布性质使它们容易受到分布式计算的谬误的影响（见[第4章](ch04.xhtml#chapter_4)），这使得它们在编程和调试时变得更加困难。
 - en: Sharing any kind of state between your services can often be extremely difficult.
+  id: totrans-195
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 在服务之间共享任何形式的状态通常会非常困难。
 - en: Deploying and managing multiple services can be quite complex and tends to demand
     a high level of operational maturity.
+  id: totrans-196
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 部署和管理多个服务可能非常复杂，并且往往需要高水平的运营成熟度。
 - en: So given these, which do you choose? The relative simplicity of the monolith,
     or the flexibility and scalability of microservices? You might have noticed that
     most of the benefits of microservices pay off as the application gets larger or
     the number of teams working on it increases. For this reason many authors advocate
     starting with a monolith and decomposing it later.
+  id: totrans-197
   prefs: []
   type: TYPE_NORMAL
+  zh: 因此，在这些因素的基础上，你会选择哪个？单体架构的相对简单性，还是微服务的灵活性和可扩展性？你可能已经注意到，大多数微服务的好处在于应用程序变得更大或者工作在其上的团队数量增加时才会显现出来。因此，许多作者建议先从单体架构开始，然后再进行分解。
 - en: On a personal note, I’ll mention that I’ve never seen any organization successfully
     break apart a large monolith, but I’ve seen many try. That’s not to say it’s impossible,
     just that it’s hard. I can’t tell you whether you should start your system as
     microservices, or with a monolith and break it up later. I’d certainly get a lot
     of angry emails if I tried. But please, whatever you do, stay stateless.
+  id: totrans-198
   prefs: []
   type: TYPE_NORMAL
+  zh: 个人观点上，我要提一下，我从未见过任何组织成功地拆分一个大型单体系统，但我见过很多尝试这样做的。这并不意味着不可能，只是很难。我不能告诉你应该从微服务开始构建你的系统，还是先用单体架构然后再进行拆分。如果我试图这么做，肯定会收到很多愤怒的邮件。但无论你做什么，请保持无状态。
 - en: Serverless Architectures
+  id: totrans-199
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 无服务器架构
 - en: Serverless computing is a pretty popular topic in web application architecture,
     and a lot of (digital) ink has been spilled about it. Much of this hype has been
     driven by the major cloud providers, which have invested heavily in serverlessness,
     but not all of it.
+  id: totrans-200
   prefs: []
   type: TYPE_NORMAL
+  zh: 无服务器计算是Web应用程序架构中一个非常流行的话题，关于它已经消耗了大量的（数字）墨水。很多这种炒作是由主要的云提供商推动的，它们在无服务器方面投入了大量资源，但并非全部。
 - en: But what is serverless computing, really?
+  id: totrans-201
   prefs: []
   type: TYPE_NORMAL
+  zh: 但无服务器计算，究竟是什么呢？
 - en: Well, as is often the case, it depends on who you ask. For the purposes of this
     book, however, we’re defining it as a form of utility computing in which some
     server-side logic, written by a programmer, is transparently executed in a managed
     ephemeral environment in response to some predefined trigger. This is also sometimes
     referred to as “functions as a service,” or “FaaS.” All of the major cloud providers
     offer FaaS implementations, such as AWS’s Lambda or GCP’s Cloud Functions.
+  id: totrans-202
   prefs: []
   type: TYPE_NORMAL
+  zh: 嗯，通常情况下，这要看你问的是谁。然而，就本书的目的而言，我们将其定义为一种实用计算形式，在这种形式中，由程序员编写的一些服务器端逻辑会在预定义的触发器下透明地在托管的短暂环境中执行。这有时也被称为“函数即服务”或“FaaS”。所有主要的云提供商都提供了FaaS实现，例如AWS的Lambda或GCP的Cloud
+    Functions。
 - en: Such functions are quite flexible and can be usefully incorporated into many
     architectures. In fact, as we’ll discuss shortly, entire *serverless architectures*
     can even be built that don’t use traditional services at all, but are instead
     built entirely from FaaS resources and third-party managed services.
+  id: totrans-203
   prefs: []
   type: TYPE_NORMAL
+  zh: 这些函数非常灵活，可以有用地整合到许多架构中。事实上，正如我们将很快讨论的那样，甚至可以构建完全不使用传统服务，而完全由FaaS资源和第三方托管服务构建的*无服务器架构*。
 - en: The pros and cons of serverlessness
+  id: totrans-204
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 无服务器计算的利与弊
 - en: As with any other architectural decision, the choice to go with a partially
     or entirely serverless architecture should be carefully weighed against all available
     options. While serverlessness provides some clear benefits—some obvious (no servers
     to manage!), others less so (cost and energy savings)—it’s very different from
     traditional architectures, and carries its own set of downsides.
+  id: totrans-205
   prefs: []
   type: TYPE_NORMAL
+  zh: 和任何其他架构决策一样，选择部分或完全无服务器架构应该仔细权衡所有可用选项。尽管无服务器提供了一些明显的好处（一些是显而易见的（无需管理服务器！），其他一些则不那么明显（成本和能源节约）），但它与传统架构非常不同，并且具有自己的一系列缺点。
 - en: 'That being said, let’s start weighing. Let’s start with the advantages:'
+  id: totrans-206
   prefs: []
   type: TYPE_NORMAL
+  zh: 话虽如此，让我们开始权衡一下。让我们从优势开始：
 - en: Operational management
+  id: totrans-207
   prefs: []
   type: TYPE_NORMAL
+  zh: 运营管理
 - en: Perhaps the most obvious benefit of serverless architectures is that there’s
     considerably less operational overhead.^([19](ch07.xhtml#idm45983628559272)) There
     are no servers to provision and maintain, no licenses to buy, and no software
     to install.
+  id: totrans-208
   prefs: []
   type: TYPE_NORMAL
+  zh: 无服务器架构最明显的好处可能就是减少了操作开销。^([19](ch07.xhtml#idm45983628559272)) 没有需要规划和维护的服务器，也不需要购买许可证或安装软件。
 - en: Scalability
+  id: totrans-209
   prefs: []
   type: TYPE_NORMAL
+  zh: 可扩展性
 - en: When using serverless functions, it’s the provider—not the user—who’s responsible
     for scaling capacity to meet demand. As such, the implementor can spend less time
     and effort considering and implementing scaling rules.
+  id: totrans-210
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用无服务器函数时，负责根据需求扩展容量的是提供商而不是用户。因此，实施者可以花费较少的时间和精力来考虑和实现扩展规则。
 - en: Reduced costs
+  id: totrans-211
   prefs: []
   type: TYPE_NORMAL
+  zh: 降低成本
 - en: FaaS providers typically use a “pay-as-you-go” model, charging only for the
     time and memory allocated when the function is run. This can be considerably more
     cost-effective than deploying traditional services to (likely underutilized) servers.
+  id: totrans-212
   prefs: []
   type: TYPE_NORMAL
+  zh: FaaS 提供商通常采用“按需付费”的模式，仅在运行函数时分配时间和内存时收费。这比部署传统服务到（可能是低效利用的）服务器要节省成本得多。
 - en: Productivity
+  id: totrans-213
   prefs: []
   type: TYPE_NORMAL
+  zh: 生产力
 - en: In a FaaS model, the unit of work is an event-driven function. This model tends
     to encourage a “function first” mindset, resulting in code that’s often simpler,
     more readable, and easier to test.
+  id: totrans-214
   prefs: []
   type: TYPE_NORMAL
+  zh: 在FaaS模型中，工作单位是事件驱动函数。这种模型倾向于鼓励“首先考虑函数”的思维方式，导致的代码通常更简单、更易读，也更容易测试。
 - en: 'It’s not all roses, though. There are very some real downsides to serverless
     architectures that need to be taken into consideration as well:'
+  id: totrans-215
   prefs: []
   type: TYPE_NORMAL
+  zh: 然而，并不是一切都是如此美好。无服务器架构确实存在一些真正的缺点，也需要考虑到：
 - en: Startup latency
+  id: totrans-216
   prefs: []
   type: TYPE_NORMAL
+  zh: 启动延迟
 - en: When a function is first called, it has to be “spun up” by the cloud provider.
     This typically takes less than a second, but in some cases can add 10 or more
     seconds to the initial requests. This is known as the *cold start* delay. What’s
@@ -1129,106 +1566,148 @@
     start when it’s called again. This usually isn’t a problem if your function doesn’t
     have enough idle time to get spun down, but can be a significant issue if your
     load is particularly “bursty.”
+  id: totrans-217
   prefs: []
   type: TYPE_NORMAL
+  zh: 当首次调用函数时，它必须由云提供商“启动”。这通常需要不到一秒钟，但在某些情况下，可能会为初始请求增加10秒或更多的延迟。这被称为*冷启动*延迟。此外，如果函数在几分钟内没有被调用——不同的供应商有所不同——则会被提供商“关闭”，因此当再次调用时就必须经历另一次冷启动。如果您的函数没有足够的空闲时间而被关闭，则通常不会成为问题，但如果您的负载特别“突发”，这可能是一个重大问题。
 - en: Observability
+  id: totrans-218
   prefs: []
   type: TYPE_NORMAL
+  zh: 可观察性
 - en: While most of the cloud vendors provide some basic monitoring for their FaaS
     offerings, it’s usually quite rudimentary. While third-party providers have been
     working to fill the void, the quality and quantity of data available from your
     ephemeral functions is often less than desired.
+  id: totrans-219
   prefs: []
   type: TYPE_NORMAL
+  zh: 尽管大多数云供应商为其FaaS服务提供了一些基本的监控功能，但通常相当基础。虽然第三方提供商一直在努力填补这一空白，但你的临时函数提供的数据质量和数量通常都不如人意。
 - en: Testing
+  id: totrans-220
   prefs: []
   type: TYPE_NORMAL
+  zh: 测试
 - en: While unit testing tends to be pretty straightforward for serverless functions,
     integration testing is quite hard. It’s often difficult or impossible to simulate
     the serverless environment, and mocks are approximations at best.
+  id: totrans-221
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于无服务器函数来说，单元测试通常比较简单，但集成测试却相当困难。模拟无服务器环境往往是困难的，甚至不可能，而模拟的效果也很难保证。
 - en: Cost
+  id: totrans-222
   prefs: []
   type: TYPE_NORMAL
+  zh: 成本
 - en: Although the “pay-as-you-go” model can be considerably cheaper when demand is
     lower, there is a point at which this is no longer true. In fact, very high levels
     of load can grow to be quite expensive.
+  id: totrans-223
   prefs: []
   type: TYPE_NORMAL
+  zh: 虽然在需求较低时，“按需付费”的模式可能会更加便宜，但在某一点上，这种说法就不再成立了。事实上，非常高的负载水平可能变得相当昂贵。
 - en: Clearly, there’s quite a lot to consider—on both sides—and while there *is*
     a great deal of hype around serverless at the moment, to some degree I think it’s
     merited. However, while serverlessness promises (and largely delivers) scalability
     and reduced costs, it does have quite a few gotchas, including, but not limited
     to, testing and debugging challenges. Not to mention the increased burden on operations
     around observability!^([20](ch07.xhtml#idm45983628542136))
+  id: totrans-224
   prefs: []
   type: TYPE_NORMAL
+  zh: 显然，双方都有很多需要考虑的问题，而且尽管目前对无服务器的炒作很多，我认为这在某种程度上是有道理的。然而，虽然无服务器承诺（并且在很大程度上实现了）可扩展性和降低成本，但它确实有很多陷阱，包括但不限于测试和调试的挑战。更不用说对可观察性的运维负担增加了！^([20](ch07.xhtml#idm45983628542136))
 - en: Finally, as we’ll see in the next section, serverless architectures also require
     quite a lot more up-front planning than traditional architectures. While some
     people might call this a positive feature, it can add significant complexity.
+  id: totrans-225
   prefs: []
   type: TYPE_NORMAL
+  zh: 最后，正如我们将在下一节中看到的那样，无服务器架构也需要比传统架构更多的前期规划。虽然有些人可能认为这是一个积极的特点，但它确实增加了显著的复杂性。
 - en: Serverless services
+  id: totrans-226
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 无服务器服务
 - en: As mentioned previously, functions as a service (FaaS) are flexible enough to
     serve as the foundation of entire serverless architectures that don’t use traditional
     services at all, but are instead built entirely from FaaS resources and third-party
     managed services.
+  id: totrans-227
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如前面提到的，函数即服务（FaaS）足够灵活，可以作为完全不使用传统服务的整个无服务器架构的基础，而是完全基于FaaS资源和第三方托管服务构建。
 - en: Let’s take, as an example, the familiar three-tier system in which a client
     issues a request to a service, which in turn interacts with a database. A good
     example is the key-value store we started in [Chapter 5](ch05.xhtml#chapter_5),
     whose (admittedly primitive) monolithic architecture might look something like
     what’s shown in [Figure 7-5](#img_ch07_kv_monolith).
+  id: totrans-228
   prefs: []
   type: TYPE_NORMAL
+  zh: 举个例子，让我们以熟悉的三层系统为例，在这个系统中，客户端向服务发出请求，服务与数据库交互。一个很好的例子是我们在[第五章](ch05.xhtml#chapter_5)开始的键值存储，其（尽管原始）单片架构可能看起来像[图7-5](#img_ch07_kv_monolith)所示。
 - en: '![cngo 0705](Images/cngo_0705.png)'
+  id: totrans-229
   prefs: []
   type: TYPE_IMG
+  zh: '![cngo 0705](Images/cngo_0705.png)'
 - en: Figure 7-5\. The monolithic architecture of our primitive key/value store
+  id: totrans-230
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图7-5\. 我们的原始键/值存储的单片架构
 - en: 'To convert this monolith into a serverless architecture, we’ll need to use
     an *API gateway*: a managed service that’s configured to expose specific HTTP
     endpoints and to direct requests to each endpoint to a specific resource—typically
     a FaaS functions—that handles requests and issue responses. Using this architecture,
     our key/value store might look something like what’s shown in [Figure 7-6](#img_ch07_arch_serverless_api).'
+  id: totrans-231
   prefs: []
   type: TYPE_NORMAL
+  zh: 要将此单体架构转换为无服务器架构，我们需要使用*API网关*：这是一个托管服务，配置为公开特定的HTTP端点，并将每个端点的请求定向到特定资源——通常是一个FaaS函数——该函数处理请求并发出响应。使用这种架构，我们的键/值存储可能看起来像[图7-6](#img_ch07_arch_serverless_api)所示。
 - en: '![cngo 0706](Images/cngo_0706.png)'
+  id: totrans-232
   prefs: []
   type: TYPE_IMG
+  zh: '![cngo 0706](Images/cngo_0706.png)'
 - en: Figure 7-6\. An API gateway routes HTTP calls to serverless handler functions
+  id: totrans-233
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图7-6\. API网关将HTTP调用路由到无服务器处理程序函数
 - en: 'In this example, we’ve replaced the monolith with an API gateway that supports
     three endpoints: `GET /v1/{key}`, `PUT /v1/{key}`, and `DELETE /v1/{key}` (the
     `{key}` component indicates that this path will match any string, and refer to
     the value as `key`).'
+  id: totrans-234
   prefs: []
   type: TYPE_NORMAL
+  zh: 在这个例子中，我们用API网关替换了单体架构，该网关支持三个端点：`GET /v1/{key}`, `PUT /v1/{key}`, 和 `DELETE
+    /v1/{key}`（`{key}`组件表示此路径将匹配任何字符串，并将其引用为`key`）。
 - en: The API gateway is configured so that requests to each of its three endpoints
     are directed to a different handler function—`getKey`, `putKey`, and `deleteKey`,
     respectively—which performs all of the logic for handling that request and interacting
     with the backing database.
+  id: totrans-235
   prefs: []
   type: TYPE_NORMAL
+  zh: API网关被配置为将其三个端点的请求定向到不同的处理函数——`getKey`、`putKey`和`deleteKey`，分别执行处理该请求和与后备数据库交互的所有逻辑。
 - en: Granted, this is an incredibly simple application and doesn’t account for things
     like authentication (which can be provided by a number of excellent third-party
     services like Auth0 or Okta), but some things are immediately evident.
+  id: totrans-236
   prefs: []
   type: TYPE_NORMAL
+  zh: 当然，这是一个非常简单的应用程序，并没有考虑到诸如身份验证之类的事情（可以由许多优秀的第三方服务提供，如Auth0或Okta），但有些事情是显而易见的。
 - en: First, there are a greater number of moving parts that you have to get your
     head around, which necessitates quite a bit more up-front planning and testing.
     For example, what happens if there’s an error in a handler function? What happens
     to the request? Does it get forwarded to some other destination, or is it perhaps
     sent to a dead-letter queue for further processing?
+  id: totrans-237
   prefs: []
   type: TYPE_NORMAL
 - en: Do not underestimate the significance of this increase in complexity! Replacing
@@ -1236,154 +1715,216 @@
     a variety of problems and failure cases that simply don’t exist in the former.
     You may well have turned a relatively simple problem into an enormously complex
     one. Complexity kills; simplicity scales.
+  id: totrans-238
   prefs: []
   type: TYPE_NORMAL
 - en: Second, with all of these different components, there’s a need for more sophisticated
     distributed monitoring than you’d need with a monolith or small microservices
     system. Due to the fact that FaaS relies heavily on the cloud provider, this may
     be challenging or, at least, awkward.
+  id: totrans-239
   prefs: []
   type: TYPE_NORMAL
 - en: Finally, the ephemeral nature of FaaS means that ALL state, even short-lived
     optimizations like caches, has to be externalized to a database, an external cache
     (like Redis), or network file/object store (like S3). Again, this can be argued
     to be a Good Thing, but it does add to up-front complexity.
+  id: totrans-240
   prefs: []
   type: TYPE_NORMAL
 - en: Summary
+  id: totrans-241
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
 - en: This was a very difficult chapter to write, not because there isn’t much to
     say, but because scalability is such a huge topic with so many different things
     I could have drilled down into. Every one of these battled in my brain for weeks.
+  id: totrans-242
   prefs: []
   type: TYPE_NORMAL
 - en: I even ended up throwing away some perfectly good architecture content that,
     in retrospect, simply wasn’t appropriate for this book. Fortunately, I was able
     to salvage a whole other chunk of work about messaging that ended up getting moved
     into [Chapter 8](ch08.xhtml#chapter_8). I think it’s happier there anyway.
+  id: totrans-243
   prefs: []
   type: TYPE_NORMAL
 - en: In those weeks, I spent a lot of time thinking about what scalability really
     is, and about the role that efficiency plays in it. Ultimately, I think that the
     decision to spend so much time on programmatic—rather than infrastructural—solutions
     to scaling problems was the right one.
+  id: totrans-244
   prefs: []
   type: TYPE_NORMAL
 - en: 'All told, I think the end result is a good one. We certainly covered a lot
     of ground:'
+  id: totrans-245
   prefs: []
   type: TYPE_NORMAL
 - en: We reviewed the different axes of scaling, and how scaling out is often the
     best long-term strategy.
+  id: totrans-246
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: We discussed state and statelessness, and why application state is essentially
     “anti-scalability.”
+  id: totrans-247
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: We learned a few strategies for efficient in-memory caching and for avoiding
     memory leaks.
+  id: totrans-248
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: We compared and contrasted monolithic, microservice, and serverless architectures.
+  id: totrans-249
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: That’s quite a lot, and although I wish I’d been able to drill down in some
     more detail, I’m pleased to have been able to touch on the things I did.
+  id: totrans-250
   prefs: []
   type: TYPE_NORMAL
 - en: '^([1](ch07.xhtml#idm45983630129928-marker)) Kanat-Alexander, Max. *Code Simplicity:
     The Science of Software Design*. O’Reilly Media, 23 March 2012.'
+  id: totrans-251
   prefs: []
   type: TYPE_NORMAL
 - en: ^([2](ch07.xhtml#idm45983630123800-marker)) Honestly, if we had autoscaling
     in place I probably wouldn’t even remember that this happened.
+  id: totrans-252
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([2](ch07.xhtml#idm45983630123800-marker)) 老实说，如果我们已经实现了自动缩放，我可能根本不会记得发生了这件事。
 - en: ^([3](ch07.xhtml#idm45983630119912-marker)) If you want to know more about cloud
     native infrastructure and architecture, a bunch of excellent books on the subject
     have already been written. I particularly recommend *Cloud Native Infrastructure*
     by Justin Garrison and Kris Nova, and *Cloud Native Transformation* by Pini Reznik,
     Jamie Dobson, and Michelle Gienow (both O’Reilly Media).
+  id: totrans-253
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([3](ch07.xhtml#idm45983630119912-marker)) 如果你想了解更多关于云原生基础设施和架构的信息，已经有许多优秀的书籍写成。我特别推荐
+    Justin Garrison 和 Kris Nova 的 *Cloud Native Infrastructure*，以及 Pini Reznik、Jamie
+    Dobson 和 Michelle Gienow 的 *Cloud Native Transformation*（均由 O’Reilly Media 出版）。
 - en: ^([4](ch07.xhtml#idm45983630115000-marker)) This is my definition. I acknowledge
     that it diverges from other common definitions.
+  id: totrans-254
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([4](ch07.xhtml#idm45983630115000-marker)) 这是我的定义。我承认它与其他常见的定义有所不同。
 - en: ^([5](ch07.xhtml#idm45983630066296-marker)) Some cloud providers impose lower
     network I/O limits on smaller instances. Increasing the size of the instance may
     increase these limits in some cases.
+  id: totrans-255
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([5](ch07.xhtml#idm45983630066296-marker)) 一些云服务提供商对较小的实例施加了较低的网络 I/O 限制。在某些情况下，增加实例的大小可能会增加这些限制。
 - en: ^([6](ch07.xhtml#idm45983630057256-marker)) If you have a better definition,
     let me know. I’m already thinking about the second edition.
+  id: totrans-256
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([6](ch07.xhtml#idm45983630057256-marker)) 如果你有更好的定义，请告诉我。我已经在考虑第二版了。
 - en: ^([7](ch07.xhtml#idm45983630037192-marker)) I know I said the word “state” a
     bunch of times there. Writing is hard.
+  id: totrans-257
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([7](ch07.xhtml#idm45983630037192-marker)) 我知道我在那里说了“状态”这个词很多次。写作真的很难。
 - en: '^([8](ch07.xhtml#idm45983630036376-marker)) See also: idempotence.'
+  id: totrans-258
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([8](ch07.xhtml#idm45983630036376-marker)) 另见：幂等性。
 - en: ^([9](ch07.xhtml#idm45983629703592-marker)) However, if you’re interested in
     learning more about high-performance caching in Go, take a look at Manish Rai
     Jain’s excellent post on the subject, “The State of Caching in Go,” on the [*Dgraph
     Blog*](https://oreil.ly/N6lrh).
+  id: totrans-259
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([9](ch07.xhtml#idm45983629703592-marker)) 然而，如果你对在 Go 中实现高性能缓存感兴趣，请看 Manish
+    Rai Jain 在 [*Dgraph Blog*](https://oreil.ly/N6lrh) 上关于该主题的出色文章，“Go 缓存的现状”。
 - en: ^([10](ch07.xhtml#idm45983629686280-marker)) Gerrand, Andrew. “Share Memory
     By Communicating.” *The Go Blog*, 13 July 2010\. [*https://oreil.ly/GTURp*](https://oreil.ly/GTURp)
     Portions of this section are modifications based on work created and [shared by
     Google](https://oreil.ly/D8ntT) and used according to terms described in the [Creative
     Commons 4.0 Attribution License](https://oreil.ly/la3YW).
+  id: totrans-260
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([10](ch07.xhtml#idm45983629686280-marker)) Gerrand, Andrew. “通过通信共享内存。” *Go
+    博客*, 2010年7月13日。[*https://oreil.ly/GTURp*](https://oreil.ly/GTURp) 本节部分内容基于 Google
+    的作品进行了修改和 [分享](https://oreil.ly/D8ntT)，并根据 [Creative Commons 4.0 归属许可协议](https://oreil.ly/la3YW)
+    使用。
 - en: ^([11](ch07.xhtml#idm45983629130744-marker)) You could probably shoehorn channels
     into a solution for interacting with a cache, but you might find it difficult
     to make it simpler than locking.
+  id: totrans-261
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([11](ch07.xhtml#idm45983629130744-marker)) 你可能可以把通道硬塞到与缓存交互的解决方案中，但你可能会发现这比锁定更难以简化。
 - en: ^([12](ch07.xhtml#idm45983629004872-marker)) If you are, let me know!
+  id: totrans-262
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([12](ch07.xhtml#idm45983629004872-marker)) 如果你有兴趣，告诉我！
 - en: ^([13](ch07.xhtml#idm45983629003416-marker)) Dave Cheney wrote an excellent
     article on this topic called [*Why is a Goroutine’s stack infinite?*](https://oreil.ly/PUCLF)
     that I recommend you take a look at if you’re interested in the dynamics of goroutine
     memory allocation.
+  id: totrans-263
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([13](ch07.xhtml#idm45983629003416-marker)) Dave Cheney 写了一篇关于这个主题的优秀文章，题为
+    [*为什么 Goroutine 的堆栈是无限的？*](https://oreil.ly/PUCLF)，如果你对 Goroutine 内存分配的动态性感兴趣，我建议你去看看。
 - en: ^([14](ch07.xhtml#idm45983629000568-marker)) There’s a very good article by
     Vincent Blanchon on the subject of goroutine recycling entitled [*How Does Go
     Recycle Goroutines?*](https://oreil.ly/GnoV2)
+  id: totrans-264
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([14](ch07.xhtml#idm45983629000568-marker)) 有一篇由 Vincent Blanchon 撰写的关于 Goroutine
+    回收的很好的文章，题为 [*Go 如何回收 Goroutines?*](https://oreil.ly/GnoV2)。
 - en: ^([15](ch07.xhtml#idm45983628941816-marker)) Cheney, Dave. “Never Start a Goroutine
     without Knowing How It Will Stop.” dave.cheney.net, 22 Dec. 2016\. [*https://oreil.ly/VUlrY*](https://oreil.ly/VUlrY).
+  id: totrans-265
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([15](ch07.xhtml#idm45983628941816-marker)) Cheney, Dave. “不要在不知道如何停止的情况下启动
+    Goroutine。” dave.cheney.net, 2016年12月22日。[*https://oreil.ly/VUlrY*](https://oreil.ly/VUlrY)。
 - en: ^([16](ch07.xhtml#idm45983628664360-marker)) Not that they’ve gone away.
+  id: totrans-266
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([16](ch07.xhtml#idm45983628664360-marker)) 并不是它们已经消失了。
 - en: ^([17](ch07.xhtml#idm45983628631080-marker)) Yes, even Go.
+  id: totrans-267
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([17](ch07.xhtml#idm45983628631080-marker)) 是的，即使是在 Go 中也是如此。
 - en: ^([18](ch07.xhtml#idm45983628611016-marker)) Bowers, Daniel, et al. “Hype Cycle
     for Compute Infrastructure, 2019.” *Gartner*, Gartner Research, 26 July 2019,
     [*https://oreil.ly/3gkJh*](https://oreil.ly/3gkJh).
+  id: totrans-268
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([18](ch07.xhtml#idm45983628611016-marker)) Bowers, Daniel 等人。“2019 年计算基础设施技术成熟周期。”*Gartner*，Gartner
+    研究，2019 年 7 月 26 日，[*https://oreil.ly/3gkJh*](https://oreil.ly/3gkJh)。
 - en: ^([19](ch07.xhtml#idm45983628559272-marker)) It’s *right in the name!*
+  id: totrans-269
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([19](ch07.xhtml#idm45983628559272-marker)) 这可是名副其实的名字！
 - en: ^([20](ch07.xhtml#idm45983628542136-marker)) Sorry, there’s no such thing as
     NoOps.
+  id: totrans-270
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([20](ch07.xhtml#idm45983628542136-marker)) 对不起，不存在所谓的 NoOps。
