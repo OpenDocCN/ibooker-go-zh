@@ -1803,16 +1803,19 @@
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 使用 bufio.Scanner 回放文件事务日志
 - en: Even the best transaction log is useless if it’s never read.^([10](ch05.xhtml#idm45983633120568))
     But how do we do that?
   id: totrans-278
   prefs: []
   type: TYPE_NORMAL
+  zh: 即使是最好的事务日志如果从不被读取也是无用的。^([10](ch05.xhtml#idm45983633120568)) 但是我们该如何做呢？
 - en: You’ll need to read the log from the beginning and parse each line; `io.ReadString`
     and `fmt.Sscanf` let you do this with minimal fuss.
   id: totrans-279
   prefs: []
   type: TYPE_NORMAL
+  zh: 你需要从头开始阅读日志并解析每一行；`io.ReadString` 和 `fmt.Sscanf` 让你可以轻松做到这一点。
 - en: Channels, our dependable friends, will let your service stream the results to
     a consumer as it retrieves them. This might be starting to feel routine, but stop
     for a second to appreciate it. In most other languages the path of least resistance
@@ -1823,10 +1826,13 @@
   id: totrans-280
   prefs: []
   type: TYPE_NORMAL
+  zh: 通道，我们可靠的朋友，将允许您的服务将结果流式传输给消费者，同时检索它们。这可能开始感觉 routine，但停下来欣赏一下。在大多数其他语言中，这里最简单的方法是读取整个文件，将其存储在数组中，最后循环遍历该数组以重放事件。Go
+    的便利并发原语使得将数据流式传输给消费者变得几乎轻而易举，而且更节省空间和内存。
 - en: 'The `ReadEvents` method^([11](ch05.xhtml#idm45983633116792)) demonstrates this:'
   id: totrans-281
   prefs: []
   type: TYPE_NORMAL
+  zh: '`ReadEvents` 方法^([11](ch05.xhtml#idm45983633116792))演示了这一点：'
 - en: '[PRE42]'
   id: totrans-282
   prefs: []
@@ -1839,6 +1845,7 @@
   id: totrans-283
   prefs: []
   type: TYPE_NORMAL
+  zh: '`ReadEvents` 方法实际上可以说是两个功能合二为一：外部函数初始化文件读取器，并创建并返回事件和错误通道。内部函数并发运行，逐行摄取文件内容并将结果发送到通道。'
 - en: 'Interestingly, the `file` attribute of `TransactionLogger` is of type `*os.File`,
     which has a `Read` method that satisfies the `io.Reader` interface. `Read` is
     fairly low-level, but, if you wanted to, you could actually use it to retrieve
@@ -1849,18 +1856,24 @@
   id: totrans-284
   prefs: []
   type: TYPE_NORMAL
+  zh: 有趣的是，`TransactionLogger` 的 `file` 属性是 `*os.File` 类型，它具有满足 `io.Reader` 接口的 `Read`
+    方法。`Read` 是相当底层的，但是，如果你愿意，你实际上可以使用它来检索数据。然而，`bufio` 包给了我们一个更好的方法：`Scanner` 接口，它提供了一个方便的方式来读取以换行符分隔的文本行。我们可以通过将一个
+    `io.Reader`—在这种情况下是 `os.File`—传递给 `bufio.NewScanner` 来获得一个新的 `Scanner` 值。
 - en: Each call to the `scanner.Scan` method advances it to the next line, returning
     `false` if there aren’t any lines left. A subsequent call to `scanner.Text` returns
     the line.
   id: totrans-285
   prefs: []
   type: TYPE_NORMAL
+  zh: 每次调用 `scanner.Scan` 方法都会将其推进到下一行，如果没有更多行则返回 `false`。随后调用 `scanner.Text` 返回该行。
 - en: Note the `defer` statements in the inner anonymous goroutine. These ensure that
     the output channels are always closed. Because `defer` is scoped to the function
     they’re declared in, these get called at the end of the goroutine, not `ReadEvents`.
   id: totrans-286
   prefs: []
   type: TYPE_NORMAL
+  zh: 注意内部匿名 goroutine 中的 `defer` 语句。这些语句确保输出通道始终关闭。因为 `defer` 的作用域是它们声明的函数，所以它们在
+    goroutine 结束时被调用，而不是在 `ReadEvents` 中。
 - en: 'You may recall from [“Formatting I/O in Go”](ch03.xhtml#sidebar_ch03_printf)
     that the `fmt.Sscanf` function provides a simple (but sometimes simplistic) means
     of parsing simple strings. Like the other methods in the `fmt` package, the expected
@@ -1871,11 +1884,15 @@
   id: totrans-287
   prefs: []
   type: TYPE_NORMAL
+  zh: 您可能还记得[“在 Go 中进行 I/O 格式化”](ch03.xhtml#sidebar_ch03_printf)中提到的 `fmt.Sscanf`
+    函数提供了一种简单（但有时过于简单）的解析简单字符串的方法。与 `fmt` 包中的其他方法一样，预期的格式是使用包含各种“动词”的格式字符串指定的：两个数字（`%d`）和两个字符串（`%s`），由制表符（`\t`）分隔。方便的是，`fmt.Sscanf`
+    允许您传递指向每个动词目标值的指针，它可以直接更新。^([12](ch05.xhtml#idm45983632869720))
 - en: Tip
   id: totrans-288
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 提示
 - en: Go’s format strings have a long history dating back to C’s `printf` and `scanf`,
     but they’ve been adopted by many other languages over the years, including C++,
     Java, Perl, PHP, Ruby, and Scala. You may already be familiar with them, but if
