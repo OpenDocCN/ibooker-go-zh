@@ -1,65 +1,94 @@
 - en: Chapter 4\. Cloud Native Patterns
+  id: totrans-0
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 第4章 云原生模式
 - en: Progress is possible only if we train ourselves to think about programs without
     thinking of them as pieces of executable code.^([1](ch04.xhtml#idm45983640248920))
+  id: totrans-1
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: 只有当我们训练自己去思考程序时不将其视为可执行代码的一部分时，进展才有可能。^([1](ch04.xhtml#idm45983640248920))
 - en: ''
+  id: totrans-2
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: Edsger W. Dijkstra, August 1979
+  id: totrans-3
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: Edsger W. Dijkstra，1979年8月
 - en: 'In 1991, while still at Sun Microsystems, L Peter Deutsch^([2](ch04.xhtml#idm45983640246616))
     formulated the *Fallacies of Distributed Computing*, which lists some of the false
     assumptions that programmers new (and not so new) to distributed applications
     often make:'
+  id: totrans-4
   prefs: []
   type: TYPE_NORMAL
+  zh: 1991年，当时还在Sun Microsystems工作的L·Peter·Deutsch^([2](ch04.xhtml#idm45983640246616))提出了*分布式计算的谬误*，列出了程序员在处理分布式应用程序时常常犯的一些错误假设：
 - en: '*The network is reliable*: switches fail, routers get misconfigured'
+  id: totrans-5
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '*网络是可靠的*：交换机会出故障，路由器会配置错误'
 - en: '*Latency is zero*: it takes time to move data across a network'
+  id: totrans-6
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '*延迟是零*：在网络中传输数据需要时间'
 - en: '*Bandwidth is infinite*: a network can only handle so much data at a time'
+  id: totrans-7
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '*带宽是无限的*：网络一次只能处理那么多数据'
 - en: '*The network is secure*: don’t share secrets in plain text; encrypt everything'
+  id: totrans-8
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '*网络是安全的*：不要以明文方式共享秘密；一切都要加密'
 - en: '*Topology doesn’t change*: servers and services come and go'
+  id: totrans-9
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '*拓扑不会改变*：服务器和服务会来来去去'
 - en: '*There is one administrator*: multiple admins lead to heterogeneous solutions'
+  id: totrans-10
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '*只有一个管理员*：多个管理员会导致异构解决方案'
 - en: '*Transport cost is zero*: moving data around costs time and money'
+  id: totrans-11
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '*传输成本为零*：数据传输需要时间和金钱'
 - en: '*The network is homogeneous*: every network is (sometimes very) different'
+  id: totrans-12
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '*网络是同构的*：每个网络都（有时非常）不同'
 - en: 'If I might be so audacious, I’d like to add a ninth one as well:'
+  id: totrans-13
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果我可以如此大胆，我还想再增加第九个：
 - en: '*Services are reliable*: services that you depend on can fail at any time'
+  id: totrans-14
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '*服务是可靠的*：您依赖的服务随时可能会失败'
 - en: In this chapter, I’ll present a selection of idiomatic patterns—tested, proven
     development paradigms—designed to address one or more of the conditions described
     in Deutsch’s Fallacies, and demonstrate how to implement them in Go. None of the
@@ -67,8 +96,10 @@
     for as long as distributed applications have existed—but most haven’t been previously
     published together in a single work. Many of them are unique to Go or have novel
     implementations in Go relative to other languages.
+  id: totrans-15
   prefs: []
   type: TYPE_NORMAL
+  zh: 在本章中，我将介绍一些习惯用法模式——经过测试、证明的开发范式——旨在解决Deutsch所述条件中的一个或多个，并展示如何在Go语言中实现它们。本书讨论的模式都不是本书独创的——一些模式存在已久，就像分布式应用程序的存在一样——但大多数模式在此前未曾集中发表。其中许多模式是Go语言独有的，或者相对于其他语言具有新颖的实现。
 - en: Unfortunately, this book won’t cover infrastructure-level patterns like the
     [Bulkhead](https://oreil.ly/0hxmU) or [Gatekeeper](https://oreil.ly/0v5Jc) patterns.
     Largely, this is because our focus is on application-layer development in Go,
@@ -76,275 +107,405 @@
     level. If you’re interested in learning more, I recommend *Cloud Native Infrastructure*
     by Justin Garrison and Kris Nova (O’Reilly) and *Designing Distributed Systems*
     by Brendan Burns (O’Reilly).
+  id: totrans-16
   prefs: []
   type: TYPE_NORMAL
+  zh: 不幸的是，本书不涵盖像[舱壁](https://oreil.ly/0hxmU)或[守门员](https://oreil.ly/0v5Jc)等基础架构级别的模式。主要是因为我们专注于Go语言中的应用层开发，而这些模式尽管不可或缺，但其功能位于完全不同的抽象级别。如果您有兴趣了解更多信息，我推荐Justin
+    Garrison和Kris Nova（O’Reilly）的*Cloud Native Infrastructure*以及Brendan Burns（O’Reilly）的*Designing
+    Distributed Systems*。
 - en: The Context Package
+  id: totrans-17
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 上下文包
 - en: 'Most of the code examples in this chapter make use of the `context` package,
     which was introduced in Go 1.7 to provide an idiomatic means of carrying deadlines,
     cancellation signals, and request-scoped values between processes. It contains
     a single interface, `context.Context`, whose methods are listed in the following:'
+  id: totrans-18
   prefs: []
   type: TYPE_NORMAL
+  zh: 本章大多数代码示例使用了`context`包，该包在Go 1.7中引入，提供了一种习惯用法，用于在进程间传递截止时间、取消信号和请求范围的值。它包含一个接口`context.Context`，其方法列在以下内容中：
 - en: '[PRE0]'
+  id: totrans-19
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE0]'
 - en: Three of these methods can be used to learn something about a `Context` value’s
     cancellation status or behavior. The fourth, `Value`, can be used to retrieve
     a value associated with an arbitrary key. `Context`’s `Value` method is the focus
     of some controversy in the Go world, and will be discussed more in [“Defining
     Request-Scoped Values”](#section_ch04_context_request_scoped_values).
+  id: totrans-20
   prefs: []
   type: TYPE_NORMAL
+  zh: 这些方法中有三种可以用来了解`Context`值的取消状态或行为。第四种`Value`可以用来检索与任意键关联的值。在Go世界中，`Context`的`Value`方法是一些争议的焦点，将在[“定义请求范围的值”](#section_ch04_context_request_scoped_values)中进一步讨论。
 - en: What Context Can Do for You
+  id: totrans-21
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 上下文能为你做什么
 - en: A `context.Context` value is used by passing it directly to a service request,
     which may in turn pass it to one or more subrequests. What makes this useful is
     that when the `Context` is cancelled, all functions holding it (or a derived `Context`;
     more on this in Figures [4-1](#img_ch04_context1), [4-2](#img_ch04_context2),
     and [4-3](#img_ch04_context3)) will receive the signal, allowing them to coordinate
     their cancellation and reduce the amount of wasted effort.
+  id: totrans-22
   prefs: []
   type: TYPE_NORMAL
+  zh: '`context.Context`值通过直接将其传递给服务请求使用，可能进一步将其传递给一个或多个子请求。其有用之处在于，当`Context`被取消时，所有持有它（或派生`Context`；关于此更多内容请参见图 [4-1](#img_ch04_context1)、[4-2](#img_ch04_context2)和[4-3](#img_ch04_context3)）的函数都会收到信号，允许它们协调取消并减少浪费的工作量。'
 - en: Take, for example, a request from a user to a service, which in turn makes a
     request to a database. In an ideal scenario, the user, application, and database
     requests can be diagrammed as in [Figure 4-1](#img_ch04_context1).
+  id: totrans-23
   prefs: []
   type: TYPE_NORMAL
+  zh: 例如，用户向服务发出请求，后者再向数据库发出请求。在理想情况下，用户、应用程序和数据库请求可以像[图 4-1](#img_ch04_context1)中所示的那样进行图示化。
 - en: '![cngo 0401](Images/cngo_0401.png)'
+  id: totrans-24
   prefs: []
   type: TYPE_IMG
+  zh: '![cngo 0401](Images/cngo_0401.png)'
 - en: Figure 4-1\. A successful request from a user, to a service, to a database
+  id: totrans-25
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 4-1\. 用户成功请求，服务到数据库
 - en: But what if the user terminates their request before it’s fully completed? In
     most cases, oblivious to the overall context of the request, the processes will
     continue to live on anyway ([Figure 4-2](#img_ch04_context2)), consuming resources
     in order to provide a result that’ll never be used.
+  id: totrans-26
   prefs: []
   type: TYPE_NORMAL
+  zh: 但如果用户在请求完全完成之前终止请求怎么办？在大多数情况下，无视请求的整体上下文，进程将继续运行（[图 4-2](#img_ch04_context2)），消耗资源以提供永远不会使用的结果。
 - en: '![cngo 0402](Images/cngo_0402.png)'
+  id: totrans-27
   prefs: []
   type: TYPE_IMG
+  zh: '![cngo 0402](Images/cngo_0402.png)'
 - en: Figure 4-2\. Subprocesses, unaware of a cancelled user request, will continue
     anyway
+  id: totrans-28
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 4-2\. 子进程不知道被取消的用户请求，仍将继续运行
 - en: However, by sharing a `Context` to each subsequent request, all long-running
     processes can be sent a simultaneous “done” signal, allowing the cancellation
     signal to be coordinated among each of the processes ([Figure 4-3](#img_ch04_context3)).
+  id: totrans-29
   prefs: []
   type: TYPE_NORMAL
+  zh: 然而，通过向每个后续请求共享`Context`，所有长时间运行的进程都可以收到同时发送的“完成”信号，允许取消信号在每个进程之间协调（[图 4-3](#img_ch04_context3)）。
 - en: '![cngo 0403](Images/cngo_0403.png)'
+  id: totrans-30
   prefs: []
   type: TYPE_IMG
+  zh: '![cngo 0403](Images/cngo_0403.png)'
 - en: Figure 4-3\. By sharing context, cancellation signals can be coordinated among
     processes
+  id: totrans-31
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 4-3\. 通过共享上下文，可以在进程之间协调取消信号。
 - en: Importantly, `Context` values are also thread safe, i.e., they can be safely
     used by multiple concurrently executing goroutines without fear of unexpected
     behaviors.
+  id: totrans-32
   prefs: []
   type: TYPE_NORMAL
+  zh: 重要的是，`Context`值也是线程安全的，即它们可以安全地被多个并发执行的goroutine使用，而不必担心意外行为。
 - en: Creating Context
+  id: totrans-33
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 创建上下文
 - en: 'A brand-new `context.Context` can be obtained using one of two functions:'
+  id: totrans-34
   prefs: []
   type: TYPE_NORMAL
+  zh: 可以使用两个函数之一获得全新的`context.Context`：
 - en: '`func Background() Context`'
+  id: totrans-35
   prefs: []
   type: TYPE_NORMAL
+  zh: '`func Background() Context`'
 - en: Returns an empty `Context` that’s never cancelled, has no values, and has no
     deadline. It is typically used by the main function, initialization, and tests,
     and as the top-level `Context` for incoming requests.
+  id: totrans-36
   prefs: []
   type: TYPE_NORMAL
+  zh: 返回一个从未被取消、没有值和没有截止时间的空`Context`。它通常由主函数、初始化和测试使用，并作为传入请求的顶层`Context`。
 - en: '`func TODO() Context`'
+  id: totrans-37
   prefs: []
   type: TYPE_NORMAL
+  zh: '`func TODO() Context`'
 - en: Also provides an empty `Context`, but it’s intended to be used as a placeholder
     when it’s unclear which `Context` to use or when a parent `Context` is not yet
     available.
+  id: totrans-38
   prefs: []
   type: TYPE_NORMAL
+  zh: 同样提供一个空的`Context`，但它旨在用作未确定使用哪个`Context`或父`Context`尚不可用时的占位符。
 - en: Defining Context Deadlines and Timeouts
+  id: totrans-39
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 定义上下文的截止时间和超时
 - en: The `context` package also includes a number of methods for creating *derived*
     `Context` values that allow you to direct cancellation behavior, either by applying
     a timeout or by a function hook that can explicitly trigger a cancellation.
+  id: totrans-40
   prefs: []
   type: TYPE_NORMAL
+  zh: '`context`包还包括一些方法，用于创建*派生*`Context`值，允许您通过应用超时或显式触发取消的函数钩子来控制取消行为。'
 - en: '`func WithDeadline(Context, time.Time) (Context, CancelFunc)`'
+  id: totrans-41
   prefs: []
   type: TYPE_NORMAL
+  zh: '`func WithDeadline(Context, time.Time) (Context, CancelFunc)`'
 - en: Accepts a specific time at which the `Context` will be cancelled and the `Done`
     channel will be closed.
+  id: totrans-42
   prefs: []
   type: TYPE_NORMAL
+  zh: 接受特定时间，在此时间`Context`将被取消并且`Done`通道将被关闭。
 - en: '`func WithTimeout(Context, time.Duration) (Context, CancelFunc)`'
+  id: totrans-43
   prefs: []
   type: TYPE_NORMAL
+  zh: '`func WithTimeout(Context, time.Duration) (Context, CancelFunc)`'
 - en: Accepts a duration after which the `Context` will be cancelled and the `Done`
     channel will be closed.
+  id: totrans-44
   prefs: []
   type: TYPE_NORMAL
+  zh: 接受一个持续时间，在此之后`Context`将被取消并且`Done`通道将被关闭。
 - en: '`func WithCancel(Context) (Context, CancelFunc)`'
+  id: totrans-45
   prefs: []
   type: TYPE_NORMAL
+  zh: '`func WithCancel(Context) (Context, CancelFunc)`'
 - en: Unlike the previous functions, `WithCancel` accepts nothing, and only returns
     a function that can be called to explicitly cancel the `Context`.
+  id: totrans-46
   prefs: []
   type: TYPE_NORMAL
+  zh: 与之前的函数不同，`WithCancel` 不接受任何参数，只返回一个可调用的函数，用于显式取消 `Context`。
 - en: All three of these functions return a derived `Context` that includes any requested
     decoration, and a `context.CancelFunc`, a zero-parameter function that can be
     called to explicitly cancel the `Context` and all of its derived values.
+  id: totrans-47
   prefs: []
   type: TYPE_NORMAL
+  zh: 这三个函数都返回一个包含任何请求的修饰的派生 `Context`，以及一个 `context.CancelFunc`，一个零参数函数，可用于显式取消 `Context`
+    及其所有派生值。
 - en: Tip
+  id: totrans-48
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 提示
 - en: When a `Context` is cancelled, all `Context`s that are *derived from it* are
     also cancelled. `Context`s that *it was derived from* are not.
+  id: totrans-49
   prefs: []
   type: TYPE_NORMAL
+  zh: 当一个 `Context` 被取消时，所有*派生自它的* `Context` 也会被取消。*它派生自的* `Context` 不会被取消。
 - en: Defining Request-Scoped Values
+  id: totrans-50
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 定义请求范围的值
 - en: Finally, the `context` package includes a function that can be used to define
     an arbitrary *request-scoped* key-value pair that can be accessed from the returned
     `Context`—and all `Context` values derived from it—via the `Value` method.
+  id: totrans-51
   prefs: []
   type: TYPE_NORMAL
+  zh: 最后，`context` 包包括一个函数，可用于定义一个可以从返回的 `Context`—以及所有派生自它的 `Context`—中访问的任意*请求范围*键值对的函数。
 - en: '`func WithValue(parent Context, key, val interface{}) Context`'
+  id: totrans-52
   prefs: []
   type: TYPE_NORMAL
+  zh: '`func WithValue(parent Context, key, val interface{}) Context`'
 - en: '`WithValue` returns a derivation of `parent` in which `key` is associated with
     the value `val`.'
+  id: totrans-53
   prefs: []
   type: TYPE_NORMAL
+  zh: '`WithValue` 返回一个派生自 `parent` 的 `Context`，其中 `key` 与值 `val` 关联。'
 - en: Using a Context
+  id: totrans-54
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 使用一个 Context
 - en: When a service request is initiated, either by an incoming request or triggered
     by the `main` function, the top-level process will use the `Background` function
     to create a new `Context` value, possibly decorating it with one or more of the
     `context.With*` functions, before passing it along to any subrequests. Those subrequests
     then need only watch the `Done` channel for cancellation signals.
+  id: totrans-55
   prefs: []
   type: TYPE_NORMAL
+  zh: 当一个服务请求被发起时，无论是由传入请求还是由 `main` 函数触发，顶层进程将使用 `Background` 函数创建一个新的 `Context`
+    值，可能使用一个或多个 `context.With*` 函数对其进行修饰，然后将其传递给任何子请求。然后这些子请求只需要监视 `Done` 通道以获取取消信号。
 - en: 'For example, take a look at the following `Stream` function:'
+  id: totrans-56
   prefs: []
   type: TYPE_NORMAL
+  zh: 例如，看一下以下的 `Stream` 函数：
 - en: '[PRE1]'
+  id: totrans-57
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE1]'
 - en: '`Stream` receives a `ctx Context` as an input parameter, which it sends to
     `WithTimeout` to create `dctx`, a derived `Context` with a 10-second timeout.
     Because of this decoration, the `SlowOperation(dctx)` call could possibly time
     out after ten seconds and return an error. Functions using the original `ctx`,
     however, will not have this timeout decoration, and will not time out.'
+  id: totrans-58
   prefs: []
   type: TYPE_NORMAL
+  zh: '`Stream` 接收一个 `ctx Context` 作为输入参数，它将其发送到 `WithTimeout` 来创建 `dctx`，一个带有 10
+    秒超时的派生 `Context`。由于这个修饰，`SlowOperation(dctx)` 调用可能在十秒后超时并返回错误。然而，使用原始 `ctx` 的函数不会有这个超时修饰，也不会超时。'
 - en: Further down, the original `ctx` value is used in a `for` loop around a `select`
     statement to retrieve values from the `res` channel provided by the `SlowOperation`
     function. Note the `case <-ctx.Done()` statement, which is executed when the `ctx.Done`
     channel closes to return an appropriate error value.
+  id: totrans-59
   prefs: []
   type: TYPE_NORMAL
+  zh: 更进一步，原始的 `ctx` 值在围绕 `select` 语句的 `for` 循环中被用于从 `SlowOperation` 函数提供的 `res` 通道中检索值。请注意
+    `case <-ctx.Done()` 语句，在 `ctx.Done` 通道关闭时执行以返回适当的错误值。
 - en: Layout of this Chapter
+  id: totrans-60
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 本章布局
 - en: 'The general presentation of each pattern in this chapter is loosely based on
     the one used in the famous “Gang of Four” *Design Patterns* book,^([3](ch04.xhtml#idm45983639950216))
     but simpler and less formal. Each pattern opens with a very brief description
     of its purpose and the reasons for using it, and is followed by the following
     sections:'
+  id: totrans-61
   prefs: []
   type: TYPE_NORMAL
+  zh: 本章中每个模式的一般展示松散地基于著名的“四人帮”*设计模式*书中使用的展示方式，但更简单和不那么正式。每个模式以其目的的非常简要描述开头，以及使用它的原因，然后跟着以下部分：
 - en: Applicability
+  id: totrans-62
   prefs: []
   type: TYPE_NORMAL
+  zh: 适用性
 - en: Context and descriptions of where this pattern may be applied.
+  id: totrans-63
   prefs: []
   type: TYPE_NORMAL
+  zh: Context 和描述此模式可能适用的地方。
 - en: Participants
+  id: totrans-64
   prefs: []
   type: TYPE_NORMAL
+  zh: 参与者
 - en: A listing of the components of the pattern and their roles.
+  id: totrans-65
   prefs: []
   type: TYPE_NORMAL
+  zh: 该模式的组件列表及其角色。
 - en: Implementation
+  id: totrans-66
   prefs: []
   type: TYPE_NORMAL
+  zh: 实现
 - en: A discussion of the solution and its implementation.
+  id: totrans-67
   prefs: []
   type: TYPE_NORMAL
+  zh: 解决方案及其实现的讨论。
 - en: Sample code
+  id: totrans-68
   prefs: []
   type: TYPE_NORMAL
+  zh: 示例代码
 - en: A demonstration of how the code may be implemented in Go.
+  id: totrans-69
   prefs: []
   type: TYPE_NORMAL
+  zh: 代码如何在 Go 中实现的演示。
 - en: Stability Patterns
+  id: totrans-70
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 稳定性模式
 - en: The stability patterns presented here address one or more of the assumptions
     called out by the Fallacies of Distributed Computing. They’re generally intended
     to be applied by distributed applications to improve their own stability and the
     stability of the larger system they’re a part of.
+  id: totrans-71
   prefs: []
   type: TYPE_NORMAL
+  zh: 这里介绍的稳定性模式解决了分布式计算的谬误中所指出的一个或多个假设。它们通常旨在由分布式应用程序应用，以提高它们自身以及所属的更大系统的稳定性。
 - en: Circuit Breaker
+  id: totrans-72
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 电路断路器
 - en: Circuit Breaker automatically degrades service functions in response to a likely
     fault, preventing larger or cascading failures by eliminating recurring errors
     and providing reasonable error responses.
+  id: totrans-73
   prefs: []
   type: TYPE_NORMAL
+  zh: 电路断路器自动在可能的故障响应中降低服务功能，通过消除重复错误并提供合理的错误响应，防止更大或级联故障的发生。
 - en: Applicability
+  id: totrans-74
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 适用性
 - en: If the *Fallacies of Distributed Computing* were to be distilled to one point,
     it would be that errors and failures are an undeniable fact of life for distributed,
     cloud native systems. Services become misconfigured, databases crash, networks
     partition. We can’t prevent it; we can only accept and account for it.
+  id: totrans-75
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果将*分布式计算的谬误*概括为一个要点，那就是对于分布式、云原生系统来说，错误和故障是无法否认的生活事实。服务可能配置错误，数据库可能崩溃，网络可能分区。我们无法阻止它；我们只能接受并考虑它。
 - en: Failing to do so can have some rather unpleasant consequences. We’ve all seen
     them, and they aren’t pretty. Some services might keep futilely trying to do their
     job and returning nonsense to their client; others might fail catastrophically
     and maybe even fall into a crash/restart death spiral. It doesn’t matter, because
     in the end they’re all wasting resources, obscuring the source of original failure,
     and making cascading failures even more likely.
+  id: totrans-76
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果不这样做，可能会造成一些相当不愉快的后果。我们都见过它们，它们并不美观。有些服务可能会继续徒劳地尝试执行它们的工作，并向客户端返回无意义的数据；其他服务可能会发生灾难性失败，甚至可能陷入崩溃/重新启动的恶性循环中。这并不重要，因为最终它们都在浪费资源，掩盖了原始故障的来源，并使级联故障更有可能发生。
 - en: On the other hand, a service that’s designed with the assumption that its dependencies
     can fail at any time can respond reasonably when they do. The Circuit Breaker
     allows a service to detect such failures and to “open the circuit” by temporarily
     ceasing to execute requests, instead providing clients with an error message consistent
     with the service’s communication contract.
+  id: totrans-77
   prefs: []
   type: TYPE_NORMAL
+  zh: 另一方面，一个服务假设其依赖项随时可能失败，当它们失败时可以合理地做出响应。电路断路器允许服务检测到这些故障，并通过暂时停止执行请求来“打开电路”，而不是提供符合服务通信契约的错误消息给客户端。
 - en: For example, imagine a service that (ideally) receives a request from a client,
     executes a database query, and returns a response. What if the database fails?
     The service might continue futilely trying to query it anyway, flooding the logs
@@ -353,122 +514,172 @@
     preventing the service from making any more doomed database requests (at least
     for a while), and allowing it to respond to the client immediately with a meaningful
     notification.
+  id: totrans-78
   prefs: []
   type: TYPE_NORMAL
+  zh: 例如，想象一个服务（理想情况下）从客户端接收请求，执行数据库查询并返回响应。如果数据库失败了怎么办？该服务可能会继续徒劳地尝试查询，向日志中发送错误消息，最终超时或返回无用的错误。这样的服务可以使用电路断路器在数据库失败时“打开电路”，防止服务继续进行注定失败的数据库请求（至少一段时间内），并立即向客户端提供有意义的通知。
 - en: Participants
+  id: totrans-79
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 参与者
 - en: 'This pattern includes the following participants:'
+  id: totrans-80
   prefs: []
   type: TYPE_NORMAL
+  zh: 此模式包括以下参与者：
 - en: Circuit
+  id: totrans-81
   prefs: []
   type: TYPE_NORMAL
+  zh: 电路
 - en: The function that interacts with the service.
+  id: totrans-82
   prefs: []
   type: TYPE_NORMAL
+  zh: 与服务交互的函数。
 - en: Breaker
+  id: totrans-83
   prefs: []
   type: TYPE_NORMAL
+  zh: 断路器
 - en: A closure with the same function signature as *Circuit*.
+  id: totrans-84
   prefs: []
   type: TYPE_NORMAL
+  zh: 一个与*Circuit*相同函数签名的闭包。
 - en: Implementation
+  id: totrans-85
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 实施
 - en: Essentially, the Circuit Breaker is just a specialized [Adapter](https://oreil.ly/bEeru)
     pattern, with `Breaker` wrapping `Circuit` to add some additional error handling
     logic.
+  id: totrans-86
   prefs: []
   type: TYPE_NORMAL
+  zh: 本质上，电路断路器只是一种专门的[适配器](https://oreil.ly/bEeru)模式，`Breaker`包装`Circuit`以添加一些额外的错误处理逻辑。
 - en: 'Like the electrical switch from which this pattern derives its name, `Breaker`
     has two possible states: *closed* and *open*. In the closed state everything is
     functioning normally. All requests received from the client by `Breaker` are forwarded
     unchanged to `Circuit`, and all responses from `Circuit` are forwarded back to
     the client. In the open state, `Breaker` doesn’t forward requests to `Circuit`.
     Instead it “fails fast” by responding with an informative error message.'
+  id: totrans-87
   prefs: []
   type: TYPE_NORMAL
+  zh: 就像此模式的命名来源——电气开关一样，`Breaker`有两种可能的状态：*closed*（关闭）和*open*（打开）。在关闭状态下，一切正常运行。`Breaker`从客户端接收的所有请求都原样转发到`Circuit`，并且将`Circuit`返回的所有响应再转发回客户端。在打开状态下，`Breaker`不会将请求转发到`Circuit`，而是通过响应详细的错误消息实现“快速失败”。
 - en: '`Breaker` internally tracks the errors returned by `Circuit`; if the number
     of consecutive errors returned by `Circuit` returns exceeds a defined threshold,
     `Breaker` *trips* and its state switches to *open*.'
+  id: totrans-88
   prefs: []
   type: TYPE_NORMAL
+  zh: '`Breaker`在内部跟踪`Circuit`返回的错误；如果`Circuit`返回的连续错误数超过定义的阈值，`Breaker`将*触发*并且其状态切换为*open*。'
 - en: 'Most implementations of Circuit Breaker include some logic to automatically
     close the circuit after some period of time. Keep in mind, though, that hammering
     an already malfunctioning service with lots of retries can cause its own problems,
     so it’s standard to include some kind of *backoff*, logic that reduces the rate
     of retries over time. The subject of backoff is actually fairly nuanced, but it
     will be covered in detail in in [“Play It Again: Retrying Requests”](ch09.xhtml#section_ch09_retries).'
+  id: totrans-89
   prefs: []
   type: TYPE_NORMAL
+  zh: 大多数Circuit Breaker的实现都包括一些逻辑，以在一段时间后自动关闭电路。但请记住，向已经发生故障的服务大量重试可能会导致其自身的问题，因此通常会包含某种退避逻辑，即随时间减少重试率的逻辑。退避的主题实际上非常微妙，但将在[《再试请求》](ch09.xhtml#section_ch09_retries)中详细讨论。
 - en: In a multinode service, this implementation may be extended to include some
     shared storage mechanism, such as a Memcached or Redis network cache, to track
     the circuit state.
+  id: totrans-90
   prefs: []
   type: TYPE_NORMAL
+  zh: 在多节点服务中，此实现可以扩展为包括一些共享存储机制，例如Memcached或Redis网络缓存，以跟踪电路状态。
 - en: Sample code
+  id: totrans-91
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 示例代码
 - en: 'We begin by creating a `Circuit` type that specifies the signature of the function
     that’s interacting with your database or other upstream service. In practice,
     this can take whatever form is appropriate for your functionality. It should include
     an `error` in its return list, however:'
+  id: totrans-92
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们首先创建一个`Circuit`类型，该类型指定了与数据库或其他上游服务交互的函数签名。在实践中，这可以采用适合功能的任何形式。然而，它的返回列表中应包含一个`error`：
 - en: '[PRE2]'
+  id: totrans-93
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE2]'
 - en: In this example, `Circuit` is a function that accepts a `Context` value, which
     was described in depth in [“The Context Package”](#section_ch04_context). Your
     implementation may vary.
+  id: totrans-94
   prefs: []
   type: TYPE_NORMAL
+  zh: 在本例中，`Circuit`是一个接受`Context`值的函数，详细说明见[《上下文包》](#section_ch04_context)。您的实现可能会有所不同。
 - en: 'The `Breaker` function accepts any function that conforms to the `Circuit`
     type definition, and an unsigned integer representing the number of consecutive
     failures allowed before the circuit automatically opens. In return it provides
     another function, which also conforms to the `Circuit` type definition:'
+  id: totrans-95
   prefs: []
   type: TYPE_NORMAL
+  zh: '`Breaker`函数接受符合`Circuit`类型定义的任何函数，以及一个无符号整数，表示电路自动打开之前允许的连续故障次数。作为返回，它提供另一个符合`Circuit`类型定义的函数：'
 - en: '[PRE3]'
+  id: totrans-96
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE3]'
 - en: 'The `Breaker` function constructs another function, also of type `Circuit`,
     which wraps `circuit` to provide the desired functionality. You may recognize
     this from [“Anonymous Functions and Closures”](ch03.xhtml#section_ch03_anonymous_functions_and_closures)
     as a closure: a nested function with access to the variables of its parent function.
     As you will see, all of the “stability” functions implemented for this chapter
     work this way.'
+  id: totrans-97
   prefs: []
   type: TYPE_NORMAL
+  zh: '`Breaker`函数构造另一个函数，也是类型为`Circuit`的函数，它包装`circuit`以提供所需的功能。您可能会从[《匿名函数和闭包》](ch03.xhtml#section_ch03_anonymous_functions_and_closures)中认出这种形式：闭包是一个嵌套函数，可以访问其父函数的变量。正如您将看到的，本章实现的所有“稳定性”函数都是这样工作的。'
 - en: The closure works by counting the number of consecutive errors returned by `circuit`.
     If that value meets the failure threshold, then it returns the error “service
     unreachable” without actually calling `circuit`. Any successful calls to `circuit`
     cause `consecutiveFailures` to reset to 0, and the cycle begins again.
+  id: totrans-98
   prefs: []
   type: TYPE_NORMAL
+  zh: 闭包通过计算`circuit`返回的连续错误数来工作。如果该值达到故障阈值，则在不实际调用`circuit`的情况下返回错误“服务不可达”。对`circuit`的任何成功调用都会导致`consecutiveFailures`重置为0，然后重新开始。
 - en: The closure even includes an automatic reset mechanism that allows requests
     to call `circuit` again after several seconds, with an *exponential backoff* in
     which the durations of the delays between retries roughly doubles with each attempt.
     Though simple and quite common, this actually isn’t the ideal backoff algorithm.
     We’ll review exactly why in [“Backoff Algorithms”](ch09.xhtml#section_ch09_backoff_algorithms).
+  id: totrans-99
   prefs: []
   type: TYPE_NORMAL
+  zh: 该闭包甚至包括一个自动重置机制，允许请求在数秒后再次调用`circuit`，并采用*指数退避*，即重试之间的延迟持续大致翻倍。尽管简单且相当普遍，实际上这并不是理想的退避算法。我们将在[“退避算法”](ch09.xhtml#section_ch09_backoff_algorithms)中详细讨论其原因。
 - en: Debounce
+  id: totrans-100
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: Debounce
 - en: Debounce limits the frequency of a function invocation so that only the first
     or last in a cluster of calls is actually performed.
+  id: totrans-101
   prefs: []
   type: TYPE_NORMAL
+  zh: Debounce限制函数调用的频率，以便只有调用集群中的第一个或最后一个实际执行。
 - en: Applicability
+  id: totrans-102
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 适用性
 - en: Debounce is the second of our patterns to be labeled with an electrical circuit
     theme. Specifically, it’s named after a phenomenon in which a switch’s contacts
     “bounce” when they’re opened or closed, causing the circuit to fluctuate a bit
@@ -476,14 +687,18 @@
     be a real problem in logic circuits where a series of on/off pulses can be interpreted
     as a data stream. The practice of eliminating contact bounce so that only one
     signal is transmitted by an opening or closing contact is called “debouncing.”
+  id: totrans-103
   prefs: []
   type: TYPE_NORMAL
+  zh: Debounce是我们第二个以电气电路主题命名的模式。具体来说，它是根据一种现象命名的，即开关在打开或关闭时其触点会“弹跳”，导致电路在稳定之前会有些波动。这通常不是什么大问题，但这种“接触弹跳”在逻辑电路中可能会成为一个真正的问题，因为一系列开/关脉冲可能被解释为数据流。消除接触弹跳的做法是只传输开放或关闭接触的一个信号，称为“去弹跳”。
 - en: In the world of services, we sometimes find ourselves performing a cluster of
     potentially slow or costly operations where only one would do. Using the Debounce
     pattern, a series of similar calls that are tightly clustered in time are restricted
     to only one call, typically the first or last in a batch.
+  id: totrans-104
   prefs: []
   type: TYPE_NORMAL
+  zh: 在服务的世界中，我们有时会执行一系列可能缓慢或昂贵的操作，而只需执行一个即可。使用Debounce模式，紧密聚集在时间上的一系列相似调用被限制为只有一个调用，通常是批处理中的第一个或最后一个。
 - en: This technique has been used in the JavaScript world for years to limit the
     number of operations that could slow the browser by taking only the first in a
     series of user events or to delay a call until a user is ready. You’ve probably
@@ -491,45 +706,65 @@
     the experience of using a search bar whose autocomplete pop-up doesn’t display
     until after you pause typing, or spam-clicking a button only to see the clicks
     after the first ignored.
+  id: totrans-105
   prefs: []
   type: TYPE_NORMAL
+  zh: 多年来，这种技术一直在JavaScript世界中使用，以限制可能减慢浏览器速度的操作，只接受一系列用户事件中的第一个或者延迟调用，直到用户准备好。您可能以前就见过这种技术的应用。我们都熟悉使用搜索栏时的体验，只有在您暂停输入后才显示自动完成弹出窗口，或者连续点击按钮后只有第一个点击被响应的情况。
 - en: Those of us who specialize in backend services can learn a lot from our frontend
     brethren, who have been working for years to account for the reliability, latency,
     and bandwidth issues inherent to distributed systems. For example, this approach
     could be used to retrieve some slowly updating remote resource without bogging
     down, wasting both client and server time with wasteful requests.
+  id: totrans-106
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们这些专注于后端服务的人可以从多年来一直致力于解决分布式系统中可靠性、延迟和带宽问题的前端同事那里学到很多。例如，这种方法可以用于检索一些更新缓慢的远程资源，而不会陷入浪费客户端和服务器时间的情况。
 - en: This pattern is similar to [“Throttle”](#section_ch04_throttle), in that it
     limits how often a function can be called. But where Debounce restricts clusters
     of invocations, Throttle simply limits according to time period. For more on the
     difference between the Debounce and Throttle patterns, see [“What’s the Difference
     Between Throttle and Debounce?”](#sidebar_ch04_debounce_vs_throttle).
+  id: totrans-107
   prefs: []
   type: TYPE_NORMAL
+  zh: 这种模式类似于[“节流”](#section_ch04_throttle)，限制函数被调用的频率。但是Debounce限制了调用集群，而节流仅根据时间段限制。有关Debounce和Throttle模式之间的区别，请参阅[“节流与Debounce的区别是什么？”](#sidebar_ch04_debounce_vs_throttle)。
 - en: Participants
+  id: totrans-108
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 参与者
 - en: 'This pattern includes the following participants:'
+  id: totrans-109
   prefs: []
   type: TYPE_NORMAL
+  zh: 此模式包括以下参与者：
 - en: Circuit
+  id: totrans-110
   prefs: []
   type: TYPE_NORMAL
+  zh: 电路
 - en: The function to regulate.
+  id: totrans-111
   prefs: []
   type: TYPE_NORMAL
+  zh: 调节函数。
 - en: Debounce
+  id: totrans-112
   prefs: []
   type: TYPE_NORMAL
+  zh: Debounce
 - en: A closure with the same function signature as *Circuit*.
+  id: totrans-113
   prefs: []
   type: TYPE_NORMAL
+  zh: 与*Circuit*具有相同函数签名的闭包。
 - en: Implementation
+  id: totrans-114
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 实施
 - en: 'The Debounce implementation is actually very similar to the one for Circuit
     Breaker in that it wraps *Circuit* to provide the rate-limiting logic. That logic
     is actually quite straightforward: on each call of the outer function—regardless
@@ -538,456 +773,664 @@
     function. This implementation, in which the inner function is called once and
     subsequent calls are ignored, is called *function-first*, and is useful because
     it allows the initial response from the inner function to be cached and returned.'
+  id: totrans-115
   prefs: []
   type: TYPE_NORMAL
+  zh: 实际上，Debounce的实现与断路器的实现非常相似，因为它包装了*Circuit*以提供速率限制的逻辑。该逻辑实际上非常简单：在每次调用外部函数时——不论其结果如何——都会设置一个时间间隔。在该时间间隔到期之前进行的任何后续调用都将被忽略；在此之后进行的任何调用都将传递给内部函数。这种实现方式中，内部函数只调用一次，随后的调用将被忽略，被称为*函数-首先*，并且非常有用，因为它允许从内部函数获取的初始响应被缓存并返回。
 - en: A *function-last* implementation will wait for a pause after a series of calls
     before calling the inner function. This variant is common in the JavaScript world
     when a programmer wants a certain amount of input before making a function call,
     such as when a search bar waits for a pause in typing before autocompleting. Function-last
     tends to be less common in backend services because it doesn’t provide an immediate
     response, but it can be useful if your function doesn’t need results right away.
+  id: totrans-116
   prefs: []
   type: TYPE_NORMAL
+  zh: 函数-最后的实现会在一系列调用之后等待一段时间，然后才调用内部函数。当程序员希望某些输入后再进行函数调用时，例如搜索栏在输入暂停后进行自动完成时，这种变体在JavaScript世界中很常见。在后端服务中，函数-最后不太常见，因为它不能立即提供响应，但如果函数不需要立即结果，则它可能很有用。
 - en: Sample code
+  id: totrans-117
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 示例代码
 - en: 'Just like in the Circuit Breaker implementation, we start by defining a function
     type with the signature of the function we want to limit. Also like Circuit Breaker,
     we call it `Circuit`; it’s identical to the one declared in that example. Again,
     `Circuit` can take whatever form is appropriate for your functionality, but it
     should include an `error` in its returns:'
+  id: totrans-118
   prefs: []
   type: TYPE_NORMAL
+  zh: 就像在断路器实现中一样，我们首先定义一个函数类型，其签名是我们想要限制的函数。与断路器类似，我们称之为`Circuit`；它与示例中声明的相同。同样，`Circuit`可以根据功能需求采取任何形式，但其返回值应包括一个`error`：
 - en: '[PRE4]'
+  id: totrans-119
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE4]'
 - en: 'The similarity with the Circuit Breaker implementation is quite intentional:
     their compatibility makes them “chainable,” as demonstrated in the following:'
+  id: totrans-120
   prefs: []
   type: TYPE_NORMAL
+  zh: 与断路器实现的相似性是有意的：它们的兼容性使它们可以“链接”，如下所示：
 - en: '[PRE5]'
+  id: totrans-121
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE5]'
 - en: 'The function-first implementation of Debounce—`DebounceFirst`—is very straightforward
     compared to function-last because it only needs to track the last time it was
     called and return a cached result if it’s called again less than `d` duration
     after:'
+  id: totrans-122
   prefs: []
   type: TYPE_NORMAL
+  zh: '`Debounce`的函数-首先实现—`DebounceFirst`—与函数-最后相比非常直接，因为它只需跟踪上次调用的时间，并且如果在`d`时间段后再次调用，则返回缓存的结果：'
 - en: '[PRE6]'
+  id: totrans-123
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE6]'
 - en: This implementation of `DebounceFirst` takes pains to ensure thread safety by
     wrapping the entire function in a mutex. While this will force overlapping calls
     at the start of a cluster to have to wait until the result is cached, it also
     guarantees that `circuit` is called exactly once, at the very beginning of a cluster.
     A `defer` ensures that the value of `threshold`, representing the time when a
     cluster ends (if there are no further calls), is reset with every call.
+  id: totrans-124
   prefs: []
   type: TYPE_NORMAL
+  zh: 这个`DebounceFirst`的实现通过在互斥体中包装整个函数来确保线程安全。虽然这将强制在调用集群开始时重叠调用必须等待结果被缓存，但它也保证了`circuit`在集群开始时只被调用一次。`defer`确保了`threshold`的值，表示调用集群结束的时间（如果没有进一步的调用），在每次调用时重置。
 - en: 'Our function-last implementation is a bit more awkward because it involves
     the use of a `time.Ticker` to determine whether enough time has passed since the
     function was last called, and to call `circuit` when it has. Alternatively, we
     could create a new `time.Ticker` with every call, but that can get quite expensive
     if it’s called frequently:'
+  id: totrans-125
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们的函数-最后实现有点笨拙，因为它涉及使用`time.Ticker`来确定自上次调用函数以来是否足够的时间已过，并且在需要时调用`circuit`。或者，我们可以在每次调用时创建一个新的`time.Ticker`，但如果频繁调用它，这可能会变得非常昂贵：
 - en: '[PRE7]'
+  id: totrans-126
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE7]'
 - en: Like `DebounceFirst`, `DebounceLast` uses a value called `threshold` to indicate
     the end of a cluster of calls (assuming there are no additional calls). The similarity
     largely ends there however.
+  id: totrans-127
   prefs: []
   type: TYPE_NORMAL
+  zh: 与`DebounceFirst`类似，`DebounceLast`使用一个名为`threshold`的值来指示调用集群的结束（假设没有额外的调用）。然而，它们的相似性基本上就到此为止。
 - en: You’ll notice that almost the entire function is run inside of the `Do` method
     of a `sync.Once` value, which ensures that (as its name suggests) the contained
     function is run *exactly* once. Inside this block, a `time.Ticker` is used to
     check whether `threshold` has been passed and to call `circuit` if it has. Finally,
     the `time.Ticker` is stopped, the `sync.Once` is reset, and the cycle is primed
     to repeat.
+  id: totrans-128
   prefs: []
   type: TYPE_NORMAL
+  zh: 你会注意到几乎整个函数都在`sync.Once`值的`Do`方法内部运行，这确保（正如其名称所示）包含的函数仅执行一次。在这个块内部，使用`time.Ticker`来检查是否已经超过了`threshold`并调用`circuit`函数。最后，停止`time.Ticker`，重置`sync.Once`，循环准备重复执行。
 - en: Retry
+  id: totrans-129
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 重试
 - en: Retry accounts for a possible transient fault in a distributed system by transparently
     retrying a failed operation.
+  id: totrans-130
   prefs: []
   type: TYPE_NORMAL
+  zh: '`Retry`通过透明地重试失败的操作来处理分布式系统中可能的瞬时故障。'
 - en: Applicability
+  id: totrans-131
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 适用性
 - en: Transient errors are a fact of life when working with complex distributed systems.
     These can be caused by any number of (hopefully) temporary conditions, especially
     if the downstream service or network resource has protective strategies in place,
     such as throttling that temporarily rejects requests under high workload, or adaptive
     strategies like autoscaling that can add capacity when needed.
+  id: totrans-132
   prefs: []
   type: TYPE_NORMAL
+  zh: 当处理复杂的分布式系统时，瞬时错误是不可避免的。这些错误可能由各种（希望是临时的）条件引起，特别是如果下游服务或网络资源具有保护策略，如在高工作负载下暂时拒绝请求的节流，或者像自适应策略（例如根据需要增加容量的自动缩放）等。
 - en: These faults typically resolve themselves after a bit of time, so repeating
     the request after a reasonable delay is likely (but not guaranteed) to be successful.
     Failing to account for transient faults can lead to a system that’s unnecessarily
     brittle. On the other hand, implementing an automatic retry strategy can considerably
     improve the stability of the service that can benefit both it and its upstream
     consumers.
+  id: totrans-133
   prefs: []
   type: TYPE_NORMAL
+  zh: 这些故障通常会在一段时间后自行解决，因此在合理的延迟之后重复请求可能（但不保证）会成功。未考虑瞬时故障可能会导致系统变得过于脆弱。另一方面，实施自动重试策略可以显著提高服务的稳定性，从而使其及其上游消费者受益。
 - en: Participants
+  id: totrans-134
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 参与者
 - en: 'This pattern includes the following participants:'
+  id: totrans-135
   prefs: []
   type: TYPE_NORMAL
+  zh: 此模式包括以下参与者：
 - en: Effector
+  id: totrans-136
   prefs: []
   type: TYPE_NORMAL
+  zh: Effector
 - en: The function that interacts with the service.
+  id: totrans-137
   prefs: []
   type: TYPE_NORMAL
+  zh: 与服务交互的函数。
 - en: Retry
+  id: totrans-138
   prefs: []
   type: TYPE_NORMAL
+  zh: Retry
 - en: A function that accepts *Effector* and returns a closure with the same function
     signature as *Effector*.
+  id: totrans-139
   prefs: []
   type: TYPE_NORMAL
+  zh: 接受*Effector*并返回与*Effector*相同函数签名的闭包函数。
 - en: Implementation
+  id: totrans-140
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 实现
 - en: This pattern works similarly to Circuit Breaker or Debounce in that there is
     a type, *Effector*, that defines a function signature. This signature can take
     whatever form is appropriate for your implementation, but when the function executing
     the potentially-failing operation is implemented, it must match the signature
     defined by *Effector*.
+  id: totrans-141
   prefs: []
   type: TYPE_NORMAL
+  zh: 这种模式与断路器或防抖动机制类似，其类型为*Effector*，定义了一个函数签名。该签名可以根据您的实现需求而灵活变化，但执行可能失败操作的函数必须符合*Effector*定义的签名。
 - en: The *Retry* function accepts the user-defined *Effector* function and returns
     an *Effector* function that wraps the user-defined function to provide the retry
     logic. Along with the user-defined function, *Retry* also accepts an integer describing
     the maximum number of retry attempts that it will make, and a `time.Duration`
     that describes how long it’ll wait between each retry attempt. If the `retries`
     parameter is 0, then the retry logic will effectively become a no-op.
+  id: totrans-142
   prefs: []
   type: TYPE_NORMAL
+  zh: '*Retry*函数接受用户定义的*Effector*函数，并返回一个包装了用户定义函数以提供重试逻辑的*Effector*函数。除了用户定义的函数外，*Retry*还接受一个整数，描述最大重试次数，并且接受一个`time.Duration`，描述每次重试尝试之间的等待时间。如果`retries`参数为0，则重试逻辑将失效。'
 - en: Note
+  id: totrans-143
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: Although not included here, retry logic will typically include some kind of
     a backoff algorithm.
+  id: totrans-144
   prefs: []
   type: TYPE_NORMAL
+  zh: 尽管本文未包含在内，重试逻辑通常会包括某种退避算法。
 - en: Sample code
+  id: totrans-145
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 示例代码
 - en: 'The signature for function argument of the `Retry` function is `Effector`.
     It looks exactly like the function types for the previous patterns:'
+  id: totrans-146
   prefs: []
   type: TYPE_NORMAL
+  zh: '`Retry`函数的函数参数签名为`Effector`。它与之前模式的函数类型完全相同：'
 - en: '[PRE8]'
+  id: totrans-147
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE8]'
 - en: 'The `Retry` function itself is relatively straightforward, at least when compared
     to the functions we’ve seen so far:'
+  id: totrans-148
   prefs: []
   type: TYPE_NORMAL
+  zh: '`Retry`函数本身相对直接，至少与我们迄今为止看到的函数相比是这样：'
 - en: '[PRE9]'
+  id: totrans-149
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE9]'
 - en: 'You may have already noticed what it is that keeps the `Retry` function so
     slender: although it returns a function, that function doesn’t have any external
     state. This means we don’t need any elaborate mechanisms to support concurrency.'
+  id: totrans-150
   prefs: []
   type: TYPE_NORMAL
+  zh: 您可能已经注意到保持 `Retry` 函数如此简洁的原因是：虽然它返回一个函数，但该函数没有任何外部状态。这意味着我们不需要任何复杂的机制来支持并发。
 - en: 'To use `Retry`, we can implement the function that executes the potentially-failing
     operation and whose signature matches the `Effector` type; this role is played
     by `EmulateTransientError` in the following example:'
+  id: totrans-151
   prefs: []
   type: TYPE_NORMAL
+  zh: 要使用 `Retry`，我们可以实现执行可能失败操作的函数，并且其签名与 `Effector` 类型匹配；在以下示例中，`EmulateTransientError`
+    扮演这个角色：
 - en: '[PRE10]'
+  id: totrans-152
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE10]'
 - en: In the `main` function, the `EmulateTransientError` function is passed to `Retry`,
     providing the function variable `r`. When `r` is called, `EmulateTransientError`
     is called, and called again after a delay if it returns an error, according to
     the retry logic shown previously. Finally, after the fourth attempt, `EmulateTransientError`
     returns a `nil` error and exits.
+  id: totrans-153
   prefs: []
   type: TYPE_NORMAL
+  zh: 在 `main` 函数中，将 `EmulateTransientError` 函数传递给 `Retry`，提供函数变量 `r`。当调用 `r` 时，如果
+    `EmulateTransientError` 返回错误，则根据先前显示的重试逻辑再次调用，并在延迟后再次调用。最后，在第四次尝试后，`EmulateTransientError`
+    返回 `nil` 错误并退出。
 - en: Throttle
+  id: totrans-154
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 速率限制
 - en: Throttle limits the frequency of a function call to some maximum number of invocations
     per unit of time.
+  id: totrans-155
   prefs: []
   type: TYPE_NORMAL
+  zh: '`Throttle` 将函数调用频率限制为单位时间内的某个最大调用次数。'
 - en: Applicability
+  id: totrans-156
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 适用性
 - en: 'The Throttle pattern is named after a device used to manage the flow of a fluid,
     such as the amount of fuel going into a car engine. Like its namesake mechanism,
     Throttle restricts the number of times that a function can be called during over
     a period of time. For example:'
+  id: totrans-157
   prefs: []
   type: TYPE_NORMAL
+  zh: '`Throttle` 模式以用于管理液体流动的设备命名，例如调节汽车引擎中燃料的流量。像其名字来源的机制一样，`Throttle` 限制了在一段时间内可以调用函数的次数。例如：'
 - en: A user may only be allowed 10 service requests per second.
+  id: totrans-158
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 用户每秒只允许发起 10 次服务请求。
 - en: A client may restrict itself to call a particular function once every 500 milliseconds.
+  id: totrans-159
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 客户端可能限制自身每 500 毫秒调用特定函数一次。
 - en: An account may only be allowed three failed login attempts in a 24-hour period.
+  id: totrans-160
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 某账户在 24 小时内只允许进行三次失败的登录尝试。
 - en: Perhaps the most common reason to apply a Throttle is to account for sharp activity
     spikes that could saturate the system with a possibly unreasonable number of requests
     that may be expensive to satisfy, or lead to service degradation and eventually
     failure. While it may be possible for a system to scale up to add sufficient capacity
     to meet user demand, this takes time, and the system may not be able to react
     quickly enough.
+  id: totrans-161
   prefs: []
   type: TYPE_NORMAL
+  zh: 可能最常见的应用 `Throttle` 的原因是应对可能饱和系统的尖峰活动，这些活动可能对满足请求造成不合理的压力或导致服务降级甚至失败。虽然系统可能通过扩展来增加足够的容量以满足用户需求，但这需要时间，并且系统可能无法快速反应。
 - en: Participants
+  id: totrans-162
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 参与者
 - en: 'This pattern includes the following participants:'
+  id: totrans-163
   prefs: []
   type: TYPE_NORMAL
+  zh: 此模式包括以下参与者：
 - en: Effector
+  id: totrans-164
   prefs: []
   type: TYPE_NORMAL
+  zh: '`Effector`'
 - en: The function to regulate.
+  id: totrans-165
   prefs: []
   type: TYPE_NORMAL
+  zh: 调整函数。
 - en: Throttle
+  id: totrans-166
   prefs: []
   type: TYPE_NORMAL
+  zh: 速率限制
 - en: A function that accepts *Effector* and returns a closure with the same function
     signature as *Effector*.
+  id: totrans-167
   prefs: []
   type: TYPE_NORMAL
+  zh: 接受 *Effector* 并返回一个与 *Effector* 具有相同函数签名的闭包函数。
 - en: Implementation
+  id: totrans-168
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 实现
 - en: 'The Throttle pattern is similar to many of the other patterns described in
     this chapter: it’s implemented as a function that accepts an effector function,
     and returns a `Throttle` closure with the same signature that provides the rate-limiting
     logic.'
+  id: totrans-169
   prefs: []
   type: TYPE_NORMAL
+  zh: '`Throttle` 模式与本章描述的许多其他模式类似：它作为一个接受执行函数的函数来实现，返回一个具有相同签名的 `Throttle` 闭包，提供速率限制逻辑。'
 - en: The most common algorithm for implementing rate-limiting behavior is the [*token
     bucket*](https://oreil.ly/5A5aP), which uses the analogy of a bucket that can
     hold some maximum number of tokens. When a function is called, a token is taken
     from the bucket, which then refills at some fixed rate.
+  id: totrans-170
   prefs: []
   type: TYPE_NORMAL
+  zh: 实现速率限制行为最常见的算法是[*令牌桶*](https://oreil.ly/5A5aP)，它使用一个类似于桶可以容纳某个最大令牌数量的比喻。当调用一个函数时，从桶中取出一个令牌，然后以某个固定速率重新填充。
 - en: 'The way that a `Throttle` treats requests when there are insufficient tokens
     in the bucket to pay for it can vary depending according to the needs of the developer.
     Some common strategies are:'
+  id: totrans-171
   prefs: []
   type: TYPE_NORMAL
+  zh: 当桶中的令牌不足以支付请求时，`Throttle` 处理请求的方式可以根据开发者的需求而变化。一些常见的策略包括：
 - en: Return an error
+  id: totrans-172
   prefs: []
   type: TYPE_NORMAL
+  zh: 返回错误
 - en: This is the most basic strategy and is common when you’re only trying to restrict
     unreasonable or potentially abusive numbers of client requests. A RESTful service
     adopting this strategy might respond with a status `429 (Too Many Requests)`.
+  id: totrans-173
   prefs: []
   type: TYPE_NORMAL
+  zh: 当您仅尝试限制不合理或潜在滥用的客户端请求数量时，这是最基本的策略。采用此策略的RESTful服务可能会以状态码`429 (Too Many Requests)`做出响应。
 - en: Replay the response of the last successful function call
+  id: totrans-174
   prefs: []
   type: TYPE_NORMAL
+  zh: 重播上次成功函数调用的响应
 - en: This strategy can be useful when a service or expensive function call is likely
     to provide an identical result if called too soon. It’s commonly used in the JavaScript
     world.
+  id: totrans-175
   prefs: []
   type: TYPE_NORMAL
+  zh: 当服务或昂贵的函数调用可能在过早调用时提供相同结果时，此策略可能很有用。它在JavaScript世界中被广泛使用。
 - en: Enqueue the request for execution when sufficient tokens are available
+  id: totrans-176
   prefs: []
   type: TYPE_NORMAL
+  zh: 当可用令牌足够时，将请求排队以执行
 - en: This approach can be useful when you want to eventually handle all requests,
     but it’s also more complex and may require care to be taken to ensure that memory
     isn’t exhausted.
+  id: totrans-177
   prefs: []
   type: TYPE_NORMAL
+  zh: 当您希望最终处理所有请求时，此方法可能很有用，但它也更复杂，可能需要注意确保不会耗尽内存。
 - en: Sample code
+  id: totrans-178
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 示例代码
 - en: 'The following example implements a very basic “token bucket” algorithm that
     uses the “error” strategy:'
+  id: totrans-179
   prefs: []
   type: TYPE_NORMAL
+  zh: 以下示例实现了一个非常基本的“令牌桶”算法，使用了“错误”策略：
 - en: '[PRE11]'
+  id: totrans-180
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE11]'
 - en: This `Throttle` implementation is similar to our other examples in that it wraps
     an effector function `e` with a closure that contains the rate-limiting logic.
     The bucket is initially allocated `max` tokens; each time the closure is triggered
     it checks whether it has any remaining tokens. If tokens are available, it decrements
     the token count by one and triggers the effector function. If not, an error is
     returned. Tokens are added at a rate of `refill` tokens every duration `d`.
+  id: totrans-181
   prefs: []
   type: TYPE_NORMAL
+  zh: 此`Throttle`实现与我们其他示例类似，它通过将效应函数`e`包装在包含速率限制逻辑的闭包中来实现。桶最初被分配`max`个令牌；每次触发闭包时，它都会检查是否有剩余令牌。如果有可用令牌，则将令牌计数减一并触发效应函数。如果没有，则返回错误。令牌的添加速率为每个`duration
+    d`周期添加`refill`个令牌。
 - en: Timeout
+  id: totrans-182
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 超时
 - en: Timeout allows a process to stop waiting for an answer once it’s clear that
     an answer may not be coming.
+  id: totrans-183
   prefs: []
   type: TYPE_NORMAL
+  zh: 一旦明确可能不会得到答案，超时允许一个进程停止等待答案。
 - en: Applicability
+  id: totrans-184
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 适用性
 - en: The first of the Fallacies of Distributed Computing is that “the network is
     reliable,” and it’s first for a reason. Switches fail, routers and firewalls get
     misconfigured; packets get blackholed. Even if your network is working perfectly,
     not every service is thoughtful enough to guarantee a meaningful and timely response—or
     any response at all—if and when it malfunctions.
+  id: totrans-185
   prefs: []
   type: TYPE_NORMAL
+  zh: 分布式计算的谬误之一是“网络是可靠的”，而这个谬误之所以排在第一，是有原因的。交换机可能会失败，路由器和防火墙可能会配置错误；数据包可能会黑洞化。即使您的网络运行良好，也不能保证每个服务都能在发生故障时保证及时和有意义的响应——甚至可能根本不响应。
 - en: 'Timeout represents a common solution to this dilemma, and is so beautifully
     simple that it barely even qualifies as a pattern at all: given a service request
     or function call that’s running for a longer-than-expected time, the caller simply…stops
     waiting.'
+  id: totrans-186
   prefs: []
   type: TYPE_NORMAL
+  zh: 超时代表了对这一困境的常见解决方案，其简单至极几乎不足以称为一种模式：给定一个运行时间超长的服务请求或函数调用，调用者只需...停止等待。
 - en: However, don’t mistake “simple” or “common” for “useless.” On the contrary,
     the ubiquity of the timeout strategy is a testament to its usefulness. The judicious
     use of timeouts can provide a degree of fault isolation, preventing cascading
     failures and reducing the chance that a problem in a downstream resource becomes
     *your* problem.
+  id: totrans-187
   prefs: []
   type: TYPE_NORMAL
+  zh: 但不要把“简单”或“常见”误认为是“无用的”。相反，超时策略的普遍性证明了其实用性。明智地使用超时可以提供一定程度的故障隔离，防止级联故障，并减少下游资源问题变成*您*的问题的可能性。
 - en: Participants
+  id: totrans-188
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 参与者
 - en: 'This pattern includes the following participants:'
+  id: totrans-189
   prefs: []
   type: TYPE_NORMAL
+  zh: 此模式包括以下参与者：
 - en: Client
+  id: totrans-190
   prefs: []
   type: TYPE_NORMAL
+  zh: 客户端
 - en: The client who wants to execute *SlowFunction*.
+  id: totrans-191
   prefs: []
   type: TYPE_NORMAL
+  zh: 想要执行*SlowFunction*的客户端。
 - en: SlowFunction
+  id: totrans-192
   prefs: []
   type: TYPE_NORMAL
+  zh: SlowFunction
 - en: The long-running function that implements the functionality desired by *Client*.
+  id: totrans-193
   prefs: []
   type: TYPE_NORMAL
+  zh: 实现所需功能的长时间运行函数，由*客户端*调用。
 - en: Timeout
+  id: totrans-194
   prefs: []
   type: TYPE_NORMAL
+  zh: 超时
 - en: A wrapper function around *SlowFunction* that implements the timeout logic.
+  id: totrans-195
   prefs: []
   type: TYPE_NORMAL
+  zh: 围绕*SlowFunction*实现超时逻辑的包装函数。
 - en: Implementation
+  id: totrans-196
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 实施
 - en: There are several ways to implement a timeout in Go, but the idiomatic way is
     to use the functionality provided by the `context` package. See [“The Context
     Package”](#section_ch04_context) for more information.
+  id: totrans-197
   prefs: []
   type: TYPE_NORMAL
+  zh: Go语言有几种实现超时的方法，但惯用的方式是使用`context`包提供的功能。有关更多信息，请参见[“上下文包”](#section_ch04_context)。
 - en: 'In an ideal world, any possibly long-running function will accept a `context.Context`
     parameter directly. If so, your work is fairly straightforward: you need only
     pass it a `Context` value decorated with the `context.WithTimeout` function:'
+  id: totrans-198
   prefs: []
   type: TYPE_NORMAL
+  zh: 在理想情况下，任何可能长时间运行的函数都会直接接受 `context.Context` 参数。如果是这样，你的工作就相当简单了：只需传递一个由 `context.WithTimeout`
+    函数装饰的 `Context` 值即可：
 - en: '[PRE12]'
+  id: totrans-199
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE12]'
 - en: However, this isn’t always the case, and with third party libraries you don’t
     always have the option of refactoring to accept a `Context` value. In these cases,
     the best course of action may be to wrap the function call in such a way that
     it *does* respect your `Context`.
+  id: totrans-200
   prefs: []
   type: TYPE_NORMAL
+  zh: 然而，并非总是这样，并且对于第三方库，你并不总能重构以接受 `Context` 值。在这些情况下，最佳做法可能是以一种尊重你的 `Context` 的方式包装函数调用。
 - en: For example, imagine you have a potentially long-running function that not only
     doesn’t accept a `Context` value, but comes from a package you don’t control.
     If *Client* were to call *SlowFunction* directly it would be forced to wait until
     the function completes, if indeed it ever does. Now what?
+  id: totrans-201
   prefs: []
   type: TYPE_NORMAL
+  zh: 例如，假设你有一个可能长时间运行的函数，它不仅不接受 `Context` 值，而且来自你无法控制的包。如果 *Client* 直接调用 *SlowFunction*，它将被迫等待函数完成，如果它确实完成的话。那么现在怎么办？
 - en: Instead of calling *SlowFunction* directly, you can call it in a goroutine.
     In this way, you can capture the results it returns, if it returns them in an
     acceptable period of time. However, this also allows you to move on if it doesn’t.
+  id: totrans-202
   prefs: []
   type: TYPE_NORMAL
+  zh: 不直接调用 *SlowFunction*，而是在 goroutine 中调用它。这样一来，如果它在合理的时间内返回结果，你就可以捕获到它返回的结果。然而，这也允许你在没有返回时继续进行。
 - en: 'To do this, we can leverage a few tools that we’ve seen before: `context.Context`
     for timeouts, channels for communicating results, and `select` to catch whichever
     one acts first.'
+  id: totrans-203
   prefs: []
   type: TYPE_NORMAL
+  zh: 要做到这一点，我们可以利用我们之前见过的几个工具：`context.Context` 用于超时，通道用于通信结果，以及 `select` 来捕获先行动的那个。
 - en: Sample code
+  id: totrans-204
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 示例代码
 - en: 'The following example imagines the existence of the fictional function, `Slow`,
     whose execution may or may not complete in some reasonable amount of time, and
     whose signature conforms with the following type definition:'
+  id: totrans-205
   prefs: []
   type: TYPE_NORMAL
+  zh: 以下示例假设存在虚构函数 `Slow`，其执行可能在某个合理的时间内完成，也可能不会，并且其签名符合以下类型定义：
 - en: '[PRE13]'
+  id: totrans-206
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE13]'
 - en: 'Rather than calling `Slow` directly, we instead provide a `Timeout` function,
     which wraps a provided `SlowFunction` in a closure and returns a `WithContext`
     function, which adds a `context.Context` to the `SlowFunction`’s parameter list:'
+  id: totrans-207
   prefs: []
   type: TYPE_NORMAL
+  zh: 与其直接调用 `Slow`，我们改为提供一个 `Timeout` 函数，该函数将提供的 `SlowFunction` 包装成一个闭包，并返回一个 `WithContext`
+    函数，该函数向 `SlowFunction` 的参数列表中添加了一个 `context.Context`：
 - en: '[PRE14]'
+  id: totrans-208
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE14]'
 - en: Within the function that `Timeout` constructs, `Slow` is run in a goroutine,
     with its return values being sent into channels constructed for that purpose,
     if and when it ever completes.
+  id: totrans-209
   prefs: []
   type: TYPE_NORMAL
+  zh: 在 `Timeout` 构造的函数内部，`Slow` 在一个 goroutine 中运行，并将其返回值发送到为此目的构造的通道中，如果它在某个时候确实完成的话。
 - en: 'The following goroutine statement is a `select` block on two channels: the
     first of the `Slow` function response channels, and the `Context` value’s `Done`
     channel. If the former completes first, the closure will return the `Slow` function’s
     return values; otherwise it returns the error provided by the `Context`.'
+  id: totrans-210
   prefs: []
   type: TYPE_NORMAL
+  zh: 以下 goroutine 语句是一个 `select` 块，选择了两个通道：`Slow` 函数响应通道的第一个和 `Context` 值的 `Done`
+    通道。如果前者先完成，闭包将返回 `Slow` 函数的返回值；否则返回 `Context` 提供的错误。
 - en: 'Using the `Timeout` function isn’t much more complicated than consuming `Slow`
     directly, except that instead of one function call, we have two: the call to `Timeout`
     to retrieve the closure, and the call to the closure itself:'
+  id: totrans-211
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用 `Timeout` 函数并不比直接消耗 `Slow` 复杂多少，除了不是一个函数调用，而是两个：调用 `Timeout` 获取闭包，并调用闭包本身：
 - en: '[PRE15]'
+  id: totrans-212
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE15]'
 - en: Finally, although it’s usually preferred to implement service timeouts using
     `context.Context`, channel timeouts *can* also be implemented using the channel
     provided by the `time.After` function. See [“Implementing channel timeouts”](ch03.xhtml#section_ch03_implementing_channel_timeouts)
     for an example of how this is done.
+  id: totrans-213
   prefs: []
   type: TYPE_NORMAL
+  zh: 最后，尽管通常首选使用 `context.Context` 实现服务超时，通道超时 *也可以* 使用 `time.After` 函数提供的通道来实现。参见
+    [“实现通道超时”](ch03.xhtml#section_ch03_implementing_channel_timeouts) 了解如何实现的示例。
 - en: Concurrency Patterns
+  id: totrans-214
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 并发模式
 - en: A cloud native service will often be called upon to efficiently juggle multiple
     processes and handle high (and highly variable) levels of load, ideally without
     having to suffer the trouble and expense of scaling up. As such, it needs to be
@@ -995,114 +1438,171 @@
     clients. While Go is known for its concurrency support, bottlenecks can and do
     happen. Some of the patterns that have been developed to prevent them are presented
     here.
+  id: totrans-215
   prefs: []
   type: TYPE_NORMAL
+  zh: 云原生服务通常需要有效地处理多个进程并处理高（及高度变化的）负载水平，理想情况下无需扩展便能应对。因此，它需要高并发能力，并能够管理来自多个客户端的多个同时请求。虽然
+    Go 以其并发支持而闻名，但仍可能出现瓶颈。本文介绍了一些开发的模式来防止这些瓶颈。
 - en: Fan-In
+  id: totrans-216
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: Fan-In
 - en: Fan-in multiplexes multiple input channels onto one output channel.
+  id: totrans-217
   prefs: []
   type: TYPE_NORMAL
+  zh: 将多个输入通道复用到一个输出通道的 Fan-in 模式。
 - en: Applicability
+  id: totrans-218
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 适用性
 - en: Services that have some number of workers that all generate output may find
     it useful to combine all of the workers’ outputs to be processed as a single unified
     stream. For these scenarios we use the fan-in pattern, which can read from multiple
     input channels by multiplexing them onto a single destination channel.
+  id: totrans-219
   prefs: []
   type: TYPE_NORMAL
+  zh: 具有一些生成输出的工作线程的服务可能会发现将所有工作线程的输出合并以作为单一统一流进行处理很有用。对于这些情况，我们使用了 fan-in 模式，它可以通过将多个输入通道复用到单个目标通道来读取。
 - en: Participants
+  id: totrans-220
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 参与者
 - en: 'This pattern includes the following participants:'
+  id: totrans-221
   prefs: []
   type: TYPE_NORMAL
+  zh: 此模式包括以下参与者：
 - en: Sources
+  id: totrans-222
   prefs: []
   type: TYPE_NORMAL
+  zh: Sources
 - en: A set of one or more input channels with the same type. Accepted by *Funnel*.
+  id: totrans-223
   prefs: []
   type: TYPE_NORMAL
+  zh: 一组一个或多个具有相同类型的输入通道。被 *Funnel* 接受。
 - en: Destination
+  id: totrans-224
   prefs: []
   type: TYPE_NORMAL
+  zh: Destination
 - en: An output channel of the same type as *Sources*. Created and provided by *Funnel*.
+  id: totrans-225
   prefs: []
   type: TYPE_NORMAL
+  zh: 与 *Sources* 相同类型的输出通道。由 *Funnel* 创建和提供。
 - en: Funnel
+  id: totrans-226
   prefs: []
   type: TYPE_NORMAL
+  zh: Funnel
 - en: Accepts *Sources* and immediately returns *Destination*. Any input from any
     *Sources* will be output by *Destination*.
+  id: totrans-227
   prefs: []
   type: TYPE_NORMAL
+  zh: 接受 *Sources* 并立即返回 *Destination*。来自 *Sources* 的任何输入都将由 *Destination* 输出。
 - en: Implementation
+  id: totrans-228
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 实现
 - en: '*Funnel* is implemented as a function that receives zero to N input channels
     (*Sources*). For each input channel in *Sources*, the *Funnel* function starts
     a separate goroutine to read values from its assigned channel and forward them
     to a single output channel shared by all of the goroutines (*Destination*).'
+  id: totrans-229
   prefs: []
   type: TYPE_NORMAL
+  zh: '*Funnel* 实现为一个函数，接收零到 N 个输入通道 (*Sources*)。对于 *Sources* 中的每个输入通道，*Funnel* 函数启动一个单独的
+    goroutine 从其分配的通道读取值并将其转发到所有 goroutine 共享的单个输出通道 (*Destination*)。'
 - en: Sample code
+  id: totrans-230
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 示例代码
 - en: 'The `Funnel` function is a variadic function that receives `sources`: zero
     to N channels of some type (`int` in the following example):'
+  id: totrans-231
   prefs: []
   type: TYPE_NORMAL
+  zh: '`Funnel` 函数是一个可变函数，接收 `sources`：零到 N 个某种类型的通道 (`int` 在下面的示例中)：'
 - en: '[PRE16]'
+  id: totrans-232
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE16]'
 - en: For each channel in the list of `sources`, `Funnel` starts a dedicated goroutine
     that reads values from its assigned channel and forwards them to `dest`, a single-output
     channel shared by all of the goroutines.
+  id: totrans-233
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于 `sources` 列表中的每个通道，`Funnel` 启动一个专用的 goroutine 从其分配的通道读取值并将其转发到 `dest`，一个所有
+    goroutine 共享的单输出通道。
 - en: Note the use of a `sync.WaitGroup` to ensure that the destination channel is
     closed appropriately. Initially, a `WaitGroup` is created and set to the total
     number of source channels. If a channel is closed, its associated goroutine exits,
     calling `wg.Done`. When all of the channels are closed, the WaitGroup’s counter
     reaches zero, the lock imposed by `wg.Wait` is released, and the `dest` channel
     is closed.
+  id: totrans-234
   prefs: []
   type: TYPE_NORMAL
+  zh: 注意使用 `sync.WaitGroup` 来确保适当关闭目标通道。首先创建一个 `WaitGroup` 并将其设置为源通道的总数。如果通道关闭，其关联的
+    goroutine 退出，调用 `wg.Done`。当所有通道都关闭时，WaitGroup 的计数器达到零，`wg.Wait` 引入的锁释放，并关闭 `dest`
+    通道。
 - en: 'Using `Funnel` is reasonably straightforward: given N source channels (or a
     slice of N channels), pass the channels to `Funnel`. The returned destination
     channel may be read in the usual way, and will close when all source channels
     close:'
+  id: totrans-235
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用 `Funnel` 相对来说是比较简单的：给定 N 个源通道（或 N 个通道的切片），将这些通道传递给 `Funnel`。返回的目标通道可以按通常的方式读取，并且在所有源通道关闭时将关闭：
 - en: '[PRE17]'
+  id: totrans-236
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE17]'
 - en: This example creates a slice of three `int` channels, into which the values
     from 1 to 5 are sent before being closed. In a separate goroutine, the outputs
     of the single `dest` channel are printed. Running this will result in the appropriate
     15 lines being printed before `dest` closes and the function ends.
+  id: totrans-237
   prefs: []
   type: TYPE_NORMAL
+  zh: 此示例创建了一个包含三个 `int` 通道的切片，在将值从 1 到 5 发送到这些通道后关闭它们。在一个单独的 goroutine 中，打印单个 `dest`
+    通道的输出。运行此示例将导致适当的 15 行打印，然后 `dest` 关闭并结束函数。
 - en: Fan-Out
+  id: totrans-238
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: Fan-Out
 - en: Fan-out evenly distributes messages from an input channel to multiple output
     channels.
+  id: totrans-239
   prefs: []
   type: TYPE_NORMAL
 - en: Applicability
+  id: totrans-240
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: Fan-out receives messages from an input channel, distributing them evenly among
     output channels, and is a useful pattern for parallelizing CPU and I/O utilization.
+  id: totrans-241
   prefs: []
   type: TYPE_NORMAL
 - en: For example, imagine that you have an input source, such as a `Reader` on an
@@ -1111,40 +1611,51 @@
     processes, which would confine the effort to a single serial process, you might
     prefer to parallelize the workload by distributing it among some number of concurrent
     worker processes.
+  id: totrans-242
   prefs: []
   type: TYPE_NORMAL
 - en: Participants
+  id: totrans-243
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: 'This pattern includes the following participants:'
+  id: totrans-244
   prefs: []
   type: TYPE_NORMAL
 - en: Source
+  id: totrans-245
   prefs: []
   type: TYPE_NORMAL
 - en: An input channel. Accepted by *Split*.
+  id: totrans-246
   prefs: []
   type: TYPE_NORMAL
 - en: Destinations
+  id: totrans-247
   prefs: []
   type: TYPE_NORMAL
 - en: An output channel of the same type as *Source*. Created and provided by *Split*.
+  id: totrans-248
   prefs: []
   type: TYPE_NORMAL
 - en: Split
+  id: totrans-249
   prefs: []
   type: TYPE_NORMAL
 - en: A function that accepts *Source* and immediately returns *Destinations*. Any
     input from *Source* will be output to a *Destination*.
+  id: totrans-250
   prefs: []
   type: TYPE_NORMAL
 - en: Implementation
+  id: totrans-251
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: Fan-out may be relatively conceptually straightforward, but the devil is in
     the details.
+  id: totrans-252
   prefs: []
   type: TYPE_NORMAL
 - en: Typically, fan-out is implemented as a *Split* function, which accepts a single
@@ -1152,15 +1663,18 @@
     channels. The *Split* function creates the *Destination* channels and executes
     some background process that retrieves values from *Source* channel and forwards
     them to one of the *Destinations*.
+  id: totrans-253
   prefs: []
   type: TYPE_NORMAL
 - en: 'The implementation of the forwarding logic can be done in one of two ways:'
+  id: totrans-254
   prefs: []
   type: TYPE_NORMAL
 - en: Using a single goroutine that reads values from *Source* and forwards them to
     the *Destinations* in a round-robin fashion. This has the virtue of requiring
     only one master goroutine, but if the next channel isn’t ready to read yet, it’ll
     slow the entire process.
+  id: totrans-255
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -1168,13 +1682,16 @@
     value from *Source* and forward it to their respective *Destination*. This requires
     slightly more resources, but is less likely to get bogged down by a single slow-running
     worker.
+  id: totrans-256
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: The next example uses the latter approach.
+  id: totrans-257
   prefs: []
   type: TYPE_NORMAL
 - en: Sample code
+  id: totrans-258
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -1182,6 +1699,7 @@
     `source`, and an integer describing the number of channels to split the input
     into, `n`. It returns a slice of `n` send-only channels with the same type as
     `source`.
+  id: totrans-259
   prefs: []
   type: TYPE_NORMAL
 - en: 'Internally, `Split` creates the destination channels. For each channel created,
@@ -1190,19 +1708,26 @@
     for reads from `source`; if several are trying to read, the “winner” will be randomly
     determined. If `source` is closed, all goroutines terminate and all of the destination
     channels are closed:'
+  id: totrans-260
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE18]'
+  id: totrans-261
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE18]'
 - en: 'Given a channel of some specific type, the `Split` function will return a number
     of destination channels. Typically, each will be passed to a separate goroutine,
     as demonstrated in the following example:'
+  id: totrans-262
   prefs: []
   type: TYPE_NORMAL
+  zh: 给定某种特定类型的通道，`Split` 函数将返回若干个目标通道。通常情况下，每个通道都会被传递给一个单独的goroutine，就像下面的示例中所演示的那样：
 - en: '[PRE19]'
+  id: totrans-263
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE19]'
 - en: This example creates an input channel, `source`, which it passes to `Split`
     to receive its output channels. Concurrently it passes the values 1 to 10 into
     `source` in a goroutine, while receiving values from `dests` in five others. When
@@ -1210,192 +1735,284 @@
     in the output channels, which ends the read loops, which causes `wg.Done` to be
     called by each of the read goroutines, which releases the lock on `wg.Wait`, and
     allows the function to end.
+  id: totrans-264
   prefs: []
   type: TYPE_NORMAL
+  zh: 此示例创建了一个输入通道`source`，将其传递给`Split`以接收其输出通道。同时，它在一个goroutine中将值1到10传递给`source`，同时在其他五个goroutine中从`dests`接收值。当输入完成时，关闭`source`通道，这将触发输出通道中的闭包，结束读取循环，每个读取goroutine调用`wg.Done`，释放`wg.Wait`上的锁，并允许函数结束。
 - en: Future
+  id: totrans-265
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 未来
 - en: Future provides a placeholder for a value that’s not yet known.
+  id: totrans-266
   prefs: []
   type: TYPE_NORMAL
+  zh: 未来提供了一个值的占位符，这个值目前还不知道。
 - en: Applicability
+  id: totrans-267
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 适用性
 - en: Futures (also known as Promises or Delays^([4](ch04.xhtml#idm45983637370152)))
     are a synchronization construct that provide a placeholder for a value that’s
     still being generated by an asynchronous process.
+  id: totrans-268
   prefs: []
   type: TYPE_NORMAL
+  zh: 未来（也称为Promises或Delays^([4](ch04.xhtml#idm45983637370152))）是一种同步构造，提供一个值的占位符，该值仍然由异步过程生成。
 - en: 'This pattern isn’t used as frequently in Go as in some other languages because
     channels can be often used in a similar way. For example, the long-running blocking
     function `BlockingInverse` (not shown) can be executed in a goroutine that returns
     the result (when it arrives) along a channel. The `ConcurrentInverse` function
     does exactly that, returning a channel that can be read when a result is available:'
+  id: totrans-269
   prefs: []
   type: TYPE_NORMAL
+  zh: 在Go语言中，这种模式不像其他一些语言那样经常使用，因为通道经常可以以类似的方式使用。例如，长时间运行的阻塞函数`BlockingInverse`（未显示）可以在返回结果的通道上执行goroutine。`ConcurrentInverse`
+    函数正是这样做的，返回一个通道，可以在结果可用时读取：
 - en: '[PRE20]'
+  id: totrans-270
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE20]'
 - en: 'Using `ConcurrentInverse`, one could then build a function to calculate the
     inverse product of two matrices:'
+  id: totrans-271
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用`ConcurrentInverse`，可以构建一个函数来计算两个矩阵的逆乘积：
 - en: '[PRE21]'
+  id: totrans-272
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE21]'
 - en: 'This doesn’t seem so bad, but it comes with some baggage that makes it undesirable
     for something like a public API. First, the caller has be careful to call `ConcurrentInverse`
     with the correct timing. To see what I mean, take a close look at the following:'
+  id: totrans-273
   prefs: []
   type: TYPE_NORMAL
+  zh: 看起来并不糟糕，但它带来了一些不利因素，使得它在像公共API这样的场景中并不理想。首先，调用者必须小心地在正确的时机调用`ConcurrentInverse`。要明白我的意思，请仔细看以下内容：
 - en: '[PRE22]'
+  id: totrans-274
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE22]'
 - en: See the problem? Since the computation isn’t started until `ConcurrentInverse`
     is actually called, this construct would be effectively executed serially, requiring
     twice the runtime.
+  id: totrans-275
   prefs: []
   type: TYPE_NORMAL
+  zh: 看到问题了吗？由于计算直到实际调用`ConcurrentInverse`才开始，这种结构将有效地串行执行，需要两倍的运行时间。
 - en: What’s more, when using channels in this way, functions with more than one return
     value will usually assign a dedicated channel to each member of the return list,
     which can become awkward as the return list grows or when the values need to be
     read by more than one goroutine.
+  id: totrans-276
   prefs: []
   type: TYPE_NORMAL
+  zh: 更重要的是，当以这种方式使用通道时，具有多个返回值的函数通常会为返回列表的每个成员分配一个专用的通道，当返回列表增长或需要多个goroutine读取值时，这可能变得很麻烦。
 - en: The Future pattern contains this complexity by encapsulating it in an API that
     provides the consumer with a simple interface whose method can be called normally,
     blocking all calling routines until all of its results are resolved. The interface
     that the value satisfies doesn’t even have to be constructed specially for that
     purpose; any interface that’s convenient for the consumer can be used.
+  id: totrans-277
   prefs: []
   type: TYPE_NORMAL
+  zh: 未来模式通过将复杂性封装在一个API中，为消费者提供了一个简单的接口，其方法可以正常调用，阻塞所有调用的例程，直到其所有结果都被解决。该值满足的接口甚至不必为此特别构建；任何对消费者方便的接口都可以使用。
 - en: Participants
+  id: totrans-278
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 参与者
 - en: 'This pattern includes the following participants:'
+  id: totrans-279
   prefs: []
   type: TYPE_NORMAL
+  zh: 这种模式包括以下参与者：
 - en: Future
+  id: totrans-280
   prefs: []
   type: TYPE_NORMAL
+  zh: 未来
 - en: The interface that is received by the consumer to retrieve the eventual result.
+  id: totrans-281
   prefs: []
   type: TYPE_NORMAL
+  zh: 由消费者接收的接口，用于检索最终的结果。
 - en: SlowFunction
+  id: totrans-282
   prefs: []
   type: TYPE_NORMAL
+  zh: SlowFunction
 - en: A wrapper function around some function to be asynchronously executed; provides
     *Future*.
+  id: totrans-283
   prefs: []
   type: TYPE_NORMAL
+  zh: 围绕一些异步执行的函数的包装函数；提供*Future*。
 - en: InnerFuture
+  id: totrans-284
   prefs: []
   type: TYPE_NORMAL
+  zh: InnerFuture
 - en: Satisfies the *Future* interface; includes an attached method that contains
     the result access logic.
+  id: totrans-285
   prefs: []
   type: TYPE_NORMAL
+  zh: 满足*Future*接口；包含一个附加方法，其中包含结果访问逻辑。
 - en: Implementation
+  id: totrans-286
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 实现
 - en: 'The API presented to the consumer is fairly straightforward: the programmer
     calls *SlowFunction*, which returns a value that satisfies the *Future* interface.
     *Future* may be a bespoke interface, as in the following example, or it may be
     something more like an `io.Reader` that can be passed to its own functions.'
+  id: totrans-287
   prefs: []
   type: TYPE_NORMAL
+  zh: 提供给消费者的API非常简单明了：程序员调用 *SlowFunction*，它返回满足 *Future* 接口的值。 *Future* 可能是一个定制的接口，如下例所示，或者可能更像是一个可以传递给其自己函数的
+    `io.Reader`。
 - en: In actuality, when *SlowFunction* is called, it executes the core function of
     interest as a goroutine. In doing so, it defines channels to capture the core
     function’s output, which it wraps in *InnerFuture*.
+  id: totrans-288
   prefs: []
   type: TYPE_NORMAL
+  zh: 实际上，当调用 *SlowFunction* 时，它将核心函数作为一个goroutine执行。在执行过程中，它定义了用于捕获核心函数输出的通道，并将其包装在
+    *InnerFuture* 中。
 - en: '*InnerFuture* has one or more methods that satisfy the *Future* interface,
     which retrieve the values returned by the core function from the channels, cache
     them, and return them. If the values aren’t available on the channel, the request
     blocks. If they have already been retrieved, the cached values are returned.'
+  id: totrans-289
   prefs: []
   type: TYPE_NORMAL
+  zh: '*InnerFuture* 具有一个或多个方法，满足 *Future* 接口，从通道中检索核心函数返回的值，缓存它们并返回。如果通道上没有可用的值，请求将阻塞。如果已经检索到值，将返回缓存的值。'
 - en: Sample code
+  id: totrans-290
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 示例代码
 - en: 'In this example, we use a `Future` interface that the `InnerFuture` will satisfy:'
+  id: totrans-291
   prefs: []
   type: TYPE_NORMAL
+  zh: 在这个示例中，我们使用一个 `Future` 接口，`InnerFuture` 将满足它：
 - en: '[PRE23]'
+  id: totrans-292
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE23]'
 - en: 'The `InnerFuture` struct is used internally to provide the concurrent functionality.
     In this example, it satisfies the `Future` interface, but could just as easily
     choose to satisfy something like `io.Reader` by attaching a `Read` method, for
     example:'
+  id: totrans-293
   prefs: []
   type: TYPE_NORMAL
+  zh: '`InnerFuture` 结构体在内部用于提供并发功能。在这个示例中，它满足 `Future` 接口，但也可以选择满足类似于 `io.Reader`
+    的东西，通过附加 `Read` 方法，例如：'
 - en: '[PRE24]'
+  id: totrans-294
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE24]'
 - en: In this implementation, the struct itself contains a channel and a variable
     for each value returned by the `Result` method. When `Result` is first called,
     it attempts to read the results from the channels and send them back to the `InnerFuture`
     struct so that subsequent calls to `Result` can immediately return the cached
     values.
+  id: totrans-295
   prefs: []
   type: TYPE_NORMAL
+  zh: 在这个实现中，结构体本身包含一个通道和每个由 `Result` 方法返回的值的变量。当首次调用 `Result` 时，它尝试从通道中读取结果并将它们发送回
+    `InnerFuture` 结构体，以便后续对 `Result` 的调用可以立即返回缓存的值。
 - en: 'Note the use of `sync.Once` and `sync.WaitGroup`. The former does what it says
     on the tin: it ensures that the function that’s passed to it is called exactly
     once. The `WaitGroup` is used to make this function call thread safe: any calls
     after the first will be blocked at `wg.Wait` until the channel reads are complete.'
+  id: totrans-296
   prefs: []
   type: TYPE_NORMAL
+  zh: 注意使用 `sync.Once` 和 `sync.WaitGroup`。前者按照其字面意思执行：确保传递给它的函数只调用一次。`WaitGroup` 用于使这个函数调用线程安全：第一次调用后的任何调用都将在
+    `wg.Wait` 处阻塞，直到通道读取完成。
 - en: '`SlowFunction` is a wrapper around the core functionality that you want to
     run concurrently. It has the job of creating the results channels, running the
     core function in a goroutine, and creating and returning the `Future` implementation
     (`InnerFuture`, in this example):'
+  id: totrans-297
   prefs: []
   type: TYPE_NORMAL
+  zh: '`SlowFunction` 是围绕你想要并发运行的核心功能的包装器。它负责创建结果通道、在goroutine中运行核心功能，并创建并返回 `Future`
+    实现 (`InnerFuture` 在本示例中)：'
 - en: '[PRE25]'
+  id: totrans-298
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE25]'
 - en: 'To make use of this pattern, you need only call the `SlowFunction` and use
     the returned `Future` as you would any other value:'
+  id: totrans-299
   prefs: []
   type: TYPE_NORMAL
+  zh: 要使用这种模式，只需调用 `SlowFunction` 并使用返回的 `Future` 就像使用任何其他值一样：
 - en: '[PRE26]'
+  id: totrans-300
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE26]'
 - en: This approach provides a reasonably good user experience. The programmer can
     create a `Future` and access it as they wish, and can even apply timeouts or deadlines
     with a `Context`.
+  id: totrans-301
   prefs: []
   type: TYPE_NORMAL
+  zh: 这种方法提供了一个相当不错的用户体验。程序员可以创建一个 `Future` 并按其意愿访问它，甚至可以使用 `Context` 应用超时或截止时间。
 - en: Sharding
+  id: totrans-302
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 分片
 - en: '*Sharding* splits a large data structure into multiple partitions to localize
     the effects of read/write locks.'
+  id: totrans-303
   prefs: []
   type: TYPE_NORMAL
+  zh: '*分片* 将一个大数据结构分成多个分区，以局部化读/写锁的影响。'
 - en: Applicability
+  id: totrans-304
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 适用性
 - en: The term *sharding* is typically used in the context of distributed state to
     describe data that is partitioned between server instances. This kind of *horizontal
     sharding* is commonly used by databases and other data stores to distribute load
     and provide redundancy.
+  id: totrans-305
   prefs: []
   type: TYPE_NORMAL
+  zh: '*分片* 一词通常在分布式状态的上下文中使用，用于描述在服务器实例之间分区的数据。这种 *水平分片* 常用于数据库和其他数据存储中，以分发负载并提供冗余。'
 - en: A slightly different issue can sometimes affect highly concurrent services that
     have a shared data structure with a locking mechanism to protect it from conflicting
     writes. In this scenario, the locks that serve to ensure the fidelity of the data
     can also create a bottleneck when processes start to spend more time waiting for
     locks than they do doing their jobs. This unfortunate phenomenon is called *lock
     contention*.
+  id: totrans-306
   prefs: []
   type: TYPE_NORMAL
 - en: While this might be resolved in some cases by scaling the number of instances,
@@ -1406,29 +2023,37 @@
     into two or more structures, each representing a part of the whole. Using this
     strategy, only a portion of the overall structure needs to be locked at a time,
     decreasing overall lock contention.
+  id: totrans-307
   prefs: []
   type: TYPE_NORMAL
 - en: Participants
+  id: totrans-308
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: 'This pattern includes the following participants:'
+  id: totrans-309
   prefs: []
   type: TYPE_NORMAL
 - en: ShardedMap
+  id: totrans-310
   prefs: []
   type: TYPE_NORMAL
 - en: An abstraction around one or more *Shards* providing read and write access as
     if the *Shards* were a single map.
+  id: totrans-311
   prefs: []
   type: TYPE_NORMAL
 - en: Shard
+  id: totrans-312
   prefs: []
   type: TYPE_NORMAL
 - en: An individually lockable collection representing a single data partition.
+  id: totrans-313
   prefs: []
   type: TYPE_NORMAL
 - en: Implementation
+  id: totrans-314
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -1437,6 +2062,7 @@
     this isn’t always possible. Maps are particularly unsafe for concurrent use, making
     the use of locks as a synchronization mechanism a necessary evil. Fortunately,
     Go provides `sync.RWMutex` for precisely this purpose.
+  id: totrans-315
   prefs: []
   type: TYPE_NORMAL
 - en: '`RWMutex` provides methods to establish both read and write locks, as demonstrated
@@ -1444,27 +2070,34 @@
     read locks as long as there are no open write locks; a process can establish a
     write lock only when there are no existing read or write locks. Attempts to establish
     additional locks will block until any locks ahead of it are released:'
+  id: totrans-316
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE27]'
+  id: totrans-317
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE27]'
 - en: This strategy generally works perfectly fine. However, because locks allow access
     to only one process at a time, the average amount of time spent waiting for locks
     to clear in a read/write intensive application can increase dramatically with
     the number of concurrent processes acting on the resource. The resulting lock
     contention can potentially bottleneck key functionality.
+  id: totrans-318
   prefs: []
   type: TYPE_NORMAL
 - en: Vertical sharding reduces lock contention by splitting the underlying data structure—usually
     a map—into several individually lockable maps. An abstraction layer provides access
     to the underlying shards as if they were a single structure (see [Figure 4-5](#vertical-sharding-a-map)).
+  id: totrans-319
   prefs: []
   type: TYPE_NORMAL
 - en: '![cngo 0405](Images/cngo_0405.png)'
+  id: totrans-320
   prefs: []
   type: TYPE_IMG
 - en: Figure 4-5\. Vertically sharding a map by key hash
+  id: totrans-321
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
@@ -1473,45 +2106,58 @@
     a hash value is calculated for the key, which is then modded by the number of
     shards to generate a shard index. This allows the map abstraction to isolate the
     necessary locking to only the shard at that index.
+  id: totrans-322
   prefs: []
   type: TYPE_NORMAL
 - en: Sample code
+  id: totrans-323
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: 'In the following example, we use the standard `sync` and `crypto/sha1` packages
     to implement a basic sharded map: `ShardedMap`.'
+  id: totrans-324
   prefs: []
   type: TYPE_NORMAL
 - en: 'Internally, `ShardedMap` is just a slice of pointers to some number of `Shard`
     values, but we define it as a type so we can attach methods to it. Each `Shard`
     includes a `map[string]interface{}` that contains that shard’s data, and a composed
     `sync.RWMutex` so that it can be individually locked:'
+  id: totrans-325
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE28]'
+  id: totrans-326
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE28]'
 - en: 'Go doesn’t have any concept of constructors, so we provide a `NewShardedMap`
     function to retrieve a new `ShardedMap`:'
+  id: totrans-327
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE29]'
+  id: totrans-328
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE29]'
 - en: '`ShardedMap` has two unexported methods, `getShardIndex` and `getShard`, which
     are used to calculate a key’s shard index and retrieve a key’s correct shard,
     respectively. These could be easily combined into a single method, but slitting
     them this way makes them easier to test:'
+  id: totrans-329
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE30]'
+  id: totrans-330
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE30]'
 - en: 'Note that the previous example has an obvious weakness: because it’s effectively
     using a `byte`-sized value as the hash value, it can only handle up to 255 shards.
     If for some reason you want more than that, you can sprinkle some binary arithmetic
     on it: `hash := int(sum[13]) << 8 | int(sum[17])`.'
+  id: totrans-331
   prefs: []
   type: TYPE_NORMAL
 - en: 'Finally, we add methods to `ShardedMap` to allow a user to read and write values.
@@ -1519,34 +2165,45 @@
     source for this example is in the GitHub repository associated with this book,
     however, so please feel free to implement them as an exercise. A `Delete` and
     a `Contains` method would be nice:'
+  id: totrans-332
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE31]'
+  id: totrans-333
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE31]'
 - en: 'When you do need to establish locks on all of the tables, it’s generally best
     to do so concurrently. In the following, we implement a `Keys` function using
     goroutines and our old friend `sync.WaitGroup`:'
+  id: totrans-334
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE32]'
+  id: totrans-335
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE32]'
 - en: 'Using `ShardedMap` isn’t quite like using a standard map unfortunately, but
     while it’s different, it’s no more complicated:'
+  id: totrans-336
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE33]'
+  id: totrans-337
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE33]'
 - en: Perhaps the greatest downside of the `ShardedMap` (besides its complexity, of
     course) is the loss of type safety associated with the use of `interface{}`, and
     the subsequent requirement of type assertions. Hopefully, with the impending release
     of generics for Go, this will soon be (or perhaps already is, depending on when
     you read this) a problem of the past!
+  id: totrans-338
   prefs: []
   type: TYPE_NORMAL
 - en: Summary
+  id: totrans-339
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -1555,38 +2212,54 @@
     I felt were most important, either because they’re somehow practical in a directly
     applicable way, or because they showcase some interesting feature of the Go language.
     Often both.
+  id: totrans-340
   prefs: []
   type: TYPE_NORMAL
 - en: In [Chapter 5](ch05.xhtml#chapter_5) we’ll move on to the next level, taking
     some of the things we discussed in Chapters [3](ch03.xhtml#chapter_3) and [4](#chapter_4),
     and putting them into practice by building a simple key-value store from scratch!
+  id: totrans-341
   prefs: []
   type: TYPE_NORMAL
+  zh: 在[第5章](ch05.xhtml#chapter_5)中，我们将进入下一个层次，将我们在第[3章](ch03.xhtml#chapter_3)和[4章](#chapter_4)讨论的一些内容付诸实践，通过从头开始构建一个简单的键值存储来实现它们！
 - en: '^([1](ch04.xhtml#idm45983640248920-marker)) Spoken August 1979\. Attested to
     by Vicki Almstrum, Tony Hoare, Niklaus Wirth, Wim Feijen, and Rajeev Joshi. In
     Pursuit of Simplicity: A Symposium Honoring Professor Edsger Wybe Dijkstra, 12–13
     May 2000.'
+  id: totrans-342
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([1](ch04.xhtml#idm45983640248920-marker)) 1979年8月口述。由维奇·阿姆斯特鲁姆、托尼·霍尔、尼克劳斯·维尔特、威姆·费让和拉杰夫·乔西证实。《追求简单：纪念艾兹格·威尔布·迪克斯特教授的座谈会》，2000年5月12-13日。
 - en: ^([2](ch04.xhtml#idm45983640246616-marker)) L (yes, his legal name is L) is
     a brilliant and fascinating human being. Look him up some time.
+  id: totrans-343
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([2](ch04.xhtml#idm45983640246616-marker)) L（是的，他的法定名字就是L）是一个聪明而迷人的人类。有空时查一查他。
 - en: '^([3](ch04.xhtml#idm45983639950216-marker)) Erich Gamma et al. *Design Patterns:
     Elements of Reusable Object-Oriented Software*, 1st edition. Addison-Wesley Professional,
     1994).'
+  id: totrans-344
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([3](ch04.xhtml#idm45983639950216-marker)) 埃里克·伽玛等人，《设计模式：可复用面向对象软件的基本原则》，第1版。Addison-Wesley
+    Professional出版，1994年。
 - en: ^([4](ch04.xhtml#idm45983637370152-marker)) While these terms are often used
     interchangeably, they can also have shades of meaning depending on their context.
     I know. Please don’t write me any angry letters about this.
+  id: totrans-345
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([4](ch04.xhtml#idm45983637370152-marker)) 虽然这些术语经常可以互换使用，但根据上下文的不同，它们的含义也会有所不同。我知道。请不要给我写任何愤怒的信件。
 - en: ^([5](ch04.xhtml#idm45983636786552-marker)) See the article, “Share Memory By
     Communicating,” on *The Go Blog*.
+  id: totrans-346
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([5](ch04.xhtml#idm45983636786552-marker)) 请看《*Go博客*》上的文章，“通过通信共享内存”。
 - en: ^([6](ch04.xhtml#idm45983635908552-marker)) Did I leave out your favorite? Let
     me know, and I’ll try to include it in the next edition!
+  id: totrans-347
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([6](ch04.xhtml#idm45983635908552-marker)) 我漏掉了你最喜欢的内容吗？请告诉我，我会尽量在下一版中加入它！
