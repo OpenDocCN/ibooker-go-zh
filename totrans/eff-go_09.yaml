@@ -259,15 +259,19 @@
   id: totrans-29
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于这样基本的配置文件分析，我们不需要实现任何`pprof`编码或跟踪代码。相反，我们可以使用标准库实现的简单[`runtime/pprof.Profile`结构](https://oreil.ly/f2OkA)。它允许创建记录所需类型当前使用对象的计数和源的配置文件。`pprof.Profile`非常简单且有些受限，^([6](ch09.html#idm45606826001264))
+    但是它非常适合我们开始配置文件分析的旅程。
 - en: The basic profiler example is presented in [Example 9-1](#code-pprof-fd).
   id: totrans-30
   prefs: []
   type: TYPE_NORMAL
+  zh: 在[示例 9-1](#code-pprof-fd)中介绍了基本的配置文件分析器示例。
 - en: Example 9-1\. Implementing file descriptor profiling using `pprof.Profile` functionality
   id: totrans-31
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 9-1\. 使用`pprof.Profile`功能实现文件描述符配置文件分析
 - en: '[PRE0]'
   id: totrans-32
   prefs: []
@@ -277,12 +281,14 @@
   id: totrans-33
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_data_driven_bottleneck_analysis_CO1-1)'
 - en: '`pprof.NewProfile` is designed to be used as a global variable. It registers
     profiles with the provided name, which has to be unique. In this example, I use
     the `fd.inuse` name to indicate the profile tracks in-use file descriptors.'
   id: totrans-34
   prefs: []
   type: TYPE_NORMAL
+  zh: '`pprof.NewProfile` 被设计为全局变量使用。它使用提供的名称注册配置文件，名称必须是唯一的。在这个例子中，我使用`fd.inuse`名称来指示跟踪正在使用的文件描述符的配置文件。'
 - en: Unfortunately, this global registry convention has a few downsides. If you import
     two packages that create profiles you don’t want to use, or they register profiles
     with common names, our program will panic. On the other hand, the global pattern
@@ -294,10 +300,12 @@
   id: totrans-35
   prefs: []
   type: TYPE_NORMAL
+  zh: 不幸的是，这种全局注册约定有一些缺点。如果导入两个创建我们不想使用的配置文件的包，或者它们使用常见名称注册配置文件，我们的程序将会崩溃。另一方面，全局模式允许我们使用`pprof.Lookup("fd.inuse")`从不同包中获取创建的配置文件。它还自动与`net/http/pprof`处理程序配合使用，详见[“捕获配置文件分析信号”](#ch-obs-pprof-obtain)。对于我们的示例，这效果很好，但我通常不建议在任何严肃的自定义配置文件分析器中使用全局约定。
 - en: '[![2](assets/2.png)](#co_data_driven_bottleneck_analysis_CO1-2)'
   id: totrans-36
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_data_driven_bottleneck_analysis_CO1-2)'
 - en: To record living file descriptors, we offer an `Open` function that mimics the
     `os.Open` function. It opens a file and records it. It also wraps the `os.File`,
     so we know when it’s closed. The `Add` method records the object. The second argument
@@ -306,30 +314,36 @@
   id: totrans-37
   prefs: []
   type: TYPE_NORMAL
+  zh: 为了记录活动文件描述符，我们提供了一个`Open`函数，模仿`os.Open`函数。它打开一个文件并记录它。它还包装了`os.File`，因此我们知道它何时关闭。`Add`方法记录对象。第二个参数告诉我们在堆栈跟踪中跳过多少次调用。堆栈跟踪用于记录配置文件在进一步的`pprof`格式中的位置。
 - en: I decided to use the `Open` function as the reference to sample creation, so
     I have to skip two stack frames.
   id: totrans-38
   prefs: []
   type: TYPE_NORMAL
+  zh: 我决定使用`Open`函数作为示例创建的参考，所以我必须跳过两个堆栈帧。
 - en: '[![3](assets/3.png)](#co_data_driven_bottleneck_analysis_CO1-3)'
   id: totrans-39
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_data_driven_bottleneck_analysis_CO1-3)'
 - en: We can remove the object when the file is closed. Note I am using the same inner
     `*os.File`, so the `pprof` package can track and find the object I opened.
   id: totrans-40
   prefs: []
   type: TYPE_NORMAL
+  zh: 当文件关闭时，我们可以移除对象。请注意，我正在使用相同的内部`*os.File`，所以`pprof`包可以跟踪并找到我打开的对象。
 - en: '[![4](assets/4.png)](#co_data_driven_bottleneck_analysis_CO1-4)'
   id: totrans-41
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![4](assets/4.png)](#co_data_driven_bottleneck_analysis_CO1-4)'
 - en: Standard Go profiles offer a `WriteTo` method that writes bytes of a full `pprof`
     file into a provided writer. However, we typically want to save it to the file,
     so I added the `Write` method.
   id: totrans-42
   prefs: []
   type: TYPE_NORMAL
+  zh: 标准Go配置文件提供了一个`WriteTo`方法，它将完整的`pprof`文件的字节写入提供的写入器。然而，通常我们希望将其保存到文件中，所以我添加了`Write`方法。
 - en: Many standard profiles, like those mentioned later in [“Common Profile Instrumentation”](#ch-obs-prof-common),
     are transparently instrumented. For example, we don’t have to allocate memory
     differently to see it in the heap profile (see [“Heap”](#ch-obs-pprof-heap)).
@@ -727,6 +741,9 @@
   id: totrans-93
   prefs: []
   type: TYPE_NORMAL
+  zh: 原始输出可以显示关于配置文件中包含的数据的一些基本信息，并帮助创建 [图 9-1](#img-obs-prof-pprof) 中的图表。但是，有更好的方法来分析更大的配置文件。例如，如果运行
+    `go tool pprof fd.pprof`，它将进入一个交互模式，允许您检查不同的位置并生成各种报告。我们不会在本书中涵盖此模式，因为现在有一种几乎可以完成交互模式所有工作的更好方式——Web
+    查看器！
 - en: The most common way to run a web viewer is to run a local server on your machine
     via the Go CLI. Use the `-http` flag to specify the address with the port to listen
     on. For example, running the `go tool pprof -http :8080 fd.pprof` ^([7](ch09.html#idm45606825325680))
@@ -739,23 +756,32 @@
   id: totrans-94
   prefs: []
   type: TYPE_NORMAL
+  zh: 运行 Web 查看器的最常见方式是通过 Go CLI 在您的机器上运行本地服务器。使用 `-http` 标志指定要侦听的地址和端口。例如，运行 `go
+    tool pprof -http :8080 fd.pprof` ^([7](ch09.html#idm45606825325680)) 命令将在浏览器中打开
+    Web 查看器网站^([8](ch09.html#idm45606825324096))，显示在 [示例 9-2](#code-pprof-fd-usage)
+    中获取的配置文件。您将看到的第一页是基于给定的 `fd.pprof` 配置文件渲染的有向图（参见[“图形”](#ch-obs-profiling-res-graph)）。但在那之前，让我们熟悉一下
+    Web 界面中提供的顶部导航菜单，如 [图 9-2](#img-obs-prof-nav) 所示^([9](ch09.html#idm45606825431504))。
 - en: '![efgo 0902](assets/efgo_0902.png)'
   id: totrans-95
   prefs: []
   type: TYPE_IMG
+  zh: '![efgo 0902](assets/efgo_0902.png)'
 - en: Figure 9-2\. The top navigation on the `pprof` web interface
   id: totrans-96
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 9-2\. `pprof` 网页界面上的顶部导航
 - en: From the left, the top gray overlay menu has the following buttons and inputs:^([10](ch09.html#idm45606825248624))
   id: totrans-97
   prefs: []
   type: TYPE_NORMAL
+  zh: 从左侧开始，顶部灰色覆盖菜单有以下按钮和输入框：^([10](ch09.html#idm45606825248624))
 - en: VIEW
   id: totrans-98
   prefs: []
   type: TYPE_NORMAL
+  zh: 视图
 - en: Allows you to choose different views (reports) of the same profiling data. We
     will go through all six view types in the subsections below. They all show profiles
     from a slightly different angle and have a purpose; you might favor different
@@ -764,10 +790,13 @@
   id: totrans-99
   prefs: []
   type: TYPE_NORMAL
+  zh: 允许您选择相同配置文件数据的不同视图（报告）。我们将在下面的小节中详细介绍所有六种视图类型。它们都从稍微不同的角度显示配置文件，并有其各自的目的；您可能会偏好不同的视图。它们是从位置层次结构（堆栈跟踪）生成的，可以从
+    [图 9-1](#img-obs-prof-pprof) 的样本中重建。
 - en: SAMPLE
   id: totrans-100
   prefs: []
   type: TYPE_NORMAL
+  zh: 样本
 - en: This menu option is not present in [Figure 9-2](#img-obs-prof-nav) because we
     only have one sample value type (`fd.inuse` type with `count` unit), but for profiles
     with more types, the SAMPLE menu allows us to choose what sample type we want
@@ -775,10 +804,13 @@
   id: totrans-101
   prefs: []
   type: TYPE_NORMAL
+  zh: 由于我们只有一种样本值类型（具有 `count` 单位的 `fd.inuse` 类型），所以此菜单选项在 [图 9-2](#img-obs-prof-nav)
+    中不可见，但对于具有更多类型的配置文件，样本菜单允许我们选择要使用的样本类型（一次只能使用一个）。这通常出现在堆配置文件中。
 - en: REFINE
   id: totrans-102
   prefs: []
   type: TYPE_NORMAL
+  zh: 精化
 - en: 'This menu works only in the Graph and Top views (see [“Graph”](#ch-obs-profiling-res-graph)
     and [“Top”](#ch-obs-profiling-res-top)). It allows filtering the Graph or Top
     views to certain locations of interest: nodes in the graph and rows in the top
@@ -789,12 +821,14 @@
   id: totrans-103
   prefs: []
   type: TYPE_NORMAL
+  zh: 此菜单仅在图形和顶部视图中有效（参见[“图形”](#ch-obs-profiling-res-graph)和[“顶部”](#ch-obs-profiling-res-top)）。它允许将图形或顶部视图过滤到特定的兴趣位置：图中的节点和顶部表中的行。对于具有数百个或更多位置的非常复杂的配置文件，这一功能尤其有用。要使用它，请单击一个或多个图形节点或顶部表中的行以选择位置。然后点击“精化”，选择是要关注、忽略、隐藏还是显示它们。
 - en: Focus and Ignore control the visibility of samples that go through a selected
     node or row, allowing you to focus on or ignore full stack traces. Hide and Show
     control only the node or row’s visibility without impacting samples.
   id: totrans-104
   prefs: []
   type: TYPE_NORMAL
+  zh: “关注”和“忽略”控制通过所选节点或行的样本的可见性，允许您关注或忽略完整的堆栈跟踪。“隐藏”和“显示”仅控制节点或行的可见性，而不影响样本。
 - en: The same filtering can be applied using `-focus` and other flags in the [`go
     tool pprof` CLI](https://oreil.ly/OVQLC). Additionally, the REFINE > Reset option
     brings us back to a nonfiltered view, and if you change to a view that does not
@@ -802,22 +836,28 @@
   id: totrans-105
   prefs: []
   type: TYPE_NORMAL
+  zh: 可以使用[`go tool pprof` CLI](https://oreil.ly/OVQLC)中的 `-focus` 和其他标志来应用相同的过滤。此外，"REFINE"
+    > "Reset" 选项会将我们带回非过滤视图，如果切换到不支持精细选项的视图，则仅持续 "Focus" 值。
 - en: Focus and Ignore are incredibly useful when you want to find the exact contribution
     of a certain code path. On the other hand, you can use Hide and Show when you
     want to present the graph to somebody or as documentation for a clearer picture.
   id: totrans-106
   prefs: []
   type: TYPE_NORMAL
+  zh: 当你想要查找特定代码路径的确切贡献时，"Focus" 和 "Ignore" 是非常有用的。另一方面，当你想要向某人展示图形或作为文档以获得更清晰的视图时，可以使用
+    "Hide" 和 "Show"。
 - en: Don’t use those options if you’re trying to mentally correlate your code with
     the profile, as you can get easily confused, especially at the start of your profiling
     journey.
   id: totrans-107
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果你试图在脑中将代码与配置文件相关联，不要使用这些选项，因为你可能会在你的分析旅程初期容易混淆。
 - en: CONFIG
   id: totrans-108
   prefs: []
   type: TYPE_NORMAL
+  zh: '"CONFIG"'
 - en: The refinement settings you used from the REFINE option are saved in the URL.
     However, you can save these settings to a special, named configuration (as well
     as a zoom option for the Graph view). Click CONFIG > Save As …​, then choose the
@@ -829,20 +869,27 @@
   id: totrans-109
   prefs: []
   type: TYPE_NORMAL
+  zh: 你从"REFINE"选项中使用的细化设置会保存在URL中。但是，你可以将这些设置保存到特殊的命名配置（以及用于图形视图的缩放选项）。点击"CONFIG"
+    > "Save As …"，然后选择你将要使用的配置。"Default" 配置的作用类似于 "REFINE" > "Reset"。配置保存在 [*<os.UserConfigDir>/pprof/settings.json*](https://oreil.ly/nWfnq)
+    中。在我的 Linux 机器上，它位于 *~/.config/pprof/settings.json*。如果你切换到其他视图，此选项也仅在 "Top" 和
+    "Graph" 视图上有效，并在自动切换到其他视图时更改为 "Default"。
 - en: DOWNLOAD
   id: totrans-110
   prefs: []
   type: TYPE_NORMAL
+  zh: DOWNLOAD
 - en: This option downloads the same profile you used in `go tool pprof`. It is useful
     if someone exposes the web viewer on the remote server and you want to save the
     remote profile.
   id: totrans-111
   prefs: []
   type: TYPE_NORMAL
+  zh: 此选项下载了与`go tool pprof`中使用的相同配置文件。如果某人在远程服务器上公开了 Web 视图，并且你希望保存远程配置文件，则此选项非常有用。
 - en: Search regexp
   id: totrans-112
   prefs: []
   type: TYPE_NORMAL
+  zh: 搜索正则表达式
 - en: You can search for samples of interest using the [RE2 regular expression](https://oreil.ly/c0vAq)
     syntax by the location’s function name, filename, or object name. This sets the
     Focus option in the REFINE menu. In some views, like Top, Graph, and os.ReadFile,
@@ -850,10 +897,13 @@
   id: totrans-113
   prefs: []
   type: TYPE_NORMAL
+  zh: 你可以使用[RE2 正则表达式](https://oreil.ly/c0vAq)语法来搜索感兴趣的样本，可以通过位置的函数名称、文件名或对象名称进行设置
+    "Focus" 选项。在某些视图中，如 "Top"、"Graph" 和 "os.ReadFile"，接口在你输入表达式时还会突出显示匹配的样本。
 - en: The binary name and sample type
   id: totrans-114
   prefs: []
   type: TYPE_NORMAL
+  zh: 二进制名称和样本类型
 - en: In the right-hand corner is a link with the chosen binary name and sample value
     type. You can click this menu item to open a small pop-up with quick statistics
     about the profile, view, and options we are running with. For example, [Figure 9-2](#img-obs-prof-nav)
@@ -861,22 +911,27 @@
   id: totrans-115
   prefs: []
   type: TYPE_NORMAL
+  zh: 在右上角是一个链接，带有所选的二进制名称和样本值类型。你可以点击此菜单项，打开一个小弹窗，快速查看关于配置文件、视图和正在运行选项的统计信息。例如，当你点击链接并启用一些
+    "REFINE" 选项时，可以看到 [Figure 9-2](#img-obs-prof-nav) 的内容。
 - en: Before diving into the different views available in the `pprof` tool, we have
     to understand important concepts of Flat and Cumulative (Cum for short) values
     for certain location granularity.
   id: totrans-116
   prefs: []
   type: TYPE_NORMAL
+  zh: 在深入了解`pprof`工具中的不同视图之前，我们必须理解"Flat" 和 "Cumulative"（简称 "Cum"）对于某些位置粒度的重要概念。
 - en: 'Every `pprof` view shows Flat and Cumulative values for one or more locations:'
   id: totrans-117
   prefs: []
   type: TYPE_NORMAL
+  zh: 每个`pprof`视图显示一个或多个位置的 "Flat" 和 "Cumulative" 值：
 - en: Flat represents a certain node’s *direct* responsibility for resource or time
     usage.
   id: totrans-118
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '"Flat" 表示某个节点对资源或时间使用的*直接*责任。'
 - en: Cumulative is a sum of *direct* in *indirect* contributions. Indirect means
     that the locations did not create any resource (or were not used anytime) directly,
     but may have invoked one or more functions that did.
@@ -884,18 +939,22 @@
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '"Cumulative" 是*直接*和*间接*贡献的总和。间接意味着这些位置并没有直接创建任何资源（或者在任何时候未被直接使用），但可能调用了一个或多个执行此操作的函数。'
 - en: Using code examples is best to explain those definitions in detail. Let’s use
     part of the `main()` function from [Example 9-2](#code-pprof-fd-usage) presented
     in [Example 9-4](#code-pprof-fd-usage2).
   id: totrans-120
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用代码示例最好详细解释这些定义。让我们使用 [示例 9-2](#code-pprof-fd-usage) 中的 `main()` 函数的一部分，这在
+    [示例 9-4](#code-pprof-fd-usage2) 中介绍。
 - en: Example 9-4\. Snippet of [Example 9-2](#code-pprof-fd-usage) explaining Flat
     and Cumulative values
   id: totrans-121
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 9-4\. [示例 9-2](#code-pprof-fd-usage) 的片段解释了 Flat 和累积值
 - en: '[PRE3]'
   id: totrans-122
   prefs: []
@@ -905,6 +964,7 @@
   id: totrans-123
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_data_driven_bottleneck_analysis_CO4-1)'
 - en: Profiling is tightly coupled with a stack trace representing a call sequence
     that led to a certain sample, so in our case, opening files. However, we could
     aggregate all samples going through the `main()` function to learn more. In this
@@ -914,29 +974,37 @@
   id: totrans-124
   prefs: []
   type: TYPE_NORMAL
+  zh: 分析紧密地与堆栈跟踪结合在一起，表示导致特定样本的调用序列，因此在我们的情况下是打开文件。然而，我们可以聚合通过 `main()` 函数的所有样本来学习更多。在这种情况下，`main()`
+    函数的打开文件的 Flat 数是 1，Cum 数是 12。这是因为在主函数中，我们直接只打开了一个文件（通过 `fd.Open`）；^([11](ch09.html#idm45606824757280))
+    其余文件是通过链式（后代）函数打开的。
 - en: '[![2](assets/2.png)](#co_data_driven_bottleneck_analysis_CO4-2)'
   id: totrans-125
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_data_driven_bottleneck_analysis_CO4-2)'
 - en: From our *fd.pprof* profile, we could find that this code line Flat value is
     1 and Cum is 1\. It directly opens one file and does not contribute indirectly
     to any more file descriptor usage.
   id: totrans-126
   prefs: []
   type: TYPE_NORMAL
+  zh: 根据我们的 *fd.pprof* 文件，我们发现此代码行的 Flat 值是 1，Cum 值是 1。它直接打开了一个文件，并且没有间接地增加任何文件描述符的使用。
 - en: '[![3](assets/3.png)](#co_data_driven_bottleneck_analysis_CO4-3)'
   id: totrans-127
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_data_driven_bottleneck_analysis_CO4-3)'
 - en: '`append` does not contribute to any sample. Therefore, no sample should include
     this code line.'
   id: totrans-128
   prefs: []
   type: TYPE_NORMAL
+  zh: '`append` 不贡献任何样本。因此，任何样本不应包含此代码行。'
 - en: '[![4](assets/4.png)](#co_data_driven_bottleneck_analysis_CO4-4)'
   id: totrans-129
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![4](assets/4.png)](#co_data_driven_bottleneck_analysis_CO4-4)'
 - en: The code line that invokes the `a.OpenSingleFile` method has a Flat value of
     0 and a Cum of 1\. Similarly, the `a.OpenTenFiles` method Flat value is 0 and
     Cum is 10\. Both directly in the moment of the CPU touching this program line
@@ -944,6 +1012,8 @@
   id: totrans-130
   prefs: []
   type: TYPE_NORMAL
+  zh: 调用 `a.OpenSingleFile` 方法的代码行的 Flat 值为 0，Cum 值为 1。同样，`a.OpenTenFiles` 方法的 Flat
+    值为 0，Cum 值为 10。在 CPU 执行此程序行的时刻，它们都没有创建（尚未）任何文件。
 - en: I find the Flat and Cum names quite confusing, so I will use the direct and
     cumulative terms in further content. Both numbers are beneficial to compare what
     parts of the code contribute to the resource usage (or time used). The cumulative
@@ -952,30 +1022,37 @@
   id: totrans-131
   prefs: []
   type: TYPE_NORMAL
+  zh: 我觉得 Flat 和 Cum 的名称相当令人困惑，因此在进一步的内容中将使用直接和累积这两个术语。这两个数字有助于比较代码的哪些部分对资源使用（或使用时间）有贡献。累积数字帮助我们了解哪个流程更昂贵，而直接值告诉我们潜在瓶颈的来源。
 - en: Let’s walk through the different views and see how we can use them to analyze
     the *fd.pprof* file obtained in [Example 9-2](#code-pprof-fd-usage).
   id: totrans-132
   prefs: []
   type: TYPE_NORMAL
+  zh: 让我们浏览不同的视图，看看如何使用它们来分析在 [示例 9-2](#code-pprof-fd-usage) 中获得的 *fd.pprof* 文件。
 - en: Top
   id: totrans-133
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: Top
 - en: First on the VIEW list, the Top report shows a table of statistics per location
     grouped by functions. The view for the *fd.pprof* file is presented in [Figure 9-3](#img-obs-prof-top).
   id: totrans-134
   prefs: []
   type: TYPE_NORMAL
+  zh: 首先是 VIEW 列表上的 Top 报告，显示了按功能分组的每个位置的统计表。*fd.pprof* 文件的视图显示在 [图 9-3](#img-obs-prof-top)
+    中。
 - en: '![efgo 0903](assets/efgo_0903.png)'
   id: totrans-135
   prefs: []
   type: TYPE_IMG
+  zh: '![efgo 0903](assets/efgo_0903.png)'
 - en: Figure 9-3\. The Top view is sorted by the direct value
   id: totrans-136
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 9-3\. Top 视图按直接值排序
 - en: Each row represents direct and cumulative contributions of open files for the
     single function, which, as we learned from [Example 9-4](#code-pprof-fd-usage2),
     aggregates the usage of one or multiple lines within that function. This is called
@@ -983,25 +1060,31 @@
   id: totrans-137
   prefs: []
   type: TYPE_NORMAL
+  zh: 每一行代表单个功能的直接和累积的打开文件的贡献，正如我们从 [示例 9-4](#code-pprof-fd-usage2) 中学到的那样，聚合了该功能内一个或多个行的使用情况。这称为函数粒度，可以通过
+    URL 或 CLI 标志进行配置。
 - en: 'We already defined the values represented by the Flat and Cum columns. Other
     columns in this view are:'
   id: totrans-138
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们已经定义了 Flat 和 Cum 列的值所代表的含义。此视图中的其他列包括：
 - en: Flat%
   id: totrans-139
   prefs: []
   type: TYPE_NORMAL
+  zh: Flat%
 - en: The percentage of the row’s direct contributions to the program’s total contributions.
     In our case, 99.11% of the open file descriptors were created directly by the
     `open` method (111 out of 112).
   id: totrans-140
   prefs: []
   type: TYPE_NORMAL
+  zh: 行的直接贡献百分比，占程序总贡献的比例。在我们的案例中，99.11%的打开文件描述符是直接由`open`方法创建的（共112个中的111个）。
 - en: Sum%
   id: totrans-141
   prefs: []
   type: TYPE_NORMAL
+  zh: 总和%
 - en: The third column is the percentage of all direct values from the top to the
     current flow to the total contributions. For instance, the 2 top rows are directly
     responsible for all 112 file descriptors. This statistic allows us to narrow down
@@ -1009,19 +1092,23 @@
   id: totrans-142
   prefs: []
   type: TYPE_NORMAL
+  zh: 第三列是从顶部到当前流的所有直接值的百分比对总贡献的百分比。例如，前两行直接负责所有112个文件描述符。此统计数据允许我们将注意力集中在可能对我们的瓶颈分析最重要的函数上。
 - en: Cum%
   id: totrans-143
   prefs: []
   type: TYPE_NORMAL
+  zh: 累积%
 - en: The percentage of the cumulative contribution of the row to the total contributions.
   id: totrans-144
   prefs: []
   type: TYPE_NORMAL
+  zh: 行的累积贡献百分比，占程序总贡献的比例。
 - en: Be Careful When Goroutines Are Involved
   id: totrans-145
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 当涉及到goroutines时要小心
 - en: The cumulative value can be misleading in some cases with goroutines. For example,
     [Figure 9-3](#img-obs-prof-top) indicated that `runtime.main` cumulatively opened
     12 files. However, from [Example 9-2](#code-pprof-fd-usage) you can find that
@@ -1032,6 +1119,7 @@
   id: totrans-146
   prefs: []
   type: TYPE_NORMAL
+  zh: 在某些与goroutines相关的情况下，累积值可能会具有误导性。例如，[图 9-3](#img-obs-prof-top)表明`runtime.main`累计打开了12个文件。然而，从[示例 9-2](#code-pprof-fd-usage)中可以看出，它还执行了`Open100FilesConcurrently`方法，然后作为新的goroutine执行`Open100FilesConcurrently.func1`（匿名函数）。我期望在图形中从`runtime.main`到`Open100FilesConcurrently.func1`有一个链接，并且`runtime.main`的累积值为112。
 - en: The problem is that stack traces of each goroutine in Go are always separate.
     Therefore, there is no relation between goroutines in which goroutine created
     which one, which will be clear when we look at the goroutine profiles in [“Goroutine”](#ch-obs-pprof-goroutine).
@@ -1039,10 +1127,12 @@
   id: totrans-147
   prefs: []
   type: TYPE_NORMAL
+  zh: 问题在于Go中每个goroutine的堆栈跟踪始终是分开的。因此，我们不能确定哪个goroutine创建了哪个goroutine，这一点在我们查看[Goroutine](#ch-obs-pprof-goroutine)中的goroutine分析时会更加清楚。在分析程序瓶颈时，我们必须牢记这一点。
 - en: Name and Inlined
   id: totrans-148
   prefs: []
   type: TYPE_NORMAL
+  zh: 名称和内联
 - en: The function name for the location and whether it was inlined during compilation.
     In [Example 9-2](#code-pprof-fd-usage), both `open` and `OpenSingleFile` were
     simple enough for compiler to inline them to the parent functions. You can represent
@@ -1053,12 +1143,14 @@
   id: totrans-149
   prefs: []
   type: TYPE_NORMAL
+  zh: 位置的函数名以及编译期间是否内联。在[示例 9-2](#code-pprof-fd-usage)中，`open`和`OpenSingleFile`都足够简单，编译器可以将它们内联到父函数中。您可以通过在`pprof`命令中添加`-noinlines`标志或在URL参数中添加`?noinlines=t`来表示内联后的二进制情况。看到内联之前的情况仍然推荐，以更轻松地映射源代码发生的情况。
 - en: The sorting order of rows in our Top table is by direct contribution, but we
     can change it with the `-cum` flag to order by cumulative values. We can also
     click on each header in the table to trigger different sorting in this view.
   id: totrans-150
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们Top表中的行排序顺序是按直接贡献排序的，但我们可以通过`-cum`标志改变为按累积值排序。我们还可以单击表中每个标题以触发此视图中不同的排序。
 - en: The Top view might be the simplest and fastest way to find the functions (or
     files or lines, depending on the chosen granularity) directly or cumulatively
     responsible for using resources or time you are profiling for. The downside is
@@ -1068,11 +1160,13 @@
   id: totrans-151
   prefs: []
   type: TYPE_NORMAL
+  zh: Top视图可能是查找负责使用您正在分析的资源或时间的函数（或文件或行，取决于所选择的粒度）的最简单和最快的方法。缺点是它不告诉我们这些行之间的确切链接，这些链接可以告诉我们哪些代码流（完整的堆栈跟踪）可能触发了使用情况。对于这种情况，使用下一节中解释的图形视图可能是值得的。
 - en: Graph
   id: totrans-152
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 图形
 - en: The Graph view is the first thing you see when opening the `pprof` tool web
     interface. This is not without reason—humans work better if things [are visualized](https://oreil.ly/VElUH)
     than if we have to parse and visualize all in our brain from the text report.
@@ -1081,6 +1175,7 @@
   id: totrans-153
   prefs: []
   type: TYPE_NORMAL
+  zh: 图形视图是打开`pprof`工具网页界面时首先看到的东西。这并非没有原因——如果我们能够将事物[可视化](https://oreil.ly/VElUH)，人类的工作效率会更高，而不是从文本报告中进行解析和可视化。这也是我最喜欢的视图，特别是对于来自不太熟悉的代码库获取的性能分析。
 - en: 'To render the Graph view, the `pprof` tool generates a graphical [directed
     acyclic graph (DAG)](https://oreil.ly/hzglQ) from the provided profile in the
     [DOT](https://oreil.ly/HiRV9) format. We can then use the `-dot` flag with `go
@@ -1094,16 +1189,22 @@
   id: totrans-154
   prefs: []
   type: TYPE_NORMAL
+  zh: 要渲染图形视图，`pprof`工具会根据提供的 [DOT](https://oreil.ly/HiRV9) 格式的性能分析文件生成一个图形化的有向无环图（DAG）。然后我们可以使用
+    `-dot` 标志与 `go tool pprof`，并使用其他渲染工具将其渲染为我们想要的格式，如 `-svg`、`-png`、`-jpg`、`-gif`
+    或 `-pdf`。另一方面，`-http` 选项会生成一个临时的 `.svg` 格式图形，并从中启动网页浏览器。从浏览器中，我们可以在图形视图中看到 `.svg`
+    可视化，并使用之前解释的交互式“REFINE”选项：缩放、放大和通过图形移动。我们 *fd.pprof* 格式的示例图形视图显示在[图 9-4](#img-obs-prof-graph)中。
 - en: '![efgo 0904](assets/efgo_0904.png)'
   id: totrans-155
   prefs: []
   type: TYPE_IMG
+  zh: '![efgo 0904](assets/efgo_0904.png)'
 - en: Figure 9-4\. The Graph view of [Example 9-2](#code-pprof-fd-usage) with function
     granularity
   id: totrans-156
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 9-4\. [示例 9-2](#code-pprof-fd-usage) 的图形视图，使用函数粒度
 - en: What I love about this view is that it clearly represents the relation (hierarchy)
     of different execution parts of your program regarding resource or time usage.
     While it might be tempting, you cannot move nodes around. You can only hide or
@@ -1112,15 +1213,18 @@
   id: totrans-157
   prefs: []
   type: TYPE_NORMAL
+  zh: 我喜欢这个视图的原因在于它清晰地表示了程序中不同执行部分在资源或时间使用方面的关系（层次结构）。虽然可能很诱人，但你不能移动节点。你只能使用“REFINE”选项来隐藏或显示它们。在节点上悬停还会显示完整的包名称或代码行。
 - en: 'On top of that, every aspect of this graph [has its meaning](https://oreil.ly/GQbNn),
     which helps to find the most expensive parts. Let’s go through the graph attributes:'
   id: totrans-158
   prefs: []
   type: TYPE_NORMAL
+  zh: 此外，这个图的每个方面都有其含义，有助于找到最昂贵的部分。让我们来看看图的属性：
 - en: Node
   id: totrans-159
   prefs: []
   type: TYPE_NORMAL
+  zh: 节点
 - en: 'Each node represents the contribution of a function for the currently opened
     files. This is why the first part of the text in the node shows the Go package
     and function (or method). We would see the code line or file if we chose a different
@@ -1133,12 +1237,16 @@
   id: totrans-160
   prefs: []
   type: TYPE_NORMAL
+  zh: 每个节点代表当前打开文件的函数的贡献。这就是为什么节点文本的第一部分显示了 Go 包和函数（或方法）。如果我们选择不同的粒度，我们将看到代码行或文件。节点的第二部分显示了直接和累计值。如果这些值中的任何一个非零，我们会看到该值对总贡献的百分比。例如，在[图 9-4](#img-obs-prof-graph)中，我们看到
+    `main.main()` 节点（右侧）确认了我们在[示例 9-4](#code-pprof-fd-usage2)中找到的数字。使用 `pprof`，我们记录了该函数的
+    1 个直接贡献和 12 个累计贡献。颜色和大小也告诉我们一些信息：
 - en: The size of the node represents direct contributions. The bigger the node, the
     more resource or time it used directly.
   id: totrans-161
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 节点的大小表示直接贡献。节点越大，直接使用的资源或时间越多。
 - en: The border and fill color represent cumulative values. The normal color is gold.
     Large positive cumulative numbers make the node red. Cumulative values close to
     zero cause the node to be gray.
@@ -1146,10 +1254,12 @@
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 边框和填充颜色代表累计值。正常颜色是金色。大的正累计数会使节点变为红色。接近零的累计值会使节点变灰。
 - en: Edge
   id: totrans-163
   prefs: []
   type: TYPE_NORMAL
+  zh: 边缘
 - en: 'Each edge represents the call path between functions (files or lines). The
     call does not need to be direct. For example, if you use the `REFINE` option,
     you can hide multiple nodes that were called between two, causing the edge to
@@ -1160,29 +1270,35 @@
   id: totrans-164
   prefs: []
   type: TYPE_NORMAL
+  zh: 每条边代表函数（文件或行）之间的调用路径。调用不需要是直接的。例如，如果您使用 `REFINE` 选项，可以隐藏在两者之间调用的多个节点，导致边显示间接链接。边上的值表示该代码路径的累计贡献。边旁边的
+    `inline` 词告诉我们，该边所指向的调用已内联到调用者中。其他特性也很重要：
 - en: The weight of the edge indicates cumulative contributions by a path. The thicker
     the edge, the more resources were used.
   id: totrans-165
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 边的粗细表示路径的累计贡献。边越粗，使用的资源越多。
 - en: The color shows the same. Normally an edge is gold. Larger positive values color
     an edge red, close to zero to gray.
   id: totrans-166
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 颜色显示相同。通常边是金色的。较大的正值将边着色为红色，接近零则为灰色。
 - en: A dashed edge indicates that some connected locations were removed, e.g., because
     of a node limit.^([12](ch09.html#idm45606824674864))
   id: totrans-167
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 虚线边表示删除了某些连接位置，例如因为节点限制。^([12](ch09.html#idm45606824674864))
 - en: Some Nodes Might Be Hidden!
   id: totrans-168
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 有些节点可能会被隐藏！
 - en: Don’t be surprised if you don’t see every contribution to the resource you profile
     in the Graph view. As I mentioned before, most of the profiles are sampled. This
     means that statistically, the locations that contribute a little might be missed
@@ -1190,12 +1306,15 @@
   id: totrans-169
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果在图形视图中未看到资源分析中每次贡献，不要感到惊讶。正如我之前提到的，大多数配置文件是抽样的。这意味着从结果配置文件中可能会漏掉少量贡献的位置。
 - en: The second reason is the node limit in the `pprof` viewer. By default, it does
     not show more [than 80 nodes](https://oreil.ly/Wcwsu) for readability. You can
     change that limit using the `-nodecount` flag.
   id: totrans-170
   prefs: []
   type: TYPE_NORMAL
+  zh: 第二个原因是 `pprof` 视图中的节点限制。默认情况下，为了可读性，最多显示[80个节点](https://oreil.ly/Wcwsu)。您可以使用
+    `-nodecount` 标志来更改此限制。
 - en: Finally, the `-edgefraction` and `-nodefraction` settings hide the edges and
     nodes with the fraction of direct contribution to the total contribution lower
     than the specified value. By [default](https://oreil.ly/oVfrt) it is 0.005 (0.5%)
@@ -1203,6 +1322,8 @@
   id: totrans-171
   prefs: []
   type: TYPE_NORMAL
+  zh: 最后，`-edgefraction` 和 `-nodefraction` 设置会隐藏那些直接贡献比例低于指定值的边和节点。默认情况下（[默认](https://oreil.ly/oVfrt)），节点比例为
+    0.005（0.5%），边比例为 0.001（0.1%）。
 - en: With theory aside, what can we learn from the `pprof` Graph view? This view
     is perfect for learning about efficiency bottlenecks and how to find their source.
     From [Figure 9-4](#img-obs-prof-graph) we can immediately see that the biggest
@@ -1216,6 +1337,10 @@
   id: totrans-172
   prefs: []
   type: TYPE_NORMAL
+  zh: 理论放一边，我们从 `pprof` 图形视图中可以学到什么？这个视图非常适合了解效率瓶颈及其来源。从 [图 9-4](#img-obs-prof-graph)
+    我们可以立即看出，最大的累计贡献者是 `Open100FilesConcurrently`，它似乎是一个新的 goroutine，因为它与 `runtime/main`
+    函数没有连接。首先优化该路径可能是个不错的主意。最多打开文件来自 `OpenTenFiles` 和 `open`。这告诉我们，这是该资源效率的关键路径。如果某些新功能要求在每次
+    `open` 调用时创建额外的文件，我们将看到我们的 Go 程序打开的文件描述符数量显著增加。
 - en: The Graph view is an excellent method to understand how your application’s different
     functionalities impact your program’s resource usage. It is especially important
     for more complex programs with large dependencies your team did not create. As
@@ -1226,39 +1351,50 @@
   id: totrans-173
   prefs: []
   type: TYPE_NORMAL
+  zh: Graph 视图是了解应用程序不同功能如何影响程序资源使用的绝佳方法。这对于具有大型依赖项的复杂程序尤其重要，这些依赖项并非您的团队创建。事实证明，误解依赖库的正确使用方法很容易。不幸的是，这也意味着会有很多您不认识或不理解的函数名或代码行。参见
+    [图 9-5](#img-obs-prof-graph2)，取自我们在 [“使用并发优化延迟”](ch10.html#ch-opt-latency-concurrency-example)
+    中优化的 `Sum`。
 - en: This result also proves the importance of the skill of switching between different
     granularity. It’s as easy as adding to a URL `?g=lines` to switch to line granularity—it’s
     way more effective than reopening `go tool pprof` with the `-lines` flag.
   id: totrans-174
   prefs: []
   type: TYPE_NORMAL
+  zh: 这个结果也证明了在不同粒度之间切换的技能的重要性。只需向 URL 添加 `?g=lines`，就可以切换到行粒度——这比使用 `-lines` 标志重新打开
+    `go tool pprof` 效果更好。
 - en: '![efgo 0905](assets/efgo_0905.png)'
   id: totrans-175
   prefs: []
   type: TYPE_IMG
+  zh: '![efgo 0905](assets/efgo_0905.png)'
 - en: Figure 9-5\. Snippet of the Graph view of the CPU profile taken from [Example 10-10](ch10.html#code-sum-concurrent1)
     with line granularity
   id: totrans-176
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 9-5\. 来自 [示例 10-10](ch10.html#code-sum-concurrent1) 的 Graph 视图的片段，使用行粒度
 - en: Following the Graph view, we have the latest addition to the `pprof` tool—the
     Flame Graph view, which many members of the Go community prefer. So let’s dive
     into it.
   id: totrans-177
   prefs: []
   type: TYPE_NORMAL
+  zh: 接下来是 `pprof` 工具的最新功能——Flame Graph 视图，许多 Go 社区成员喜欢使用。让我们深入了解。
 - en: Flame Graph
   id: totrans-178
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: Flame Graph
 - en: The Flame Graph (sometimes also called the Icicle Graph) view in `pprof` is
     inspired by Brendan Gregg’s [work](https://oreil.ly/sKFbH), focused initially
     on CPU profiling.
   id: totrans-179
   prefs: []
   type: TYPE_NORMAL
+  zh: '`pprof` 中的 Flame Graph 视图（有时也称为冰柱图）受到 Brendan Gregg 的 [工作](https://oreil.ly/sKFbH)
+    的启发，最初专注于 CPU 分析。'
 - en: A flame graph visualizes a collection of stack traces (aka call stacks), shown
     as an adjacency diagram with an inverted icicle layout. Flame graphs are commonly
     used to visualize CPU profiler output, where stack traces are collected using
@@ -1267,6 +1403,7 @@
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: Flame Graph 是一种可视化栈跟踪（也称为调用堆栈）的图表，显示为倒置的冰柱布局。Flame Graph 通常用于可视化 CPU 分析器的输出，其中通过采样收集栈跟踪。
 - en: ''
   id: totrans-181
   prefs:
@@ -1277,31 +1414,37 @@
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: Brendan Gregg，《炎图》[“The Flame Graphs”](https://oreil.ly/RAsrK)
 - en: The Flame Graph report rendered from *fd.pprof* is presented in [Figure 9-6](#img-obs-prof-flame).
   id: totrans-183
   prefs: []
   type: TYPE_NORMAL
+  zh: 从 *fd.pprof* 渲染的 Flame Graph 报告显示在 [图 9-6](#img-obs-prof-flame) 中。
 - en: Color and Order of Segments Usually Do Not Matter
   id: totrans-184
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 段的颜色和顺序通常不重要
 - en: This depends on the tool that renders the Flame Graph, but for the `pprof` tool,
     both color and order do not have any meaning here. The segments are typically
     sorted by the location name or label value.
   id: totrans-185
   prefs: []
   type: TYPE_NORMAL
+  zh: 这取决于渲染 Flame Graph 的工具，但对于 `pprof` 工具来说，颜色和顺序在这里都没有意义。段通常按位置名称或标签值排序。
 - en: '![efgo 0906](assets/efgo_0906.png)'
   id: totrans-186
   prefs: []
   type: TYPE_IMG
+  zh: '![efgo 0906](assets/efgo_0906.png)'
 - en: Figure 9-6\. The Flame Graph view of [Example 9-2](#code-pprof-fd-usage) with
     a function granularity
   id: totrans-187
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 9-6\. [示例 9-2](#code-pprof-fd-usage) 的 Flame Graph 视图，具有函数粒度
 - en: The `pprof` is an inverted version of the original Flame Graph, where each significant
     code flow forms a separate icicle. The main attribute that matters here is the
     width of the rectangular segment, which represents the node from the Graph view—function
@@ -1312,12 +1455,15 @@
   id: totrans-188
   prefs: []
   type: TYPE_NORMAL
+  zh: '`pprof` 是原始 Flame Graph 的倒置版本，其中每个重要的代码流形成一个单独的冰柱。这里主要关注的属性是矩形段的宽度，代表了 Graph
+    视图中的节点——在我们的案例中是函数。方块越宽，贡献的累积值就越大。您可以悬停在单个段上查看它们的绝对值和百分比累积值。单击每个块以聚焦于给定的代码路径。'
 - en: Instead of edges, we can follow call hierarchy by looking at what’s above the
     current segment. Don’t focus too much on the height of the icicle—it only shows
     how complex (deep) the call stack is. It’s the width that matters here.
   id: totrans-189
   prefs: []
   type: TYPE_NORMAL
+  zh: 与其关注冰柱的高度，不如查看位于当前段上方的调用层次结构。这里重要的是宽度，而不是高度。
 - en: In some way, a Flame Graph is often favored by more advanced engineers because
     it’s more compact. It allows a pragmatic insight into the biggest bottlenecks
     of the system. It immediately shows the percentage of all resources that each
@@ -1333,6 +1479,8 @@
   id: totrans-190
   prefs: []
   type: TYPE_NORMAL
+  zh: 在某种程度上，Flame Graph通常受到更高级工程师的青睐，因为它更加紧凑。它允许对系统的最大瓶颈进行实用的洞察。它立即显示每个代码路径贡献的所有资源的百分比。一眼就能看出，在[图 9-6](#img-obs-prof-flame)中，我们可以立即知道没有任何互动，`Open100FilesConcurrently.func1`是主要的打开文件瓶颈，大约使用了90%的资源。Flame
+    Graph也非常适合显示是否存在任何主要的瓶颈。在某些情况下，许多小的贡献者一起可能生成大量使用。Flame Graph将立即告诉我们这种情况。请注意，类似于[图 9-4](#img-obs-prof-graph)视图，它可能会从视图中删除许多节点。如果单击右上角的二进制名称，将显示删除的节点数。
 - en: 'Any of the three views we discussed—Top, Graph, or Flame Graph—should be the
     first point of interest to find the biggest bottleneck in our program efficiency.
     Remember about sampling, switching granularity to learn more, and focusing your
@@ -1341,11 +1489,14 @@
   id: totrans-191
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们讨论过的三个视图之一——Top、Graph 或 Flame Graph——应该是查找程序效率最大瓶颈的第一关键点。请记住关于抽样，切换粒度以获取更多信息，并首先关注最大的瓶颈。但是，还值得简要提及另外三个视图：Peek、Source
+    和 Disassemble。让我们在下一节中看一下它们。
 - en: Peek, Source, and Disassemble
   id: totrans-192
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: Peek、Source 和 Disassemble
 - en: The other three views—Peek, Source, and Disassemble—are not affected by the
     granularity option. They all show the raw line or address level of locations,
     which is especially useful if you want to go back to your source code to focus
@@ -1353,6 +1504,8 @@
   id: totrans-193
   prefs: []
   type: TYPE_NORMAL
+  zh: 另外三个视图——Peek、Source 和 Disassemble——不受粒度选项影响。它们都显示位置的原始行或地址级别，特别适用于想要回到源代码并专注于喜欢的
+    IDE 内部代码优化的情况。
 - en: The Peek view provides a table similar to the Top view. The only difference
     is that each code line shows all direct callers and the usage distribution in
     the Call and Calls% columns. It helps in cases with many callers where you want
@@ -1360,6 +1513,7 @@
   id: totrans-194
   prefs: []
   type: TYPE_NORMAL
+  zh: Peek 视图提供了类似于 Top 视图的表格。唯一的区别在于，每个代码行都显示所有直接调用者及其在 Call 和 Calls% 列中的使用分布情况。这在有许多调用者的情况下非常有帮助，您可以缩小贡献最大的代码路径。
 - en: One of my favorite tools is the Source view. It shows the exact code line in
     the context of the program source code. In addition, it shows the few lines before
     and after. Unfortunately, the output is not ordered, so you have to use previous
@@ -1370,16 +1524,19 @@
   id: totrans-195
   prefs: []
   type: TYPE_NORMAL
+  zh: 我最喜欢的工具之一是 Source 视图。它显示程序源代码上下文中的确切代码行。此外，它还显示前后几行。不幸的是，输出没有排序，因此您必须使用之前的视图来了解要关注的函数或代码行，并使用搜索功能来专注于您想要的内容。例如，我们可以看到直接映射到我们代码中的`Open100FilesConcurrently`的直接和累积贡献，如[图 9-7](#img-obs-prof-source)所示。
 - en: '![efgo 0907](assets/efgo_0907.png)'
   id: totrans-196
   prefs: []
   type: TYPE_IMG
+  zh: '![efgo 0907](assets/efgo_0907.png)'
 - en: Figure 9-7\. The Source view of [Example 9-2](#code-pprof-fd-usage) focused
     on the `Open100FilesConcurrently` search
   id: totrans-197
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 9-7\. [示例 9-2](#code-pprof-fd-usage) 的源视图，专注于`Open100FilesConcurrently`搜索
 - en: For me, there is something special in the Source view. Seeing the open file
     descriptors, allocation points, CPU time, etc., directly mapped to a code statement
     in your source code gives a bigger understanding and awareness than seeing lines
@@ -1389,6 +1546,7 @@
   id: totrans-198
   prefs: []
   type: TYPE_NORMAL
+  zh: 对我而言，源视图中有些特别之处。直接映射到代码语句中的打开文件描述符、分配点、CPU时间等，在你的源代码中给出了比在[图 9-4](#img-obs-prof-graph)中看到的一堆框更大的理解和认识。对于标准库代码，或者当你提供一个二进制文件（如为Disassemble视图所述），你还可以点击一个函数来显示它的汇编代码！
 - en: The Source view is incredibly useful when attempting to estimate the [“Complexity
     Analysis”](ch07.html#ch-hw-complexity) of the code we profile. I recommend using
     the Source view if you can’t fully wrap your head around the part of the code
@@ -1396,6 +1554,7 @@
   id: totrans-199
   prefs: []
   type: TYPE_NORMAL
+  zh: 当我们分析代码的[“复杂性分析”](ch07.html#ch-hw-complexity)时，源视图非常有用。如果你不能完全理解代码的某个部分使用资源的原因，我建议使用源视图。
 - en: Finally, the Disassemble view is useful for advanced profiling. It provides
     the Source view, but at the assembly level (see [“Assembly”](ch04.html#ch-hw-assembly)).
     It allows checking compilation details around the problematic code. This view
@@ -1406,6 +1565,8 @@
   id: totrans-200
   prefs: []
   type: TYPE_NORMAL
+  zh: 最后，Disassemble视图对于高级分析非常有用。它提供源视图，但是在汇编级别上（参见[“汇编”](ch04.html#ch-hw-assembly)）。它允许检查围绕有问题的代码的编译详细信息。此视图需要提供从与你采取配置文件的程序相同的源代码构建的二进制文件。例如，对于我的情况，通过路径使用`go
+    tool pprof -http :8080 pkg/profile/fd/example/main fd.pprof`提供静态构建的二进制文件来获取*fd.inuse*文件。^([13](ch09.html#idm45606824599744))
 - en: Currently, no mechanism will check if you are using the correct program binary
     for the profile you analyze. Therefore, the results might be, by accident, correct
     or totally wrong. The result in the error case is nondeterministic, so ensure
@@ -1413,6 +1574,7 @@
   id: totrans-201
   prefs: []
   type: TYPE_NORMAL
+  zh: 目前，没有机制会检查你是否使用了正确的程序二进制文件来分析你的配置文件。因此，结果可能会偶然正确，也可能完全错误。在错误情况下的结果是不确定的，因此请确保提供正确的二进制文件！
 - en: The `pprof` tool is an amazing way to confirm, in a data-driven way, your initial
     guesses about the efficiency of your application and what causes the potential
     problems. The amazing thing about the skills you acquired in this section is that
@@ -1425,6 +1587,9 @@
   id: totrans-202
   prefs: []
   type: TYPE_NORMAL
+  zh: '`pprof` 工具是确认你关于应用程序效率和可能问题原因的初始猜测的绝佳方式，以数据驱动的方式。在本节中你获得的技能的惊人之处在于，所述的文本和`pprof`配置文件的视觉表示不仅仅被原生的`pprof`工具使用。类似的视图和技术也被许多其他分析工具和付费供应商服务所采用，比如[Polar
+    Signals](https://oreil.ly/HowVb)、[Grafana Phlare](https://oreil.ly/Ru0Hu)、[Google
+    Profiler](https://oreil.ly/mJu6V)、[Datadog的持续性分析](https://oreil.ly/WF9fG)、[Pyroscope项目](https://oreil.ly/eKyK7)等等！'
 - en: It is also quite likely that your Go IDE^([14](ch09.html#idm45606824589952))
     supports rendering and gathering `pprof` profiles out of the box. Using IDE is
     great as it can integrate directly into your source code and enable smooth navigation
@@ -1434,16 +1599,20 @@
   id: totrans-203
   prefs: []
   type: TYPE_NORMAL
+  zh: 很可能你的Go IDE^([14](ch09.html#idm45606824589952))也支持渲染和收集`pprof`配置文件。使用IDE非常好，因为它可以直接集成到你的源代码中，并通过位置实现平滑导航。但是，我更喜欢像[Parca项目](https://oreil.ly/2PKkx)这样基于`go
+    tool pprof`和`pprof`工具的云项目，因为我们经常需要在宏基准测试级别上进行分析（参见[“宏基准测试”](ch08.html#ch-obs-macro)）。
 - en: With the format and visualization descriptions complete, let’s dive into how
     to obtain profiles from your Go program.
   id: totrans-204
   prefs: []
   type: TYPE_NORMAL
+  zh: 当格式和可视化描述完成后，让我们深入了解如何从你的 Go 程序中获取配置文件。
 - en: Capturing the Profiling Signal
   id: totrans-205
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 捕获分析信号
 - en: Recently we started treating profiling as [a fourth observability signal](https://oreil.ly/zlAis).
     This is because profiling, in many ways, is very similar to the previously discussed
     signals in [Chapter 6](ch06.html#ch-observability), like metrics, logging, and
@@ -1452,6 +1621,7 @@
   id: totrans-206
   prefs: []
   type: TYPE_NORMAL
+  zh: 最近，我们开始将性能分析视为 [第四种可观察性信号](https://oreil.ly/zlAis)。这是因为性能分析在很多方面与第 6 章中讨论的其他信号（如指标、日志记录和跟踪）非常相似。例如，与其他信号类似，我们需要仪表化和可靠的实验来获取有意义的数据。
 - en: We discussed how to write custom instrumentation in [“pprof Format”](#ch-obs-pprof),
     and we will go through common existing profilers available in Go runtime. However,
     it’s not enough to be able to fetch profiles about various resource usage in our
@@ -1460,6 +1630,7 @@
   id: totrans-207
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们讨论了如何编写 [“pprof 格式”](#ch-obs-pprof) 的自定义仪表化，我们将介绍 Go 运行时中常见的现有性能分析器。然而，仅仅能够获取关于程序各种资源使用情况的概要是不够的——我们还需要知道如何触发能为我们提供所需效率瓶颈信息的情况。
 - en: 'Fortunately, we already went through [“Reliability of Experiments”](ch07.html#ch-obs-rel)
     and [“Benchmarking Levels”](ch07.html#ch-obs-benchmarking) that explained reliable
     experiments. Profiling practices are designed to integrate with our benchmarking
@@ -1468,12 +1639,15 @@
   id: totrans-208
   prefs: []
   type: TYPE_NORMAL
+  zh: 幸运的是，我们已经通过 [“实验的可靠性”](ch07.html#ch-obs-rel) 和 [“基准测试水平”](ch07.html#ch-obs-benchmarking)
+    来解释了可靠的实验。性能分析实践旨在与我们的基准测试过程自然集成。这使得我们的 TFBO 循环中的实际优化工作流得以顺利进行（[“高效开发流程”](ch03.html#ch-conq-eff-flow)）：
 - en: We perform a benchmark on the desired level (micro, macro, or production) to
     assure the efficiency of our program.
   id: totrans-209
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 我们在所需级别（微观、宏观或生产）上执行基准测试，以确保程序的效率。
 - en: If we are not happy with the result, we can rerun the same benchmark while also
     capturing the profile during or at the end of the experiment to find the efficiency
     bottleneck.
@@ -1481,11 +1655,13 @@
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 如果我们对结果不满意，我们可以重新运行相同的基准测试，并在实验期间或结束时捕获性能概要，以找出效率瓶颈。
 - en: Always-On Profiling
   id: totrans-211
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 始终开启性能分析
 - en: You can design your workflow to not need to rerun the benchmark for profiling
     capturing. In [“Microbenchmarks”](ch08.html#ch-obs-micro), I recommended always
     capturing your profiles on most of your Go benchmarks. In [“Continuous Profiling”](#ch-obs-cont-profiling),
@@ -1493,6 +1669,8 @@
   id: totrans-212
   prefs: []
   type: TYPE_NORMAL
+  zh: 您可以设计您的工作流程，以避免需要重新运行基准测试以捕获性能概要。在 [“微基准测试”](ch08.html#ch-obs-micro) 中，我建议在大多数
+    Go 基准测试中始终捕获您的性能概要。在 [“持续性能分析”](#ch-obs-cont-profiling) 中，您将学习如何在宏观或生产级别上持续进行性能分析！
 - en: Having instrumentation and the right experiment (reusing benchmarks) is great.
     Still, we also need to learn how to trigger and transfer the profile from the
     instrumentation of your choice to analysis with the tools you learned in [“go
@@ -1500,6 +1678,8 @@
   id: totrans-213
   prefs: []
   type: TYPE_NORMAL
+  zh: 拥有仪表化和正确的实验（重用基准测试）是很好的。但我们还需要学习如何触发并将所选仪表化的概要传输到您在 [“go tool pprof 报告”](#ch-obs-profiling-res)
+    中学到的工具进行分析。
 - en: 'We need to know the API for the profiler we want to use for that purpose. As
     we learned in [Chapter 6](ch06.html#ch-observability), similar to other signals,
     we generally have two main types of instrumentation: autoinstrumentation and manual.
@@ -1511,6 +1691,8 @@
   id: totrans-214
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们需要了解用于我们想要使用的性能分析器的 API。正如我们在 [第 6 章](ch06.html#ch-observability) 中学到的，类似于其他信号，我们通常有两种主要的仪表化类型：自动仪表化和手动仪表化。关于前一种模型，有很多方法可以在不添加一行代码的情况下获取有关我们的
+    Go 程序的性能概要！使用像 [eBPF](https://oreil.ly/8mqs6) 这样的技术，我们可以对我们的 Go 程序的几乎任何资源使用进行仪表化。许多开源项目、初创公司或成熟供应商正在致力于使这个领域变得更加可访问和易于使用。
 - en: However, everything is a trade-off. The eBPF is still early technology that
     works only on Linux. It has some portability challenges across Linux kernel versions
     and nontrivial maintainability costs. It is also usually a generic solution that
@@ -1521,6 +1703,8 @@
   id: totrans-215
   prefs: []
   type: TYPE_NORMAL
+  zh: 然而，所有事情都是一种权衡。eBPF 技术仍处于早期阶段，仅在 Linux 上工作。在不同的 Linux 内核版本和非平凡的可维护性成本之间存在一些可移植性挑战。通常它也是一个通用解决方案，无法像我们现在使用更多手动的进程内分析工具那样提供相同的可靠性和能力来提供语义化、应用级别的分析。最后，这是一本关于
+    Go 编程语言的书，所以我很想分享如何创建、捕获和使用本地进程内分析工具。
 - en: 'The API for using instrumentation depends on the implementation. For example,
     you can write a profiler that will save a profile on a disk every minute or every
     time some event occurs (e.g., [when a certain Linux signal is captured](https://oreil.ly/xCW7u)).
@@ -1529,10 +1713,13 @@
   id: totrans-216
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用仪器的 API 取决于其实现。例如，你可以编写一个分析器，每分钟或每次发生某个事件时（例如，[捕获特定的 Linux 信号时](https://oreil.ly/xCW7u)），将分析结果保存到磁盘上。然而，通常在
+    Go 社区中，我们可以概述三种主要的触发和保存分析结果的模式：
 - en: Programmatically triggered
   id: totrans-217
   prefs: []
   type: TYPE_NORMAL
+  zh: 通过编程方式触发
 - en: Most profilers you will see and use in Go can be manually inserted into your
     code to save profiles when you want. This is what I used in [Example 9-2](#code-pprof-fd-usage)
     to capture the *fd.pprof* file we were analyzing in [“go tool pprof Reports”](#ch-obs-profiling-res).
@@ -1543,6 +1730,9 @@
   id: totrans-218
   prefs: []
   type: TYPE_NORMAL
+  zh: 大多数你会看到并且在 Go 中使用的分析器都可以手动插入到你的代码中，在你希望保存分析结果时进行。这就是我在 [Example 9-2](#code-pprof-fd-usage)
+    中使用的方法，用于捕获我们在 [“go tool pprof Reports”](#ch-obs-profiling-res) 中分析的 *fd.pprof*
+    文件。典型的接口具有类似于 `WriteTo(w io.Writer) error` 的签名，它会从程序运行开始记录的样本。然后，以 `pprof` 格式将分析结果写入你选择的写入器（通常是文件）。
 - en: Some profilers set an explicit starting point when the profiler starts recording
     samples. This is true, for example, for the CPU profiler (see [“CPU”](#ch-obs-pprof-cpu))
     that has a signature like `StartCPUProfile(w io.Writer) error` to start the cycle,
@@ -1550,6 +1740,8 @@
   id: totrans-219
   prefs: []
   type: TYPE_NORMAL
+  zh: 一些性能分析工具在开始记录样本时会设置一个明确的起点。例如，CPU 分析器（参见 [“CPU”](#ch-obs-pprof-cpu)）有一个类似于 `StartCPUProfile(w
+    io.Writer) error` 的签名来启动周期，然后使用 `StopCPUProfile()` 来结束分析周期。
 - en: 'This pattern of using the profiles is great for quick tests in the development
     environment or when used in the microbenchmarks code (see [“Microbenchmarks”](ch08.html#ch-obs-micro)).
     Usually, however, developers don’t use it directly. Instead, they often use it
@@ -1558,10 +1750,13 @@
   id: totrans-220
   prefs: []
   type: TYPE_NORMAL
+  zh: 这种使用分析的模式非常适合在开发环境中进行快速测试或在微基准测试代码中使用（参见 [“Microbenchmarks”](ch08.html#ch-obs-micro)）。然而，通常开发者不会直接使用它。相反，他们经常将其用作构建两种其他模式的基础：Go
+    基准测试集成和 HTTP 处理程序：
 - en: Go benchmark integrations
   id: totrans-221
   prefs: []
   type: TYPE_NORMAL
+  zh: Go 基准测试集成
 - en: As presented in an example command I typically use for Go benchmarks in [Example 8-4](ch08.html#code-sum-go-bench-all),
     you can fetch all standard profiles from a microbenchmark by specifying flags
     in the `go test` tool. Almost all profiles explained in [“Common Profile Instrumentation”](#ch-obs-prof-common)
@@ -1572,10 +1767,14 @@
   id: totrans-222
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如我在 [Example 8-4](ch08.html#code-sum-go-bench-all) 中提供的一个 Go 基准测试的示例命令，你可以通过在
+    `go test` 工具中指定标志来获取微基准测试中的所有标准分析结果。几乎所有在 [“Common Profile Instrumentation”](#ch-obs-prof-common)
+    中解释的分析都可以通过 `-memprofile`、`-cpuprofile`、`-blockprofile` 和 `-mutexprofile` 标志进行启用。除非你想在特定时刻触发分析，否则不需要将自定义代码放入你的基准测试中。目前还不支持自定义分析。
 - en: HTTP handlers
   id: totrans-223
   prefs: []
   type: TYPE_NORMAL
+  zh: HTTP 处理程序
 - en: Finally, an HTTP server is the most common way to capture profiles for programs
     at macro and production levels. This pattern is especially useful for backend
     Go applications, which by default accept HTTP connections for normal use. It’s
@@ -1585,6 +1784,8 @@
   id: totrans-224
   prefs: []
   type: TYPE_NORMAL
+  zh: 最后，HTTP 服务器是在宏观和生产级别捕获程序配置文件的最常见方法。这种模式对于默认接受 HTTP 连接进行后端 Go 应用程序特别有用。因此，为了正常使用，建议添加专门的
+    HTTP 处理程序用于分析和其他监控功能（例如 Prometheus 的`/metrics`端点）。接下来我们将探讨这种模式。
 - en: The standard Go library provides HTTP server handlers for all profilers using
     the `pprof.Profile` structure, for example, our [Example 9-1](#code-pprof-fd)
     profiler or any of the standard profiles explained in [“Common Profile Instrumentation”](#ch-obs-prof-common).
@@ -1593,12 +1794,16 @@
   id: totrans-225
   prefs: []
   type: TYPE_NORMAL
+  zh: 标准 Go 库为所有使用`pprof.Profile`结构的分析器提供了 HTTP 服务器处理程序，例如我们的[示例 9-1](#code-pprof-fd)分析器或任何在[“Common
+    Profile Instrumentation”](#ch-obs-prof-common)中解释的标准配置文件。您可以将这些处理程序添加到您的`http.Server`中，如[示例 9-5](#code-pprof-http)中所示，通过几行代码即可在您的
+    Go 程序中进行设置。
 - en: Example 9-5\. Creating the HTTP server with debug handlers for custom and standard
     profilers
   id: totrans-226
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 9-5\. 使用自定义和标准分析器创建 HTTP 服务器
 - en: '[PRE4]'
   id: totrans-227
   prefs: []
@@ -1608,6 +1813,7 @@
   id: totrans-228
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_data_driven_bottleneck_analysis_CO5-1)'
 - en: The `Mux` structure allows registering HTTP server handlers on specific HTTP
     paths. Importing `_ "net/http/pprof"` will register standard profiles in the default
     global mux (`http.DefaultServeMux`) by default. However, I always recommend creating
@@ -1616,10 +1822,13 @@
   id: totrans-229
   prefs: []
   type: TYPE_NORMAL
+  zh: '`Mux` 结构允许在特定 HTTP 路径上注册 HTTP 服务器处理程序。导入`_ "net/http/pprof"`将默认在全局默认 Mux (`http.DefaultServeMux`)
+    中注册标准配置文件。然而，我始终建议创建一个新的空 Mux，而不是使用全局 Mux，以明确注册的路径。这就是为什么在我的示例中我手动注册它们的原因。'
 - en: '[![2](assets/2.png)](#co_data_driven_bottleneck_analysis_CO5-2)'
   id: totrans-230
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_data_driven_bottleneck_analysis_CO5-2)'
 - en: The `pprof.Index` handler exposes a root HTML index page that lists quick statistics
     and links to profilers registered using `pprof.NewProfile`. An example view is
     presented in [Figure 9-8](#img-obs-prof-index). Additionally, this handler forwards
@@ -1630,34 +1839,41 @@
   id: totrans-231
   prefs: []
   type: TYPE_NORMAL
+  zh: '`pprof.Index` 处理程序公开一个根 HTML 索引页面，列出快速统计信息，并链接到使用`pprof.NewProfile`注册的分析器。示例视图如[图 9-8](#img-obs-prof-index)所示。此外，此处理程序将每个按名称引用的分析器转发到相应的位置；例如，`/debug/pprof/heap`将转发到堆分析器（参见[“Heap”](#ch-obs-pprof-heap)）。最后，此处理程序添加到注册的`profile`行下的`cmdline`和`trace`处理程序的链接，这些处理程序提供了进一步的调试能力。'
 - en: '[![3](assets/3.png)](#co_data_driven_bottleneck_analysis_CO5-3)'
   id: totrans-232
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_data_driven_bottleneck_analysis_CO5-3)'
 - en: The standard Go CPU is not using `pprof.Profile`, so we have to register that
     HTTP path explicitly.
   id: totrans-233
   prefs: []
   type: TYPE_NORMAL
+  zh: 标准的 Go CPU 不使用`pprof.Profile`，因此我们必须显式注册该 HTTP 路径。
 - en: '[![4](assets/4.png)](#co_data_driven_bottleneck_analysis_CO5-4)'
   id: totrans-234
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![4](assets/4.png)](#co_data_driven_bottleneck_analysis_CO5-4)'
 - en: The same profile-capturing method can be used for third-party profilers, e.g.,
     the profiler for [“Off-CPU Time”](#ch-obs-pprof-latency) called `fgprof`.
   id: totrans-235
   prefs: []
   type: TYPE_NORMAL
+  zh: 相同的配置文件捕获方法可以用于第三方分析器，例如称为`fgprof`的[“Off-CPU Time”](#ch-obs-pprof-latency)分析器。
 - en: '![efgo 0908](assets/efgo_0908.png)'
   id: totrans-236
   prefs: []
   type: TYPE_IMG
+  zh: '![efgo 0908](assets/efgo_0908.png)'
 - en: Figure 9-8\. The served HTML page from the debug/pprof/ path of the server created
     in [Example 9-5](#code-pprof-http)
   id: totrans-237
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 9-8\. 从[示例 9-5](#code-pprof-http)中创建的服务器的 debug/pprof/ 路径提供的 HTML 页面
 - en: The index page is nice to have if you forget what name the profiler uses or
     what profilers you have available in your Go program. Notice that our custom [Example 9-1](#code-pprof-fd)
     profiler is also on this list (`fd.inuse` with 165 files^([15](ch09.html#idm45606824378144))),
@@ -1667,6 +1883,7 @@
   id: totrans-238
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果您忘记分析器使用的名称或您的 Go 程序中有哪些分析器，索引页面非常有用。请注意，我们的自定义[示例 9-1](#code-pprof-fd)分析器也在列表中（`fd.inuse`，具有165个文件^([15](ch09.html#idm45606824378144))），因为它是使用`pprof.NewProfile`创建的。对于不导入包含[示例 9-1](#code-pprof-fd)中代码的`fd`包的程序，这个索引页面将缺少`fd.inuse`行。
 - en: 'A nice debugging page is not the primary purpose of the HTTP handlers. Their
     fundamental benefit is that a human operator or automation can dynamically capture
     the profiles from outside, triggering them in the most relevant moments of the
@@ -1675,6 +1892,8 @@
   id: totrans-239
   prefs: []
   type: TYPE_NORMAL
+  zh: 一个漂亮的调试页面并非 HTTP 处理程序的主要目的。它们的基本优势在于人工操作员或自动化可以从外部动态捕获配置文件，在宏观测试、事故或正常生产运行的最相关时刻触发它们。根据我的经验，我发现通过
+    HTTP 协议使用配置文件工具有四种方式：
 - en: You can click on the link for the desired profiler in the HTML page visible
     in [Figure 9-8](#img-obs-prof-index), for example, `heap`. This will open the
     `http://<address>/debug/pprof/heap?debug=1` URL that prints the count of samples
@@ -1683,6 +1902,7 @@
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 您可以在可见的 HTML 页面中点击所需配置文件工具的链接，例如[图 9-8](#img-obs-prof-index)中的`heap`。这将打开`http://<address>/debug/pprof/heap?debug=1`链接，该链接会打印当前时刻每个堆栈跟踪样本的数量——一个简化的文本格式内存配置文件。
 - en: Removing the `debug` parameter will download the desired profile in `pprof`
     format; e.g., the `http://<address>/debug/pprof/heap` URL in the browser will
     download the memory profile explained in [“Heap”](#ch-obs-pprof-heap) to a local
@@ -1692,6 +1912,8 @@
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 移除`debug`参数将以`pprof`格式下载所需的配置文件；例如，在浏览器中访问`http://<address>/debug/pprof/heap`链接将下载[“堆”](#ch-obs-pprof-heap)中解释的内存配置文件到本地文件。然后，您可以使用`go
+    tool pprof`打开此文件，如我在[“go tool pprof 报告”](#ch-obs-profiling-res)中所解释的那样。
 - en: You can point the `pprof` tool directly to the profiler URL to avoid the manual
     process of downloading the file. For example, we can open a web profiler viewer
     for a memory profile if we run in our terminal `go tool pprof -http :8080 http://<address>/debug/pprof/heap`.
@@ -1699,6 +1921,8 @@
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 您可以直接将`pprof`工具指向配置文件工具的 URL，避免手动下载文件的过程。例如，如果在我们的终端中运行`go tool pprof -http
+    :8080 http://<address>/debug/pprof/heap`，我们可以打开一个内存配置文件的 Web 配置文件查看器。
 - en: Finally, we can use another server to collect those profiles to a dedicated
     database periodically, e.g., using the [Phlare](https://oreil.ly/Ru0Hu) or [Parca](https://oreil.ly/2PKkx)
     projects explained in [“Continuous Profiling”](#ch-obs-cont-profiling).
@@ -1706,6 +1930,7 @@
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 最后，我们可以使用另一个服务器定期将这些配置文件收集到专用数据库中，例如使用[Phlare](https://oreil.ly/Ru0Hu)或[Parca](https://oreil.ly/2PKkx)项目，在[“连续分析”](#ch-obs-cont-profiling)中有详细解释。
 - en: To sum up, use whatever you find more convenient for the program you are analyzing.
     Profiling is great for understanding the efficiency of complex production applications
     in a microservice architecture, so the pattern of the HTTP API for capturing profiles
@@ -1716,6 +1941,8 @@
   id: totrans-244
   prefs: []
   type: TYPE_NORMAL
+  zh: 总结一下，使用您认为对分析的程序更方便的工具。在微服务架构中，性能分析对理解复杂生产应用程序的效率非常有帮助，因此捕获配置文件的 HTTP API 模式通常是我使用的。Go
+    基准测试分析可能是最有用的微观级别分析。提到的访问模式在 Go 社区中很常见，但这并不意味着您不能创新并编写适合您工作流程的捕获流程。
 - en: To explain the view types in [“go tool pprof Reports”](#ch-obs-profiling-res),
     `pprof` format, and custom profilers, I created the simplest possible file descriptor
     profiling instrumentation ([Example 9-1](#code-pprof-fd)). Fortunately, we don’t
@@ -1726,11 +1953,14 @@
   id: totrans-245
   prefs: []
   type: TYPE_NORMAL
+  zh: 为了解释[“go tool pprof 报告”](#ch-obs-profiling-res)中的视图类型，`pprof`格式和自定义配置文件工具，我创建了最简单的文件描述符配置文件工具（[示例 9-1](#code-pprof-fd)）。幸运的是，我们不需要编写我们自己的配置工具来获得对常见机器资源的强大分析。Go
+    自带了几种标准的配置文件工具，由社区和全球用户广泛维护和使用。另外，我还会提到开源社区中一个有用的额外配置工具。让我们在下一节详细介绍这些内容。
 - en: Common Profile Instrumentation
   id: totrans-246
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 常见的配置文件工具
 - en: In Chapters [4](ch04.html#ch-hardware) and [5](ch05.html#ch-hardware2), I explained
     two main resources we have to optimize for—CPU time and memory. I also discussed
     how those could impact latency. The whole space can be intimidating at first,
@@ -1740,11 +1970,14 @@
   id: totrans-247
   prefs: []
   type: TYPE_NORMAL
+  zh: 在第[4](ch04.html#ch-hardware)和第[5](ch05.html#ch-hardware2)章中，我解释了我们优化的两个主要资源——CPU时间和内存。我还讨论了这些资源如何影响延迟。初次接触整个领域可能会令人生畏，鉴于其复杂性和在[“实验的可靠性”](ch07.html#ch-obs-rel)中的关注点。这就是为什么理解Go具有哪些常见的
+    profiling 实现以及如何使用它们至关重要的原因。我们将从堆 profiling 开始。
 - en: Heap
   id: totrans-248
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 堆
 - en: The `heap` profile, also sometimes referred to as the `alloc` profile, provides
     a reliable way to find the main contributors of the memory allocated on the heap
     (explained in [“Go Memory Management”](ch05.html#ch-hw-go-mem)). However, similar
@@ -1755,12 +1988,16 @@
   id: totrans-249
   prefs: []
   type: TYPE_NORMAL
+  zh: '`heap` profile，有时也被称为`alloc` profile，提供了一种可靠的方法来找出堆上分配的内存的主要贡献者（在[“Go内存管理”](ch05.html#ch-hw-go-mem)中解释）。然而，类似于[“内存使用”](ch06.html#ch-obs-mem-usage)中提到的`go_mem⁠stats_heap`指标，它只显示在堆上分配的内存块，而不包括在栈上分配的内存或自定义的`mmap`调用。尽管如此，Go程序内存的堆部分通常是最大的问题所在；因此，堆
+    profile 在我的经验中通常非常有用。'
 - en: You can redirect the heap profile to `io.Writer` using [`pprof.Lookup​("heap").WriteTo(w,
     0)`](https://oreil.ly/kMjqJ), with `-memprofile` on Go benchmark, or by calling
     the `/debug/pprof/heap` URL with handlers, as in [Example 9-5](#code-pprof-http).^([16](ch09.html#idm45606824335568))
   id: totrans-250
   prefs: []
   type: TYPE_NORMAL
+  zh: 您可以使用[`pprof.Lookup​("heap").WriteTo(w, 0)`](https://oreil.ly/kMjqJ)将堆 profile
+    重定向到`io.Writer`，在Go benchmark中使用`-memprofile`，或通过调用`/debug/pprof/heap` URL与处理程序，如[示例 9-5](#code-pprof-http)所示。^([16](ch09.html#idm45606824335568))
 - en: The memory profiler has to be efficient for it to be feasible for practical
     purposes. That’s why the `heap` profiler is sampled and deeply integrated with
     the [Go runtime allocator flow](https://oreil.ly/NF1ni) that is responsible for
@@ -1773,17 +2010,21 @@
   id: totrans-251
   prefs: []
   type: TYPE_NORMAL
+  zh: 内存 profiler 必须具备高效性才能实现实际目的。这就是为什么`heap` profiler 是经过抽样的，并且深度集成到负责分配值、指针和内存块的[Go运行时分配器流程](https://oreil.ly/NF1ni)中的原因（参见[“值、指针和内存块”](ch05.html#ch-hw-allocations)）。抽样可以通过[`runtime.MemProfileRate`变量](https://oreil.ly/iJaAU)（或`GODEBUG=memprofilerate=X`环境变量）进行控制，定义为每分配512
+    KB堆上内存时记录一个 profile 样本的平均字节数。默认情况下，Go在每分配512 KB堆上内存时记录一个样本。
 - en: What Memory Profile Rate Should You Choose?
   id: totrans-252
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 您应该选择哪种内存 profiling 率？
 - en: I would recommend not changing the default value of 512 KB. It is low enough
     for practical bottleneck analysis for most Go programs, and cheap enough so we
     can always have it on.
   id: totrans-253
   prefs: []
   type: TYPE_NORMAL
+  zh: 我建议不要更改512 KB的默认值。对于大多数Go程序的实际瓶颈分析来说，这个值已经足够低，并且便宜，因此我们总是可以使用它。
 - en: For more detailed profiling values or to optimize a smaller size of allocations
     on the critical path, consider changing it to one byte to record all allocations
     in your program. However, this can impact your application’s latency and CPU time
@@ -1792,6 +2033,8 @@
   id: totrans-254
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于更详细的分析数值或者优化关键路径上较小的分配大小，考虑将其更改为一字节以记录程序中的所有分配情况。然而，这可能会影响应用程序的延迟和CPU时间（这将在CPU
+    profile中可见）。尽管如此，在对内存进行重点测试时可能会很有效。
 - en: If you have multiple allocations in a single function, it is often useful to
     analyze the heap profile in `lines` granularity (add the `&g=lines` URL parameter
     in the web viewer). An example heap profile of `labeler` in the `e2e` framework
@@ -1799,10 +2042,13 @@
   id: totrans-255
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果单个函数中有多个分配，通常有必要以`lines`粒度分析堆 profile（在Web查看器中添加`&g=lines` URL参数）。例如，`e2e`框架中`labeler`的一个堆
+    profile 示例（见[“Go e2e Framework”](ch08.html#ch-obs-macro-example)）在[图 9-9](#img-obs-prof-heap)中展示。
 - en: '![efgo 0909](assets/efgo_0909.png)'
   id: totrans-256
   prefs: []
   type: TYPE_IMG
+  zh: '![efgo 0909](assets/efgo_0909.png)'
 - en: Figure 9-9\. The zoomed-in Graph view for the `heap` profile from the `labeler`
     `Sum` code from [Example 4-1](ch04.html#code-sum) in `alloc_space` dimension and
     `lines` granularity
@@ -1810,6 +2056,8 @@
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图9-9\. `alloc_space` 维度和 `lines` 粒度中来自 [示例4-1](ch04.html#code-sum) 中 `labeler`
+    `Sum` 代码的 `heap` 剖析的放大图形视图
 - en: 'The unique aspect of the `heap` profile is that it has four value (sample)
     types, which you can choose in a new SAMPLE menu item. The currently selected
     value type is presented in the top right-hand corner. Each type is useful in a
@@ -1817,10 +2065,12 @@
   id: totrans-258
   prefs: []
   type: TYPE_NORMAL
+  zh: '`heap` 剖析的独特之处在于它有四种值（样本）类型，您可以在新的“样本”菜单项中选择。当前选定的值类型显示在右上角。每种类型在不同情况下都很有用：'
 - en: '`alloc_space`'
   id: totrans-259
   prefs: []
   type: TYPE_NORMAL
+  zh: '`alloc_space`'
 - en: In this mode, the sample value means a total number of allocated bytes by location
     on the heap since the start of your program. This means that we will see all the
     memory that was allocated in the past, but most likely is already released by
@@ -1828,6 +2078,7 @@
   id: totrans-260
   prefs: []
   type: TYPE_NORMAL
+  zh: 在这种模式下，样本值表示自程序启动以来在堆上按位置分配的总字节数。这意味着我们将看到过去分配的所有内存，但大部分可能已经被垃圾收集释放了。
 - en: Don’t be surprised to see huge values here! For example, if the program runs
     for a longer time and one function allocates 100 KB every minute, it means ~411
     GB after 30 days. This looks scary, but the same application might just use a
@@ -1835,6 +2086,8 @@
   id: totrans-261
   prefs: []
   type: TYPE_NORMAL
+  zh: 在这里看到巨大的值并不奇怪！例如，如果程序运行时间较长，一个函数每分钟分配100 KB，那么在30天后就会达到约411 GB。看起来很可怕，但在这30天内，同一个应用程序可能只使用了最多10
+    MB的物理内存。
 - en: The total historical allocations are great to see in the code that in total
     allocated the largest amount of bytes in the past, which can lead to problems
     with the maximum memory used by that program. Even if the allocations made by
@@ -1845,6 +2098,8 @@
   id: totrans-262
   prefs: []
   type: TYPE_NORMAL
+  zh: 总历史分配量在代码中非常有用，因为它总共分配了过去最大的字节数，这可能导致程序使用的最大内存量问题。即使某些位置的分配量很小但非常频繁，这可能是垃圾收集的影响（参见[“垃圾收集”](ch05.html#ch-hw-garbage)）。`alloc_space`
+    对于发现过去分配了大空间的事件也非常有用。
 - en: For example, in [Figure 9-9](#img-obs-prof-heap) we see 78.6% of cumulative
     memory used by the `bytes.Split` function. This knowledge will be extremely valuable
     in the example in [“Optimizing Memory Usage”](ch10.html#ch-opt-mem-example). As
@@ -1854,16 +2109,19 @@
   id: totrans-263
   prefs: []
   type: TYPE_NORMAL
+  zh: 例如，在[图9-9](#img-obs-prof-heap)中，我们看到 `bytes.Split` 函数累积内存使用了78.6%。这种知识在[“优化内存使用”](ch10.html#ch-opt-mem-example)的示例中将非常有价值。正如我们在[“Go基准测试”](ch08.html#ch-obs-micro-go)中已经看到的那样，分配的次数远远超过数据集，因此必须找到一种更廉价的内存解决方案来拆分字符串为行。
 - en: Resetting Cumulative Allocations
   id: totrans-264
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 重置累积分配
 - en: We can’t reset the heap profiler programmatically, for example, to start recording
     allocations from a certain moment.
   id: totrans-265
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们无法以编程方式重置堆剖析器，例如从某个时刻开始记录分配。
 - en: However, as you will learn in [“Comparing and Aggregating Profiles”](#ch-obs-comp-prof),
     we can perform operations like subtracting the `pprof` values. So for example,
     we can capture the heap profile at moment A, then 30 seconds later at moment B,
@@ -1872,6 +2130,7 @@
   id: totrans-266
   prefs: []
   type: TYPE_NORMAL
+  zh: 然而，正如您将在[“比较和聚合分析”](#ch-obs-comp-prof)中学到的，我们可以执行像减去 `pprof` 值这样的操作。例如，我们可以在时刻A捕获堆剖析，然后30秒后在时刻B捕获，创建一个“delta”堆剖析，显示这30秒内发生了哪些分配。
 - en: There is also a hidden feature for Go `pprof` HTTP handlers. When capturing
     the `heap` profile, you can add a `seconds` parameter! For example, with [Example 9-5](#code-pprof-http)
     you can call `http://<address>/debug/pprof/heap?seconds=30s` to remotely capture
@@ -1879,36 +2138,44 @@
   id: totrans-267
   prefs: []
   type: TYPE_NORMAL
+  zh: Go `pprof` HTTP 处理程序还有一个隐藏功能。在捕获 `heap` 剖析时，您可以添加 `seconds` 参数！例如，使用[示例9-5](#code-pprof-http)，您可以调用
+    `http://<address>/debug/pprof/heap?seconds=30s` 来远程捕获一个增量堆剖析！
 - en: '`alloc_objects`'
   id: totrans-268
   prefs: []
   type: TYPE_NORMAL
+  zh: '`alloc_objects`'
 - en: Similar to `alloc_space`, the value tells us about the number of allocated memory
     blocks, not the actual space. This is mainly useful for finding the latency bottlenecks
     caused by frequent allocations.
   id: totrans-269
   prefs: []
   type: TYPE_NORMAL
+  zh: 类似于 `alloc_space`，该值告诉我们分配的内存块数，而不是实际空间。这主要用于找出由频繁分配引起的延迟瓶颈。
 - en: '`inuse_space`'
   id: totrans-270
   prefs: []
   type: TYPE_NORMAL
+  zh: '`inuse_space`'
 - en: This mode shows the currently allocated bytes on the heap—the allocated memory
     minus the released memory at each location. This value type is great for cases
     when we want to find the memory bottleneck in a specific moment of the program.^([17](ch09.html#idm45606824295584))
   id: totrans-271
   prefs: []
   type: TYPE_NORMAL
+  zh: 这种模式显示了堆上当前分配的字节—在每个位置上分配的内存减去释放的内存。这种值类型非常适用于当我们想要在程序特定时刻找到内存瓶颈的情况。^([17](ch09.html#idm45606824295584))
 - en: Finally, this mode is excellent for finding memory leaks. The memory that was
     constantly allocated and never released will stand out in the profile.
   id: totrans-272
   prefs: []
   type: TYPE_NORMAL
+  zh: 最后，这种模式非常适合查找内存泄漏。在分析中，不断分配而从未释放的内存将突出显示。
 - en: Finding the Source of the Memory Leaks
   id: totrans-273
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 查找内存泄漏的源头
 - en: The `heap` profile shows the code that allocated memory blocks, not the code
     (e.g., variables) that currently reference those memory blocks. To discover the
     latter, we could use the [`viewcore` utility](https://oreil.ly/c4rGl) that analyzes
@@ -1916,16 +2183,21 @@
   id: totrans-274
   prefs: []
   type: TYPE_NORMAL
+  zh: '`heap` 分析显示分配内存块的代码，而不显示当前引用这些内存块的代码（例如变量）。要发现后者，我们可以使用分析当前形成的堆的 [`viewcore`
+    工具](https://oreil.ly/c4rGl)。然而，这并不是一件简单的事情。'
 - en: Instead, try to statically analyze the code path first to find where the created
     structures might be referred. But even before that, check the `goroutine` profile
     in the next section first. We will discuss this problem in [“Don’t Leak Resources”](ch11.html#ch-basic-leaks).
   id: totrans-275
   prefs: []
   type: TYPE_NORMAL
+  zh: 相反，首先尝试静态分析代码路径，找出可能被引用的创建结构的位置。但即便如此，在下一节中，先检查 `goroutine` 分析非常重要。我们将在 [“不要泄露资源”](ch11.html#ch-basic-leaks)
+    中讨论这个问题。
 - en: '`inuse_objects`'
   id: totrans-276
   prefs: []
   type: TYPE_NORMAL
+  zh: '`inuse_objects`'
 - en: The value shows the current number of allocated memory blocks (objects) on the
     heap. This is useful to reveal the amount of live objects on the heap, which represents
     well the amount of work for garbage collection (see [“Garbage Collection”](ch05.html#ch-hw-garbage)).
@@ -1935,6 +2207,8 @@
   id: totrans-277
   prefs: []
   type: TYPE_NORMAL
+  zh: 这个值显示了堆上当前分配的内存块（对象）的数量。这对于揭示堆上活跃对象的数量非常有用，这反映了垃圾收集工作量（参见 [“垃圾收集”](ch05.html#ch-hw-garbage)）。大部分
+    CPU 密集型垃圾收集工作在必须遍历堆中对象的标记阶段进行。因此，拥有的对象越多，分配可能带来的负面影响越大。
 - en: Knowing how to use `heap` profiles is a must-have skill for every Go developer
     interested in the efficiency of their programs. Focus on the code with the biggest
     contribution of allocations space. Don’t worry about the absolute numbers that
@@ -1944,11 +2218,14 @@
   id: totrans-278
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于每一位关注程序效率的 Go 开发者来说，掌握 `heap` 分析技巧至关重要。集中精力分析对内存分配空间贡献最大的代码即可，不必担心与其他可观察工具所用内存不相关的绝对数值（参见
+    [“内存使用”](ch06.html#ch-obs-mem-usage)）。在更高的内存分析频率下，您只能看到静态重要的内存分配部分。
 - en: Goroutine
   id: totrans-279
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: Goroutine
 - en: The `goroutine` profiler can show us how many goroutines are running and what
     code they are executing. This includes all goroutines waiting on I/O, locks, channels,
     etc. There is no sampling for this profile—all goroutines except [system goroutines](https://oreil.ly/bg2fB)
@@ -1956,6 +2233,8 @@
   id: totrans-280
   prefs: []
   type: TYPE_NORMAL
+  zh: '`goroutine` 分析器能展示当前运行的 `goroutine` 数量以及它们正在执行的代码。这包括所有等待 I/O、锁、通道等的 `goroutine`。这个分析器不会对这个性能分析进行抽样，除了
+    [系统 `goroutine`](https://oreil.ly/bg2fB) 外，所有的 `goroutine` 都会被捕获。^([18](ch09.html#idm45606824276208))'
 - en: Similar to the `heap` profile, we can redirect this profile to `io.Writer` using
     `pprof.Lookup("goroutine").WriteTo(w, 0)`, with `-goroutineprofile` on Go benchmark,
     or by calling the `/debug/pprof/goroutine` URL with handlers, as in [Example 9-5](#code-pprof-http).
@@ -1965,6 +2244,9 @@
   id: totrans-281
   prefs: []
   type: TYPE_NORMAL
+  zh: 类似于 `heap` 分析，我们可以通过 `pprof.Lookup("goroutine").WriteTo(w, 0)` 将此分析重定向至 `io.Writer`，或在
+    Go 基准测试中使用 `-goroutineprofile`，或通过处理程序调用 `/debug/pprof/goroutine` URL，例如 [示例 9-5](#code-pprof-http)。对于具有大量
+    `goroutine` 或者关注程序每 10 毫秒延迟的 Go 程序来说，捕获 `goroutine` 分析的开销可能非常显著。
 - en: The key value of the goroutine profile is to give you an awareness of what most
     of your code goroutines are doing. In some cases, you might be surprised how many
     goroutines your program requires to fulfill some functionality. Seeing a large
@@ -1973,6 +2255,8 @@
   id: totrans-282
   prefs: []
   type: TYPE_NORMAL
+  zh: goroutine 配置文件的关键价值在于让您了解大多数代码 goroutine 正在做什么。在某些情况下，您可能会惊讶于程序需要执行某些功能所需的 goroutine
+    的数量。看到执行相同操作的大量（可能是增加的）goroutine 可能表明存在内存泄漏。
 - en: Remember that, as mentioned in [Figure 9-3](#img-obs-prof-top), for Go developers,
     by design, there is no link between the new goroutine and the goroutine that created
     it.^([19](ch09.html#idm45606824268336)) For this reason, the root location we
@@ -1981,6 +2265,8 @@
   id: totrans-283
   prefs: []
   type: TYPE_NORMAL
+  zh: 请记住，正如在 [图 9-3](#img-obs-prof-top) 中提到的，对于 Go 开发人员来说，按设计，新 goroutine 与创建它的 goroutine
+    之间没有链接。^([19](ch09.html#idm45606824268336)) 因此，在配置文件中看到的根位置始终是调用 goroutine 的第一个语句或函数。
 - en: The example Graph view for our `labeler` program is presented in [Figure 9-10](#img-obs-prof-goroutine).
     We can see that `labeler` does not do a lot. In the zoom-out view, we can see
     there are only 13 goroutines, and none of the locations are the application logic—only
@@ -1990,25 +2276,32 @@
   id: totrans-284
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们的 `labeler` 程序的示例图形视图在 [图 9-10](#img-obs-prof-goroutine) 中展示。我们可以看到 `labeler`
+    并没有做太多事情。在放大视图中，我们可以看到只有 13 个 goroutine，而且没有一个位置是应用逻辑，只有性能分析器 goroutine、信号 goroutine
+    和几个 HTTP 服务器 goroutine 在轮询连接字节。这表明也许服务器正在等待 TCP 连接以接收传入请求。
 - en: '![efgo 0910](assets/efgo_0910.png)'
   id: totrans-285
   prefs: []
   type: TYPE_IMG
+  zh: '![efgo 0910](assets/efgo_0910.png)'
 - en: Figure 9-10\. The zoomed-in Graph view for the `goroutine` profile from the
     `labeler` `Sum` code from [Example 4-1](ch04.html#code-sum)
   id: totrans-286
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 9-10\. 来自 [示例 4-1](ch04.html#code-sum) 中 `labeler` `Sum` 代码的 `goroutine` 性能的放大图形视图
 - en: 'Still, [Figure 9-10](#img-obs-prof-goroutine) makes you aware of a few common
     functions you can typically find in the goroutine view:'
   id: totrans-287
   prefs: []
   type: TYPE_NORMAL
+  zh: 但是，[图 9-10](#img-obs-prof-goroutine) 让你意识到几个通常可以在 goroutine 视图中找到的常见函数：
 - en: '`runtime.gopark`'
   id: totrans-288
   prefs: []
   type: TYPE_NORMAL
+  zh: '`runtime.gopark`'
 - en: The [`gopark`](https://oreil.ly/Zqf2K) is an internal function that keeps the
     goroutine waiting for the state until an external callback will get it back to
     work. Essentially it is a way for the runtime scheduler to pause (park) goroutines
@@ -2017,44 +2310,54 @@
   id: totrans-289
   prefs: []
   type: TYPE_NORMAL
+  zh: '[`gopark`](https://oreil.ly/Zqf2K) 是一个内部函数，它使 goroutine 等待状态，直到外部回调将其重新启动工作。基本上，这是运行时调度器在等待事情（例如通道通信、网络
+    I/O 或有时互斥锁）时暂停（park）goroutine 的一种方式。'
 - en: '`runtime.chanrecv` and `runtime.chansend`'
   id: totrans-290
   prefs: []
   type: TYPE_NORMAL
+  zh: '`runtime.chanrecv` 和 `runtime.chansend`'
 - en: As the name suggests, a goroutine in the `chanrecv` function is receiving messages
     or waiting for something to be sent in the channel. Similarly, it is in `chansend`
     if it is sending a message or waiting for the channel to have a buffer room.
   id: totrans-291
   prefs: []
   type: TYPE_NORMAL
+  zh: 如名称所示，goroutine 在 `chanrecv` 函数中接收消息或等待要发送到通道的内容。类似地，在 `chansend` 中，如果正在发送消息或等待通道有缓冲空间，则也是如此。
 - en: '`runtime.selectgo`'
   id: totrans-292
   prefs: []
   type: TYPE_NORMAL
+  zh: '`runtime.selectgo`'
 - en: You will see this if the goroutine is waiting or checking cases in the [`select`
     statement](https://oreil.ly/T52Kg).
   id: totrans-293
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果 goroutine 正在等待或检查 [`select` 语句](https://oreil.ly/T52Kg) 中的情况，则会看到这一点。
 - en: '`runtime.netpollblock`'
   id: totrans-294
   prefs: []
   type: TYPE_NORMAL
+  zh: '`runtime.netpollblock`'
 - en: The [`netpoll` function](https://oreil.ly/5Iw71) sets the goroutine to wait
     until the I/O bytes are received from the network connection.
   id: totrans-295
   prefs: []
   type: TYPE_NORMAL
+  zh: '[`netpoll` 函数](https://oreil.ly/5Iw71) 将 goroutine 设置为等待，直到从网络连接接收到 I/O 字节。'
 - en: As you can see, it’s fairly easy to track the functions’ meaning, even if you
     are seeing them in your profile for the first time.
   id: totrans-296
   prefs: []
   type: TYPE_NORMAL
+  zh: 如您所见，即使您是第一次在配置文件中看到它们，也很容易追踪函数的含义。
 - en: CPU
   id: totrans-297
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: CPU
 - en: We profile the CPU to find the parts of code that use CPU time the most. Reducing
     that allows us to reduce the cost of running our program and enable easier system
     scalability. For the CPU-bound programs, shaving some CPU usage also means reduced
@@ -2062,6 +2365,8 @@
   id: totrans-298
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们对 CPU 进行配置文件以找出使用 CPU 时间最多的代码部分。减少这一点可以减少运行程序的成本，并实现更轻松的系统可扩展性。对于 CPU 绑定的程序，减少一些
+    CPU 使用率也意味着减少延迟。
 - en: Profiling the CPU usage is proven to be very hard. The first reason for this
     is that the CPU just does a lot in a single moment—the CPU clocks can perform
     billions of operations per second. Understanding the full distribution of all
@@ -2070,6 +2375,8 @@
   id: totrans-299
   prefs: []
   type: TYPE_NORMAL
+  zh: 证明分析 CPU 使用率非常困难。首先，CPU 在单个时刻可以执行大量操作 —— CPU 时钟每秒可以执行数十亿次操作。理解所有这些周期在程序代码中的分布情况很难跟踪，而不会显著减慢速度。多
+    CPU 核心程序使这个问题变得更加困难。
 - en: At the time of writing this book, Go 1.19 provides a CPU profiler integrated
     into the Go runtime. Any CPU profiler adds some overhead, so it can’t just run
     in the background. We have to start and stop it for the whole process explicitly.
@@ -2080,11 +2387,16 @@
   id: totrans-300
   prefs: []
   type: TYPE_NORMAL
+  zh: 在撰写本书时，Go 1.19 提供了集成到 Go 运行时的 CPU 分析器。任何 CPU 分析器都会增加一些开销，因此不能简单地在后台运行。我们必须显式地为整个进程启动和停止它。与其他分析器一样，我们可以通过
+    `pprof.StartCPUProfile(w)` 和 `pprof.StopCPUProfile()` 函数在程序中编程地执行这些操作。我们可以在 Go
+    基准测试中使用 `-cpuprofile` 标志，或者使用 [Example 9-5](#code-pprof-http) 中处理程序的 `/debug/pprof/profile?seconds=<integer>`
+    URL。
 - en: CPU Profile Has Its Start and End
   id: totrans-301
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: CPU 分析有其开始和结束
 - en: Don’t be surprised if the `profile` HTTP handler does not return the response
     immediately, as with other profiles! The HTTP handler will start the CPU profiler,
     run it for the number of seconds provided in the `seconds` parameter (30 seconds
@@ -2092,6 +2404,8 @@
   id: totrans-302
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果 `profile` HTTP 处理程序不会立即返回响应，就像其他配置文件一样，不要感到惊讶！HTTP 处理程序将启动 CPU 分析器，并在 `seconds`
+    参数中提供的秒数（如果未指定，则为 30 秒）内运行，然后才返回 HTTP 请求。
 - en: The current implementation is heavily sampled. When the profiler starts, it
     schedules the OS-specific timers to interrupt the program execution at the specified
     rate. On Linux, this means using either [`settimer`](https://oreil.ly/tQNJK) or
@@ -2104,6 +2418,9 @@
   id: totrans-303
   prefs: []
   type: TYPE_NORMAL
+  zh: 当前的实现是大量抽样的。当分析器启动时，它会调度特定于操作系统的定时器以在指定速率中断程序执行。在 Linux 上，这意味着使用 [`settimer`](https://oreil.ly/tQNJK)
+    或 [`timer_create`](https://oreil.ly/WdjVW) 来为每个操作系统线程设置定时器，在 Go 运行时中监听 [`SIGPROF`](https://oreil.ly/dcQTf)
+    信号。该信号中断 Go 运行时，然后获取正在执行的该操作系统线程上的当前堆栈跟踪。然后将样本排入预分配的环形缓冲区，`pprof` 写入器每 100 毫秒从中提取一次。^([20](ch09.html#idm45606824228720))
 - en: The CPU profiling rate is currently hardcoded^([21](ch09.html#idm45606824226864))
     to 100 Hz, so it will record, in theory, one sample from each OS thread every
     10 ms of the CPU time (not real time). There are [plans](https://oreil.ly/VXEPO)
@@ -2111,6 +2428,8 @@
   id: totrans-304
   prefs: []
   type: TYPE_NORMAL
+  zh: 当前的 CPU 分析速率硬编码^([21](ch09.html#idm45606824226864)) 为 100 Hz，因此理论上每 10 毫秒 CPU
+    时间（而不是实时）将记录每个操作系统线程的一个样本。未来有 [计划](https://oreil.ly/VXEPO) 使该值可配置。
 - en: Despite the CPU profile being one of the most popular efficiency workflows,
     it’s a complex problem to solve. It will serve you well for the typical cases,
     but it’s not perfect. For example, there are known problems on some OSes like
@@ -2121,6 +2440,9 @@
   id: totrans-305
   prefs: []
   type: TYPE_NORMAL
+  zh: 尽管 CPU 性能分析是最流行的效率工作流之一，但解决这个问题是复杂的。对于典型情况，它会为您提供良好的服务，但并非完美。例如，在某些操作系统（如 BSD^([22](ch09.html#idm45606824221904))）上存在已知问题，在
+    [某些特定情况](https://oreil.ly/Ar8Up) 下存在各种不准确性。在未来，我们可能会看到这一领域的一些改进，目前正在考虑使用 [基于硬件的性能监视单元（PMUs）](https://oreil.ly/75AHf)
+    的 [新提案](https://oreil.ly/zDSEq)。
 - en: The example CPU profile showing the distribution of CPU time taken by each function
     for the `labeler` is presented in [Figure 9-11](#img-obs-prof-cpu). Given the
     inaccuracies from the lower sampling rate, the function granularity view might
@@ -2251,18 +2573,23 @@
   id: totrans-330
   prefs: []
   type: TYPE_NORMAL
+  zh: 第一个观察是总执行时间比墙上时间长，所以在执行该程序时实际时间已过去。这不是因为计算机可以以某种方式减慢时间；而是因为所有的 Go 程序都是多线程的（或者在
+    Go 中甚至是多 goroutine 的），所以总测量的执行时间总会比实际时间长。我们可以概述四个执行时间的类别：
 - en: CPU time
   id: totrans-331
   prefs: []
   type: TYPE_NORMAL
+  zh: CPU 时间
 - en: The time our program actively spent using CPU, as explained in [“CPU”](#ch-obs-pprof-cpu).
   id: totrans-332
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们的程序主动使用 CPU 的时间，如 [“CPU”](#ch-obs-pprof-cpu) 中解释的那样。
 - en: Block time
   id: totrans-333
   prefs: []
   type: TYPE_NORMAL
+  zh: 区块时间
 - en: The mutex time, plus the time our process spent waiting for Go channel communication
     (e.g., `<-ctx.Done()`, as discussed in [“Go Runtime Scheduler”](ch04.html#ch-hw-concurrency)),
     so all synchronization primitives. We can profile that time using the `block`
@@ -2275,10 +2602,15 @@
   id: totrans-334
   prefs: []
   type: TYPE_NORMAL
+  zh: 互斥体时间，加上我们的进程花费在 Go 通道通信中等待的时间（例如 `<-ctx.Done()`，如在 [“Go Runtime Scheduler”](ch04.html#ch-hw-concurrency)
+    中讨论的那样），所以所有的同步原语。我们可以使用 `block` 分析器来分析该时间。默认情况下未启用，因此我们需要通过设置非零块分析率来启用它，使用 [`runtime.SetBlockProfileRate(int)`](https://oreil.ly/GwjwY)
+    指定每个阻塞事件样本花费的纳秒数。然后我们可以在 Go 中使用 `pprof.Lookup`，在 Go 基准测试中使用 `-blockprofile`，或者使用
+    `/debug/pprof/block` HTTP 处理程序来捕获 `contention` 和 `delay` 值类型。
 - en: Mutex time
   id: totrans-335
   prefs: []
   type: TYPE_NORMAL
+  zh: 互斥体时间
 - en: The time spent on lock contentions (e.g., the time spent in [`sync.RWMutex.Lock`](https://oreil.ly/chnpS)).
     Like block profile, it’s disabled by default and can be enabled with [`runtime.SetMutexProfileFraction(int)`](https://oreil.ly/oIg45).
     Fraction specifies that `1/*<fraction>*` lock contentions should be tracked. Similarly,
@@ -2287,10 +2619,15 @@
   id: totrans-336
   prefs: []
   type: TYPE_NORMAL
+  zh: 在锁竞争上花费的时间（例如，在 [`sync.RWMutex.Lock`](https://oreil.ly/chnpS) 中花费的时间）。与块分析类似，默认情况下是禁用的，可以使用
+    [`runtime.SetMutexProfileFraction(int)`](https://oreil.ly/oIg45) 启用。分数指定应跟踪的 `1/*<fraction>*`
+    锁竞争。类似地，我们可以在 Go 中使用 `pprof.Lookup`，在 Go 基准测试中使用 `-mutexprofile`，或者使用 `/debug/pprof/mutex`
+    HTTP 处理程序来捕获 `mutex` 和 `delay` 值类型。
 - en: Untracked off-CPU time
   id: totrans-337
   prefs: []
   type: TYPE_NORMAL
+  zh: 未追踪的 off-CPU 时间
 - en: The goroutines that are sleeping, waiting for CPU time, I/O (e.g., from disk,
     network, or external device), syscalls, and so on are not tracked by any standard
     profiling tool. To discover the impact of that latency, we need to use different
@@ -2298,11 +2635,13 @@
   id: totrans-338
   prefs: []
   type: TYPE_NORMAL
+  zh: 睡眠的 goroutine，等待 CPU 时间，I/O（例如来自磁盘、网络或外部设备）、syscalls 等都不会被任何标准的性能分析工具追踪。为了发现这种延迟的影响，我们需要使用下面解释的不同工具。
 - en: Do We Have to Measure or Find Bottlenecks in Off-CPU Time?
   id: totrans-339
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 我们是否必须在 off-CPU 时间中测量或找到瓶颈？
 - en: Program threads spend a lot of time off-CPU. This is why the main reason your
     program is slow might not be its CPU time. For example, suppose the execution
     of your program takes 20 seconds, but it waits 19 seconds on an answer from the
@@ -2311,6 +2650,8 @@
   id: totrans-340
   prefs: []
   type: TYPE_NORMAL
+  zh: 程序线程花费了大量的时间在 off-CPU 上。这就是为什么你的程序变慢的主要原因可能不是它的 CPU 时间。例如，假设你的程序执行花费了 20 秒，但它在等待来自数据库的答案花费了
+    19 秒。在这种情况下，我们可能希望查看数据库中的瓶颈（或在我们的代码中减轻数据库的慢速），而不是优化 CPU 时间。
 - en: Generally, it is recommended to use tracing to find the bottlenecks in the wall
     time (latency) of our functionality. Especially, distributed tracing allows us
     to narrow down our optimization focus to what takes the most time in the request
@@ -2321,6 +2662,9 @@
   id: totrans-341
   prefs: []
   type: TYPE_NORMAL
+  zh: 通常建议使用追踪来找出我们功能的墙上时间（延迟）中的瓶颈。特别是，分布式追踪使我们能够将优化重点缩小到请求功能流程中耗时最多的部分。Go 具有内置的 [追踪仪器](https://oreil.ly/pKeI1)，但它只对
+    Go 运行时进行仪器化，而不是我们的应用程序代码。然而，我们讨论了与云原生标准兼容的基本追踪仪器，如 [OpenTelemetry](https://oreil.ly/sPiw9)
+    来实现应用级追踪。
 - en: There is also an amazing profiler called the [Full Go Profiler (`fgprof`)](https://oreil.ly/4WWHN)
     out there focused on tracking both CPU and off-CPU time. While [it’s not](https://oreil.ly/ri1Kb)
     officially recommended yet and has [known limitations](https://oreil.ly/8Lk9t),
@@ -2331,10 +2675,12 @@
   id: totrans-342
   prefs: []
   type: TYPE_NORMAL
+  zh: 还有一个令人惊叹的分析器叫做[全面Go分析器 (`fgprof`)](https://oreil.ly/4WWHN)，专注于追踪CPU和非CPU时间。虽然[官方尚未推荐](https://oreil.ly/ri1Kb)，且存在[已知的限制](https://oreil.ly/8Lk9t)，但我发现它在分析我的Go程序时非常有用。`fgprof`的分析结果可以通过[示例 9-5](#code-pprof-http)中提到的HTTP处理器公开。关于`labeler`服务的`fgprof`分析示例见[图 9-13](#img-obs-prof-fgprof)。
 - en: '![efgo 0913](assets/efgo_0913.png)'
   id: totrans-343
   prefs: []
   type: TYPE_IMG
+  zh: '![efgo 0913](assets/efgo_0913.png)'
 - en: Figure 9-13\. The Flame Graph view for the 30-seconds-`fgprof` profile from
     the `labeler` `Sum` code from [Example 4-1](ch04.html#code-sum) at `functions`
     granularity
@@ -2342,6 +2688,7 @@
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 9-13\. 从[示例 4-1](ch04.html#code-sum)中`labeler`服务的30秒`fgprof`分析的火焰图视图，以`functions`粒度呈现
 - en: From the profile, we can quickly tell that for most of the wall time, the `labeler`
     service is simply waiting for the signal interrupt or HTTP requests! If we are
     interested in improving the maximum rate of the incoming requests that `labeler`
@@ -2350,6 +2697,7 @@
   id: totrans-345
   prefs: []
   type: TYPE_NORMAL
+  zh: 从分析结果中，我们可以快速得出结论，即大部分时间，`labeler`服务只是在等待信号中断或HTTP请求！如果我们有兴趣提高`labeler`能够服务的最大请求速率，我们可以快速发现问题并非出现在`labeler`本身，而是测试客户端未能以足够快的速度发送请求^([25](ch09.html#idm45606824142096))。
 - en: To sum up, in this section, I presented the most common profiler implementations
     that are used^([26](ch09.html#idm45606824139264)) in the Go community. There are
     also tons of closed-box monitoring profilers like Linux `perf` and `eBPF`-based
@@ -2358,27 +2706,33 @@
   id: totrans-346
   prefs: []
   type: TYPE_NORMAL
+  zh: 总结一下，在本节中，我介绍了在Go社区中使用的最常见的分析器实现方式^([26](ch09.html#idm45606824139264))。还有很多像Linux
+    `perf`和基于`eBPF`的封闭盒监控分析器，但它们超出了本书的范围。我更喜欢我提到的这些，因为它们是免费的（开源！），明确的，相对容易使用和理解。
 - en: Let’s now look at some lesser-known tools and practices I found useful when
     profiling Go programs.
   id: totrans-347
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在让我们看看在分析Go程序时我发现有用的一些较少为人知的工具和实践。
 - en: Tips and Tricks
   id: totrans-348
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 小贴士
 - en: There are three more advanced yet incredibly useful tricks for profiling I would
     love you to know. These helped me analyze software bottlenecks even more effectively.
     So let’s go through them!
   id: totrans-349
   prefs: []
   type: TYPE_NORMAL
+  zh: 有三个更高级但非常有用的分析技巧，我希望您也能了解。这些技巧帮助我更有效地分析软件瓶颈。让我们逐一了解！
 - en: Sharing Profiles
   id: totrans-350
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 分享分析结果
 - en: Typically, we don’t work on software projects alone. Instead, we are in a bigger
     team, which shares responsibilities and reviews each other’s code. Sharing is
     caring, so similar to [“Sharing Benchmarks with the Team (and Your Future Self)”](ch08.html#ch-obs-micro-share),
@@ -2387,6 +2741,7 @@
   id: totrans-351
   prefs: []
   type: TYPE_NORMAL
+  zh: 通常，我们不会单独进行软件项目开发，而是在一个更大的团队中，大家分享责任并相互审查代码。分享就是关怀，因此类似于[“与团队（和未来的自己）分享基准测试”](ch08.html#ch-obs-micro-share)，我们应该专注于与团队成员或其他感兴趣的人分享我们的瓶颈结果和发现。
 - en: We download or check multiple `pprof` profiles in the typical workflow. In theory,
     we could name them descriptively to avoid confusion and send them to each other
     using any file-sharing solution like Google Drive or Slack. This, however, tends
@@ -2395,6 +2750,8 @@
   id: totrans-352
   prefs: []
   type: TYPE_NORMAL
+  zh: 在典型的工作流程中，我们下载或检查多个`pprof`分析结果。理论上，我们可以使用描述性命名以避免混淆，并使用Google Drive或Slack等文件共享解决方案发送它们。然而，这往往很麻烦，因为接收者必须下载`pprof`文件并在本地运行`go
+    tool pprof`来分析。
 - en: Another option is to share a screenshot of the profile, but we have to choose
     some partial view, which can be cryptic for others. Perhaps others would like
     to analyze the profile using a different view or value type. Maybe they want to
@@ -2403,6 +2760,7 @@
   id: totrans-353
   prefs: []
   type: TYPE_NORMAL
+  zh: 另一种选择是分享性能分析的截图，但我们必须选择部分视图，这对其他人可能不够清晰。也许其他人希望使用不同的视图或值类型来分析性能分析。也许他们想要找到采样率或将性能分析缩小到某些代码路径。仅凭一张截图，您将错过所有这些互动功能。
 - en: Fortunately, some websites allow us to save `pprof` files for others or our
     future self and analyze them without downloading that profile. For example, the
     [Polar Signals](https://oreil.ly/HowVb) company hosts an entirely free [*pprof.me*](https://pprof.me)
@@ -2413,17 +2771,22 @@
   id: totrans-354
   prefs: []
   type: TYPE_NORMAL
+  zh: 幸运的是，一些网站允许我们保存`pprof`文件以供他人或将来使用，并且可以在不下载配置文件的情况下进行分析。例如，[Polar Signals](https://oreil.ly/HowVb)
+    公司提供了完全免费的 [*pprof.me*](https://pprof.me) 网站，正是允许这样做的地方。您可以上传您的分析文件（请注意，它将被公开分享！）并与团队成员分享链接，他们可以使用常见的`go
+    tools pprof`报告视图来进行分析（参见[“go tool pprof Reports”](#ch-obs-profiling-res)）。我经常和团队一起使用这个工具。
 - en: Continuous Profiling
   id: totrans-355
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 连续性能分析
 - en: In the open source ecosystem, continuous profiling was perhaps one of the most
     popular topics in 2022\. It means automatically collecting useful profiles from
     our Go program at every configured interval instead of being manually triggered.
   id: totrans-356
   prefs: []
   type: TYPE_NORMAL
+  zh: 在开源生态系统中，连续性能分析可能是 2022 年最流行的话题之一。它意味着在每个配置的时间间隔内自动收集我们的 Go 程序的有用分析数据，而不是手动触发。
 - en: In many cases, the efficiency problem happens somewhere in the remote environment
     where the program is running. Perhaps it happened in the past in response to some
     event that is now hard to reproduce. Continuous profiling tools allow us to have
@@ -2431,6 +2794,7 @@
   id: totrans-357
   prefs: []
   type: TYPE_NORMAL
+  zh: 在许多情况下，效率问题发生在程序运行的远程环境中的某个地方。也许这是因为过去对某些难以复现的事件作出响应而发生的。连续性能分析工具允许我们始终保持性能分析“开启”，并回顾性地查看过去的性能分析数据。
 - en: Say you see an increase in resource usage – say, CPU usage. And then you take
     a one-time profile to try to figure out what’s using more resources. Continuous
     profiling is essentially doing this all the time. (...) When you have all this
@@ -2444,6 +2808,8 @@
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: 假设您看到资源使用率增加了——比如 CPU 使用率。然后您进行一次性分析以尝试找出是什么导致了资源的增加。连续性能分析本质上就是一直在做这个。(...)
+    当您有了这些数据后，您可以比较一个进程版本的整个生命周期与新部署的版本。或者您可以比较两个不同的时间点。比如说有一个 CPU 或内存峰值。我们实际上可以了解到我们的进程在代码行级别有何不同。这非常强大，它是在可观察性方面已经有用的其他工具的扩展，但它为我们运行中的程序提供了不同的视角。
 - en: ''
   id: totrans-359
   prefs:
@@ -2455,6 +2821,7 @@
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: Frederic Branczyk，《Grafana 的大帐篷：与 Frederic Branczyk 谈连续性能分析》
 - en: 'Continuous profiling emerged in the cloud-native open source community as the
     fourth observability signal, but it’s not new. The concept was introduced first
     in 2010 by the [“Google-Wide Profiling: A Continuous Profiling Infrastructure
@@ -2464,12 +2831,16 @@
   id: totrans-361
   prefs: []
   type: TYPE_NORMAL
+  zh: '连续性能分析作为云原生开源社区中的第四个可观察性信号出现，但它并不新。这个概念最早在 2010 年由 Gang Ren 等人的研究论文《“Google-Wide
+    Profiling: A Continuous Profiling Infrastructure For Data Centers”》中引入，证明了连续性能分析可以连续地针对生产工作负载进行使用，而不会带来重大开销，并有助于提高效率优化在
+    Google 中的应用。'
 - en: We have recently seen open source projects that made this technology more accessible.
     I have personally used the continuous profiling tool for a couple of years already
     to profile our Go services, and I love it!
   id: totrans-362
   prefs: []
   type: TYPE_NORMAL
+  zh: 最近我们看到了使这项技术更易于获取的开源项目。我个人已经使用连续性能分析工具数年来分析我们的 Go 服务，并且非常喜欢它！
 - en: You can quickly set up continuous profiling using the open source [Parca project](https://oreil.ly/X8003).
     In many ways, it is similar to the [Prometheus project](https://oreil.ly/2Sa3P).
     Parca is a single binary Go program that periodically captures profiles using
@@ -2479,6 +2850,9 @@
   id: totrans-363
   prefs: []
   type: TYPE_NORMAL
+  zh: 您可以快速设置使用开源[Parca 项目](https://oreil.ly/X8003)的连续分析。在许多方面，它类似于[Prometheus 项目](https://oreil.ly/2Sa3P)。Parca
+    是一个单一的 Go 程序二进制文件，使用我们在[“捕获分析信号”](ch08.html#ch-obs-pprof-obtain)中讨论的 HTTP 处理程序定期捕获配置文件并将其存储在本地数据库中。然后我们可以搜索配置文件、下载它们，甚至使用嵌入的
+    `tool pprof` 作为查看器来分析它们。
 - en: 'You can use it anywhere: set up continuous profiling on your production, remote
     environment, or macrobenchmarking environment that might run in the cloud or on
     your laptop. It might not make sense on a microbenchmarks level, as we run tests
@@ -2487,18 +2861,23 @@
   id: totrans-364
   prefs: []
   type: TYPE_NORMAL
+  zh: 您可以在任何地方使用它：在您的生产环境、远程环境或可能在云中或笔记本电脑上运行的宏基准测试环境中设置连续分析可能是有意义的。在微基准测试级别上可能没有意义，因为我们在可能的最小范围内运行测试，这可以为基准测试的完整持续时间进行配置（参见[“微基准测试”](ch08.html#ch-obs-micro)）。
 - en: Adding continuous profiling with Parca to our `labeler` macrobenchmark in [Example 8-19](ch08.html#code-macrobench)
     requires only a few lines of code and a simple YAML configuration, as presented
     in [Example 9-6](#code-parca).
   id: totrans-365
   prefs: []
   type: TYPE_NORMAL
+  zh: 将连续分析添加到我们在 [Example 8-19](ch08.html#code-macrobench) 中的 `labeler` 宏基准测试中，只需要几行代码和一个简单的
+    YAML 配置，如 [Example 9-6](#code-parca) 中所示。
 - en: Example 9-6\. Starting continuous profiling container in [Example 8-19](ch08.html#code-macrobench)
     between `labeler` creation and `k6` script execution
   id: totrans-366
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: Example 9-6\. 在 [Example 8-19](ch08.html#code-macrobench) 中的 `labeler` 创建和 `k6`
+    脚本执行之间启动连续分析容器
 - en: '[PRE5]'
   id: totrans-367
   prefs: []
@@ -2508,16 +2887,19 @@
   id: totrans-368
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_data_driven_bottleneck_analysis_CO6-1)'
 - en: The [`e2e` framework](https://oreil.ly/f0IJo) runs all workloads in the container,
     so we do that for the Parca server. We use the container image build from [the
     official project page](https://oreil.ly/ETsNV).
   id: totrans-369
   prefs: []
   type: TYPE_NORMAL
+  zh: '[`e2e` 框架](https://oreil.ly/f0IJo)在容器中运行所有工作负载，因此我们为 Parca 服务器这样做。我们使用从[官方项目页面](https://oreil.ly/ETsNV)构建的容器镜像。'
 - en: '[![2](assets/2.png)](#co_data_driven_bottleneck_analysis_CO6-2)'
   id: totrans-370
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_data_driven_bottleneck_analysis_CO6-2)'
 - en: 'The basic configuration of the Parca server has two parts. The first is object
     storage configuration: where we want to store Parca’s database internal data files.
     Parca uses [FrostDB columnar storage](https://oreil.ly/A9y23) to store debugging
@@ -2526,10 +2908,12 @@
   id: totrans-371
   prefs: []
   type: TYPE_NORMAL
+  zh: Parca 服务器的基本配置有两部分。首先是对象存储配置：我们希望将 Parca 的数据库内部数据文件存储在何处。Parca 使用[FrostDB 列存储](https://oreil.ly/A9y23)来存储调试信息和配置文件。为了方便起见，我们可以使用本地文件系统作为最基本的对象存储。
 - en: '[![3](assets/3.png)](#co_data_driven_bottleneck_analysis_CO6-3)'
   id: totrans-372
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_data_driven_bottleneck_analysis_CO6-3)'
 - en: The second important configuration is the scrape configuration that allows us
     to put certain endpoints as targets to profile capturing. In our case, I only
     put the `labeler` HTTP endpoint on the local network. I also specified to get
@@ -2538,26 +2922,33 @@
   id: totrans-373
   prefs: []
   type: TYPE_NORMAL
+  zh: 第二个重要的配置是抓取配置，它允许我们将某些端点作为目标来捕获分析。在我们的情况下，我仅将 `labeler` HTTP 端点放在本地网络上。我还指定每
+    15 秒获取一次配置文件。对于始终开启的生产环境使用，我建议更大的间隔，例如一分钟。
 - en: '[![4](assets/4.png)](#co_data_driven_bottleneck_analysis_CO6-4)'
   id: totrans-374
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![4](assets/4.png)](#co_data_driven_bottleneck_analysis_CO6-4)'
 - en: The common profile—like a heap, CPU, goroutine block, and mutex—[are enabled
     by default](https://oreil.ly/pcZmg). However, we have to manually allow other
     profiles, like the `fgprof` profile discussed in [“Off-CPU Time”](#ch-obs-pprof-latency).
   id: totrans-375
   prefs: []
   type: TYPE_NORMAL
+  zh: 像堆、CPU、goroutine 阻塞和互斥锁这样的常见配置[默认启用](https://oreil.ly/pcZmg)。然而，我们必须手动允许其他配置，比如在[“Off-CPU
+    时间”](#ch-obs-pprof-latency)讨论的 `fgprof` 配置。
 - en: '[![5](assets/5.png)](#co_data_driven_bottleneck_analysis_CO6-5)'
   id: totrans-376
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![5](assets/5.png)](#co_data_driven_bottleneck_analysis_CO6-5)'
 - en: Once Parca starts, we can use the `e2einteractive` package to open the Parca
     UI to explore viewer-like presentations of our profiles during or after the `k6`
     script finishes.
   id: totrans-377
   prefs: []
   type: TYPE_NORMAL
+  zh: 一旦 Parca 启动，我们可以使用 `e2einteractive` 包打开 Parca UI，在 `k6` 脚本完成期间或之后查看我们的配置文件的视图式演示。
 - en: Thanks to continuously profiling, we don’t need to wait until our benchmark
     (using the `k6` load tester) finishes—we can jump to our UI straightaway to see
     profiles every 15 seconds, live! Another great thing about continuous profiling
@@ -2570,16 +2961,20 @@
   id: totrans-378
   prefs: []
   type: TYPE_NORMAL
+  zh: 由于持续的配置文件，我们无需等待我们的基准测试（使用`k6`负载测试器）完成——我们可以直接跳转到我们的UI，每隔15秒查看配置文件，实时！持续配置文件的另一个好处是，我们可以从每个配置文件随时间采集的所有样本值的总和中提取指标。例如，Parca可以为随时间变化的`labeler`容器的堆内存使用情况提供图表，从周期性的`heap`
+    `inuse_alloc`配置文件中获取（在[“内存使用”](ch06.html#ch-obs-mem-usage)讨论）。结果显示在[图 9-14](#img-obs-prof-parca-graph)中，应该非常接近[“内存使用”](ch06.html#ch-obs-mem-usage)中提到的`go_memstats_heap_total`度量。
 - en: '![efgo 0914](assets/efgo_0914.png)'
   id: totrans-379
   prefs: []
   type: TYPE_IMG
+  zh: '![efgo 0914](assets/efgo_0914.png)'
 - en: Figure 9-14\. Screenshot of Parca UI result showing the `labeler` [Figure 9-9](#img-obs-prof-heap)
     `inuse_alloc` profiles over time
   id: totrans-380
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 9-14\. Parca UI结果的屏幕截图，显示了随时间变化的`labeler` [图 9-9](#img-obs-prof-heap)`inuse_alloc`配置文件。
 - en: You can now click on samples in the graph, representing the moment of taking
     the profile snapshot. Thanks to continuous form, you can choose the time that
     interests you the most, perhaps the moment when the memory usage was the highest!
@@ -2588,16 +2983,19 @@
   id: totrans-381
   prefs: []
   type: TYPE_NORMAL
+  zh: 您现在可以点击图中的样本，代表获取配置文件快照的时刻。由于连续形式，您可以选择最感兴趣的时间，也许是内存使用最高的时刻！一旦点击，就会显示该特定配置文件的火焰图，正如[图 9-15](#img-obs-prof-parca-graph2)所示。
 - en: '![efgo 0915](assets/efgo_0915.png)'
   id: totrans-382
   prefs: []
   type: TYPE_IMG
+  zh: '![efgo 0915](assets/efgo_0915.png)'
 - en: Figure 9-15\. Screenshot of Parca UI Flame Graph (called Icicle Graph in Parca)
     when you click the specific profile from [Figure 9-4](#img-obs-prof-graph)
   id: totrans-383
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 9-15\. 当您从[图 9-4](#img-obs-prof-graph)中点击特定配置文件时，Parca UI的火焰图（在Parca中称为冰柱图）的屏幕截图。
 - en: The Parca maintainers decided to use a different visual style for the Flame
     Graphs than the `go tool pprof` tool in [“Flame Graph”](#ch-obs-profiling-res-flame).
     However, as many other tools in the profiling space, it uses the same semantics.
@@ -2606,6 +3004,8 @@
   id: totrans-384
   prefs: []
   type: TYPE_NORMAL
+  zh: Parca的维护者决定在火焰图中使用与`go tool pprof`工具不同的视觉风格，详见[“火焰图”](#ch-obs-profiling-res-flame)。然而，与配置空间中许多其他工具一样，它使用相同的语义。这意味着我们可以使用从`go
+    tool pprof`特定工具中获取的分析技能，与Parca等不同的UI进行分析。
 - en: In the profile view, we can download the `pprof` file we selected. We can share
     the profile as discussed in [“Sharing Profiles”](#ch-obs-share), filter view,
     or choose different views. We also see a Flame Graph representing the function’s
@@ -2621,6 +3021,7 @@
   id: totrans-385
   prefs: []
   type: TYPE_NORMAL
+  zh: 在个人资料视图中，我们可以下载所选的`pprof`文件。我们可以按照[“分享配置文件”](#ch-obs-share)，筛选视图或选择不同视图来共享配置文件。我们还可以看到一个火焰图，代表选定时间段堆中函数对活动对象的贡献。我们无法手动轻松捕获这些内容。在[图 8-5](ch08.html#img-macrobench-heap)中，我捕获了有趣事件发生后的配置文件，因此我必须使用`alloc_space`来显示从程序启动开始的总分配量。对于长时间运行的进程，此视图可能会非常嘈杂，并显示我不感兴趣的情况。更糟糕的是，进程在某些事件后可能已重新启动，如紧急情况或OOM。在重新启动后进行这样的堆配置文件将毫无意义。类似的问题也会出现在其他只显示当前或特定时刻的配置文件上，如goroutine、CPU或自定义文件描述符配置文件。
 - en: This is where continuous profiling proves to be extremely helpful. It allows
     us to have profiles captured whenever an interesting event occurs, so we can quickly
     jump into the UI and analyze for efficiency bottlenecks. For example, in [Figure 9-15](#img-obs-prof-parca-graph2),
@@ -2629,11 +3030,14 @@
   id: totrans-386
   prefs: []
   type: TYPE_NORMAL
+  zh: 这就是连续剖析极其有用的地方。它允许我们在发生有趣事件时捕获剖析，因此我们可以快速跳转到 UI 并分析效率瓶颈。例如，在 [图 9-15](#img-obs-prof-parca-graph2)
+    中，我们可以看到 `bytes.Split` 函数当前在堆上使用最多内存。
 - en: Overhead of Continuous Profiling
   id: totrans-387
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 连续剖析的开销
 - en: Capturing on-demand profiles has some overhead to the running Go program. However,
     capturing multiple profiles periodically makes this overhead continuous throughout
     the application run, so ensure your profilers do not cause your efficiency to
@@ -2641,6 +3045,7 @@
   id: totrans-388
   prefs: []
   type: TYPE_NORMAL
+  zh: 捕获按需剖析会给正在运行的 Go 程序带来一些开销。然而，定期捕获多个剖析会使这种开销在应用程序运行期间持续存在，因此请确保您的剖析工具不会导致效率低于预期水平。
 - en: Try to understand the overhead of profiling in your programs. The standard default
     Go profilers aim to not add more than 5% of the CPU overhead for a single process.
     You can control that by changing the continuous profiling interval or the sampling
@@ -2649,12 +3054,14 @@
   id: totrans-389
   prefs: []
   type: TYPE_NORMAL
+  zh: 尝试了解在您的程序中剖析的开销。标准的默认 Go 剖析器的目标是不会为单个进程增加超过 5% 的 CPU 开销。您可以通过更改连续剖析间隔或剖析的采样来控制它。在大规模部署中，仅对多个相同副本中的一个进行剖析以分摊收集成本也是非常有用的。（来源：[https://oreil.ly/yAACa](https://oreil.ly/yAACa)）
 - en: In our [infrastructure at Red Hat](https://oreil.ly/6CSV7), we run continuous
     profiling always on with a one-minute interval, and we keep only a few days’ worth
     of profiles.
   id: totrans-390
   prefs: []
   type: TYPE_NORMAL
+  zh: 在我们的 [Red Hat 基础设施](https://oreil.ly/6CSV7) 中，我们始终以一分钟的间隔运行连续剖析，并保留几天的剖析数据。
 - en: To sum up, I recommend continuous profiling on live Go programs that you know
     might need continuous efficiency improvement in the future. Parca is one open
     source example, but there are other projects or vendors^([27](ch09.html#idm45606823825248))
@@ -2662,20 +3069,24 @@
   id: totrans-391
   prefs: []
   type: TYPE_NORMAL
+  zh: 总之，我建议对那些您知道未来可能需要持续提高效率的实时 Go 程序进行连续剖析。Parca 是一个开源示例，但还有其他项目或供应商^([27](ch09.html#idm45606823825248))可以实现相同功能。但要小心，剖析可能会让人上瘾！
 - en: Comparing and Aggregating Profiles
   id: totrans-392
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 比较和聚合剖析
 - en: 'The `pprof` format has one more interesting characteristic. By design, it allows
     certain aggregations or comparison for multiple profiles:'
   id: totrans-393
   prefs: []
   type: TYPE_NORMAL
+  zh: '`pprof` 格式还有一个有趣的特性。按设计，它允许对多个剖析进行某些聚合或比较：'
 - en: Subtracting profiles
   id: totrans-394
   prefs: []
   type: TYPE_NORMAL
+  zh: 减法剖析
 - en: You can subtract one profile from another. This is useful to reduce noise and
     narrow down to the event or component you care about. For example, you can have
     a heap profile from one run of your Go program when you load tested simultaneously
@@ -2687,10 +3098,15 @@
   id: totrans-395
   prefs: []
   type: TYPE_NORMAL
+  zh: 您可以从另一个剖析中减去一个剖析。这对于减少噪音并缩小您关心的事件或组件范围非常有用。例如，您可以在您的 Go 程序的一个运行中加载测试同时进行一些 `A`
+    和 `B` 事件时，获取一个堆剖析剖析。然后，您可以从仅与 `B` 事件加载测试的同一 Go 程序的第二个堆剖析中减去堆剖析，以检查纯粹从 `A` 事件中的影响。`go
+    tool pprof` 允许您使用 `-base` 标志从一个剖析中减去另一个剖析，例如 `go tool pprof heap-AB.pprof -base
+    heap-B.pprof`。
 - en: Comparing profiles
   id: totrans-396
   prefs: []
   type: TYPE_NORMAL
+  zh: 比较剖析
 - en: '[The comparison](https://oreil.ly/NHfZP) is similar to subtracting; instead
     of removing matching sample values, it provides negative or positive delta numbers
     between profiles. This is useful to measure the change of the contribution of
@@ -2699,10 +3115,13 @@
   id: totrans-397
   prefs: []
   type: TYPE_NORMAL
+  zh: '[比较](https://oreil.ly/NHfZP)类似于减法；与删除匹配的样本值不同，它提供剖析之间的负数或正数增量。这对于在优化前后测量特定函数的贡献变化非常有用。您还可以使用`go
+    tool pprof`通过 `-diff_base` 进行剖析比较。'
 - en: Merging profiles
   id: totrans-398
   prefs: []
   type: TYPE_NORMAL
+  zh: 合并剖析
 - en: It is less known in the community, but you can merge multiple profiles into
     one! The merging functionality allows us to combine profiles representing the
     current situation. For example, we could take dozens of short CPU profiles into
@@ -2712,11 +3131,15 @@
   id: totrans-399
   prefs: []
   type: TYPE_NORMAL
+  zh: 社区中不太为人知的是，你可以将多个配置文件合并成一个！合并功能使我们能够将代表当前情况的多个配置文件结合在一起。例如，我们可以将数十个短 CPU 配置文件合并成一个跨较长时间段的
+    CPU 工作总配置文件。或者，我们可以合并多个堆配置文件到表示多个时间点所有堆对象的聚合配置文件中。
 - en: The `go tool pprof` does not support this. However, you can write your own Go
     program that does it using the [`google/pprof/profile.Merge` function](https://oreil.ly/bvoSL).
   id: totrans-400
   prefs: []
   type: TYPE_NORMAL
+  zh: '`go tool pprof` 不支持此操作。然而，你可以编写自己的 Go 程序来执行此操作，使用 [`google/pprof/profile.Merge`
+    函数](https://oreil.ly/bvoSL)。'
 - en: I wasn’t using these mechanics very often because I was easily confused with
     multiple local `pprof` files when working with the `go tool pprof` tool. This
     changed when I started working with more advanced profiling tools like Parca.
@@ -2727,11 +3150,14 @@
   id: totrans-401
   prefs: []
   type: TYPE_NORMAL
+  zh: 我之前并不经常使用这些机制，因为在使用 `go tool pprof` 工具时，会因为与多个本地 `pprof` 文件混淆而感到困惑。当我开始使用像 Parca
+    这样的更高级的分析工具时，情况就改变了。正如你在 [图 9-14](#img-obs-prof-parca-graph) 中看到的，有一个比较按钮用于比较两个特定的配置文件，以及一个合并按钮，用于将聚焦时间范围内的所有配置文件合并成一个配置文件。有了用户界面，选择要比较或聚合的配置文件变得更加容易和直观！
 - en: Summary
   id: totrans-402
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 总结
 - en: Profiling space for Go might be nuanced, but it’s not that difficult to utilize
     once you know the basics. In this chapter, we went through all the profiling aspects
     from the common profilers, through capturing patterns and `pprof` format, to standard
@@ -2740,17 +3166,20 @@
   id: totrans-403
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于 Go 的空间分析可能是微妙的，但一旦掌握了基础知识，利用起来并不难。在本章中，我们详细讨论了从常见分析器，通过捕获模式和 `pprof` 格式，到标准可视化技术的所有分析方面。最后，我们涉及了像连续分析这样的高级技术，我建议尝试一下。
 - en: Profile First, Ask Questions Later
   id: totrans-404
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 先分析，后提问
 - en: I would suggest using profiling in any shape that fits in your daily optimization
     workflow. Ask questions like what is causing the slowdown or high resource usage
     in your code only after you have already captured the profiles from your program.
   id: totrans-405
   prefs: []
   type: TYPE_NORMAL
+  zh: 我建议在适合你每日优化工作流程的任何形式中使用分析。在你已经从程序中捕获了配置文件之后，才问像是什么导致了你的代码减速或高资源使用等问题。
 - en: I believe this is not the end of the innovations in this space. Thanks to common
     efficient profiling formats like `pprof` that allow interoperability across different
     tools and profilers, we will see more tools, UI, useful visualizations, or even
@@ -2758,6 +3187,8 @@
   id: totrans-406
   prefs: []
   type: TYPE_NORMAL
+  zh: 我相信这并不是这个领域创新的终点。由于像 `pprof` 这样的常见高效分析格式可以在不同工具和分析器之间实现互操作性，我们将看到更多工具、用户界面、有用的可视化，甚至与
+    [第 6 章](ch06.html#ch-observability) 中提到的不同可观察信号相关联。
 - en: Furthermore, more eBPF profiles are emerging in the open source ecosystem, making
     profiling cheaper and more uniform across programming languages. So be open-minded
     and try different techniques and tools to find out what works best for you, your
@@ -2765,6 +3196,7 @@
   id: totrans-407
   prefs: []
   type: TYPE_NORMAL
+  zh: 此外，更多 eBPF 档案正在开源生态系统中出现，使得跨编程语言的分析更加便宜和统一。因此，请保持开放态度，并尝试不同的技术和工具，找出对你、你的团队或你的组织最有效的方法。
 - en: ^([1](ch09.html#idm45606826044080-marker)) A symptom is an effect we see caused
     by some underlying situation, e.g., OOM is a symptom of the Go program requiring
     more memory than allowed. The problem with symptoms is that they often look like
@@ -2775,6 +3207,8 @@
   id: totrans-408
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([1](ch09.html#idm45606826044080-marker)) 症状是我们看到的由某些潜在情况引起的影响，例如，OOM 是 Go
+    程序需要比允许的内存更多时的一个症状。症状的问题在于它们经常看起来像是根本原因，但可能有一个潜在的瓶颈导致它们。例如，导致 OOM 的进程高内存使用看起来可能是根本原因，但如果是由于依赖项未能快速处理请求，则也可能只是其他问题的症状。
 - en: ^([2](ch09.html#idm45606826043392-marker)) A [red herring](https://oreil.ly/5AKbS)
     is an unexpected behavior that turns out to not be a problem to the general topic
     of our investigation. For example, while investigating the higher latency of our
@@ -2851,6 +3285,7 @@
   id: totrans-419
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([12](ch09.html#idm45606824674864-marker)) REFINE 隐藏选项使得线条保持实心。
 - en: ^([13](ch09.html#idm45606824599744-marker)) Note that currently there are some
     bugs in this view in `pprof`. When you are missing binary, the UI shows `no matches
     found for regexp:`. Search also does not work, but you can use the built-in browser
@@ -2858,23 +3293,29 @@
   id: totrans-420
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([13](ch09.html#idm45606824599744-marker)) 目前在`pprof`中这个视图存在一些 bug。当你缺少二进制文件时，UI
+    显示`no matches found for regexp:`。搜索也无法使用，但你可以使用内置浏览器搜索找到你想要的内容（例如，使用 Ctrl+F）。
 - en: ^([14](ch09.html#idm45606824589952-marker)) For example, the plugin in [VSCode](https://oreil.ly/eaooe)
     or [GoLand](https://oreil.ly/YT9cs).
   id: totrans-421
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([14](ch09.html#idm45606824589952-marker)) 例如，在[VSCode](https://oreil.ly/eaooe)或[GoLand](https://oreil.ly/YT9cs)中的插件。
 - en: ^([15](ch09.html#idm45606824378144-marker)) Funny enough, the 165 number is
     excessive. Making this screenshot gave me the insight that I have a bug in the
     `labeler` code. I was not closing the temporary file.
   id: totrans-422
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([15](ch09.html#idm45606824378144-marker)) 趣事是，165 这个数字有些过高。制作这张截图让我意识到我在`labeler`代码中有一个
+    bug。我没有关闭临时文件。
 - en: ^([16](ch09.html#idm45606824335568-marker)) The same profile is also available
     via `/debug/pprof/alloc`. The only difference is that the `alloc` profile has
     `alloc_space` as the default value type.
   id: totrans-423
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([16](ch09.html#idm45606824335568-marker)) 通过`/debug/pprof/alloc`也可以获得相同的分析数据。唯一的区别是`alloc`分析器将`alloc_space`作为默认值类型。
 - en: ^([17](ch09.html#idm45606824295584-marker)) Unfortunately, given I took the
     snapshot when the load test finished, the current amount of spaces contributed
     by code toward the heap is minimal and does not represent any interesting event
@@ -2883,22 +3324,26 @@
   id: totrans-424
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([17](ch09.html#idm45606824295584-marker)) 不幸的是，由于我在负载测试完成后拍摄了快照，代码对堆的当前贡献空间是极小的，不代表过去发生的任何有趣事件。在[“持续分析”](#ch-obs-cont-profiling)中，你会看到这个值类型更有用。
 - en: ^([18](ch09.html#idm45606824276208-marker)) See the excellent [goroutine profiler
     overview](https://oreil.ly/U8tCN).
   id: totrans-425
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([18](ch09.html#idm45606824276208-marker)) 参见优秀的[goroutine 分析器概述](https://oreil.ly/U8tCN)。
 - en: ^([19](ch09.html#idm45606824268336-marker)) Technically speaking, the Go scheduler
     [records that information](https://oreil.ly/g3tl2). It can be exposed to us when
     stack is retrieved with `GODEBUG=tracebackancestors=X`.
   id: totrans-426
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([19](ch09.html#idm45606824268336-marker)) 从技术角度讲，Go 调度器记录了这些信息。当使用`GODEBUG=tracebackancestors=X`检索堆栈时，它可以向我们公开。
 - en: ^([20](ch09.html#idm45606824228720-marker)) See the [proposal for the next iteration
     of the potential CPU profiler](https://oreil.ly/8vy83) for a detailed description.
   id: totrans-427
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([20](ch09.html#idm45606824228720-marker)) 查看[关于潜在 CPU 分析器下一个迭代的提案](https://oreil.ly/8vy83)以获取详细描述。
 - en: ^([21](ch09.html#idm45606824226864-marker)) Technically speaking, there is one
     very hacky way of setting different profiling CPU rates. You can call [`runtime.SetCPUProfileRate()`](https://oreil.ly/M8HwB)
     with the rate you want right before `pprof.StartCPUProfile(w)`. The `pprof.StartCPUProfile(w)`
@@ -2908,34 +3353,44 @@
   id: totrans-428
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([21](ch09.html#idm45606824226864-marker)) 从技术角度讲，有一种非常巧妙的方法可以设置不同的 CPU 分析率。你可以在`pprof.StartCPUProfile(w)`之前调用[`runtime.SetCPUProfileRate()`](https://oreil.ly/M8HwB)来设置你想要的率。`pprof.StartCPUProfile(w)`会尝试覆盖这个率，但由于[这个
+    bug](https://oreil.ly/8JBxX)，它将会失败。只有在确信自己知道在做什么时才更改率——通常 100 Hz 是一个不错的默认值。大于
+    250–500 Hz 的值大多数操作系统定时器都不支持。
 - en: ^([22](ch09.html#idm45606824221904-marker)) See [this issue](https://oreil.ly/E0W5v)
     for a currently known list of OSes with certain problems.
   id: totrans-429
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([22](ch09.html#idm45606824221904-marker)) 查看[此问题](https://oreil.ly/E0W5v)了解目前已知的有特定问题的操作系统列表。
 - en: ^([23](ch09.html#idm45606824186560-marker)) In fact, even CPU time includes
     waiting for a memory fetch, as discussed in [“CPU and Memory Wall Problem”](ch04.html#ch-hw-mem-wall).
     This is, however, included in the CPU profile.
   id: totrans-430
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([23](ch09.html#idm45606824186560-marker)) 事实上，即使 CPU 时间包括等待内存获取，如[“CPU 和内存墙问题”](ch04.html#ch-hw-mem-wall)所述。这些内容已包含在
+    CPU 分析中。
 - en: ^([24](ch09.html#idm45606824182112-marker)) This view is heavily inspired by
     the [Felix’s great guide](https://oreil.ly/nwVwF).
   id: totrans-431
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([24](ch09.html#idm45606824182112-marker)) 这个视图深受[Felix 的优秀指南](https://oreil.ly/nwVwF)的启发。
 - en: ^([25](ch09.html#idm45606824142096-marker)) This can be confirmed in [Example 8-19](ch08.html#code-macrobench)
     code, where the `k6s` script has only one user that waits 500 ms between HTTP
     calls.
   id: totrans-432
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([25](ch09.html#idm45606824142096-marker)) 这可以在[示例 8-19](ch08.html#code-macrobench)
+    代码中得到确认，在`k6s`脚本中只有一个用户在HTTP调用之间等待500毫秒。
 - en: ^([26](ch09.html#idm45606824139264-marker)) I skipped the `threadcreate` profile
     present in the Go `pprof` package as it’s known to be broken [since 2013](https://oreil.ly/b8MpS)
     with little priority to be fixed in the future.
   id: totrans-433
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([26](ch09.html#idm45606824139264-marker)) 我跳过了在Go `pprof`包中存在的`threadcreate`性能分析，因为它已知自2013年以来存在问题，并且未来修复的优先级较低。
 - en: ^([27](ch09.html#idm45606823825248-marker)) [Phlare](https://oreil.ly/Ru0Hu),
     [Pyroscope](https://oreil.ly/eKyK7), [Google Cloud Profiler](https://oreil.ly/OGoVR),
     [AWS CodeGuru Profiler](https://oreil.ly/urVE0), or [Datadog continuous profiler](https://oreil.ly/El7zq),
@@ -2943,3 +3398,6 @@
   id: totrans-434
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([27](ch09.html#idm45606823825248-marker)) [Phlare](https://oreil.ly/Ru0Hu),
+    [Pyroscope](https://oreil.ly/eKyK7), [Google Cloud Profiler](https://oreil.ly/OGoVR),
+    [AWS CodeGuru Profiler](https://oreil.ly/urVE0), 或者 [Datadog continuous profiler](https://oreil.ly/El7zq)，仅举几例。
