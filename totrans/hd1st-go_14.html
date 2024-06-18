@@ -1,0 +1,444 @@
+<html><head></head><body><section data-pdf-bookmark="Chapter 13. sharing work: Goroutines and Channels" data-type="chapter" epub:type="chapter" class="preface"><div class="preface" id="sharing_workcolon_goroutines_and_channel">
+<h1 class="calibre17"><span class="calibre">Chapter 13. </span>sharing work: Goroutines and Channels</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0379-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><a data-primary="channels" data-secondary="about" data-type="indexterm" id="idm46062709403352" class="calibre10"/><a data-primary="concurrency using goroutines" data-type="indexterm" id="idm46062709402040" class="calibre10"/><a data-primary="goroutines" data-secondary="about" data-type="indexterm" id="idm46062709401240" class="calibre10"/><strong class="calibre8">Working on one thing at a time isn’t always the fastest way to finish a task.</strong> Some big problems can be broken into smaller tasks. <strong class="calibre8">Goroutines</strong> let your program work on several different tasks at once. Your goroutines can coordinate their work using <strong class="calibre8">channels</strong>, which let them send data to each other <em class="calibre9">and</em> synchronize so that one goroutine doesn’t get ahead of another. Goroutines let you take full advantage of computers with multiple processors, so that your programs run as fast as possible!</p>
+<section data-pdf-bookmark="Retrieving web pages" data-type="sect1" class="preface"><div class="preface" id="retrieving_web_pages">
+<h1 class="calibre25">Retrieving web pages</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0163-01a.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><a data-primary="byte type" data-type="indexterm" id="idm46062709393960" class="calibre10"/><a data-primary="Close method (io)" data-type="indexterm" id="idm46062709392872" class="calibre10"/><a data-primary="file management" data-secondary="opening files" data-type="indexterm" id="idm46062709391992" class="calibre10"/><a data-primary="Get function (net/http)" data-type="indexterm" id="idm46062709390840" class="calibre10"/><a data-primary="io/ioutil package" data-secondary="ReadAll function" data-type="indexterm" id="idm46062709390008" class="calibre10"/><a data-primary="io package" data-secondary="Close method" data-type="indexterm" id="idm46062709388872" class="calibre10"/><a data-primary="io package" data-secondary="ReadCloser interface" data-type="indexterm" id="idm46062709387800" class="calibre10"/><a data-primary="io package" data-secondary="Read method" data-type="indexterm" id="idm46062709386664" class="calibre10"/><a data-primary="net/http package" data-secondary="Get function" data-type="indexterm" id="idm46062709385592" class="calibre10"/><a data-primary="net/http package" data-secondary="Response type" data-type="indexterm" id="idm46062709384456" class="calibre10"/><a data-primary="opening files" data-type="indexterm" id="idm46062709383384" class="calibre10"/><a data-primary="Open method (io)" data-type="indexterm" id="idm46062709382552" class="calibre10"/><a data-primary="ReadAll function (io/ioutil)" data-type="indexterm" id="idm46062709381720" class="calibre10"/><a data-primary="ReadCloser interface (io)" data-type="indexterm" id="idm46062709380888" class="calibre10"/><a data-primary="Response type (net/http)" data-type="indexterm" id="idm46062709380120" class="calibre10"/><a data-primary="types" data-secondary="about" data-type="indexterm" id="idm46062709379240" class="calibre10"/><a data-primary="web pages, retrieving" data-type="indexterm" id="idm46062709378088" class="calibre10"/>This chapter is going to be about finishing work faster by doing several tasks simultaneously. But first, we need a big task that we can break into little parts. So bear with us for a couple pages while we set the scene...</p>
+<p class="calibre7">The smaller a web page is, the faster it loads in visitors’ browsers. We need a tool that can measure the sizes of pages, in bytes.</p>
+<p class="calibre7">This shouldn’t be too difficult, thanks to Go’s standard library. The program below uses the <code class="calibre20">net/http</code> package to connect to a site and retrieve a web page with just a few function calls.</p>
+<p class="calibre7">We pass the URL of the site we want to the <code class="calibre20">http.Get</code> function. It will return an <code class="calibre20">http.Response</code> object, plus any error it encountered.</p>
+<p class="calibre7">The <code class="calibre20">http.Response</code> object is a struct with a <code class="calibre20">Body</code> field that represents the content of the page. <code class="calibre20">Body</code> satisfies the <code class="calibre20">io</code> package’s <code class="calibre20">ReadCloser</code> interface, meaning it has a <code class="calibre20">Read</code> method (which lets us read the page data), and a <code class="calibre20">Close</code> method that releases the network connection when we’re done.</p>
+<p class="calibre7">We <code class="calibre20">defer</code> a call to <code class="calibre20">Close</code>, so the connection gets released after we’re done reading from it. Then we pass the response body to the <code class="calibre20">ioutil</code> package’s <code class="calibre20">ReadAll</code> function, which will read its entire contents and return it as a slice of <code class="calibre20">byte</code> values.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0380-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">We haven’t covered the <code class="calibre20">byte</code> type yet; it’s one of Go’s basic types (like <code class="calibre20">float64</code> or <code class="calibre20">bool</code>), and it’s used for holding raw data, such as you might read from a file or network connection. A slice of <code class="calibre20">byte</code> values won’t show us anything meaningful if we print it directly, but if you do a type conversion from a slice of <code class="calibre20">byte</code> values to a <code class="calibre20">string</code>, you’ll get readable text back. (That is, assuming the data represents readable text.) So we end by converting the response body to a <code class="calibre20">string</code>, and printing it.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0380-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">If we save this code to a file and run it with <code class="calibre20">go run</code>, it will retrieve the HTML content of the <em class="calibre9"><a href="https://example.com" class="calibre10">https://example.com</a></em> page, and display it.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0163-01a.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><a data-primary="go doc command" data-type="indexterm" id="idm46062709355864" class="calibre10"/>If you want more info on the functions and types used in this program, you can get it via the <code class="calibre20">go doc</code> command (which we learned about back in <a data-type="xref" href="ch04.html#bundles_of_codecolon_packages" class="calibre10">Chapter 4</a>) in your terminal. Try the commands at the right to bring up the documentation. (Or if you prefer, you can look them up in your browser using your favorite search engine.)</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0381-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">From there, it’s not too difficult to convert the program to print the size of multiple pages.</p>
+<p class="calibre7">We can move the code that retrieves the page to a separate <code class="calibre20">responseSize</code> function, which takes the URL to retrieve as a parameter. We’ll print the URL we’re retrieving just for debugging purposes. The code to call <code class="calibre20">http.Get</code>, read the response, and release the connection will be mostly unchanged. Finally, instead of converting the slice of bytes from the response to a <code class="calibre20">string</code>, we simply call <code class="calibre20">len</code> to get the slice’s length. This gives us the length of the response in bytes, which we print.</p>
+<p class="calibre7">We update our <code class="calibre20">main</code> function to call <code class="calibre20">responseSize</code> with several different URLs. When we run the program, it will print the URLs and page sizes.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0381-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0165-06.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Multitasking" data-type="sect1" class="preface"><div class="preface" id="multitasking">
+<h1 class="calibre25">Multitasking</h1>
+<p class="calibre7"><a data-primary="multitasking" data-type="indexterm" id="idm46062709341688" class="calibre10"/>And now we get to the point of this chapter: finding a way to speed programs up by performing multiple tasks at the same time.</p>
+<p class="calibre7">Our program makes several calls to <code class="calibre20">responseSize</code>, one at a time. Each call to <code class="calibre20">responseSize</code> establishes a network connection to the website, waits for the site to respond, prints the response size, and returns. Only when one call to <code class="calibre20">responseSize</code> returns can the next begin. If we had one big long function where the all code was repeated three times, it would take the same amount of time to run as our three calls to <code class="calibre20">responseSize</code>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0382-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">But what if there were a way to run all three calls to <code class="calibre20">responseSize</code> at once? The program could complete in as little as a third of the time!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0382-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Concurrency using goroutines" data-type="sect1" class="preface"><div class="preface" id="concurrency_using_goroutines">
+<h1 class="calibre25">Concurrency using goroutines</h1>
+<p class="calibre7"><a data-primary="concurrency using goroutines" data-type="indexterm" id="idm46062709331176" class="calibre10"/><a data-primary="go keyword" data-type="indexterm" id="idm46062709330072" class="calibre10"/><a data-primary="goroutines" data-secondary="about" data-type="indexterm" id="idm46062709329208" class="calibre10"/><a data-primary="main function" data-secondary="goroutines and" data-type="indexterm" id="idm46062709328056" class="calibre10"/><a data-primary="threads" data-type="indexterm" id="idm46062709326984" class="calibre10"/>When <code class="calibre20">responseSize</code> makes the call to <code class="calibre20">http.Get</code>, your program has to sit there and wait for the remote website to respond. It’s not doing anything useful while it waits.</p>
+<p class="calibre7">A different program might have to wait for user input. And another might have to wait while data is read in from a file. There are lots of situations where programs are just sitting around waiting.</p>
+<p class="calibre7"><strong class="calibre8">Concurrency</strong> allows a program to pause one task and work on other tasks. A program waiting for user input might do other processing in the background. A program might update a progress bar while reading from a file. Our <code class="calibre20">responseSize</code> program might make other network requests while it waits for the first request to complete.</p>
+<p class="calibre7">If a program is written to support concurrency, then it may also support <strong class="calibre8">parallelism</strong>: running tasks <em class="calibre9">simultaneously</em>. A computer with only one processor can only run one task at a time. But most computers these days have multiple processors (or one processor with multiple cores). Your computer may divide concurrent tasks among different processors to run them at the same time. (It’s rare to manage this directly; the operating system usually handles it for you.)</p>
+<p class="calibre7">Breaking large tasks into smaller subtasks that can be run concurrently can sometimes mean big speed increases for your programs.</p>
+<p class="calibre7">In Go, concurrent tasks are called <strong class="calibre8">goroutines</strong>. Other programming languages have a similar concept called <em class="calibre9">threads</em>, but goroutines require less computer memory than threads, and less time to start up and stop, meaning you can run more goroutines at once.</p>
+<p class="calibre7">They’re also easier to use. To start another goroutine, you use a <code class="calibre20">go</code> statement, which is just an ordinary function or method call with the <code class="calibre20">go</code> keyword in front of it:</p>
+<blockquote class="calibre37 pcalibre1 pcalibre2">
+<p class="calibre38"><strong class="calibre8">Goroutines allow for concurrency: pausing one task to work on others. And in some situations they allow parallelism: working on multiple tasks simultaneously!</strong></p>
+</blockquote>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0383-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Notice that we say <em class="calibre9">another</em> goroutine. The <code class="calibre20">main</code> function of every Go program is started using a goroutine, so every Go program runs at least one goroutine. You’ve been using goroutines all along, without knowing it!</p>
+</div></section>
+<section data-pdf-bookmark="Using goroutines" data-type="sect1" class="preface"><div class="preface" id="using_goroutines">
+<h1 class="calibre25">Using goroutines</h1>
+<p class="calibre7">Here’s a program that makes function calls one at a time. The <code class="calibre20">a</code> function uses a loop to print the string <code class="calibre20">"a"</code> 50 times, and the <code class="calibre20">b</code> function prints the string <code class="calibre20">"b"</code> 50 times. The <code class="calibre20">main</code> function calls <code class="calibre20">a</code>, then <code class="calibre20">b</code>, and finally prints a message when it exits.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0384-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">It’s as if the <code class="calibre20">main</code> function contained all the code from the <code class="calibre20">a</code> function, followed by all the code from the <code class="calibre20">b</code> function, followed by its own code:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0384-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">To launch the <code class="calibre20">a</code> and <code class="calibre20">b</code> functions in new goroutines, all you have to do is add the <code class="calibre20">go</code> keyword in front of the function calls:</p>
+<pre data-type="programlisting" class="calibre32">func main() {
+       go a()
+       go b()
+       fmt.Println("end main()")
+}</pre>
+<p class="calibre7">This makes the new goroutines run concurrently with the <code class="calibre20">main</code> function:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0384-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">But if we run the program now, the only output we’ll see is from the <code class="calibre20">Println</code> call at the end of the <code class="calibre20">main</code> function—we won’t see anything from the <code class="calibre20">a</code> or <code class="calibre20">b</code> functions!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0385-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Here’s the problem: Go programs stop running as soon as the <code class="calibre20">main</code> goroutine (the goroutine that calls the <code class="calibre20">main</code> function) ends, even if other goroutines are still running. Our <code class="calibre20">main</code> function completes before the code in the <code class="calibre20">a</code> and <code class="calibre20">b</code> functions has a chance to run.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0385-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">We need to keep the <code class="calibre20">main</code> goroutine running until the goroutines for the <code class="calibre20">a</code> and <code class="calibre20">b</code> functions can finish. To do this properly, we’re going to need another feature of Go called <em class="calibre9">channels</em>, but we won’t be covering those until later in the chapter. So for now, we’ll just pause the <code class="calibre20">main</code> goroutine for a set amount of time so the other goroutines can run.</p>
+<p class="calibre7">We’ll use a function from the <code class="calibre20">time</code> package, called <code class="calibre20">Sleep</code>, which pauses the current goroutine for a given amount of time. Calling <code class="calibre20">time.Sleep(time.Second)</code> within the <code class="calibre20">main</code> function will cause the <code class="calibre20">main</code> goroutine to pause for 1 second.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0385-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">If we rerun the program, we’ll see the output from the <code class="calibre20">a</code> and <code class="calibre20">b</code> functions again as their goroutines finally get a chance to run. The output of the two will be mixed as the program switches between the two goroutines. (The pattern you get may be different than what’s shown here.) When the <code class="calibre20">main</code> goroutine wakes back up, it makes its call to <code class="calibre20">fmt.Println</code> and exits.</p>
+<p class="calibre7"><a data-primary="Sleep function (time)" data-type="indexterm" id="idm46062709277368" class="calibre10"/><a data-primary="time package" data-secondary="Sleep function" data-type="indexterm" id="idm46062709276008" class="calibre10"/>The call to <code class="calibre20">time.Sleep</code> in the <code class="calibre20">main</code> goroutine gives more than enough time for both the <code class="calibre20">a</code> and <code class="calibre20">b</code> goroutines to finish running.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0386-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Using goroutines with our responseSize function" data-type="sect1" class="preface"><div class="preface" id="using_goroutines_with_our_responsesize_f">
+<h1 class="calibre25">Using goroutines with our responseSize function</h1>
+<p class="calibre7">It’s pretty easy to adapt our program that prints web page sizes to use goroutines. All we have to do is add the <code class="calibre20">go</code> keyword before each of the calls to <code class="calibre20">responseSize</code>.</p>
+<p class="calibre7">To prevent the <code class="calibre20">main</code> goroutine from exiting before the <code class="calibre20">responseSize</code> goroutines can finish, we’ll also need to add a call to <code class="calibre20">time.Sleep</code> in the <code class="calibre20">main</code> function.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0386-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Sleeping for just 1 second may not be enough time for the network requests to complete, though. Calling <code class="calibre20">time.Sleep(5 * time.Second)</code> will make the goroutine sleep for 5 seconds. (If you’re trying this on a slow or unresponsive network, you may need to increase that time.)</p>
+<pre data-type="programlisting" class="calibre32">func responseSize(url string) {
+       fmt.Println("Getting", url)
+       response, err := http.Get(url)
+       if err != nil {
+              log.Fatal(err)
+       }
+       defer response.Body.Close()
+       body, err := ioutil.ReadAll(response.Body)
+       if err != nil {
+              log.Fatal(err)
+       }
+       fmt.Println(len(body))
+}</pre>
+<p class="calibre7"><a data-primary="Get function (net/http)" data-type="indexterm" id="idm46062709263176" class="calibre10"/><a data-primary="net/http package" data-secondary="Get function" data-type="indexterm" id="idm46062709262120" class="calibre10"/>If we run the updated program, we’ll see it print the URLs it’s retrieving all at once, as the three <code class="calibre20">responseSize</code> goroutines start up concurrently.</p>
+<p class="calibre7">The three calls to <code class="calibre20">http.Get</code> are made concurrently as well; the program doesn’t wait until one response comes back before sending out the next request. As a result the three response sizes are printed much sooner using goroutines than they were with the earlier, sequential version of the program. The program still takes 5 seconds to finish, however, as we wait for the call to <code class="calibre20">time.Sleep</code> in <code class="calibre20">main</code> to complete.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0387-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">We’re not exerting any control over the order that calls to <code class="calibre20">responseSize</code> are executed in, so if we run the program again, we may see the requests happen in a different order.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0387-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">The program takes 5 seconds to complete even if all the sites respond faster than that, so we’re still not getting that great a speed gain from the switch to goroutines. Even worse, 5 seconds may not be <em class="calibre9">enough</em> time if the sites take a long time to respond. Sometimes, you may see the program end before all the responses have arrived.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0387-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">It’s becoming clear that <code class="calibre20">time.Sleep</code> is not the ideal way to wait for other goroutines to complete. Once we look at channels in a few pages, we’ll have a better alternative.</p>
+</div></section>
+<section data-pdf-bookmark="We don’t directly control when goroutines run" data-type="sect1" class="preface"><div class="preface" id="we_donrsquot_directly_control_when_gorou">
+<h1 class="calibre25">We don’t directly control when goroutines run</h1>
+<p class="calibre7"><a data-primary="goroutines" data-secondary="runtime control and" data-type="indexterm" id="idm46062709247016" class="calibre10"/>We may see the <code class="calibre20">responseSize</code> goroutines run in a different order each time the program is run:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0388-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">We also had no way of knowing when the previous program would switch between the <code class="calibre20">a</code> and <code class="calibre20">b</code> goroutines:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0388-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Under normal circumstances, Go makes no guarantees about when it will switch between goroutines, or for how long. This allows goroutines to run in whatever way is most efficient. But if the order your goroutines run in is important to you, you’ll need to synchronize them using channels (which we’ll look at shortly).</p>
+</div></section>
+<section data-pdf-bookmark="Code Magnets" data-type="sect1" class="preface"><div class="preface" id="code_magnets_8">
+<h1 class="calibre25">Code Magnets</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0388-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">A program that uses goroutines is scrambled up on the fridge. Can you reconstruct the code snippets to make a working program that will produce output <em class="calibre9">similar</em> to the given sample? (It’s not possible to predict the order of execution of goroutines, so don’t worry, your program’s output doesn’t need to exactly match the output shown.)</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0388-04.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><img alt="image" src="assets/arrow.png" class="calibre4"/> Answers in <a data-type="xref" href="#code_magnets_solution_8" class="calibre10">“Code Magnets Solution”</a>.</p>
+</div></section>
+<section data-pdf-bookmark="Go statements can’t be used with return values" data-type="sect1" class="preface"><div class="preface" id="go_statements_canrsquot_be_used_with_ret">
+<h1 class="calibre25">Go statements can’t be used with return values</h1>
+<p class="calibre7"><a data-primary="goroutines" data-secondary="return values and" data-type="indexterm" id="idm46062709228232" class="calibre10"/><a data-primary="return values" data-secondary="compile errors" data-type="indexterm" id="idm46062709226552" class="calibre10"/><a data-primary="return values" data-secondary="go statements and" data-type="indexterm" id="idm46062709225432" class="calibre10"/>Switching to goroutines brings up another problem we’ll need to solve: we can’t use function return values in a <code class="calibre20">go</code> statement. Suppose we wanted to change the <code class="calibre20">responseSize</code> function to return the page size instead of printing it directly:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0389-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">We’ll get compile errors. The compiler stops you from attempting to get a return value from a function called with a <code class="calibre20">go</code> statement.</p>
+<p class="calibre7">This is actually a good thing. When you call <code class="calibre20">responseSize</code> as part of a <code class="calibre20">go</code> statement, you’re saying, “Go run <code class="calibre20">responseSize</code> in a separate goroutine. I’m going to keep running the instructions in this function.” The <code class="calibre20">responseSize</code> function isn’t going to return a value immediately; it has to wait for the website to respond. But the code in your <code class="calibre20">main</code> goroutine would expect a return value immediately, and there wouldn’t be one yet!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0389-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">This is true of any function called in a <code class="calibre20">go</code> statement, not just long-running functions like <code class="calibre20">responseSize</code>. You can’t rely on the return values being ready in time, and so the Go compiler blocks any attempt to use them.</p>
+<p class="calibre7"><a data-primary="chan keyword" data-type="indexterm" id="idm46062709212600" class="calibre10"/><a data-primary="channels" data-secondary="about" data-type="indexterm" id="idm46062709214520" class="calibre10"/><a data-primary="channels" data-secondary="return values and" data-type="indexterm" id="idm46062709211320" class="calibre10"/><a data-primary="channels" data-secondary="struct types and" data-type="indexterm" id="idm46062709210248" class="calibre10"/><a data-primary="goroutines" data-secondary="channels and" data-type="indexterm" id="idm46062709209112" class="calibre10"/><a data-primary="make built-in function" data-secondary="channels and" data-type="indexterm" id="idm46062709208040" class="calibre10"/><a data-primary="return values" data-secondary="channels and" data-type="indexterm" id="idm46062709206904" class="calibre10"/><a data-primary="short variable declaration (:=)" data-secondary="for channels" data-type="indexterm" id="idm46062709205832" class="calibre10"/><a data-primary="struct types" data-secondary="channels and" data-type="indexterm" id="idm46062709204760" class="calibre10"/>Go won’t let you use the return value from a function called with a <code class="calibre20">go</code> statement, because there’s no guarantee the return value will be ready before we attempt to use it:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0390-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">But there <em class="calibre9">is</em> a way to communicate between goroutines: <strong class="calibre8">channels</strong>. Not only do channels allow you to send values from one goroutine to another, they ensure the sending goroutine has sent the value before the receiving goroutine attempts to use it.</p>
+<p class="calibre7">The only practical way to use a channel is to communicate from one goroutine to another goroutine. So to demonstrate channels, we’ll need to be able to do a few things:</p>
+<ul class="list_style_type_none">
+<li class="calibre18"><p class="calibre7">Create a channel.</p></li>
+<li class="calibre18"><p class="calibre7">Write a function that receives a channel as a parameter. We’ll run this function in a separate goroutine, and use it to send values over the channel.</p></li>
+<li class="calibre18"><p class="calibre7">Receive the sent values in our original goroutine.</p></li>
+</ul>
+<p class="calibre7">Each channel only carries values of a particular type, so you might have one channel for <code class="calibre20">int</code> values, and another channel for values with a struct type. To declare a variable that holds a channel, you use the <code class="calibre20">chan</code> keyword, followed by the type of values that channel will carry.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0390-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">To actually create a channel, you need to call the built-in <code class="calibre20">make</code> function (the same one you can use to create maps and slices). You pass <code class="calibre20">make</code> the type of the channel you want to create (which should be the same as the type of the variable you want to assign it to).</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0390-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Rather than declare the channel variable separately, in most cases it’s easier to just use a short variable declaration:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0390-04.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Sending and receiving values with channels" data-type="sect1" class="preface"><div class="preface" id="sending_and_receiving_values_with_channe">
+<h1 class="calibre25">Sending and receiving values with channels</h1>
+<p class="calibre7"><a data-primary="&lt;- arrow operator" data-type="indexterm" id="idm46062709185816" class="calibre10"/><a data-primary="arrow operator (&lt;-)" data-type="indexterm" id="idm46062709184456" class="calibre10"/>To send a value on a channel, you use the <code class="calibre20">&lt;-</code> operator (that’s a less-than symbol followed by a dash). It looks like an arrow pointing from the value you’re sending to the channel you’re sending it on.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0391-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">You also use the <code class="calibre20">&lt;-</code> operator to <em class="calibre9">receive</em> values from a channel, but the positioning is different: you place the arrow to the <em class="calibre9">left</em> of the channel you’re receiving from. (It kind of looks like you’re pulling a value out of the channel.)</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0391-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Here’s the <code class="calibre20">greeting</code> function from the previous page, rewritten to use channels. We’ve added a <code class="calibre20">myChannel</code> parameter to <code class="calibre20">greeting</code>, which takes a channel that carries <code class="calibre20">string</code> values. Instead of returning a string value, <code class="calibre20">greeting</code> now sends a string via <code class="calibre20">myChannel</code>.</p>
+<p class="calibre7">In the <code class="calibre20">main</code> function, we create the channel that we’re going to pass to <code class="calibre20">greeting</code> using the built-in <code class="calibre20">make</code> function. Then we call <code class="calibre20">greeting</code> as a new goroutine. Using a separate goroutine is important, because channels should only be used to communicate <em class="calibre9">between</em> goroutines. (We’ll talk about why in a little bit.) Finally, we receive a value from the channel we passed to <code class="calibre20">greeting</code>, and print the string it returns.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0391-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">We didn’t have to pass the value received from the channel straight to <code class="calibre20">Println</code>. You can receive from a channel in any context where you need a value. (That is, anywhere you might use a variable or the return value of a function.) So, for example, we could have assigned the received value to a variable first instead:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0391-04.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Synchronizing goroutines with channels" data-type="sect1" class="preface"><div class="preface" id="synchronizing_goroutines_with_channels">
+<h1 class="calibre25">Synchronizing goroutines with channels</h1>
+<p class="calibre7"><a data-primary="channels" data-secondary="synchronizing goroutines with" data-type="indexterm" id="idm46062709164376" class="calibre10"/><a data-primary="synchronizing goroutines with channels" data-type="indexterm" id="idm46062709162680" class="calibre10"/>We mentioned that channels also ensure the sending goroutine has sent the value before the receiving channel attempts to use it. Channels do this by <strong class="calibre8">blocking</strong>—by pausing all further operations in the current goroutine. A send operation blocks the sending goroutine until another goroutine executes a receive operation on the same channel. And vice versa: a receive operation blocks the receiving goroutine until another goroutine executes a send operation on the same channel. This behavior allows goroutines to <strong class="calibre8">synchronize</strong> their actions—that is, to coordinate their timing.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0392-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Here’s a program that creates two channels and passes them to functions in two new goroutines. The <code class="calibre20">main</code> goroutine then receives values from those channels and prints them. Unlike our program with the goroutines that printed <code class="calibre20">"a"</code> or <code class="calibre20">"b"</code> repeatedly, we can predict the output for this program: it will always print <code class="calibre20">"a"</code>, then <code class="calibre20">"d"</code>, <code class="calibre20">"b"</code>, <code class="calibre20">"e"</code>, <code class="calibre20">"c"</code>, and <code class="calibre20">"f"</code> in that order.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0392-01a.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">We know what the order will be because the <code class="calibre20">abc</code> goroutine blocks each time it sends a value to a channel until the <code class="calibre20">main</code> goroutine receives from it. The <code class="calibre20">def</code> goroutine does the same. The <code class="calibre20">main</code> goroutine becomes the orchestrator of the <code class="calibre20">abc</code> and <code class="calibre20">def</code> goroutines, allowing them to proceed only when it’s ready to read the values they’re sending.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0392-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Observing goroutine synchronization" data-type="sect1" class="preface"><div class="preface" id="observing_goroutine_synchronization">
+<h1 class="calibre25">Observing goroutine synchronization</h1>
+<p class="calibre7">The <code class="calibre20">abc</code> and <code class="calibre20">def</code> goroutines send their values over their channels so quickly that it’s hard to see what’s going on. Here’s another program that slows things down so you can see the blocking happen.</p>
+<p class="calibre7">We start with a <code class="calibre20">reportNap</code> function that causes the current goroutine to sleep for a specified number of seconds. Every second the goroutine is asleep, it will print an announcement that it’s still sleeping.</p>
+<p class="calibre7">We add a <code class="calibre20">send</code> function that will run in a goroutine and send two values to a channel. Before it sends anything, though, it first calls <code class="calibre20">reportNap</code> so its goroutine sleeps for 2 seconds.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0393-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">In the <code class="calibre20">main</code> goroutine, we create a channel and pass it to <code class="calibre20">send</code>. Then we call <code class="calibre20">reportNap</code> again so that <em class="calibre9">this</em> goroutine sleeps for <em class="calibre9">5</em> seconds (3 seconds longer than the <code class="calibre20">send</code> goroutine). Finally, we do two receive operations on the channel.</p>
+<p class="calibre7">When we run this, we’ll see both goroutines sleep for the first 2 seconds. Then the <code class="calibre20">send</code> goroutine wakes up and sends its value. But it doesn’t do anything further; the send operation blocks the <code class="calibre20">send</code> goroutine until the <code class="calibre20">main</code> goroutine receives the value.</p>
+<p class="calibre7">That doesn’t happen right away, because the <code class="calibre20">main</code> goroutine still needs to sleep for 3 more seconds. When it wakes up, it receives the value from the channel. Only then is the <code class="calibre20">send</code> goroutine unblocked so it can send its second value.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0393-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Breaking Stuff is Educational!" data-type="sect1" class="preface"><div class="preface" id="breaking_stuff_is_educational_9">
+<h1 class="calibre25">Breaking Stuff is Educational!</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0394-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><a data-primary="channels" data-secondary="deadlock errors" data-type="indexterm" id="idm46062709127096" class="calibre10"/><a data-primary="goroutines" data-secondary="deadlock errors" data-type="indexterm" id="idm46062709125608" class="calibre10"/>Here’s the code again for our earliest, simplest demonstration of channels: the <code class="calibre20">greeting</code> function, which runs in a goroutine and sends a string value to the <code class="calibre20">main</code> goroutine.</p>
+<p class="calibre7">Make one of the changes below and try to run the code. Then undo your change and try the next one. See what happens!</p>
+<pre data-type="programlisting" class="calibre32">func greeting(myChannel chan string) {
+       myChannel &lt;- "hi"
+}
+
+func main() {
+       myChannel := make(chan string)
+       go greeting(myChannel)
+       fmt.Println(&lt;-myChannel)
+}</pre>
+<table class="calibre11">
+<thead class="calibre33">
+<tr class="calibre13">
+<th class="calibre34">If you do this...</th>
+<th class="calibre34">...the code will break because...</th>
+</tr>
+</thead>
+<tbody class="calibre12">
+<tr class="calibre13">
+<td class="calibre14">Send a value to the channel from within the <code class="calibre36">main</code> function:<br class="calibre16"/>
+<code class="calibre36">myChannel &lt;- "hi from main"</code></td>
+<td class="calibre14">You’ll get an “<code class="calibre36">all goroutines are asleep - deadlock</code>!” error. This happens because the <code class="calibre36">main</code> goroutine blocks, waiting for another goroutine to receive from the channel. But the other goroutine doesn’t do any receive operations, so the <code class="calibre36">main</code> goroutine stays blocked.</td>
+</tr>
+<tr class="calibre15">
+<td class="calibre14">Remove the <code class="calibre36">go</code> keyword from before the call to <code class="calibre36">greeting</code>:<br class="calibre16"/>
+<code class="calibre36"><s class="calibre35"><code class="calibre48">go</code></s> greeting(myChannel)</code></td>
+<td class="calibre14">This will cause the <code class="calibre36">greeting</code> function to run within the <code class="calibre36">main</code> goroutine. This also fails with a deadlock error, for the same reason as above: the send operation in <code class="calibre36">greeting</code> causes the <code class="calibre36">main</code> goroutine to block, but there’s no other goroutine to do a receive operation, so it stays blocked.</td>
+</tr>
+<tr class="calibre13">
+<td class="calibre14">Delete the line that sends a value to the channel:
+<code class="calibre36"><s class="calibre35">myChannel &lt;- "hi"</s></code></td>
+<td class="calibre14">This also causes a deadlock, but for a different reason: the <code class="calibre36">main</code> goroutine tries to <em class="calibre9">receive</em> a value, but now there’s nothing to <em class="calibre9">send</em> a value.</td>
+</tr>
+<tr class="calibre15">
+<td class="calibre14">Delete the line that receives a value from the channel:
+<code class="calibre36"><s class="calibre35">fmt.Println(&lt;-myChannel)</s></code></td>
+<td class="calibre14">The send operation in <code class="calibre36">greeting</code> causes that goroutine to block. But since there’s no receive operation to make the <code class="calibre36">main</code> goroutine block as well, <code class="calibre36">main</code> completes immediately, and the program ends without producing any output.</td>
+</tr>
+</tbody>
+</table>
+<aside data-type="sidebar" epub:type="sidebar" class="calibre30"><div class="sidebar" id="exercise_23">
+<h5 class="calibre31"><span class="calibre"><img alt="image" src="assets/common.png" class="calibre4"/></span> Exercise</h5>
+<p class="calibre7">Fill in the blanks so that the code below uses values received from two channels to produce the output shown.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0395-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><img alt="image" src="assets/arrow.png" class="calibre4"/> Answers in <a data-type="xref" href="#exercise_solutions_23" class="calibre10">“<span class="calibre"><img alt="image" src="assets/common.png" class="calibre4"/></span> Exercise Solution”</a>.</p>
+</div></aside>
+</div></section>
+<section data-pdf-bookmark="Fixing our web page size program with channels" data-type="sect1" class="preface"><div class="preface" id="fixing_our_web_page_size_program_with_ch">
+<h1 class="calibre25">Fixing our web page size program with channels</h1>
+<p class="calibre7"><a data-primary="channels" data-secondary="usage example" data-type="indexterm" id="idm46062709094680" class="calibre10"/><a data-primary="goroutines" data-secondary="usage example" data-type="indexterm" id="idm46062709093096" class="calibre10"/><a data-primary="Sleep function (time)" data-type="indexterm" id="idm46062709091992" class="calibre10"/><a data-primary="time package" data-secondary="Sleep function" data-type="indexterm" id="idm46062709091160" class="calibre10"/><a data-primary="web pages, retrieving" data-type="indexterm" id="idm46062709089976" class="calibre10"/>We still have two problems with our program that reports the size of web pages:</p>
+<ul class="list_style_type_none">
+<li class="calibre18"><p class="calibre7">We can’t use a return value from the <code class="calibre20">responseSize</code> function in a <code class="calibre20">go</code> statement.</p></li>
+<li class="calibre18"><p class="calibre7">Our <code class="calibre20">main</code> goroutine was completing before the response sizes were received, so we added a call to <code class="calibre20">time.Sleep</code> for 5 seconds. But 5 seconds is too long some times, and too short other times.</p></li>
+</ul>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0396-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">We can use channels to fix both problems at the same time!</p>
+<p class="calibre7">First, we remove the <code class="calibre20">time</code> package from the <code class="calibre20">import</code> statement; we won’t be needing <code class="calibre20">time.Sleep</code> anymore. Then we update <code class="calibre20">responseSize</code> to accept a channel of <code class="calibre20">int</code> values. Instead of returning the page size, we’ll have <code class="calibre20">responseSize</code> send the size via the channel.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0396-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">In the <code class="calibre20">main</code> function, we call <code class="calibre20">make</code> to create the channel of <code class="calibre20">int</code> values. We update each of the calls to <code class="calibre20">responseSize</code> to add the channel as an argument. And finally, we do three receive operations on the channel, one for each value <code class="calibre20">responseSize</code> sends.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0397-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">If we run this, we’ll see that the program completes as rapidly as the websites respond. That time can vary, but in our testing we saw completion times as short as 1 second!</p>
+<p class="calibre7">Another improvement we can make is to store the list of URLs we want to retrieve in a slice, and then use loops to call <code class="calibre20">responseSize</code>, and to receive values from the channel. This will make our code less repetitive, and will be important if we want to add more URLs later.</p>
+<p class="calibre7">We don’t need to change <code class="calibre20">responseSize</code> at all, just the <code class="calibre20">main</code> function. We create a slice of <code class="calibre20">string</code> values with the URLs we want. Then we loop over the slice, and call <code class="calibre20">responseSize</code> with the current URL and the channel. Finally, we do a second, separate loop that runs once for each URL in the slice, and receives and prints a value from the channel. (It’s important to do this in a separate loop. If we received values in the same loop that starts the <code class="calibre20">responseSize</code> goroutines, the <code class="calibre20">main</code> goroutine would block until the receive completes, and we’d be back to requesting pages one at a time.)</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0397-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Using loops is much cleaner, but still gets us the same result!</p>
+</div></section>
+<section data-pdf-bookmark="Updating our channel to carry a struct" data-type="sect1" class="preface"><div class="preface" id="updating_our_channel_to_carry_a_struct">
+<h1 class="calibre25">Updating our channel to carry a struct</h1>
+<p class="calibre7"><a data-primary="channels" data-secondary="struct types and" data-type="indexterm" id="idm46062709063912" class="calibre10"/><a data-primary="struct types" data-secondary="channels and" data-type="indexterm" id="idm46062709062408" class="calibre10"/>There’s still one issue we need to fix with the <code class="calibre20">responseSize</code> function. We have no idea which order the websites will respond in. And because we’re not keeping the page URL together with the response size, we have no idea which size belongs to which page!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0398-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">This won’t be difficult to fix, though. Channels can carry composite types like slices, maps, and structs just as easily as they can carry basic types. We can just create a struct type that will store a page URL together with its size, so we can send both over the channel together.</p>
+<p class="calibre7">We’ll declare a new <code class="calibre20">Page</code> type with an underlying <code class="calibre20">struct</code> type. <code class="calibre20">Page</code> will have a <code class="calibre20">URL</code> field that records the page’s URL, and a <code class="calibre20">Size</code> field for the page’s size.</p>
+<p class="calibre7">We’ll update the channel parameter on <code class="calibre20">responseSize</code> to hold the new <code class="calibre20">Page</code> type rather than just the <code class="calibre20">int</code> page size. We’ll have <code class="calibre20">responseSize</code> create a new <code class="calibre20">Page</code> value with the current URL and the page size, and send that to the channel.</p>
+<p class="calibre7">In <code class="calibre20">main</code>, we’ll update the type the channel holds in the call to <code class="calibre20">make</code> as well. When we receive a value from the channel, it will be a <code class="calibre20">Page</code> value, so we’ll print both its <code class="calibre20">URL</code> and <code class="calibre20">Size</code> fields.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0398-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Now the output will pair the page sizes with their URLs. It’ll finally be clear again which size belongs to which page.</p>
+<p class="calibre7">Before, our program had to request pages one at a time. Goroutines let us start processing the next request while we’re waiting for a website to respond. The program completes in as little as one-third of the time!</p>
+</div></section>
+<section data-pdf-bookmark="Your Go Toolbox" data-type="sect1" class="preface"><div class="preface" id="your_go_toolbox_13">
+<h1 class="calibre25">Your Go Toolbox</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0399-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><strong class="calibre8">That’s it for <a data-type="xref" href="#sharing_workcolon_goroutines_and_channel" class="calibre10">Chapter 13</a>! You’ve added goroutines and channels to your toolbox.</strong></p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0399-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<aside data-type="sidebar" epub:type="sidebar" class="calibre30"><div class="sidebar" id="bullet_points_13">
+<h5 class="calibre31">Bullet Points</h5>
+<ul class="list_style_type_none">
+<li class="calibre18"><p class="calibre7">All Go programs have at least one goroutine: the one that calls the <code class="calibre20">main</code> function when the program starts.</p></li>
+<li class="calibre18"><p class="calibre7">Go programs end when the <code class="calibre20">main</code> goroutine stops, even if other goroutines have not completed their work yet.</p></li>
+<li class="calibre18"><p class="calibre7">The <code class="calibre20">time.Sleep</code> function pauses the current goroutine for a set amount of time.</p></li>
+<li class="calibre18"><p class="calibre7">Go makes no guarantees about when it will switch between goroutines, or how long it will keep running one goroutine for. This allows the goroutines to run more efficiently, but it means you can’t count on operations happening in a particular order.</p></li>
+<li class="calibre18"><p class="calibre7">Function return values can’t be used in a <code class="calibre20">go</code> statement, in part because the return value wouldn’t be ready when the calling function attempted to use it.</p></li>
+<li class="calibre18"><p class="calibre7">If you need a value from a goroutine, you’ll need to pass it a channel to send the value back on.</p></li>
+<li class="calibre18"><p class="calibre7">Channels are created by calling the built-in <code class="calibre20">make</code> function.</p></li>
+<li class="calibre18"><p class="calibre7">Each channel only carries values of one particular type; you specify that type when creating the channel.<br class="calibre16"/><code class="calibre20">myChannel := make(chan MyType)</code></p></li>
+<li class="calibre18"><p class="calibre7">You send values to channels using the <code class="calibre20">&lt;-</code> operator:<br class="calibre16"/><code class="calibre20">myChannel &lt;- "a value"</code></p></li>
+<li class="calibre18"><p class="calibre7">The <code class="calibre20">&lt;-</code> operator is also used to receive values from a channel:<br class="calibre16"/><code class="calibre20">value := &lt;-myChannel</code></p></li>
+</ul>
+</div></aside>
+</div></section>
+<section data-pdf-bookmark="Code Magnets Solution" data-type="sect1" class="preface"><div class="preface" id="code_magnets_solution_8">
+<h1 class="calibre25">Code Magnets Solution</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0400-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<aside data-type="sidebar" epub:type="sidebar" class="calibre30"><div class="sidebar" id="exercise_solutions_23">
+<h5 class="calibre31"><span class="calibre"><img alt="image" src="assets/common.png" class="calibre4"/></span> Exercise Solution</h5>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0400-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></aside>
+</div></section>
+</div></section></body></html>

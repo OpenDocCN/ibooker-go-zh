@@ -1,0 +1,1469 @@
+<html><head></head><body>
+<div id="book-content">
+<div id="sbo-rt-content"><section data-type="chapter" epub:type="chapter" data-pdf-bookmark="Chapter 10. Modules, Packages, and Imports"><div class="chapter" id="unique_chapter_id_10">
+<h1><span class="label">Chapter 10. </span>Modules, Packages, and Imports</h1>
+
+
+<p>Most modern programming languages have a system for organizing code into namespaces and libraries, and Go is no exception. As you’ve seen while exploring other features, Go introduces some new approaches to this old idea. In this chapter, you’ll learn how to organize code with packages and modules, how to import them, how to work with third-party libraries, and how to create libraries of your own.</p>
+
+
+
+
+
+
+<section data-type="sect1" data-pdf-bookmark="Repositories, Modules, and Packages"><div class="sect1" id="id112">
+<h1>Repositories, Modules, and Packages</h1>
+
+<p>Library management in Go is based<a data-type="indexterm" data-primary="repositories" id="id1983"/><a data-type="indexterm" data-primary="modules" data-secondary="about" id="id1984"/><a data-type="indexterm" data-primary="packages" id="id1985"/><a data-type="indexterm" data-primary="code" data-secondary="modules" data-seealso="modules" id="id1986"/> around three concepts: repositories, modules, and packages. A <em>repository</em> is familiar to all developers. It is a place in a version control system where the source code for a project is stored. A <em>module</em> is a bundle of Go source code that’s distributed and versioned as a single unit. Modules are stored in a repository. Modules consist of one or more <em>packages</em>, which are directories of source code. Packages give a module organization and structure.</p>
+<div data-type="note" epub:type="note"><h6>Note</h6>
+<p>While you can store more than one module in a repository, it is discouraged. Everything within a module is versioned together. Maintaining two modules in one repository requires you to track separate versions for two different modules in a single repository.</p>
+</div>
+
+<p>Unfortunately, different programming languages use these words to represent different concepts. While packages in Java and Go are similar, a Java repository is a centralized place to store multiple <em>artifacts</em> (the analogue of a Go module). Node.js and Go swap the meanings of the terms: a Node.js package is similar to what Go calls a module, and a Go package is similar to a Node.js module. The terminology certainly can be confusing at first, but  as you get more comfortable with Go, the terms will seem more familiar.</p>
+
+<p>Before using code from packages outside the standard library, you need to make sure that you have a properly created module. Every module has a globally unique identifier. This is not unique to Go. Java defines globally unique package declarations by using the reverse domain name convention (<code>com.<em>companyname</em>.<em>projectname</em>.library</code>).<a data-type="indexterm" data-primary="modules" data-secondary="module path" id="id1987"/><a data-type="indexterm" data-primary="module path" id="id1988"/><a data-type="indexterm" data-primary="repositories" data-secondary="module path" id="id1989"/></p>
+
+<p>In Go, this name is called a <em>module path</em>. It is usually based on the repository where the module is stored. For example, you can find Proteus, a module I wrote to simplify relational database access in Go, at <a class="orm:hideurl" href="https://github.com/jonbodner/proteus"><em>https://github.com/jonbodner/proteus</em></a>. It has a module path of <em>github.com/jonbodner/proteus</em>.</p>
+<div data-type="note" epub:type="note"><h6>Note</h6>
+<p>Back in <a data-type="xref" href="ch01.html#first_program">“Your First Go Program”</a>, you created a module whose name was <code>hello_world</code>, which is obviously not globally unique.<a data-type="indexterm" data-primary="Hello World" data-secondary="creating go module" data-tertiary="nonunique name" id="id1990"/><a data-type="indexterm" data-primary="first program" data-secondary="creating go module" data-tertiary="nonunique name" id="id1991"/><a data-type="indexterm" data-primary="Go" data-secondary="first program" data-tertiary="creating go module" id="id1992"/><a data-type="indexterm" data-primary="repositories" data-secondary="nonunique module names" id="id1993"/> This is fine if you are creating a module for local use only. If you put a module with a nonunique name into a source code repository, it cannot be imported by another module.</p>
+</div>
+</div></section>
+
+
+
+
+
+
+<section data-type="sect1" data-pdf-bookmark="Using go.mod"><div class="sect1" id="go_mod">
+<h1>Using go.mod</h1>
+
+<p>A directory tree of Go source code<a data-type="indexterm" data-primary="modules" data-secondary="go.mod file" id="id1994"/><a data-type="indexterm" data-primary="go.mod file" id="id1995"/><a data-type="indexterm" data-primary="go commands" data-secondary="go mod" data-tertiary="go mod init" id="id1996"/> becomes a module when there’s a valid <em>go.mod</em> file in it. Rather than create this file manually, use the subcommands of the <code>go mod</code> command to manage modules. The command <code>go mod init</code> <em><code>MODULE_PATH</code></em> creates the <em>go.mod</em> file that makes the current directory the root of a module. The <em><code>MODULE_PATH</code></em> is the globally unique name that identifies your module. The module path is case-sensitive. To reduce confusion, do not use uppercase letters within it.</p>
+
+<p>Take a look at the contents of a <em>go.mod</em> file:<a data-type="indexterm" data-primary="go.mod file" data-secondary="contents of" id="id1997"/></p>
+
+<pre data-type="programlisting">module github.com/learning-go-book-2e/money
+
+go 1.21
+
+require (
+    github.com/learning-go-book-2e/formatter v0.0.0-20220918024742-18...
+    github.com/shopspring/decimal v1.3.1
+)
+
+require (
+    github.com/fatih/color v1.13.0 // indirect
+    github.com/mattn/go-colorable v0.1.9 // indirect
+    github.com/mattn/go-isatty v0.0.14 // indirect
+    golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
+)</pre>
+
+<p>Every <em>go.mod</em> file starts with a <code>module</code> directive that consists of the word <code>module</code> and the module’s unique path. Next, the <em>go.mod</em> file specifies the minimum compatible version of Go with the <code>go</code> directive. All source code within the module must be compatible with the specified version. For example, if you specify the (rather old) version <code>1.12</code>, the compiler will not let you use underscores within numeric literals, because that feature was added in Go 1.13.</p>
+
+
+
+
+
+
+
+
+<section data-type="sect2" data-pdf-bookmark="Use the go Directive to Manage Go Build Versions"><div class="sect2" id="id114">
+<h2>Use the go Directive to Manage Go Build Versions</h2>
+
+<p>What happens if the <code>go</code> directive specifies<a data-type="indexterm" data-primary="go.mod file" data-secondary="go directive" data-tertiary="managing Go build versions" id="id1998"/><a data-type="indexterm" data-primary="Go" data-secondary="updating managed by go directive" id="id1999"/><a data-type="indexterm" data-primary="updating Go managed by go directives" id="id2000"/> a version of Go that’s newer than what’s installed? If you have Go 1.20 or earlier installed, the newer Go version is ignored and you get the features of the installed version. If you have Go 1.21 or newer installed, the default behavior is to download the newer version of Go and use it to build your code. <a data-type="indexterm" data-primary="toolchain directive for version control" id="id2001"/><a data-type="indexterm" data-primary="GOTOOLCHAIN environment variable" id="id2002"/><a data-type="indexterm" data-primary="environment variables" data-secondary="GOTOOLCHAIN" id="id2003"/><a data-type="indexterm" data-primary="go.mod file" data-secondary="toolchain directive for version control" id="id2004"/>You can control this behavior in Go 1.21 and newer with the <code>toolchain</code> directive and the <code>GOTOOLCHAIN</code> environment variable. You can assign them the following values:</p>
+
+<ul>
+<li>
+<p><code>auto</code>, which downloads newer versions of Go. (This is the default behavior of Go 1.21 and later.)</p>
+</li>
+<li>
+<p><code>local</code>, which restores the behavior of Go releases before 1.21.</p>
+</li>
+<li>
+<p>A specific Go version (such as <code>go1.20.4</code>), which means that specific version will be downloaded and used to build the program.</p>
+</li>
+</ul>
+
+<p>For example, the command line <code>GOTOOLCHAIN=go1.18 go build</code> will build your Go program with Go 1.18, downloading it if necessary.</p>
+
+<p>If both the <code>GOTOOLCHAIN</code> environment variable and the <code>toolchain</code> directive are set, the value assigned to <code>GOTOOLCHAIN</code> is used.</p>
+
+<p>Complete details on the <code>go</code> directive, the <code>toolchain</code> directive, and the <code>GOTOOLCHAIN</code> environment variable are found in the <a href="https://oreil.ly/hv3Mg">official Go toolchain documentation</a>.</p>
+
+<p>As discussed in <a data-type="xref" href="ch04.html#for_range_copy">“The for-range value is a copy”</a>, Go 1.22 introduces<a data-type="indexterm" data-primary="go.mod file" data-secondary="go directive" data-tertiary="for-range value as copy" id="id2005"/> the first backward-breaking change to the language. When using Go 1.22 or later, if the <code>go</code> directive is set to <code>1.22</code> or higher, a <code>for</code> loop creates a new index and value variable on each iteration. This behavior is applied per module. The value of the <code>go</code> directive in each imported module determines the language level for that module. (<a data-type="xref" href="#import_third_party">“Importing Third-Party Code”</a> describes how to use and manage multiple modules in your programs.)</p>
+
+<p>You can see this difference with a short example. You can find the code in the <em>sample_code/loop_test</em> directory in the <a href="https://oreil.ly/eCRCH">Chapter 10 repository</a>.<a data-type="indexterm" data-primary="book supplemental material URL" data-secondary="code repository" data-tertiary="Chapter 10" data-tertiary-sortas="jjj" id="id2006"/><a data-type="indexterm" data-primary="resources online" data-secondary="book supplemental material" data-tertiary="Chapter 10" data-tertiary-sortas="jjj" id="id2007"/></p>
+
+<p>The code in <em>loop.go</em> is simple:</p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="kd">func</code><code class="w"> </code><code class="nx">main</code><code class="p">()</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">    </code><code class="nx">x</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="p">[]</code><code class="kt">int</code><code class="p">{</code><code class="mi">1</code><code class="p">,</code><code class="w"> </code><code class="mi">2</code><code class="p">,</code><code class="w"> </code><code class="mi">3</code><code class="p">,</code><code class="w"> </code><code class="mi">4</code><code class="p">,</code><code class="w"> </code><code class="mi">5</code><code class="p">}</code><code class="w"/>
+<code class="w">    </code><code class="k">for</code><code class="w"> </code><code class="nx">_</code><code class="p">,</code><code class="w"> </code><code class="nx">v</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="k">range</code><code class="w"> </code><code class="nx">x</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">        </code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Printf</code><code class="p">(</code><code class="s">"%p\n"</code><code class="p">,</code><code class="w"> </code><code class="o">&amp;</code><code class="nx">v</code><code class="p">)</code><code class="w"/>
+<code class="w">    </code><code class="p">}</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+
+<p>If you haven’t seen it before, the <code>%p</code> verb in the <code>fmt</code> formatting language returns the memory location of a pointer. The repository has the <code>go</code> directive in its <em>go.mod</em> file set to <code>1.21</code>. Building and running the program gives the following output:</p>
+
+<pre data-type="programlisting">140000140a8
+140000140a8
+140000140a8
+140000140a8
+140000140a8</pre>
+
+<p>When built using older versions of Go, the program prints out the same memory address five times. (The memory addresses might differ from what’s shown here, but all will be the same value.)</p>
+
+<p>Change the value of the <code>go</code> directive in <em>go.mod</em> to <code>1.22</code> and rebuild and rerun the program. You will now get this output:</p>
+
+<pre data-type="programlisting">1400000e0b0
+1400000e0b8
+1400000e0d0
+1400000e0d8
+1400000e0e0</pre>
+
+<p>Notice that every memory address value is different, indicating that a new variable was created on each iteration. (The memory addresses might differ from what’s shown here, but each one will be a different value.)</p>
+</div></section>
+
+
+
+
+
+
+
+
+<section data-type="sect2" data-pdf-bookmark="The require Directive"><div class="sect2" id="id115">
+<h2>The require Directive</h2>
+
+<p>The next sections in a <em>go.mod</em> file are<a data-type="indexterm" data-primary="go.mod file" data-secondary="require directives" id="id2008"/><a data-type="indexterm" data-primary="require directives" id="id2009"/><a data-type="indexterm" data-primary="require directives" data-secondary="dependencies" id="id2010"/><a data-type="indexterm" data-primary="dependencies" data-secondary="require section of go.mod" id="id2011"/><a data-type="indexterm" data-primary="go.mod file" data-secondary="require directives" data-tertiary="dependencies" id="id2012"/> the <code>require</code> directives. The <code>require</code> directives are present only if your module has dependencies.
+They list the modules that your module depends on and the minimum version required for each one. The first <code>require</code> section lists the direct dependencies of your module. The second one lists the dependencies of the dependencies of your module. Each line in this section ends with an <code>// indirect</code> comment. There’s no functional difference between modules marked as indirect and those that aren’t; it’s just documentation for people when they look at the <em>go.mod</em> file. Direct dependencies are marked as indirect in one situation, and I will discuss it when I talk about the ways to use <code>go get</code>. In <a data-type="xref" href="#import_third_party">“Importing Third-Party Code”</a>, you’ll learn more about adding and managing the dependencies of your module.</p>
+
+<p>While the <code>module</code>, <code>go</code>, and <code>require</code> directives are the ones most commonly used in a <em>go.mod</em> file, there are three others directives as well. I will cover the <code>replace</code> and <code>exclude</code> directives in <a data-type="xref" href="#replace_exclude">“Overriding Dependencies”</a>, and I’ll cover the <code>retract</code> directive in <a data-type="xref" href="#retract_module">“Retracting a Version of Your Module”</a>.</p>
+</div></section>
+</div></section>
+
+
+
+
+
+
+<section data-type="sect1" data-pdf-bookmark="Building Packages"><div class="sect1" id="id348">
+<h1>Building Packages</h1>
+
+<p>Now that you’ve learned how to make your directory of code into a module, it’s time to start using packages to organize your code. You’ll start by seeing how <code>import</code> works, move on to creating and organizing packages, and then look at some of the features of Go’s packages, both good and bad.</p>
+
+
+
+
+
+
+
+
+<section data-type="sect2" data-pdf-bookmark="Importing and Exporting"><div class="sect2" id="id116">
+<h2>Importing and Exporting</h2>
+
+<p>The example programs have been<a data-type="indexterm" data-primary="packages" data-secondary="building" data-tertiary="imports and exports" id="id2013"/><a data-type="indexterm" data-primary="import keyword" id="id2014"/><a data-type="indexterm" data-primary="keywords" data-secondary="import" id="id2015"/><a data-type="indexterm" data-primary="exporting package-level identifiers" id="id2016"/><a data-type="indexterm" data-primary="capitalization determining export of package-level identifiers" id="id2017"/> using the <code>import</code> statement in Go even though I haven’t discussed what it does and how importing in Go differs from other languages. Go’s <code>import</code> statement allows you to access exported constants, variables, functions, and types in another package. A package’s exported identifiers (an <em>identifier</em> is the name of a variable, constant, type, function, method, or a field in a struct) cannot be accessed from another current package without an <code>import</code> statement.</p>
+
+<p>This leads to the question, how do you export an identifier in Go? Rather than use a special keyword, Go uses <em>capitalization</em> to determine whether a package-level identifier is visible outside the package where it is declared. An identifier whose name starts with an uppercase letter is <em>exported</em>. Conversely, an identifier whose name starts with a lowercase letter or underscore can be accessed only from within the package where it is declared. (Identifiers in Go can’t start with a digit but can contain them.)</p>
+
+<p>Anything you export is part of<a data-type="indexterm" data-primary="APIs" data-secondary="exported identifiers in package API" id="id2018"/> your package’s API. Before you export an identifier, be sure that you intend to expose it to clients. Document all exported identifiers and keep them backward compatible unless you are intentionally making a major version change (see <a data-type="xref" href="#versioning">“Versioning Your Module”</a> for more information).</p>
+</div></section>
+
+
+
+
+
+
+
+
+<section data-type="sect2" data-pdf-bookmark="Creating and Accessing a Package"><div class="sect2" id="creating_package">
+<h2>Creating and Accessing a Package</h2>
+
+<p>Making packages in Go is easy.<a data-type="indexterm" data-primary="packages" data-secondary="building" data-tertiary="creating and accessing" id="id2019"/><a data-type="indexterm" data-primary="book supplemental material URL" data-secondary="code repository" data-tertiary="package examples" data-tertiary-sortas="ttt" id="id2020"/><a data-type="indexterm" data-primary="resources online" data-secondary="book supplemental material" data-tertiary="package examples" data-tertiary-sortas="ttt" id="id2021"/> Let’s look at a small program to demonstrate this. You can find it in the <a href="https://oreil.ly/E1st2"><em>package_example</em> directory for this book</a>. Inside <em>package_example</em>, you’ll see two additional directories, <em>math</em> and 
+<span class="keep-together"><em>do-format</em>.</span> In <em>math</em>, there’s a file called <em>math.go</em> with the following contents:</p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="kn">package</code><code class="w"> </code><code class="nx">math</code><code class="w"/>
+
+<code class="kd">func</code><code class="w"> </code><code class="nx">Double</code><code class="p">(</code><code class="nx">a</code><code class="w"> </code><code class="kt">int</code><code class="p">)</code><code class="w"> </code><code class="kt">int</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">    </code><code class="k">return</code><code class="w"> </code><code class="nx">a</code><code class="w"> </code><code class="o">*</code><code class="w"> </code><code class="mi">2</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+
+<p class="pagebreak-before">The first line of the file is <a data-type="indexterm" data-primary="packages" data-secondary="building" data-tertiary="package clause" id="id2022"/><a data-type="indexterm" data-primary="package clause" id="id2023"/><a data-type="indexterm" data-primary="package keyword" id="id2024"/><a data-type="indexterm" data-primary="keywords" data-secondary="package" id="id2025"/>called the <em>package clause</em>. It consists of the keyword 
+<span class="keep-together"><code>package</code></span> and the name for the package. The package clause is always the first nonblank, noncomment line in a Go source file.</p>
+
+<p>In the <em>do-format</em> directory is a file called <em>formatter.go</em> with the following contents:</p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="kn">package</code><code class="w"> </code><code class="nx">format</code><code class="w"/>
+
+<code class="kn">import</code><code class="w"> </code><code class="s">"fmt"</code><code class="w"/>
+
+<code class="kd">func</code><code class="w"> </code><code class="nx">Number</code><code class="p">(</code><code class="nx">num</code><code class="w"> </code><code class="kt">int</code><code class="p">)</code><code class="w"> </code><code class="kt">string</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">    </code><code class="k">return</code><code class="w"> </code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Sprintf</code><code class="p">(</code><code class="s">"The number is %d"</code><code class="p">,</code><code class="w"> </code><code class="nx">num</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+
+<p>Note that the package name is <code>format</code> in the package clause, but it’s in the <em>do-format</em> directory. How to interact with this package will be covered very shortly.</p>
+
+<p>Finally, the following contents are in the file <em>main.go</em> in the root directory:</p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="kn">package</code><code class="w"> </code><code class="nx">main</code><code class="w"/>
+
+<code class="kn">import</code><code class="w"> </code><code class="p">(</code><code class="w"/>
+<code class="w">    </code><code class="s">"fmt"</code><code class="w"/>
+
+<code class="w">    </code><code class="s">"github.com/learning-go-book-2e/package_example/do-format"</code><code class="w"/>
+<code class="w">    </code><code class="s">"github.com/learning-go-book-2e/package_example/math"</code><code class="w"/>
+<code class="p">)</code><code class="w"/>
+
+<code class="kd">func</code><code class="w"> </code><code class="nx">main</code><code class="p">()</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">    </code><code class="nx">num</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">math</code><code class="p">.</code><code class="nx">Double</code><code class="p">(</code><code class="mi">2</code><code class="p">)</code><code class="w"/>
+<code class="w">    </code><code class="nx">output</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">format</code><code class="p">.</code><code class="nx">Number</code><code class="p">(</code><code class="nx">num</code><code class="p">)</code><code class="w"/>
+<code class="w">    </code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="nx">output</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+
+<p>The first line of this file is familiar.<a data-type="indexterm" data-primary="packages" data-secondary="building" data-tertiary="package main" id="id2026"/> All the programs before this chapter have put <code>package main</code> as the first line in the code. I’ll talk more about what this means in a bit.</p>
+
+<p>Next is the import section. It imports three packages. The first is <code>fmt</code>, which is in the standard library. You’ve done this in previous chapters. The next two imports refer to the packages within the program. <a data-type="indexterm" data-primary="packages" data-secondary="building" data-tertiary="import path" id="id2027"/><a data-type="indexterm" data-primary="import keyword" data-secondary="import path" id="id2028"/><a data-type="indexterm" data-primary="import path" id="id2029"/>You must specify an <em>import path</em> when importing from anywhere besides the standard library. The import path consists of the module path followed by the path to the package within the module. For example, the import <code>"github.com/learning-go-book-2e/package_example/math"</code> has the module path <code>github.com/learning-go-book-2e/package_example</code>, while <code>/math</code> is the path to the package within the module.</p>
+
+<p>It is a compile-time error to<a data-type="indexterm" data-primary="errors" data-secondary="compile-time errors" data-tertiary="importing a package but not using exported identifiers" id="id2030"/> import a package but not use any of the identifiers exported by the package. This ensures that the binary produced by the Go compiler includes only code that’s actually used in the program.</p>
+<div data-type="warning" epub:type="warning"><h6>Warning</h6>
+<p>You might come across obsolete documentation<a data-type="indexterm" data-primary="import path" data-secondary="relative path import paths not working with modules" id="id2031"/><a data-type="indexterm" data-primary="relative path import paths not working with modules" id="id2032"/> on the web that mentions relative path import paths. They do not work with modules. (And were a bad idea, anyway.)</p>
+</div>
+
+<p>When you run this program, you’ll see the following output:</p>
+<pre data-type="programlisting">
+$ <strong>go build</strong>
+$ <strong>./package_example</strong>
+The number is 4
+</pre>
+
+<p>The <code>main</code> function called the <code>Double</code> function in the <code>math</code> package by prefixing the function name with the package name. You’ve seen this in previous chapters when calling functions in the standard library. You also call the <code>Number</code> function in the <code>format</code> package. You might wonder where this <code>format</code> package came from, since the import says <code>github.com/learning-go-book-2e/package_example/do-format</code>.</p>
+
+<p>Every Go file in a directory must have<a data-type="indexterm" data-primary="package clause" data-secondary="identical for every Go file in a directory" id="id2033"/> an identical package clause. (You’ll see one tiny exception to this rule in <a data-type="xref" href="ch15.html#public_api_test">“Testing Your Public API”</a>.) You imported the <code>format</code> package with the import path <em>github.com/learning-go-book-2e/package_example/do-format</em>. That’s because <em>the name of a package is determined by its package clause, not its import path</em>.</p>
+
+<p>As a general rule, you should make<a data-type="indexterm" data-primary="packages" data-secondary="building" data-tertiary="package name matching directory containing it" id="id2034"/> the name of the package match the name of the directory that contains the package. It is hard to discover a package’s name if it does not match the containing directory. However, in a few situations you’ll use a different name for the package than for the directory.</p>
+
+<p>The first is something you have been<a data-type="indexterm" data-primary="packages" data-secondary="building" data-tertiary="package main" id="id2035"/> doing all along without realizing it. You declare a package to be a starting point for a Go application by using the special package name <code>main</code>. Since you cannot import the <code>main</code> package, this doesn’t produce confusing import statements.</p>
+
+<p>The other reasons for having a package name not match your directory name are less common. If your directory name contains a character that’s not valid in a Go identifier, then you must choose a package name that’s different from your directory name. In your case, <code>do-format</code> is not a valid identifier name, so it’s replaced with <code>format</code>.  It’s better to avoid this by never creating a directory with a name that’s not a valid identifier.</p>
+
+<p>The final reason for creating a directory whose name doesn’t match the package name is to support versioning using directories. I’ll talk about this more in <a data-type="xref" href="#versioning">“Versioning Your Module”</a>.</p>
+
+<p>As was discussed in <a data-type="xref" href="ch04.html#blocks">“Blocks”</a>, package names in <code>import</code> statements are in the <em>file block</em>. If you use exported symbols from one package in two different files in another package, you must import the first package in both files in the second package.</p>
+</div></section>
+
+
+
+
+
+
+
+
+<section data-type="sect2" data-pdf-bookmark="Naming Packages"><div class="sect2" id="id251">
+<h2>Naming Packages</h2>
+
+<p>Package names should be descriptive.<a data-type="indexterm" data-primary="packages" data-secondary="building" data-tertiary="naming packages" id="id2036"/><a data-type="indexterm" data-primary="helper functions" data-secondary="building packages" id="id2037"/> Rather than have a package called <code>util</code>, create a package name that describes the functionality provided by the package. For example, say you have two helper functions: one to extract all names from a string and another to format names properly. Don’t create two functions in a <code>util</code> package called <code>ExtractNames</code> and <code>FormatNames</code>. If you do, every time you use these functions, they will be referred to as 
+<span class="keep-together"><code>util.ExtractNames</code></span> and <code>util.FormatNames</code>, and that <code>util</code> package tells you nothing about what the functions do.</p>
+
+<p>One option is to create one function called <code>Names</code> in a package called <code>extract</code> and a second function called <code>Names</code> in a package called <code>format</code>. It’s OK for these two functions to have the same name, because they will always be disambiguated by their package names. The first will be referred to as <code>extract.Names</code> when imported, and the second will be referred to as <code>format.Names</code>.</p>
+
+<p>An even better option is to think about parts of speech. A function or method does something, so it should be a verb or action word. A package would be a noun, a name for the kind of item that is created or modified by the functions in the package. By following these rules, you would create a package called <code>names</code> with two functions, <code>Extract</code> and <code>Format</code>. The first would then be referred to as <code>names.Extract</code> and the second would be <code>names.Format</code>.</p>
+
+<p>You should also avoid repeating the name of the package in the names of functions and types within the package. Don’t name your function <code>ExtractNames</code> when it is in the <code>names</code> package. The exception to this rule occurs when the name of the identifier is the same as the name of the package. For example, the package <code>sort</code> in the standard library has a function called <code>Sort</code>, and the <code>context</code> package defines the <code>Context</code> interface.</p>
+</div></section>
+
+
+
+
+
+
+
+
+<section data-type="sect2" data-pdf-bookmark="Overriding a Package’s Name"><div class="sect2" id="pkg_override">
+<h2>Overriding a Package’s Name</h2>
+
+<p>Sometimes you’ll find yourself<a data-type="indexterm" data-primary="packages" data-secondary="building" data-tertiary="overriding a package’s name" id="id2038"/> importing two packages whose names collide. For example, the standard library includes two packages for generating random numbers; one is cryptographically secure (<code>crypto/rand</code>), and the other is not (<code>math/rand</code>). The regular generator is fine when you aren’t generating random numbers for encryption, but you need to seed it with an unpredictable value. A common pattern is to seed a regular random number generator with a value from a cryptographic generator. In Go, both packages have the same name (<code>rand</code>). When that happens, you provide an alternate name for one package within the current file. Try out this code on <a href="https://oreil.ly/YVwkm">The Go Playground</a> or in the <em>sample_code/package_name_override</em> directory in the <a href="https://oreil.ly/eCRCH">Chapter 10 repository</a>.<a data-type="indexterm" data-primary="book supplemental material URL" data-secondary="code repository" data-tertiary="Chapter 10" data-tertiary-sortas="jjj" id="id2039"/><a data-type="indexterm" data-primary="resources online" data-secondary="book supplemental material" data-tertiary="Chapter 10" data-tertiary-sortas="jjj" id="id2040"/> First, look at the import section:</p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="kn">import</code><code class="w"> </code><code class="p">(</code><code class="w"/>
+<code class="w">    </code><code class="nx">crand</code><code class="w"> </code><code class="s">"crypto/rand"</code><code class="w"/>
+<code class="w">    </code><code class="s">"encoding/binary"</code><code class="w"/>
+<code class="w">    </code><code class="s">"fmt"</code><code class="w"/>
+<code class="w">    </code><code class="s">"math/rand"</code><code class="w"/>
+<code class="p">)</code><code class="w"/></pre>
+
+<p>You import <code>crypto/rand</code> with the name <code>crand</code>. This overrides the name <code>rand</code> that’s declared within the package. You then import <code>math/rand</code> normally. When you look at the <code>seedRand</code> function, you see that you access identifiers in <code>math/rand</code> with the <code>rand</code> prefix, and use the <code>crand</code> prefix with the <code>crypto/rand</code> package:</p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="kd">func</code><code class="w"> </code><code class="nx">seedRand</code><code class="p">()</code><code class="w"> </code><code class="o">*</code><code class="nx">rand</code><code class="p">.</code><code class="nx">Rand</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">    </code><code class="kd">var</code><code class="w"> </code><code class="nx">b</code><code class="w"> </code><code class="p">[</code><code class="mi">8</code><code class="p">]</code><code class="kt">byte</code><code class="w"/>
+<code class="w">    </code><code class="nx">_</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">crand</code><code class="p">.</code><code class="nx">Read</code><code class="p">(</code><code class="nx">b</code><code class="p">[:])</code><code class="w"/>
+<code class="w">    </code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">        </code><code class="nb">panic</code><code class="p">(</code><code class="s">"cannot seed with cryptographic random number generator"</code><code class="p">)</code><code class="w"/>
+<code class="w">    </code><code class="p">}</code><code class="w"/>
+<code class="w">    </code><code class="nx">r</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">rand</code><code class="p">.</code><code class="nx">New</code><code class="p">(</code><code class="nx">rand</code><code class="p">.</code><code class="nx">NewSource</code><code class="p">(</code><code class="nb">int64</code><code class="p">(</code><code class="nx">binary</code><code class="p">.</code><code class="nx">LittleEndian</code><code class="p">.</code><code class="nx">Uint64</code><code class="p">(</code><code class="nx">b</code><code class="p">[:]))))</code><code class="w"/>
+<code class="w">    </code><code class="k">return</code><code class="w"> </code><code class="nx">r</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<div data-type="note" epub:type="note"><h6>Note</h6>
+<p>You can use two other symbols as a package name. The package name <code>.</code> (dot) places all the exported identifiers in the imported package into the current package’s namespace; you don’t need a prefix to refer to them. This is discouraged because it makes your source code less clear. You can no longer tell whether something is defined in the current package or whether it was imported by simply looking at its name.</p>
+
+<p>You can also use <code>_</code> (underscore) as the package name. You’ll explore what this does when I talk about <code>init</code> in <a data-type="xref" href="#pkg_init">“Avoiding the init Function if Possible”</a>.</p>
+</div>
+
+<p>As I discussed in <a data-type="xref" href="ch04.html#shadowing">“Shadowing Variables”</a>, package names can be shadowed. Declaring variables, types, or functions with the same name as a package makes the package inaccessible within the block with that declaration. If this is unavoidable (for example, a newly imported package has a name that conflicts with an existing identifier), override the package’s name to resolve the conflict.</p>
+</div></section>
+
+
+
+
+
+
+
+
+<section data-type="sect2" data-pdf-bookmark="Documenting Your Code with Go Doc Comments"><div class="sect2" id="godoc">
+<h2>Documenting Your Code with Go Doc Comments</h2>
+
+<p>An important part of creating a module<a data-type="indexterm" data-primary="code" data-secondary="documented with Go Doc comments" id="ch10-godoc"/><a data-type="indexterm" data-primary="modules" data-secondary="code documented with Go Doc comments" id="ch10-godoc2"/><a data-type="indexterm" data-primary="Go Doc comments" id="ch10-godoc3"/><a data-type="indexterm" data-primary="comments in Go Doc format" id="ch10-godoc4"/><a data-type="indexterm" data-primary="packages" data-secondary="building" data-tertiary="comments in Go Doc format" id="ch10-godoc5"/> for others to use is documenting it properly. Go has its own format for writing comments that are automatically converted into documentation. It’s called <em>Go Doc</em> format, and it’s very simple. Here are the rules:</p>
+
+<ul>
+<li>
+<p>Place the comment directly before the item being documented, with no blank lines between the comment and the declaration of the item.</p>
+</li>
+<li>
+<p>Start each line of the comment with double slashes (//), followed by a space.  While it’s legal to use /* and */ to mark your comment block, it is idiomatic to use double slashes.</p>
+</li>
+<li>
+<p>The first word in the comment for a symbol (a function, type, constant, variable, or method) should be the name of the symbol. You can also use “A” or “An” before the symbol name to help make the comment text grammatically correct.</p>
+</li>
+<li>
+<p>Use a blank comment line (double slashes and a newline) to break your comment into multiple paragraphs.</p>
+</li>
+</ul>
+
+<p>As I’ll talk about in <a data-type="xref" href="#pkg_go_dev">“Using pkg.go.dev”</a>, you can view public documentation online in HTML format. If you want to make your documents look a little snazzier, there are a couple of ways to format it:</p>
+
+<ul>
+<li>
+<p>If you want your comment to contain some preformatted content (such as a table or source code), put an additional space after the double slashes to indent the lines with the content.</p>
+</li>
+<li>
+<p>If you want a header in your comment, put a <code>#</code> and a space after the double slashes. Unlike with Markdown, you cannot use multiple <code>#</code> characters to make different levels of headers.</p>
+</li>
+<li>
+<p>To make a link to another package (whether or not it is in the current module), put the package path within brackets (<code>[</code> and <code>]</code>).</p>
+</li>
+<li>
+<p>To link to an exported symbol, place its name in brackets. If the symbol is in another package, use <code>[pkgName.SymbolName]</code>.</p>
+</li>
+<li>
+<p>If you include a raw URL in your comment, it will be converted into a link.</p>
+</li>
+<li>
+<p>If you want to include text that links to a web page, put the text within brackets (<code>[</code> and <code>]</code>). At the end of the comment block, declare the mappings between your text and their URLs with the format <code>// [<em>TEXT</em>]: <em>URL</em></code>. You’ll see a sample of this in a moment.</p>
+</li>
+</ul>
+
+<p>Comments before the package declaration create package-level comments. If you have lengthy comments for the package (such as the extensive formatting documentation in the <code>fmt</code> package), the convention is to put the comments in a file in your package called <em>doc.go</em>.</p>
+
+<p>Let’s go through a well-commented file, starting with the package-level comment in <a data-type="xref" href="#EX91">Example 10-1</a>.</p>
+<div id="EX91" data-type="example">
+<h5><span class="label">Example 10-1. </span>A package-level comment</h5>
+
+<pre data-type="programlisting" data-code-language="go"><code class="c1">// Package convert provides various utilities to</code><code class="w"/>
+<code class="c1">// make it easy to convert money from one currency to another.</code><code class="w"/>
+<code class="kn">package</code><code class="w"> </code><code class="nx">convert</code><code class="w"/></pre></div>
+
+<p>Next, place a comment on an exported struct (see <a data-type="xref" href="#EX92">Example 10-2</a>). Notice that it starts with the name of the struct.</p>
+<div id="EX92" data-type="example">
+<h5><span class="label">Example 10-2. </span>A struct comment</h5>
+
+<pre data-type="programlisting" data-code-language="go"><code class="c1">// Money represents the combination of an amount of money</code><code class="w"/>
+<code class="c1">// and the currency the money is in.</code><code class="w"/>
+<code class="c1">//</code><code class="w"/>
+<code class="c1">// The value is stored using a [github.com/shopspring/decimal.Decimal]</code><code class="w"/>
+<code class="kd">type</code><code class="w"> </code><code class="nx">Money</code><code class="w"> </code><code class="kd">struct</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">    </code><code class="nx">Value</code><code class="w">    </code><code class="nx">decimal</code><code class="p">.</code><code class="nx">Decimal</code><code class="w"/>
+<code class="w">    </code><code class="nx">Currency</code><code class="w"> </code><code class="kt">string</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre></div>
+
+<p>Finally, there is a comment on a function (see <a data-type="xref" href="#EX93">Example 10-3</a>).</p>
+<div id="EX93" data-type="example">
+<h5><span class="label">Example 10-3. </span>A well-commented function</h5>
+
+<pre data-type="programlisting" data-code-language="go"><code class="c1">// Convert converts the value of one currency to another.</code><code class="w"/>
+<code class="c1">//</code><code class="w"/>
+<code class="c1">// It has two parameters: a Money instance with the value to convert,</code><code class="w"/>
+<code class="c1">// and a string that represents the currency to convert to. Convert returns</code><code class="w"/>
+<code class="c1">// the converted currency and any errors encountered from unknown or unconvertible</code><code class="w"/>
+<code class="c1">// currencies.</code><code class="w"/>
+<code class="c1">//</code><code class="w"/>
+<code class="c1">// If an error is returned, the Money instance is set to the zero value.</code><code class="w"/>
+<code class="c1">//</code><code class="w"/>
+<code class="c1">// Supported currencies are:</code><code class="w"/>
+<code class="c1">//   - USD - US Dollar</code><code class="w"/>
+<code class="c1">//   - CAD - Canadian Dollar</code><code class="w"/>
+<code class="c1">//   - EUR - Euro</code><code class="w"/>
+<code class="c1">//   - INR - Indian Rupee</code><code class="w"/>
+<code class="c1">//</code><code class="w"/>
+<code class="c1">// More information on exchange rates can be found at [Investopedia].</code><code class="w"/>
+<code class="c1">//</code><code class="w"/>
+<code class="c1">// [Investopedia]: https://www.investopedia.com/terms/e/exchangerate.asp</code><code class="w"/>
+<code class="kd">func</code><code class="w"> </code><code class="nx">Convert</code><code class="p">(</code><code class="nx">from</code><code class="w"> </code><code class="nx">Money</code><code class="p">,</code><code class="w"> </code><code class="nx">to</code><code class="w"> </code><code class="kt">string</code><code class="p">)</code><code class="w"> </code><code class="p">(</code><code class="nx">Money</code><code class="p">,</code><code class="w"> </code><code class="kt">error</code><code class="p">)</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">    </code><code class="c1">// ...</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre></div>
+
+<p>Go includes a command-line tool called <code>go doc</code> that displays godocs. The command <code>go doc</code> 
+<span class="keep-together"><em><code>PACKAGE_NAME</code></em></span> displays the documentation for the specified package and a list of the identifiers in the package. Use <code>go doc</code> <em><code>PACKAGE_NAME.IDENTIFIER_NAME</code></em> to display the documentation for a specific identifier in the package.</p>
+
+<p>If you want to preview your documentation’s HTML formatting before it is published on the web, use <code>pkgsite</code>. This is the same program that powers <code>pkg.go.dev</code> (which I will talk about later in the chapter). To install <code>pkgsite</code>, use this command:<a data-type="indexterm" data-primary="go commands" data-secondary="go install" id="id2041"/><a data-type="indexterm" data-primary="tools" data-secondary="go install" data-tertiary="pkgsite installation" id="id2042"/><a data-type="indexterm" data-primary="pkgsite tool" data-secondary="documentation formatting viewer" id="id2043"/><a data-type="indexterm" data-primary="pkgsite tool" data-secondary="pkg.go.dev powered by" id="id2044"/><a data-type="indexterm" data-primary="pkg.go.dev open source Go module site" data-secondary="pkgsite powering" id="id2045"/></p>
+<pre data-type="programlisting">
+$ <strong>go install golang.org/x/pkgsite/cmd/pkgsite@latest</strong>
+</pre>
+
+<p>(I will talk more about <code>go install</code> in <a data-type="xref" href="ch11.html#go_install">“Adding Third-Party Tools with go install”</a>).</p>
+
+<p>To view your source code’s comments rendered as HTML, go to the root of your module and run this:</p>
+<pre data-type="programlisting">
+$ <strong>pkgsite</strong>
+</pre>
+
+<p>Then go to <a href="http://localhost:8080" class="bare"><em class="hyperlink">http://localhost:8080</em></a> to view your project and its source code.</p>
+
+<p>You can find even more details about<a data-type="indexterm" data-primary="Go Doc comments" data-secondary="documentation URL" id="id2046"/><a data-type="indexterm" data-primary="resources online" data-secondary="Go Doc comments documentation" id="id2047"/> comments and potential pitfalls by reading through the official <a href="https://oreil.ly/cakQm">Go Doc Comments documentation</a>.</p>
+<div data-type="tip"><h6>Tip</h6>
+<p>Make sure you comment your code properly. At the very least, any exported identifier should have a comment. In <a data-type="xref" href="ch11.html#code_quality">“Using Code-Quality Scanners”</a>, you will look at some third-party tools that can report missing comments on exported identifiers.<a data-type="indexterm" data-startref="ch10-godoc" id="id2048"/><a data-type="indexterm" data-startref="ch10-godoc2" id="id2049"/><a data-type="indexterm" data-startref="ch10-godoc3" id="id2050"/><a data-type="indexterm" data-startref="ch10-godoc4" id="id2051"/><a data-type="indexterm" data-startref="ch10-godoc5" id="id2052"/></p>
+</div>
+</div></section>
+
+
+
+
+
+
+
+
+<section data-type="sect2" data-pdf-bookmark="Using the internal Package"><div class="sect2" id="id119">
+<h2>Using the internal Package</h2>
+
+<p>Sometimes you want to share<a data-type="indexterm" data-primary="packages" data-secondary="building" data-tertiary="internal package" id="id2053"/><a data-type="indexterm" data-primary="APIs" data-secondary="internal packages not part of" id="id2054"/><a data-type="indexterm" data-primary="internal packages" id="id2055"/> a function, type, or constant among packages in your module, but you don’t want to make it part of your API. Go supports this via the special <code>internal</code> package name.</p>
+
+<p>When you create a package called <code>internal</code>, the exported identifiers in that package and its subpackages are accessible only to the direct parent package of <code>internal</code> and the sibling packages of <code>internal</code>. Let’s look at an example to see how this works. You can find the code on <a href="https://oreil.ly/pJokh">GitHub</a>. The directory tree is shown in <a data-type="xref" href="#the_file_tree_for_internal_package_example">Figure 10-1</a>.</p>
+
+<p>You’ve declared a simple function in the <em>internal.go</em> file in the <code>internal</code> package:</p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="kd">func</code><code class="w"> </code><code class="nx">Doubler</code><code class="p">(</code><code class="nx">a</code><code class="w"> </code><code class="kt">int</code><code class="p">)</code><code class="w"> </code><code class="kt">int</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">    </code><code class="k">return</code><code class="w"> </code><code class="nx">a</code><code class="w"> </code><code class="o">*</code><code class="w"> </code><code class="mi">2</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+
+<p>You can access this function from <em>foo.go</em> in the <code>foo</code> package and from <em>sibling.go</em> in the <code>sibling</code> package.</p>
+
+<figure><div id="the_file_tree_for_internal_package_example" class="figure">
+<img src="assets/lgo2_1001.png" alt="A file tree to show where an internal package can be used" width="320" height="390"/>
+<h6><span class="label">Figure 10-1. </span>The file tree for <code>internal_package_example</code></h6>
+</div></figure>
+
+<p>Be aware that attempting to use the internal function from <em>bar.go</em> in the <code>bar</code> package or from <em>example.go</em> in the root package results in a compilation error:</p>
+<pre data-type="programlisting">
+$ <strong>go build ./...</strong>
+package github.com/learning-go-book-2e/internal_example
+example.go:3:8: use of internal package
+github.com/learning-go-book-2e/internal_example/foo/internal not allowed
+
+package github.com/learning-go-book-2e/internal_example/bar
+bar/bar.go:3:8: use of internal package
+github.com/learning-go-book-2e/internal_example/foo/internal not allowed
+</pre>
+</div></section>
+
+
+
+
+
+
+
+
+<section data-type="sect2" data-pdf-bookmark="Avoiding Circular Dependencies"><div class="sect2" id="id120">
+<h2>Avoiding Circular Dependencies</h2>
+
+<p>Two of the goals of Go are a fast compiler<a data-type="indexterm" data-primary="dependencies" data-secondary="circular dependencies" id="id2056"/><a data-type="indexterm" data-primary="circular dependencies" id="id2057"/><a data-type="indexterm" data-primary="packages" data-secondary="building" data-tertiary="circular dependencies" id="id2058"/> and easy-to-understand source code. To support this, Go does not allow you to have a <em>circular dependency</em> between packages. If package A imports package B, directly or indirectly, package B cannot import package A, directly or indirectly.</p>
+
+<p>Let’s look at a quick example to explain the concept. You can find the code in the <em>sample_code/circular_dependency_example</em> directory in the <a href="https://oreil.ly/eCRCH">Chapter 10 repository</a>.<a data-type="indexterm" data-primary="book supplemental material URL" data-secondary="code repository" data-tertiary="Chapter 10" data-tertiary-sortas="jjj" id="id2059"/><a data-type="indexterm" data-primary="resources online" data-secondary="book supplemental material" data-tertiary="Chapter 10" data-tertiary-sortas="jjj" id="id2060"/> There are two packages, <code>pet</code> and <code>person</code>. In <em>pet.go</em> in the <code>pet</code> package, you have this:</p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="kn">import</code><code class="w"> </code><code class="s">"github.com/learning-go-book-2e/ch10/sample_code/</code>
+<code class="s">circular_dependency_example/person"</code><code class="w"/>
+
+<code class="kd">var</code><code class="w"> </code><code class="nx">owners</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="kd">map</code><code class="p">[</code><code class="kt">string</code><code class="p">]</code><code class="nx">person</code><code class="p">.</code><code class="nx">Person</code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="s">"Bob"</code><code class="p">:</code><code class="w">   </code><code class="p">{</code><code class="s">"Bob"</code><code class="p">,</code><code class="w"> </code><code class="mi">30</code><code class="p">,</code><code class="w"> </code><code class="s">"Fluffy"</code><code class="p">},</code><code class="w"/>
+<code class="w">	</code><code class="s">"Julia"</code><code class="p">:</code><code class="w"> </code><code class="p">{</code><code class="s">"Julia"</code><code class="p">,</code><code class="w"> </code><code class="mi">40</code><code class="p">,</code><code class="w"> </code><code class="s">"Rex"</code><code class="p">},</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+
+<p>While in <em>person.go</em> in the <code>person</code> package, you have this:</p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="kn">import</code><code class="w"> </code><code class="s">"github.com/learning-go-book-2e/ch10/sample_code/</code>
+<code class="s">circular_dependency_example/pet"</code><code class="w"/>
+
+<code class="kd">var</code><code class="w"> </code><code class="nx">pets</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="kd">map</code><code class="p">[</code><code class="kt">string</code><code class="p">]</code><code class="nx">pet</code><code class="p">.</code><code class="nx">Pet</code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="s">"Fluffy"</code><code class="p">:</code><code class="w"> </code><code class="p">{</code><code class="s">"Fluffy"</code><code class="p">,</code><code class="w"> </code><code class="s">"Cat"</code><code class="p">,</code><code class="w"> </code><code class="s">"Bob"</code><code class="p">},</code><code class="w"/>
+<code class="w">	</code><code class="s">"Rex"</code><code class="p">:</code><code class="w">    </code><code class="p">{</code><code class="s">"Rex"</code><code class="p">,</code><code class="w"> </code><code class="s">"Dog"</code><code class="p">,</code><code class="w"> </code><code class="s">"Julia"</code><code class="p">},</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+
+<p>If you try to build this program, you’ll get an error:</p>
+<pre data-type="programlisting">
+$ <strong>go build ./sample_code/circular_dependency_example</strong>
+package github.com/learning-go-book-2e/ch10/sample_code/
+    circular_dependency_example
+	imports github.com/learning-go-book-2e/ch10/sample_code/
+        circular_dependency_example/person
+	imports github.com/learning-go-book-2e/ch10/sample_code/
+        circular_dependency_example/pet
+	imports github.com/learning-go-book-2e/ch10/sample_code/
+        circular_dependency_example/person: import cycle not allowed
+</pre>
+
+<p>If you find yourself with a circular dependency, you have a few options. In some cases, this is caused by splitting up packages too finely. If two packages depend on each other, there’s a good chance they should be merged into a single package. You can merge the <code>person</code> and <code>pet</code> packages into a single package, and that solves your 
+<span class="keep-together">problem.</span></p>
+
+<p>If you have a good reason to keep your packages separated, it may be possible to move just the items that cause the circular dependency to one of the two packages or to a new package.</p>
+</div></section>
+
+
+
+
+
+
+
+
+<section data-type="sect2" data-pdf-bookmark="Organizing Your Module"><div class="sect2" id="organize_module">
+<h2>Organizing Your Module</h2>
+
+<p>There’s no official way to structure<a data-type="indexterm" data-primary="modules" data-secondary="organization of" id="ch10-modorg"/><a data-type="indexterm" data-primary="packages" data-secondary="module organization" id="ch10-modorg2"/> the Go packages in your module, but several patterns have emerged over the years. They are guided by the principle that you should focus on making your code easy to understand and maintain.</p>
+
+<p>When your module is small, keep all your code in a single package. As long as no other modules depend on your module, there is no harm in delaying organization.</p>
+
+<p>As your module grows, you’ll want to impose some order to make your code more readable. The first question to ask is what type of module you are creating. You can group modules into two broad categories: those that are intended as a single application and those that are primarily intended as libraries. <a data-type="indexterm" data-primary="main package" data-secondary="module organization" id="id2061"/><a data-type="indexterm" data-primary="packages" data-secondary="main package" data-tertiary="module organization" id="id2062"/>If you are sure that your module is intended to be used only as an application, make the root of the project the <code>main</code> package. The code in the <code>main</code> package should be minimal; place all your logic in an <em>internal</em> directory, and the code in the <code>main</code> function will simply invoke code within <em>internal</em>. This way, you can ensure that no one is going to create a module that depends on your application’s implementation.</p>
+
+<p>If you want your module to be used as a library, the root of your module should have a package name that matches the repository name. This makes sure that the import name matches the package name. To make this work, you must ensure that your repository name is a valid Go identifier. In particular, you cannot use a hyphen as a word separator in your repository name, because a hyphen is not a valid character in a package name.</p>
+
+<p>It’s not uncommon for library modules to have one or more applications included with them as utilities. In this case, create a directory called <em>cmd</em> at the root of your module. Within <em>cmd</em>, create one directory for each binary built from your module. For example, you might have a module that contains both a web application and a command-line tool that analyzes data in the web application’s database. Use <code>main</code> as the package name within each of these directories.</p>
+
+<p>For more detailed information,<a data-type="indexterm" data-primary="Bendersky, Eli" id="id2063"/><a data-type="indexterm" data-primary="resources online" data-secondary="module organization" id="id2064"/> this <a href="https://oreil.ly/faMHH">blog post by Eli Bendersky</a> provides good advice on how you should structure a simple Go module.</p>
+
+<p>As projects get more complicated, you’ll be tempted to break up your packages. Make sure to organize your code to limit the dependencies among packages. One common pattern is to organize your code by slices of functionality. For example, if you wrote a shopping site in Go, you might place all the code for customer management in one package and all the code for inventory management in another. This style limits the dependencies among packages, which makes it easier to later refactor a single web application into multiple microservices. This style is in contrast to the way that many Java applications are organized, with all the business logic in one package, all the database logic in another package, and the data transfer objects in a third.</p>
+
+<p>When developing a library, take advantage of the <code>internal</code> package. If you create multiple packages within a module and they are outside an <code>internal</code> package, exporting a symbol so it can be used by another package in your module means it can also be used by <em>anyone</em> who imports your module. <a data-type="indexterm" data-primary="Hyrum’s law" id="id2065"/>There’s a principle in software engineering called <a href="https://oreil.ly/820xv">Hyrum’s law</a>: “With a sufficient number of users of an API, it does not matter what you promise in the contract: all observable behaviors of your system will be depended on by somebody.” Once something is part of your API, you have a responsibility to continue supporting it until you decide to make a new version that’s not backward compatible. You will learn how to do this in <a data-type="xref" href="#incompatible_version">“Updating to Incompatible Versions”</a>. If you have some symbols that you want to share only within your module, put them in <code>internal</code>. If you change your mind, you can always move the package out of <code>internal</code> later.</p>
+
+<p>For a good overview of Go project structure advice, watch Kat Zien’s talk from GopherCon 2018, <a href="https://oreil.ly/0zHY4">“How Do You Structure Your Go Apps”</a>.</p>
+<div data-type="warning" epub:type="warning"><h6>Warning</h6>
+<p>The “golang-standards” GitHub repository claims to be the “standard” module layout.<a data-type="indexterm" data-primary="Cox, Russ" id="id2066"/> Russ Cox, the development lead for Go, has <a href="https://oreil.ly/PAhWS">publicly stated</a> that it is not endorsed by the Go team and that the structure it recommends is in fact an antipattern. Please do not cite this repository as a way to organize your code.<a data-type="indexterm" data-startref="ch10-modorg" id="id2067"/><a data-type="indexterm" data-startref="ch10-modorg2" id="id2068"/></p>
+</div>
+</div></section>
+
+
+
+
+
+
+
+
+<section data-type="sect2" data-pdf-bookmark="Gracefully Renaming and Reorganizing Your API"><div class="sect2" id="id122">
+<h2>Gracefully Renaming and Reorganizing Your API</h2>
+
+<p>After using a module for a while,<a data-type="indexterm" data-primary="packages" data-secondary="building" data-tertiary="renaming and reorganizing API" id="id2069"/><a data-type="indexterm" data-primary="APIs" data-secondary="renaming and reorganizing" id="id2070"/><a data-type="indexterm" data-primary="modules" data-secondary="API renamed and reorganized" id="id2071"/> you might realize that its API is not ideal. You might want to rename some of the exported identifiers or move them to another package within your module. To avoid a backward-breaking change, don’t remove the original identifiers; provide an alternate name instead.</p>
+
+<p>This is easy with a function or method. You declare a function or method that calls the original. For a constant, simply declare a new constant with the same type and value, but a different name.</p>
+
+<p>If you want to rename or move<a data-type="indexterm" data-primary="aliases" id="id2072"/><a data-type="indexterm" data-primary="exporting package-level identifiers" data-secondary="aliases" id="id2073"/><a data-type="indexterm" data-primary="types" data-secondary="aliases" id="id2074"/><a data-type="indexterm" data-primary="type keyword" data-secondary="alias declaration" id="id2075"/><a data-type="indexterm" data-primary="keywords" data-secondary="type" data-tertiary="alias declaration" id="id2076"/> an exported type, you use an alias. Quite simply, an <em>alias</em> is a new name for a type. You saw in <a data-type="xref" href="ch07.html#unique_chapter_id_07">Chapter 7</a> how to use the <code>type</code> keyword to declare a new type based on an existing one. You also use the <code>type</code> keyword to declare an alias. Let’s say you have a type called <code>Foo</code>:</p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="kd">type</code><code class="w"> </code><code class="nx">Foo</code><code class="w"> </code><code class="kd">struct</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">    </code><code class="nx">x</code><code class="w"> </code><code class="kt">int</code><code class="w"/>
+<code class="w">    </code><code class="nx">S</code><code class="w"> </code><code class="kt">string</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+
+<code class="kd">func</code><code class="w"> </code><code class="p">(</code><code class="nx">f</code><code class="w"> </code><code class="nx">Foo</code><code class="p">)</code><code class="w"> </code><code class="nx">Hello</code><code class="p">()</code><code class="w"> </code><code class="kt">string</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">    </code><code class="k">return</code><code class="w"> </code><code class="s">"hello"</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+
+<code class="kd">func</code><code class="w"> </code><code class="p">(</code><code class="nx">f</code><code class="w"> </code><code class="nx">Foo</code><code class="p">)</code><code class="w"> </code><code class="nx">goodbye</code><code class="p">()</code><code class="w"> </code><code class="kt">string</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">    </code><code class="k">return</code><code class="w"> </code><code class="s">"goodbye"</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+
+<p>If you want to allow users to access <code>Foo</code> by the name <code>Bar</code>, all you need to do is this:</p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="kd">type</code><code class="w"> </code><code class="nx">Bar</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="nx">Foo</code><code class="w"/></pre>
+
+<p>To create an alias, use the <code>type</code> keyword, the name of the alias, an equals sign, and the name of the original type. The alias has the same fields and methods as the original type.</p>
+
+<p>The alias can even be assigned to a variable of the original type without a type 
+<span class="keep-together">conversion:</span></p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="kd">func</code><code class="w"> </code><code class="nx">MakeBar</code><code class="p">()</code><code class="w"> </code><code class="nx">Bar</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">    </code><code class="nx">bar</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">Bar</code><code class="p">{</code><code class="w"/>
+<code class="w">        </code><code class="nx">x</code><code class="p">:</code><code class="w"> </code><code class="mi">20</code><code class="p">,</code><code class="w"/>
+<code class="w">        </code><code class="nx">S</code><code class="p">:</code><code class="w"> </code><code class="s">"Hello"</code><code class="p">,</code><code class="w"/>
+<code class="w">    </code><code class="p">}</code><code class="w"/>
+<code class="w">    </code><code class="kd">var</code><code class="w"> </code><code class="nx">f</code><code class="w"> </code><code class="nx">Foo</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="nx">bar</code><code class="w"/>
+<code class="w">    </code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="nx">f</code><code class="p">.</code><code class="nx">Hello</code><code class="p">())</code><code class="w"/>
+<code class="w">    </code><code class="k">return</code><code class="w"> </code><code class="nx">bar</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+
+<p>One important point to remember: an alias is just another name for a type. If you want to add new methods or change the fields in an aliased struct, you must add them to the original type.</p>
+
+<p>You can alias a type that’s defined in the same package as the original type or in a different package. You can even alias a type from another module. There is one drawback to an alias in another package: you cannot use an alias to refer to the unexported methods and fields of the original type. This limitation makes sense, as aliases exist to allow a gradual change to a package’s API, and the API consists only of the exported parts of the package. To work around this limitation, call code in the type’s original package to manipulate unexported fields and methods.</p>
+
+<p>Two kinds of exported identifiers can’t have alternate names. The first is a package-level variable. The second is a field in a struct. Once you choose a name for an exported struct field, there’s no way to create an alternate name.</p>
+</div></section>
+
+
+
+
+
+
+
+
+<section data-type="sect2" data-pdf-bookmark="Avoiding the init Function if Possible"><div class="sect2" id="pkg_init">
+<h2>Avoiding the init Function if Possible</h2>
+
+<p>When you read Go code, it is usually<a data-type="indexterm" data-primary="packages" data-secondary="building" data-tertiary="init function avoided" id="id2077"/><a data-type="indexterm" data-primary="init function avoided" id="id2078"/> clear which methods and functions are called. One of the reasons Go doesn’t have method overriding or function overloading is to make it easier to understand what code is running. However, there is a way to set up state in a package without explicitly calling anything: the <code>init</code> function. When you declare a function named <code>init</code> that takes no parameters and returns no values, it runs the first time the package is referenced by another package. Since <code>init</code> functions do not have any inputs or outputs, they can work only by side effect, interacting with package-level functions and variables.</p>
+
+<p>The <code>init</code> function has another unique feature. Go allows you to declare multiple <code>init</code> functions in a single package, or even in a single file in a package. There’s a 
+<span class="keep-together">documented</span> order for running multiple <code>init</code> functions in a single package, but rather than remembering it, it’s better to simply avoid them.</p>
+
+<p>Some packages, like database drivers, use <code>init</code> functions to register the database driver. However, you don’t use any of the identifiers in the package. As mentioned earlier, Go doesn’t allow you to have unused imports. <a data-type="indexterm" data-primary="blank imports" id="id2079"/><a data-type="indexterm" data-primary="import keyword" data-secondary="blank imports" id="id2080"/><a data-type="indexterm" data-primary="underscore (_)" data-secondary="blank imports" id="id2081"/><a data-type="indexterm" data-primary="_ (underscore)" data-secondary="blank imports" id="id2082"/><a data-type="indexterm" data-primary="init function avoided" data-secondary="blank imports" id="id2083"/>To work around this, Go allows <em>blank imports</em>, where the name assigned to an import is the underscore (<code>_</code>). Just as an underscore allows you to skip an unused return value from a function, a blank import triggers the <code>init</code> function in a package but doesn’t give you access to any of the exported identifiers in the package:</p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="kn">import</code><code class="w"> </code><code class="p">(</code><code class="w"/>
+<code class="w">    </code><code class="s">"database/sql"</code><code class="w"/>
+
+<code class="w">    </code><code class="nx">_</code><code class="w"> </code><code class="s">"github.com/lib/pq"</code><code class="w"/>
+<code class="p">)</code><code class="w"/></pre>
+
+<p>This pattern is considered obsolete because it’s unclear that a registration operation is being performed. Go’s compatibility guarantee for its standard library means that you are stuck using it to register database drivers and image formats, but if you have a registry pattern in your own code, register your plug-ins explicitly.</p>
+
+<p>The primary use of <code>init</code> functions today is to initialize package-level variables that can’t be configured in a single assignment. It’s a bad idea to have mutable state at the top level of a package, since it makes it harder to understand how data flows through your application. That means that any package-level variables configured via <code>init</code> should be <em>effectively immutable</em>. While Go doesn’t provide a way to enforce that their value does not change, you should make sure that your code does not change them. If you have package-level variables that need to be modified while your program is running, see if you can refactor your code to put that state into a struct that’s initialized and returned by a function in the package.</p>
+
+<p>The nonexplicit invocation of <code>init</code> functions means that you should document their behavior. For example, a package with an <code>init</code> function that loads files or accesses the network should call this out in a package-level comment so that security-conscious users of your code aren’t surprised by unexpected I/O.</p>
+</div></section>
+</div></section>
+
+
+
+
+
+
+<section data-type="sect1" data-pdf-bookmark="Working with Modules"><div class="sect1" id="id349">
+<h1>Working with Modules</h1>
+
+<p>You’ve seen how to work with packages within a single module, and now it’s time to see how to integrate with third-party modules and the packages within them. After that, you’ll learn about publishing and versioning your own modules and Go’s centralized services: pkg.go.dev, the module proxy, and the checksum database.</p>
+
+
+
+
+
+
+
+
+<section data-type="sect2" data-pdf-bookmark="Importing Third-Party Code"><div class="sect2" id="import_third_party">
+<h2>Importing Third-Party Code</h2>
+
+<p>So far, you’ve imported packages<a data-type="indexterm" data-primary="modules" data-secondary="third-party code imported" id="id2084"/><a data-type="indexterm" data-primary="third-party code imported" id="id2085"/><a data-type="indexterm" data-primary="import keyword" data-secondary="third-party code imported" id="id2086"/><a data-type="indexterm" data-primary="code" data-secondary="third-party code imported" id="id2087"/> from the standard library like <code>fmt</code>, <code>errors</code>, <code>os</code>, and <code>math</code>. Go uses the same import system to integrate packages from third parties. Unlike many other compiled languages, <a data-type="indexterm" data-primary="builds" data-secondary="single native binary" id="id2088"/><a data-type="indexterm" data-primary="compiling" data-secondary="single native binary" id="id2089"/><a data-type="indexterm" data-primary="Go" data-secondary="compiling to a single native binary" id="id2090"/><a data-type="indexterm" data-primary="Go runtime" data-secondary="compiling to a single native binary" id="id2091"/>Go always builds applications from source code into a single binary file. This includes the source code of your module and the source code of all the modules on which your module depends. (The Go compiler is smart enough to not include unreferenced packages in the binary it produces.) Just as you saw when you imported a package from within your own module, when you import a third-party package, you specify the location in the source code repository where the package is located.</p>
+
+<p>Let’s look at an example. I mentioned back in <a data-type="xref" href="ch02.html#unique_chapter_id_02">Chapter 2</a> that you should never use floating-point numbers when you need an exact representation of a decimal number. <a data-type="indexterm" data-primary="ShopSpring decimal module" id="id2092"/><a data-type="indexterm" data-primary="numeric types" data-secondary="numerical computing in Go" data-tertiary="decimal module by ShopSpring" id="id2093"/><a data-type="indexterm" data-primary="decimal module (ShopSpring)" id="id2094"/><a data-type="indexterm" data-primary="floating-point types" data-secondary="decimal module by ShopSpring" id="id2095"/>If you do need an exact representation, one good option is the <code>decimal</code> module from <a href="https://oreil.ly/UZfMN">ShopSpring</a>. You are also going to look at a simple <a href="https://oreil.ly/q-Ce5">formatting module</a> that I’ve written for this book. <a data-type="indexterm" data-primary="book supplemental material URL" data-secondary="code repository" data-tertiary="money repository" data-tertiary-sortas="sss" id="id2096"/><a data-type="indexterm" data-primary="resources online" data-secondary="book supplemental material" data-tertiary="money repository" data-tertiary-sortas="sss" id="id2097"/>Both of these modules are used in a small program in the <a href="https://oreil.ly/vSiNr">money repository</a> for the book. This program calculates the price of an item with the tax included and prints the output in a neat format.</p>
+
+<p>The following code is in <em>main.go</em>:</p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="kn">package</code><code class="w"> </code><code class="nx">main</code><code class="w"/>
+
+<code class="kn">import</code><code class="w"> </code><code class="p">(</code><code class="w"/>
+<code class="w">    </code><code class="s">"fmt"</code><code class="w"/>
+<code class="w">    </code><code class="s">"log"</code><code class="w"/>
+<code class="w">    </code><code class="s">"os"</code><code class="w"/>
+
+<code class="w">    </code><code class="s">"github.com/learning-go-book-2e/formatter"</code><code class="w"/>
+<code class="w">    </code><code class="s">"github.com/shopspring/decimal"</code><code class="w"/>
+<code class="p">)</code><code class="w"/>
+
+<code class="kd">func</code><code class="w"> </code><code class="nx">main</code><code class="p">()</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">    </code><code class="k">if</code><code class="w"> </code><code class="nb">len</code><code class="p">(</code><code class="nx">os</code><code class="p">.</code><code class="nx">Args</code><code class="p">)</code><code class="w"> </code><code class="p">&lt;</code><code class="w"> </code><code class="mi">3</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">        </code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Need two parameters: amount and percent"</code><code class="p">)</code><code class="w"/>
+<code class="w">        </code><code class="nx">os</code><code class="p">.</code><code class="nx">Exit</code><code class="p">(</code><code class="mi">1</code><code class="p">)</code><code class="w"/>
+<code class="w">    </code><code class="p">}</code><code class="w"/>
+<code class="w">    </code><code class="nx">amount</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">decimal</code><code class="p">.</code><code class="nx">NewFromString</code><code class="p">(</code><code class="nx">os</code><code class="p">.</code><code class="nx">Args</code><code class="p">[</code><code class="mi">1</code><code class="p">])</code><code class="w"/>
+<code class="w">    </code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">        </code><code class="nx">log</code><code class="p">.</code><code class="nx">Fatal</code><code class="p">(</code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="w">    </code><code class="p">}</code><code class="w"/>
+<code class="w">    </code><code class="nx">percent</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">decimal</code><code class="p">.</code><code class="nx">NewFromString</code><code class="p">(</code><code class="nx">os</code><code class="p">.</code><code class="nx">Args</code><code class="p">[</code><code class="mi">2</code><code class="p">])</code><code class="w"/>
+<code class="w">    </code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">        </code><code class="nx">log</code><code class="p">.</code><code class="nx">Fatal</code><code class="p">(</code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="w">    </code><code class="p">}</code><code class="w"/>
+<code class="w">    </code><code class="nx">percent</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="nx">percent</code><code class="p">.</code><code class="nx">Div</code><code class="p">(</code><code class="nx">decimal</code><code class="p">.</code><code class="nx">NewFromInt</code><code class="p">(</code><code class="mi">100</code><code class="p">))</code><code class="w"/>
+<code class="w">    </code><code class="nx">total</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">amount</code><code class="p">.</code><code class="nx">Add</code><code class="p">(</code><code class="nx">amount</code><code class="p">.</code><code class="nx">Mul</code><code class="p">(</code><code class="nx">percent</code><code class="p">)).</code><code class="nx">Round</code><code class="p">(</code><code class="mi">2</code><code class="p">)</code><code class="w"/>
+<code class="w">    </code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="nx">formatter</code><code class="p">.</code><code class="nx">Space</code><code class="p">(</code><code class="mi">80</code><code class="p">,</code><code class="w"> </code><code class="nx">os</code><code class="p">.</code><code class="nx">Args</code><code class="p">[</code><code class="mi">1</code><code class="p">],</code><code class="w"> </code><code class="nx">os</code><code class="p">.</code><code class="nx">Args</code><code class="p">[</code><code class="mi">2</code><code class="p">],</code><code class="w"/>
+<code class="w">                                </code><code class="nx">total</code><code class="p">.</code><code class="nx">StringFixed</code><code class="p">(</code><code class="mi">2</code><code class="p">)))</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+
+<p>The two imports <code>github.com/learning-go-book-2e/formatter</code> and <code>git⁠hub.​com/shopspring/decimal</code> specify third-party imports. Note that they include the location of the package in the repository. Once they’re imported, you access the exported items in these packages just like any other imported package.</p>
+
+<p class="pagebreak-before">Before building the application, look at the <em>go.mod</em> file. Its contents should be as follows:</p>
+
+<pre data-type="programlisting">module github.com/learning-go-book-2e/money
+
+go 1.20</pre>
+
+<p>If you try to do a build, you get the following message:<a data-type="indexterm" data-primary="go commands" data-secondary="go build" data-tertiary="third-party packages" id="ch10-thi"/></p>
+<pre data-type="programlisting">
+$ <strong>go build</strong>
+main.go:8:2: no required module provides package
+    github.com/learning-go-book-2e/formatter; to add it:
+        go get github.com/learning-go-book-2e/formatter
+main.go:9:2: no required module provides package
+    github.com/shopspring/decimal; to add it:
+        go get github.com/shopspring/decimal
+</pre>
+
+<p>As the errors indicate, you cannot<a data-type="indexterm" data-primary="go.mod file" data-secondary="third-party code references" id="id2098"/><a data-type="indexterm" data-primary="errors" data-secondary="compile-time errors" data-tertiary="importing a package without go.mod references" id="id2099"/> build the program until you add references to the third-party modules to your <em>go.mod</em> file. <a data-type="indexterm" data-primary="go commands" data-secondary="go get" data-tertiary="go get ./…​" id="id2100"/><a data-type="indexterm" data-primary="dependencies" data-secondary="require section of go.mod" id="id2101"/>The <code>go get</code> command downloads modules and updates the <em>go.mod</em> file. You have two options when using <code>go get</code>. The simplest option is to tell <code>go get</code> to scan your module’s source code and add any modules that are found in <code>import</code> statements to <em>go.mod</em>:</p>
+<pre data-type="programlisting">
+$ <strong>go get ./...</strong>
+go: downloading github.com/shopspring/decimal v1.3.1
+go: downloading github.com/learning-go-book-2e/formatter
+    v0.0.0-20220918024742-1835a89362c9
+go: downloading github.com/fatih/color v1.13.0
+go: downloading github.com/mattn/go-colorable v0.1.9
+go: downloading github.com/mattn/go-isatty v0.0.14
+go: downloading golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c
+go: added github.com/fatih/color v1.13.0
+go: added github.com/learning-go-book-2e/formatter
+    v0.0.0-20220918024742-1835a89362c9
+go: added github.com/mattn/go-colorable v0.1.9
+go: added github.com/mattn/go-isatty v0.0.14
+go: added github.com/shopspring/decimal v1.3.1
+go: added golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c
+</pre>
+
+<p>Because the location of the package is in the source code, <code>go get</code> is able to get the package’s module and download it.  If you look in the <em>go.mod</em> file now, you’ll see this:</p>
+
+<pre data-type="programlisting">module github.com/learning-go-book-2e/money
+
+go 1.20
+
+require (
+    github.com/learning-go-book-2e/formatter v0.0.0-20220918024742-1835a89362c9
+    github.com/shopspring/decimal v1.3.1
+)
+
+require (
+    github.com/fatih/color v1.13.0 // indirect
+    github.com/mattn/go-colorable v0.1.9 // indirect
+    github.com/mattn/go-isatty v0.0.14 // indirect
+    golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
+)</pre>
+
+<p>The first <code>require</code> section of the <em>go.mod</em> file lists the modules that you’ve imported into your module. After the module name is a version number. In the case of the 
+<span class="keep-together"><code>formatter</code></span> module, it doesn’t have a version tag, so Go makes up a <em>pseudoversion</em>.</p>
+
+<p>You also see a second <code>require</code> directive section that has modules with an <em>indirect</em> comment. One of these modules (<code>github.com/fatih/color</code>) is directly used by <code>formatter</code>. It, in turn, depends on the other three modules in the second <code>require</code> directive section. All the modules used by all your module’s dependencies (and your dependencies’ dependencies, and so on) are included in the <em>go.mod</em> file for your module. The ones that are used only in dependencies are marked as indirect.</p>
+
+<p>In addition to updating <em>go.mod</em>, a <em>go.sum</em> file <a data-type="indexterm" data-primary="go.sum file" id="id2102"/>is created. For each module in the dependency tree of your project, the <em>go.sum</em> file has one or two entries: one with the module, its version, and a hash of the module; the other with the hash of the <em>go.mod</em> file for the module. Here’s what the <em>go.sum</em> file looks like:</p>
+
+<pre data-type="programlisting">github.com/fatih/color v1.13.0 h1:8LOYc1KYPPmyKMuN8QV2DNRWNbLo6LZ0iLs...
+github.com/fatih/color v1.13.0/go.mod h1:kLAiJbzzSOZDVNGyDpeOxJ47H46q...
+github.com/learning-go-book-2e/formatter v0.0.0-20220918024742-1835a8...
+github.com/learning-go-book-2e/formatter v0.0.0-20220918024742-1835a8...
+github.com/mattn/go-colorable v0.1.9 h1:sqDoxXbdeALODt0DAeJCVp38ps9Zo...
+github.com/mattn/go-colorable v0.1.9/go.mod h1:u6P/XSegPjTcexA+o6vUJr...
+github.com/mattn/go-isatty v0.0.12/go.mod h1:cbi8OIDigv2wuxKPP5vlRcQ1...
+github.com/mattn/go-isatty v0.0.14 h1:yVuAays6BHfxijgZPzw+3Zlu5yQgKGP...
+github.com/mattn/go-isatty v0.0.14/go.mod h1:7GGIvUiUoEMVVmxf/4nioHXj...
+github.com/shopspring/decimal v1.3.1 h1:2Usl1nmF/WZucqkFZhnfFYxxxu8LG...
+github.com/shopspring/decimal v1.3.1/go.mod h1:DKyhrW/HYNuLGql+MJL6WC...
+golang.org/x/sys v0.0.0-20200116001909-b77594299b42/go.mod h1:h1NjWce...
+golang.org/x/sys v0.0.0-20200223170610-d5e6a3e2c0ae/go.mod h1:h1NjWce...
+golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c h1:F1jZWGFhYfh0Ci...
+golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c/go.mod h1:oPkhp1M...</pre>
+
+<p>You’ll see what these hashes are used for in <a data-type="xref" href="#proxy_server">“Module Proxy Servers”</a>. You might also notice that there are multiple versions of some of the dependencies. I’ll talk about that in <a data-type="xref" href="#minimal_selection">“Minimal Version Selection”</a>.</p>
+
+<p>Let’s validate that your modules are now set up correctly. Run <code>go build</code> again, and then run the <code>money</code> binary and pass it some arguments:</p>
+<pre data-type="programlisting">
+$ <strong>go build</strong>
+$ <strong>./money 99.99 7.25</strong>
+99.99           7.25                                                 107.24
+</pre>
+<div data-type="note" epub:type="note"><h6>Note</h6>
+<p>This sample program was checked in without <em>go.sum</em> and with an incomplete <em>go.mod</em>. This was done so you could see what happens when these files are populated. When committing your own modules to source control, always include up-to-date <em>go.mod</em> and <em>go.sum</em> files. Doing so specifies exactly what versions of your dependencies are being used. This enables <em>repeatable builds</em>; when anyone else (including your future self) builds this module, they will get the exact same binary.<a data-type="indexterm" data-startref="ch10-thi" id="id2103"/></p>
+</div>
+
+<p>As I mentioned, there’s another<a data-type="indexterm" data-primary="go commands" data-secondary="go get" data-tertiary="module path passed to" id="id2104"/> way to use <code>go get</code>. Instead of telling it to scan your source code to discover modules, you can pass the module paths to <code>go get</code>. <a data-type="indexterm" data-primary="Git for version control" data-secondary="git restore go.mod" id="id2105"/><a data-type="indexterm" data-primary="go.mod file" data-secondary="rolling back with git restore" id="id2106"/>To see this work, roll back the changes to your <em>go.mod</em> file and remove the <em>go.sum</em> file. On Unix-like systems, the following commands will do this:</p>
+<pre data-type="programlisting">
+$ <strong>git restore go.mod</strong>
+$ <strong>rm go.sum</strong>
+</pre>
+
+<p>Now, pass the module paths to <code>go get</code> directly:</p>
+<pre data-type="programlisting">
+$ <strong>go get github.com/learning-go-book-2e/formatter</strong>
+go: added github.com/learning-go-book-2e/
+    formatter v0.0.0-20200921021027-5abc380940ae
+$ <strong>go get github.com/shopspring/decimal</strong>
+go: added github.com/shopspring/decimal v1.3.1
+</pre>
+<div data-type="note" epub:type="note"><h6>Note</h6>
+<p>Sharp-eyed readers might have noticed that when we used <code>go get</code> a second time, the <code>go: downloading</code> messages weren’t displayed. <a data-type="indexterm" data-primary="module cache" id="id2107"/>The reason is that Go maintains a <em>module cache</em> on your local computer. Once a version of a module is downloaded, a copy is kept in the cache. Source code is pretty compact, and drives are pretty large, so this isn’t usually a concern. <a data-type="indexterm" data-primary="go commands" data-secondary="go clean -modcache" id="id2108"/><a data-type="indexterm" data-primary="module cache" data-secondary="deleting" id="id2109"/>However, if you want to delete the module cache, use the command <code>go clean -modcache</code>.</p>
+</div>
+
+<p>Take a look at the contents of <em>go.mod</em>, and they’ll look a little different than before:</p>
+
+<pre data-type="programlisting">module github.com/learning-go-book-2e/money
+
+go 1.20
+
+require (
+    github.com/fatih/color v1.13.0 // indirect
+    github.com/learning-go-book-2e/
+    formatter v0.0.0-20220918024742-1835a89362c9 // indirect
+    github.com/mattn/go-colorable v0.1.9 // indirect
+    github.com/mattn/go-isatty v0.0.14 // indirect
+    github.com/shopspring/decimal v1.3.1 // indirect
+    golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c // indirect
+)</pre>
+
+<p>Notice that all the imports are<a data-type="indexterm" data-primary="go.mod file" data-secondary="require directives" data-tertiary="imports marked as indirect" id="id2110"/><a data-type="indexterm" data-primary="require directives" data-secondary="imports marked as indirect" id="id2111"/><a data-type="indexterm" data-primary="require directives" data-secondary="dependencies" id="id2112"/> marked as <em>indirect</em>, not just the ones that came from <code>formatter</code>. When you run <code>go get</code> and pass it a module name, it doesn’t check your source code to see whether the module you specified is used within your main module. Just to be safe, it adds an indirect comment.</p>
+
+<p>If you want to fix this label automatically, <a data-type="indexterm" data-primary="go commands" data-secondary="go mod" data-tertiary="go mod tidy" id="id2113"/><a data-type="indexterm" data-primary="go.mod file" data-secondary="synchronizing with go.sum" id="id2114"/><a data-type="indexterm" data-primary="go.sum file" data-secondary="synchronizing with go.mod" id="id2115"/>use the command <code>go mod tidy</code>. It scans your source code and synchronizes the <em>go.mod</em> and <em>go.sum</em> files with your module’s source code, adding and removing module references. It also makes sure that the indirect comments are correct.</p>
+
+<p>You might be wondering why you would want to bother using <code>go get</code> with a module name. The reason is that it allows you to update the version of an individual module.</p>
+</div></section>
+
+
+
+
+
+
+
+
+<section data-type="sect2" data-pdf-bookmark="Working with Versions"><div class="sect2" id="id125">
+<h2>Working with Versions</h2>
+
+<p>Let’s see how Go’s module system<a data-type="indexterm" data-primary="modules" data-secondary="versions" id="id2116"/> uses versions. I’ve written a <a href="https://oreil.ly/zx0GR">simple module</a> that you’re going to use in another <a href="https://oreil.ly/AyAz_">tax-collection program</a>. In <em>main.go</em>, there are the following third-party imports:</p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="s">"github.com/learning-go-book-2e/simpletax"</code><code class="w"/>
+<code class="s">"github.com/shopspring/decimal"</code><code class="w"/></pre>
+
+<p>As before, the sample program wasn’t checked in with <em>go.mod</em>, and <em>go.sum</em> updated, so you could see what happens. When the program is built, you see the following:</p>
+<pre data-type="programlisting">
+$ <strong>go get ./...</strong>
+go: downloading github.com/learning-go-book-2e/simpletax v1.1.0
+go: added github.com/learning-go-book-2e/simpletax v1.1.0
+go: added github.com/shopspring/decimal v1.3.1
+$ <strong>go build</strong>
+</pre>
+
+<p>The <em>go.mod</em> file has been updated:</p>
+
+<pre data-type="programlisting">module github.com/learning-go-book-2e/region_tax
+
+go 1.20
+
+require (
+    github.com/learning-go-book-2e/simpletax v1.1.0
+    github.com/shopspring/decimal v1.3.1
+)</pre>
+
+<p>There is also a <em>go.sum</em> file with hashes for your dependencies. Run the code and see whether it’s working:</p>
+<pre data-type="programlisting">
+$ <strong>./region_tax 99.99 12345</strong>
+2022/09/19 22:04:38 unknown zip: 12345
+</pre>
+
+<p>That looks like an unexpected answer. The latest version of the module might have a bug. By default, Go picks the latest version of a dependency when you add it to your module. However, one of the things that makes versioning useful is that you can specify an earlier version of a module. <a data-type="indexterm" data-primary="modules" data-secondary="versions" data-tertiary="go list to see versions" id="id2117"/><a data-type="indexterm" data-primary="go commands" data-secondary="go list" id="id2118"/>First, you can see what versions of the module are available with the <code>go list</code> command:</p>
+<pre data-type="programlisting">
+$ <strong>go list -m -versions github.com/learning-go-book-2e/simpletax</strong>
+github.com/learning-go-book-2e/simpletax v1.0.0 v1.1.0
+</pre>
+
+<p>By default, the <code>go list</code> command lists the packages that are used in your module. The <code>-m</code> flag changes the output to list the modules instead, and the <code>-versions</code> flag changes <code>go list</code> to report on the available versions for the specified module. In this case, you see that there are two versions, v1.0.0 and v1.1.0. <a data-type="indexterm" data-primary="go commands" data-secondary="go get" data-tertiary="version specified" id="id2119"/>Let’s downgrade to version v1.0.0 and see if that fixes your problem. You do that with the <code>go get</code> command:</p>
+<pre data-type="programlisting">
+$ <strong>go get github.com/learning-go-book-2e/simpletax@v1.0.0</strong>
+go: downloading github.com/learning-go-book-2e/simpletax v1.0.0
+go: downgraded github.com/learning-go-book-2e/simpletax v1.1.0 =&gt; v1.0.0
+</pre>
+
+<p>The <code>go get</code> command lets you work with modules, updating the versions of your dependencies.</p>
+
+<p>Now if you look at <em>go.mod</em>, you’ll see that the version has been changed:</p>
+
+<pre data-type="programlisting">module github.com/learning-go-book-2e/region_tax
+
+go 1.20
+
+require (
+    github.com/learning-go-book-2e/simpletax v1.0.0
+    github.com/shopspring/decimal v1.3.1
+)</pre>
+
+<p>You also see in <em>go.sum</em> that it contains both versions of <code>simpletax</code>:<a data-type="indexterm" data-primary="go.sum file" data-secondary="module listed though removed" id="id2120"/></p>
+
+<pre data-type="programlisting">github.com/learning-go-book-2e/simpletax v1.0.0 h1:KZU8aXRCHkvgFmBWkV...
+github.com/learning-go-book-2e/simpletax v1.0.0/go.mod h1:lR4YYZwbDTI...
+github.com/learning-go-book-2e/simpletax v1.1.0 h1:sG83gscauX/b8yKKY9...
+github.com/learning-go-book-2e/simpletax v1.1.0/go.mod h1:lR4YYZwbDTI...</pre>
+
+<p>This is fine; if you change a module’s version or even remove a module from your module, an entry for it might still remain in <em>go.sum</em>. This doesn’t cause problems.</p>
+
+<p>When you build and run the code again, the bug is fixed:</p>
+<pre data-type="programlisting">
+$ <strong>go build</strong>
+$ <strong>./region_tax 99.99 12345</strong>
+107.99
+</pre>
+<aside data-type="sidebar" epub:type="sidebar"><div class="sidebar" id="semver">
+<h1>Semantic Versioning</h1>
+<p>Software has had version numbers<a data-type="indexterm" data-primary="modules" data-secondary="versions" data-tertiary="semantic versioning in Go" id="id2121"/><a data-type="indexterm" data-primary="semantic versioning in Go (SemVer)" id="id2122"/><a data-type="indexterm" data-primary="Go" data-secondary="semantic versioning" id="id2123"/> from time immemorial, but there has been little consistency in what version numbers mean. The version numbers attached to Go modules follow the rules of <em>semantic versioning</em>, also known as <em>SemVer</em>. By requiring semantic versioning for modules, Go makes its module management code simpler while ensuring that users of a module understand what a new release promises.</p>
+
+<p>If you aren’t familiar with SemVer, <a data-type="indexterm" data-primary="semantic versioning in Go (SemVer)" data-secondary="specification URL" id="id2124"/><a data-type="indexterm" data-primary="resources online" data-secondary="semantic versioning specifications" id="id2125"/><a data-type="indexterm" data-primary="Go" data-secondary="semantic versioning" data-tertiary="specifications URL" id="id2126"/><a data-type="indexterm" data-primary="modules" data-secondary="versions" data-tertiary="semantic versioning specifications URL" id="id2127"/>check out the <a href="https://semver.org">full specification</a>. The very short explanation is that semantic versioning divides a version number into three parts: the <em>major</em> version, the <em>minor</em> version, and the <em>patch</em> version, which are written as <code>major.minor.patch</code> and preceded by a <code>v</code>. The patch version number is incremented when fixing a bug; the minor version number is incremented (and the patch version is set back to 0) when a new, backward-compatible feature is added; and the major version number is incremented (and minor and patch are set back to 0) when making a change that breaks backward compatibility.</p>
+</div></aside>
+</div></section>
+
+
+
+
+
+
+
+
+<section data-type="sect2" data-pdf-bookmark="Minimal Version Selection"><div class="sect2" id="minimal_selection">
+<h2>Minimal Version Selection</h2>
+
+<p>At some point, your module will depend<a data-type="indexterm" data-primary="modules" data-secondary="versions" data-tertiary="resolving different version dependencies" id="id2128"/><a data-type="indexterm" data-primary="modules" data-secondary="versions" data-tertiary="minimal version selection" id="id2129"/><a data-type="indexterm" data-primary="dependencies" data-secondary="module versions" data-tertiary="resolving different module version dependencies" id="id2130"/> on two or more modules that all depend on the same module. As often happens, these modules declare that they depend on different minor or patch versions of that module. How does Go resolve this?</p>
+
+<p>The module system uses the principle of <em>minimal version selection</em>: you will always get the lowest version of a dependency that is declared to work in all the <em>go.mod</em> files across all your dependencies. Let’s say that your module directly depends on modules A, B, and C. All three of these modules depend on module D. The <em>go.mod</em> file for module A declares that it depends on v1.1.0, module B declares that it depends on v1.2.0, and module C declares that it depends on v1.2.3. Go will import module D only once, and it will choose version v1.2.3, as that, in the words of the <a href="https://oreil.ly/6YRBy">Go Modules Reference</a>, is the minimum version that satisfies all requirements.</p>
+
+<p>You can see this in action with your sample program from <a data-type="xref" href="#import_third_party">“Importing Third-Party Code”</a>. The command <code>go mod graph</code> shows the dependency graph of your module and all its dependencies. Here are a few lines of its output:</p>
+
+<pre data-type="programlisting">github.com/learning-go-book-2e/money github.com/fatih/color@v1.13.0
+github.com/learning-go-book-2e/money github.com/mattn/go-colorable@v0.1.9
+github.com/learning-go-book-2e/money github.com/mattn/go-isatty@v0.0.14
+github.com/fatih/color@v1.13.0 github.com/mattn/go-colorable@v0.1.9
+github.com/fatih/color@v1.13.0 github.com/mattn/go-isatty@v0.0.14
+github.com/mattn/go-colorable@v0.1.9 github.com/mattn/go-isatty@v0.0.12</pre>
+
+<p>Each line lists two modules, the first being the parent and the second being the dependency and its version. You’ll notice the <code>github.com/fatih/color</code> module is declared to depend on version v0.0.14 of <code>github.com/mattn/go-isatty</code>, while <code>github.com/mattn/go-colorable</code> depends on v0.0.12. The Go compiler selects version v0.0.14 to use, because it is the minimal version that meets all requirements. This occurs even though, as of this writing, the latest version of 
+<span class="keep-together"><code>github.com/mattn/go-isatty</code></span> is v0.0.16. Your minimal version requirement is met with v0.0.14, so that’s what is used.</p>
+
+<p>This system isn’t perfect. You might find that while module A works with version v1.1.0 of module D, it does not work with version v1.2.3. What do you do then? Go’s answer is that you need to contact the module authors to fix their incompatibilities. <a data-type="indexterm" data-primary="import compatibility rule" id="id2131"/><a data-type="indexterm" data-primary="modules" data-secondary="versions" data-tertiary="import compatibility rule" id="id2132"/>The <em>import compatibility rule</em> says, “If an old package and a new package have the same import path, the new package must be backward compatible with the old package.” All minor and patch versions of a module must be backward compatible. If they aren’t, it’s a bug. In our hypothetical example, either module D needs to be fixed because it broke backward compatibility, or module A needs to be fixed because it made a faulty assumption about the behavior of module D.</p>
+
+<p>You  might not find this answer satisfying, but it’s honest. Some build systems, like npm, will include multiple versions of the same package. This can introduce its own set of bugs, especially when there is package-level state. It also increases the size of your application. In the end, some things are better solved by community than code.</p>
+</div></section>
+
+
+
+
+
+
+
+
+<section data-type="sect2" data-pdf-bookmark="Updating to Compatible Versions"><div class="sect2" id="id252">
+<h2>Updating to Compatible Versions</h2>
+
+<p>What if you explicitly<a data-type="indexterm" data-primary="modules" data-secondary="versions" data-tertiary="updating to compatible versions" id="id2133"/><a data-type="indexterm" data-primary="dependencies" data-secondary="module versions" data-tertiary="updating to compatible versions" id="id2134"/><a data-type="indexterm" data-primary="updating modules" data-secondary="updating to compatible versions" id="id2135"/> want to upgrade a dependency? Let’s assume that after writing the initial program, there are three more versions of 
+<span class="keep-together"><code>simpletax</code>.</span> The first fixes problems in the initial v1.1.0 release. Since it’s a bug patch release with no new functionality, it would be released as v1.1.1. The second keeps the current functionality but also adds a new function. It would get the version number v1.2.0. Finally, the third fixes a bug that was found in version v1.2.0. It has the version number v1.2.1.</p>
+
+<p>To upgrade to the bug patch release<a data-type="indexterm" data-primary="go commands" data-secondary="go get" data-tertiary="updating to compatible versions" id="id2136"/> for the current minor version, use the command <code>go get -u=patch github.com/learning-go-book-2e/simpletax</code>. Since you had downgraded to v1.0.0, you would remain on that version, because there is no patch version with the same minor version.</p>
+
+<p>Upgrade to version v1.1.0 by using <code>go get github.com/learning-go-book-2e/simpletax@v1.1.0</code> and then run <code>go get -u=patch github.com/learning-go-book-2e/​sim⁠pletax</code>. This upgrades the version to v1.1.1.</p>
+
+<p>Finally, use the command <code>go get -u github.com/learning-go-book-2e/simpletax</code> to get the most recent version of <code>simpletax</code>. That upgrades you to version v1.2.1.</p>
+</div></section>
+
+
+
+
+
+
+
+
+<section data-type="sect2" data-pdf-bookmark="Updating to Incompatible Versions"><div class="sect2" id="incompatible_version">
+<h2>Updating to Incompatible Versions</h2>
+
+<p>Let’s go back to the program. <a data-type="indexterm" data-primary="modules" data-secondary="versions" data-tertiary="updating to incompatible versions" id="id2137"/><a data-type="indexterm" data-primary="dependencies" data-secondary="module versions" data-tertiary="updating to incompatible versions" id="id2138"/><a data-type="indexterm" data-primary="updating modules" data-secondary="updating to incompatible versions" id="id2139"/>You’re expanding to Canada, and luckily, a version of the <code>simpletax</code> module handles both the US and Canada. However, this version has a slightly different API than the previous one, so its version is v2.0.0.</p>
+
+<p class="pagebreak-before">To handle incompatibility, Go modules follow the <em>semantic import versioning</em> rule. This rule has two parts:<a data-type="indexterm" data-primary="semantic import versioning rule" id="id2140"/><a data-type="indexterm" data-primary="semantic versioning in Go (SemVer)" data-secondary="semantic import versioning rule" id="id2141"/><a data-type="indexterm" data-primary="modules" data-secondary="versions" data-tertiary="semantic import versioning rule" id="id2142"/></p>
+
+<ul>
+<li>
+<p>The major version of the module must be incremented.</p>
+</li>
+<li>
+<p>For all major versions besides 0 and 1, the path to the module must end in v<em>N</em>, where <em>N</em> is the major version.</p>
+</li>
+</ul>
+
+<p>The path changes because an import path uniquely identifies a package. By definition, incompatible versions of a package are not the same package. Using different paths means that you can import two incompatible versions of a package into different parts of your program, allowing you to upgrade gracefully.</p>
+
+<p>Let’s see how this changes the program. First, change the import of <code>simpletax</code> to this:</p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="s">"github.com/learning-go-book-2e/simpletax/v2"</code><code class="w"/></pre>
+
+<p>This changes your import to refer to the v2 module.</p>
+
+<p>Next, change the code in <code>main</code> to the following:</p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="kd">func</code><code class="w"> </code><code class="nx">main</code><code class="p">()</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">    </code><code class="nx">amount</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">decimal</code><code class="p">.</code><code class="nx">NewFromString</code><code class="p">(</code><code class="nx">os</code><code class="p">.</code><code class="nx">Args</code><code class="p">[</code><code class="mi">1</code><code class="p">])</code><code class="w"/>
+<code class="w">    </code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">        </code><code class="nx">log</code><code class="p">.</code><code class="nx">Fatal</code><code class="p">(</code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="w">    </code><code class="p">}</code><code class="w"/>
+<code class="w">    </code><code class="nx">zip</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">os</code><code class="p">.</code><code class="nx">Args</code><code class="p">[</code><code class="mi">2</code><code class="p">]</code><code class="w"/>
+<code class="w">    </code><code class="nx">country</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">os</code><code class="p">.</code><code class="nx">Args</code><code class="p">[</code><code class="mi">3</code><code class="p">]</code><code class="w"/>
+<code class="w">    </code><code class="nx">percent</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">simpletax</code><code class="p">.</code><code class="nx">ForCountryPostalCode</code><code class="p">(</code><code class="nx">country</code><code class="p">,</code><code class="w"> </code><code class="nx">zip</code><code class="p">)</code><code class="w"/>
+<code class="w">    </code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">        </code><code class="nx">log</code><code class="p">.</code><code class="nx">Fatal</code><code class="p">(</code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="w">    </code><code class="p">}</code><code class="w"/>
+<code class="w">    </code><code class="nx">total</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">amount</code><code class="p">.</code><code class="nx">Add</code><code class="p">(</code><code class="nx">amount</code><code class="p">.</code><code class="nx">Mul</code><code class="p">(</code><code class="nx">percent</code><code class="p">)).</code><code class="nx">Round</code><code class="p">(</code><code class="mi">2</code><code class="p">)</code><code class="w"/>
+<code class="w">    </code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="nx">total</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+
+<p>The program is now reading a third parameter from the command line, which is the country code. The program also calls a different function in the <code>simpletax</code> package. <a data-type="indexterm" data-primary="go commands" data-secondary="go get" data-tertiary="updating to incompatible versions" id="id2143"/>When you run <code>go get ./...</code>, the dependency is automatically updated:</p>
+<pre data-type="programlisting">
+$ <strong>go get ./...</strong>
+go: downloading github.com/learning-go-book-2e/simpletax/v2 v2.0.0
+go: added github.com/learning-go-book-2e/simpletax/v2 v2.0.0
+</pre>
+
+<p>Build and run the program to see the new output:</p>
+<pre data-type="programlisting">
+$ <strong>go build</strong>
+$ <strong>./region_tax 99.99 M4B1B4 CA</strong>
+112.99
+$ <strong>./region_tax 99.99 12345 US</strong>
+107.99
+</pre>
+
+<p>When you look at the <em>go.mod</em> file, you’ll see that the new version of <code>simpletax</code> is included:</p>
+
+<pre data-type="programlisting">module github.com/learning-go-book-2e/region_tax
+
+go 1.20
+
+require (
+    github.com/learning-go-book-2e/simpletax v1.0.0
+    github.com/learning-go-book-2e/simpletax/v2 v2.0.0
+    github.com/shopspring/decimal v1.3.1
+)</pre>
+
+<p>And <em>go.sum</em> has been updated as well:</p>
+
+<pre data-type="programlisting">github.com/learning-go-book-2e/simpletax v1.0.0 h1:KZU8aXRCHkvgFmBWkV...
+github.com/learning-go-book-2e/simpletax v1.0.0/go.mod h1:lR4YYZwbDTI...
+github.com/learning-go-book-2e/simpletax v1.1.0 h1:sG83gscauX/b8yKKY9...
+github.com/learning-go-book-2e/simpletax v1.1.0/go.mod h1:lR4YYZwbDTI...
+github.com/learning-go-book-2e/simpletax/v2 v2.0.0 h1:EUFWy1BBA2omgkm...
+github.com/learning-go-book-2e/simpletax/v2 v2.0.0/go.mod h1:yGLh6ngH...
+github.com/shopspring/decimal v1.3.1 h1:2Usl1nmF/WZucqkFZhnfFYxxxu8LG...
+github.com/shopspring/decimal v1.3.1/go.mod h1:DKyhrW/HYNuLGql+MJL6WC...</pre>
+
+<p>The old versions of <code>simpletax</code> are still referenced, even though they are no longer used. <a data-type="indexterm" data-primary="go commands" data-secondary="go mod" data-tertiary="go mod tidy" id="id2144"/>Use <code>go mod tidy</code> to remove those unused versions. Then you’ll see only v2.0.0 of <code>simpletax</code> referenced in <em>go.mod</em> and <em>go.sum</em>.</p>
+</div></section>
+
+
+
+
+
+
+
+
+<section data-type="sect2" data-pdf-bookmark="Vendoring"><div class="sect2" id="id128">
+<h2>Vendoring</h2>
+
+<p>To ensure that a module always builds<a data-type="indexterm" data-primary="modules" data-secondary="versions" data-tertiary="dependency copies inside module" id="id2145"/><a data-type="indexterm" data-primary="modules" data-secondary="versions" data-tertiary="vendoring" id="id2146"/><a data-type="indexterm" data-primary="vendoring" id="id2147"/><a data-type="indexterm" data-primary="dependencies" data-secondary="module versions" data-tertiary="dependency copies inside module" id="id2148"/><a data-type="indexterm" data-primary="dependencies" data-secondary="module versions" data-tertiary="vendoring" id="id2149"/><a data-type="indexterm" data-primary="go commands" data-secondary="go mod" data-tertiary="go mod vendor" id="id2150"/> with identical dependencies, some organizations like to keep copies of their dependencies inside their module. This is known as <em>vendoring</em>. It’s enabled by running the command <code>go mod vendor</code>. This creates a directory called <em>vendor</em> at the top level of your module that contains all your module’s dependencies. These dependencies are used in place of the module cache stored on your computer.</p>
+
+<p>If new dependencies are added to <em>go.mod</em> or versions of existing dependencies are upgraded with <code>go get</code>, you need to run <code>go mod vendor</code> again to update the <em>vendor</em> directory. If you forget to do this, <code>go build</code>, <code>go run</code>, and <code>go test</code> will  display an error message and refuse to run.</p>
+
+<p>Older Go dependency management systems required vendoring, but with the advent of Go modules and proxy servers (see <a data-type="xref" href="#proxy_server">“Module Proxy Servers”</a> for details), the practice is falling out of favor. One reason you might still want to vendor is that it can make building your code faster and more efficient when working with some CI/CD (continuous integration/continuous delivery) pipelines. If a pipeline’s build servers are ephemeral, the module cache may not be preserved. Vendoring dependencies allows these pipelines to avoid making multiple network calls to download dependencies every time a build is triggered. The downside is that it dramatically increases the size of your codebase in version control.</p>
+</div></section>
+
+
+
+
+
+
+
+
+<section data-type="sect2" data-pdf-bookmark="Using pkg.go.dev"><div class="sect2" id="pkg_go_dev">
+<h2>Using pkg.go.dev</h2>
+
+<p>While there isn’t a single centralized<a data-type="indexterm" data-primary="modules" data-secondary="open source Go module site" id="id2151"/><a data-type="indexterm" data-primary="open source Go module site" id="id2152"/><a data-type="indexterm" data-primary="pkg.go.dev open source Go module site" id="id2153"/><a data-type="indexterm" data-primary="resources online" data-secondary="open source Go module site pkg.go.dev" id="id2154"/> repository of Go modules, there is a single service that gathers together documentation on Go modules. The Go team has created a site called <a class="orm:hideurl" href="https://pkg.go.dev"><em>pkg.go.dev</em></a> that automatically indexes open source Go modules. For each module, the package index publishes the godocs, the license used, the <em>README</em>, the module’s dependencies, and what open source modules depend on the module. You can see the info that <em>pkg.go.dev</em> has on your <code>simpletax</code> module in <a data-type="xref" href="#use_pkg_go_dev_to_find_and_learn">Figure 10-2</a>.</p>
+
+<figure><div id="use_pkg_go_dev_to_find_and_learn" class="figure">
+<img src="assets/lgo2_1002.png" alt="Version information on https://pkg.go.dev" width="1096" height="900"/>
+<h6><span class="label">Figure 10-2. </span>Use pkg.go.dev to find and learn about third-party modules</h6>
+</div></figure>
+</div></section>
+</div></section>
+
+
+
+
+
+
+<section data-type="sect1" data-pdf-bookmark="Publishing Your Module"><div class="sect1" id="publish_module">
+<h1>Publishing Your Module</h1>
+
+<p>Making your module available to other<a data-type="indexterm" data-primary="modules" data-secondary="publishing" id="id2155"/><a data-type="indexterm" data-primary="publishing your module" id="id2156"/><a data-type="indexterm" data-primary="repositories" data-secondary="publishing your module" id="id2157"/> people is as simple as putting it in a version control system. This is true whether you are releasing your module as open source on a public version control system like GitHub or a private one that’s hosted by you or within a company. Since Go programs build from source code and use a repository path to identify themselves, there’s no need to explicitly upload your module to a central library repository, as you do for Maven Central or npm. Make sure you check in both your <em>go.mod</em> file and your <em>go.sum</em> file.</p>
+<div data-type="note" epub:type="note"><h6>Note</h6>
+<p>While most Go developers use<a data-type="indexterm" data-primary="Git for version control" id="id2158"/><a data-type="indexterm" data-primary="Subversion for version control" id="id2159"/><a data-type="indexterm" data-primary="Mercurial for version control" id="id2160"/><a data-type="indexterm" data-primary="Bazaar for version control" id="id2161"/><a data-type="indexterm" data-primary="Fossil for version control" id="id2162"/><a data-type="indexterm" data-primary="repositories" data-secondary="version control software" id="id2163"/><a data-type="indexterm" data-primary="modules" data-secondary="versions" data-tertiary="version control software" id="id2164"/><a data-type="indexterm" data-primary="version control software" id="id2165"/> Git for version control, Go also supports Subversion, Mercurial, Bazaar, and Fossil. By default, Git and Mercurial can be used for public repositories, and any of the supported version control systems can be used for private repositories. <a data-type="indexterm" data-primary="modules" data-secondary="versions" data-tertiary="version control system documentation URL" id="id2166"/><a data-type="indexterm" data-primary="version control software" data-secondary="version control system documentation URL" id="id2167"/>For details, check out the <a href="https://oreil.ly/Oz608">version control system documentation</a> for Go modules.</p>
+</div>
+
+<p>When releasing an open source module,<a data-type="indexterm" data-primary="publishing your module" data-secondary="LICENSE file" id="id2168"/><a data-type="indexterm" data-primary="LICENSE file for open source modules" id="id2169"/><a data-type="indexterm" data-primary="LICENSE file for open source modules" data-secondary="It’s FOSS resource" id="id2170"/><a data-type="indexterm" data-primary="It’s FOSS resource for open source licenses" id="id2171"/><a data-type="indexterm" data-primary="resources online" data-secondary="open source licenses" id="id2172"/> you should include a file named <em>LICENSE</em> in the root of your repository that specifies the open source license under which you are releasing your code. <a href="https://oreil.ly/KVlrd">It’s FOSS</a> is a good resource for learning more about the various kinds of open source licenses.</p>
+
+<p>Roughly speaking, you can divide open source licenses into two categories: permissive (which allows users of your code to keep their code private) and nonpermissive (which requires users of your code to make their code open source). While the license you choose is up to you, the Go community favors permissive licenses, such as BSD, MIT, and Apache. Since Go compiles third-party code directly into every application, the use of a nonpermissive license like the GPL would require people who use your code to release their code as open source as well. For many organizations, this is not acceptable.</p>
+
+<p>One final note: do not write your own license. Few people will trust that it has been properly reviewed by a lawyer, and they can’t tell what claims you are making on their module.</p>
+</div></section>
+
+
+
+
+
+
+<section data-type="sect1" data-pdf-bookmark="Versioning Your Module"><div class="sect1" id="versioning">
+<h1>Versioning Your Module</h1>
+
+<p>Whether your module is public or private,<a data-type="indexterm" data-primary="modules" data-secondary="versions" data-tertiary="versioning your module" id="id2173"/><a data-type="indexterm" data-primary="semantic versioning in Go (SemVer)" data-secondary="versioning your module" id="id2174"/><a data-type="indexterm" data-primary="version control software" data-secondary="versioning your module" id="id2175"/> you should properly version your module so that it works correctly with Go’s module system. As long as you are adding functionality or patching bugs, the process is simple. Store your changes in your source code repository, then apply a tag that follows the semantic versioning rules I discussed in <a data-type="xref" href="#semver">“Semantic Versioning”</a>.</p>
+
+<p>Go’s semantic versioning supports<a data-type="indexterm" data-primary="pre-releases in semantic versioning" id="id2176"/><a data-type="indexterm" data-primary="semantic versioning in Go (SemVer)" data-secondary="pre-releases" id="id2177"/> the concept of <em>pre-releases</em>. Let’s assume that the current version of your module is tagged <code>v1.3.4</code>. You are working on version 1.4.0, which is not quite done, but you want to try importing it into another module. What you should do is append a hyphen (<em>-</em>) to the end of your version tag, followed by an identifier for the pre-release build. In this case, use a tag like <code>v1.4.0-beta1</code> to indicate beta 1 of version 1.4.0 or <code>v1.4.0-rc2</code> to indicate release candidate 2. If you want to depend on a pre-release candidate, you must specify its version explicitly in <code>go get</code>, as Go will not automatically select a pre-release version.</p>
+
+<p>If you reach a point where you need to break backward compatibility, the process is more complicated. As you saw when importing version 2 of the <code>simpletax</code> module, a backward-breaking change requires a different import path. There are a few steps to take.</p>
+
+<p>First you need to choose a way to store your new version. Go supports two ways for creating the different import paths:</p>
+
+<ul>
+<li>
+<p>Create a subdirectory within your module named <em>vN</em>, where <em>N</em> is the major version of your module. For example, if you are creating version 2 of your module, call this directory <em>v2</em>. Copy your code into this subdirectory, including the <em>README</em> and <em>LICENSE</em> files.</p>
+</li>
+<li>
+<p>Create a branch in your version control system. You can put either the old code or the new code on the new branch. Name the branch <em>vN</em> if you are putting the new code on the branch, or <em>vN-1</em> if you are putting the old code there. For example, if you are creating version 2 of your module and want to put version 1 code on the branch, name the branch <em>v1</em>.</p>
+</li>
+</ul>
+
+<p>After you decide how to store your new code, you need to change the import path in the code in your subdirectory or branch. The module path in your <em>go.mod</em> file must end with <em>/vN</em>, and all the imports within your module must use <em>/vN</em> as well. <a data-type="indexterm" data-primary="Sulaiman, Marwan" id="id2178"/><a data-type="indexterm" data-primary="module path" data-secondary="tool to automate versioning" id="id2179"/><a data-type="indexterm" data-primary="modules" data-secondary="module path" data-tertiary="tool to automate versioning" id="id2180"/><a data-type="indexterm" data-primary="import keyword" data-secondary="import path" data-tertiary="tool to automate versioning" id="id2181"/><a data-type="indexterm" data-primary="resources online" data-secondary="module path versioning tool" id="id2182"/><a data-type="indexterm" data-primary="go.mod file" data-secondary="module path versioning tool" id="id2183"/>Going through all your code can be tedious, but Marwan Sulaiman has created a <a href="https://oreil.ly/BeOAr">tool that automates</a> the work. Once the paths are fixed, go ahead and implement your changes.</p>
+<div data-type="note" epub:type="note"><h6>Note</h6>
+<p>Technically, you could just change <em>go.mod</em> and your import statements, tag your main branch with the latest version, and not bother with a subdirectory or versioned branch. However, this is not a good practice, as it makes it unclear where to find older major versions of your module.</p>
+</div>
+
+<p>When you are ready to publish your new code, place a tag on your repository that looks like v<em>N</em>.0.0. If you are using the subdirectory system or keeping the latest code on your main branch, tag the main branch. If you are placing your new code on a different branch, tag that branch instead.</p>
+
+<p>You can find more details on<a data-type="indexterm" data-primary="modules" data-secondary="versions" data-tertiary="updating to incompatible versions" id="id2184"/><a data-type="indexterm" data-primary="dependencies" data-secondary="module versions" data-tertiary="updating to incompatible versions" id="id2185"/><a data-type="indexterm" data-primary="resources online" data-secondary="updating code to incompatible versions" id="id2186"/> updating your code to an incompatible version in the post <a href="https://oreil.ly/E-3Qo">“Go Modules: v2 and Beyond”</a> on The Go Blog and in <a href="https://oreil.ly/_Li5v">“Developing a Major Version Update”</a> on the Go developer website.</p>
+
+
+
+
+
+
+
+
+<section data-type="sect2" data-pdf-bookmark="Overriding Dependencies"><div class="sect2" id="replace_exclude">
+<h2>Overriding Dependencies</h2>
+
+<p>Forks happen. While there’s a bias<a data-type="indexterm" data-primary="modules" data-secondary="versions" data-tertiary="dependencies replaced with specified fork" id="id2187"/><a data-type="indexterm" data-primary="dependencies" data-secondary="overriding" id="id2188"/><a data-type="indexterm" data-primary="forks and overriding dependencies" id="id2189"/><a data-type="indexterm" data-primary="replace directive" id="id2190"/><a data-type="indexterm" data-primary="go.mod file" data-secondary="replace directive" id="id2191"/> against forking in the open source community, sometimes a module stops being maintained or you want to experiment with changes that aren’t accepted by the module’s owner. A <code>replace</code> directive redirects all references to a module across all your module’s dependencies and replaces them with the specified fork of the module. It looks like this:</p>
+
+<pre data-type="programlisting">replace github.com/jonbodner/proteus =&gt; github.com/someone/my_proteus v1.0.0</pre>
+
+<p>The original module location is specified on the left side of the <code>=&gt;</code> and the replacement on the right. The right side must have a version specified, but specifying a version is optional for the left side. If a version is specified on the left side, only that specific version will be replaced. If the version is not specified, any version of the original module will be replaced with the specific version of the fork.</p>
+
+<p>A <code>replace</code> directive can also refer to a path on your local filesystem:</p>
+
+<pre data-type="programlisting">replace github.com/jonbodner/proteus =&gt; ../projects/proteus</pre>
+
+<p>With a local <code>replace</code> directive, the module version must be omitted from the right side.</p>
+<div data-type="warning" epub:type="warning"><h6>Warning</h6>
+<p>Avoid using local <code>replace</code> directives. They provided a way to modify multiple modules simultaneously before the invention of Go workspaces, but now they are a potential source of broken modules. (I will cover workspaces shortly.) If you share your module via version control, a module with local references in <code>replace</code> directives will probably not build for anyone else, since you cannot guarantee that other people will have the replacement modules in the same locations on their drive.</p>
+</div>
+
+<p>You also might want to block a specific<a data-type="indexterm" data-primary="exclude directive" id="id2192"/><a data-type="indexterm" data-primary="go.mod file" data-secondary="exclude directive" id="id2193"/><a data-type="indexterm" data-primary="modules" data-secondary="versions" data-tertiary="excluding module versions" id="id2194"/> version of a module from being used. Perhaps it has a bug or is incompatible with your module. Go provides the <code>exclude</code> directive to prevent a specific version of a module from being used:</p>
+
+<pre data-type="programlisting">exclude github.com/jonbodner/proteus v0.10.1</pre>
+
+<p>When a module version is excluded, any mentions of that module version in any dependent module are ignored. If a module version is excluded and it’s the only version of that module that’s required in your module’s dependencies, use <code>go get</code> to add an indirect import of a different version of the module to your module’s <em>go.mod</em> file so that your module still compiles.</p>
+</div></section>
+
+
+
+
+
+
+
+
+<section data-type="sect2" data-pdf-bookmark="Retracting a Version of Your Module"><div class="sect2" id="retract_module">
+<h2>Retracting a Version of Your Module</h2>
+
+<p>Sooner or later, you will accidentally publish<a data-type="indexterm" data-primary="retract directive" id="id2195"/><a data-type="indexterm" data-primary="go.mod file" data-secondary="retract directive" id="id2196"/><a data-type="indexterm" data-primary="publishing your module" data-secondary="retracting versions" id="id2197"/><a data-type="indexterm" data-primary="modules" data-secondary="publishing" data-tertiary="retracting versions" id="id2198"/> a version of your module that you don’t want anyone to use. Perhaps it was released by accident before testing was complete. Maybe after its release, a critical vulnerability is discovered and no one should use it any more. No matter the reason, Go provides a way for you to indicate that certain versions of a module should be ignored. This is done by adding a <code>retract</code> directive to the <em>go.mod</em> file of your module. It consists of the word <code>retract</code> and the semantic version that should no longer be used. If a range of versions shouldn’t be used, you can exclude all versions in that range by placing the upper and lower bounds within brackets, separated by a comma. While it’s not required, you should include a comment after a version or version range to explain the reason for the retraction.</p>
+
+<p>If you wish to retract multiple nonsequential versions, you can specify them with multiple <code>retract</code> directives. In the examples shown, version 1.5.0 is excluded, as are all versions from 1.7.0 to 1.8.5, inclusive:</p>
+
+<pre data-type="programlisting">retract v1.5.0 // not fully tested
+retract [v1.7.0, v.1.8.5] // posts your cat photos to LinkedIn w/o permission</pre>
+
+<p>Adding a <code>retract</code> directive to <em>go.mod</em> requires you to create a new version of your module. If the new version contains only the retraction, you should retract it as well.</p>
+
+<p>When a version is retracted, existing builds that specified the version will continue to work, but <code>go get</code> and <code>go mod tidy</code> will not upgrade to them. They will no longer appear as options when you use the <code>go list</code> command. <a data-type="indexterm" data-primary="@latest" data-secondary="retracted version not matching" id="id2199"/>If the most recent version of a module is retracted, it will no longer be matched with <code>@latest</code>; the highest unretracted version will match instead.</p>
+<div data-type="note" epub:type="note"><h6>Note</h6>
+<p>While <code>retract</code> can be confused with <code>exclude</code>, <a data-type="indexterm" data-primary="retract directive" data-secondary="exclude directive versus" id="id2200"/><a data-type="indexterm" data-primary="exclude directive" data-secondary="retract directive versus" id="id2201"/><a data-type="indexterm" data-primary="go.mod file" data-secondary="exclude directive" data-tertiary="retract directive versus" id="id2202"/><a data-type="indexterm" data-primary="go.mod file" data-secondary="retract directive" data-tertiary="exclude directive versus" id="id2203"/>there’s a very important difference. You use <code>retract</code> to prevent others from using specific versions of <em>your</em> module. An <code>exclude</code> directive blocks you from using versions of another module.</p>
+</div>
+</div></section>
+
+
+
+
+
+
+
+
+<section data-type="sect2" data-pdf-bookmark="Using Workspaces to Modify Modules Simultaneously"><div class="sect2" id="go_workspaces">
+<h2>Using Workspaces to Modify Modules Simultaneously</h2>
+
+<p>There’s one drawback to using your<a data-type="indexterm" data-primary="modules" data-secondary="versions" data-tertiary="workspaces for simultaneous modifications" id="ch10-work"/><a data-type="indexterm" data-primary="workspaces for simultaneous module modifications" id="ch10-work2"/><a data-type="indexterm" data-primary="updating modules" data-secondary="workspaces for" id="ch10-work3"/> source code repository and its tags as a way to track your dependencies and their versions. If you want to make changes to two (or more) modules simultaneously, and you want to experiment with those changes across modules, you need a way to use a local copy of a module instead of the version in the source code repository.</p>
+<div data-type="warning" epub:type="warning"><h6>Warning</h6>
+<p>You can find obsolete advice online<a data-type="indexterm" data-primary="replace directive" data-secondary="workspaces for simultaneous module modifications" id="id2204"/><a data-type="indexterm" data-primary="go.mod file" data-secondary="replace directive" data-tertiary="workspaces for simultaneous module modifications" id="id2205"/> to try to solve this issue with temporary <code>replace</code> directives in <em>go.mod</em> that point to local directories. Do not do this! It’s too easy to forget to undo these changes before committing and pushing your code. Workspaces were introduced to avoid this antipattern.</p>
+</div>
+
+<p>Go uses <em>workspaces</em> to address this issue. A workspace allows you to have multiple modules downloaded to your computer, and references between those modules will automatically resolve to the local source code instead of the code hosted in your repository.</p>
+<div data-type="note" epub:type="note"><h6>Note</h6>
+<p>This section assumes that you have a GitHub account. If you don’t, you can still follow along. I’m going to use the organization name <code>learning-go-book-2e</code>, but you should replace it with your GitHub account name or organization.</p>
+</div>
+
+<p>Let’s start with two sample modules. Create a <em>my_workspace</em> directory and in that directory, create two more directories, <em>workspace_lib</em> and <em>workspace_app</em>. In the <em>workspace_lib</em> directory, run <code>go mod init github.com/learning-go-book-2e/workspace_lib</code>. Create a file called <em>lib.go</em> with the following content:<a data-type="indexterm" data-primary="lib.go file" id="id2206"/><a data-type="indexterm" data-primary="go commands" data-secondary="go mod" data-tertiary="go mod init" id="id2207"/></p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="kn">package</code><code class="w"> </code><code class="nx">workspace_lib</code><code class="w"/>
+
+<code class="kd">func</code><code class="w"> </code><code class="nx">AddNums</code><code class="p">(</code><code class="nx">a</code><code class="p">,</code><code class="w"> </code><code class="nx">b</code><code class="w"> </code><code class="kt">int</code><code class="p">)</code><code class="w"> </code><code class="kt">int</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">    </code><code class="k">return</code><code class="w"> </code><code class="nx">a</code><code class="w"> </code><code class="o">+</code><code class="w"> </code><code class="nx">b</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+
+<p>In the <em>workspace_app</em> directory, run <code>go mod init github.com/learning-go​-⁠book-2e/workspace_app</code>. Create a file called <em>app.go</em> with the following contents:</p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="kn">package</code><code class="w"> </code><code class="nx">main</code><code class="w"/>
+
+<code class="kn">import</code><code class="w"> </code><code class="p">(</code><code class="w"/>
+<code class="w">    </code><code class="s">"fmt"</code><code class="w"/>
+<code class="w">    </code><code class="s">"github.com/learning-go-book-2e/workspace_lib"</code><code class="w"/>
+<code class="p">)</code><code class="w"/>
+
+<code class="kd">func</code><code class="w"> </code><code class="nx">main</code><code class="p">()</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">    </code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="nx">workspace_lib</code><code class="p">.</code><code class="nx">AddNums</code><code class="p">(</code><code class="mi">2</code><code class="p">,</code><code class="w"> </code><code class="mi">3</code><code class="p">))</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+
+<p>In previous sections, you used <code>go get ./...</code> to add <code>require</code> directives to <em>go.mod</em>. Let’s see what happens if you try it here:<a data-type="indexterm" data-primary="go commands" data-secondary="go get" data-tertiary="go get ./…​" id="id2208"/></p>
+<pre data-type="programlisting">
+$ <strong>go get ./...</strong>
+github.com/learning-go-book-2e/workspace_app imports
+    github.com/learning-go-book-2e/workspace_lib: cannot find module
+        providing package github.com/learning-go-book-2e/workspace_lib
+</pre>
+
+<p>Since <em>workspace_lib</em> hasn’t been pushed to GitHub yet, you can’t pull it in. If you try to run <code>go build</code>, you will get a similar error:<a data-type="indexterm" data-primary="errors" data-secondary="compile-time errors" data-tertiary="workspace not published" id="id2209"/></p>
+<pre data-type="programlisting">
+$ <strong>go build</strong>
+app.go:5:2: no required module provides
+    package github.com/learning-go-book-2e/workspace_lib; to add it:
+        go get github.com/learning-go-book-2e/workspace_lib
+</pre>
+
+<p>Let’s take advantage of workspaces to allow <em>workplace_app</em> to see the local copy of <em>workspace_lib</em>. Go to the <em>my_workspace</em> directory and run the following commands:<a data-type="indexterm" data-primary="go commands" data-secondary="go work" id="id2210"/><a data-type="indexterm" data-primary="go.work file" id="id2211"/></p>
+<pre data-type="programlisting">
+$ <strong>go work init ./workspace_app</strong>
+$ <strong>go work use ./workspace_lib</strong>
+</pre>
+
+<p>This creates a <em>go.work</em> file in <em>my_workspace</em> with the following contents:</p>
+
+<pre data-type="programlisting">go 1.20
+
+use (
+    ./workspace_app
+    ./workspace_lib
+)</pre>
+<div data-type="warning" epub:type="warning"><h6>Warning</h6>
+<p>The <em>go.work</em> file is meant for your local computer only. Do not commit it to source control!</p>
+</div>
+
+<p>Now if you build <em>workspace_app</em>, everything works:</p>
+<pre data-type="programlisting">
+$ <strong>cd workspace_app</strong>
+$ <strong>go build</strong>
+$ <strong>./workspace_app</strong>
+5
+</pre>
+
+<p>Now that you are sure that <em>workspace_lib</em> does the right thing, it can be pushed to GitHub. In GitHub, create an empty public repository called <code>workspace_lib</code> and then run the following commands in the <em>workspace_lib</em> directory:<a data-type="indexterm" data-primary="GitHub" data-secondary="pushing workspace files to" id="id2212"/><a data-type="indexterm" data-primary="repositories" data-secondary="GitHub" data-tertiary="pushing workspace files to" id="id2213"/></p>
+<pre data-type="programlisting">
+$ <strong>git init</strong>
+$ <strong>git add .</strong>
+$ <strong>git commit -m "first commit"</strong>
+$ <strong>git remote add origin git@github.com:learning-go-book-2e/workspace_lib.git</strong>
+$ <strong>git branch -M main</strong>
+$ <strong>git push -u origin main</strong>
+</pre>
+
+<p>After running these commands, go to <em><a href="https://github.com/learning-go-book-2e/workspace_lib/releases/new" class="bare"><em class="hyperlink">https://github.com/learning-go-book-2e/workspace_lib/releases/new</em></a></em> (replacing “learning-go-book-2e” with your account or organization), and create a new release with the tag v0.1.0.</p>
+
+<p>Now if you go back to the <em>workspace_app</em> directory and run <code>go get ./...</code>, the <code>require</code> directive is added, because there is a public module that can be downloaded:<a data-type="indexterm" data-primary="go commands" data-secondary="go get" data-tertiary="go get ./…​" id="id2214"/></p>
+<pre data-type="programlisting">
+$ <strong>go get ./...</strong>
+go: downloading github.com/learning-go-book-2e/workspace_lib v0.1.0
+go: added github.com/learning-go-book-2e/workspace_lib v0.1.0
+$ <strong>cat go.mod</strong>
+module github.com/learning-go-book-2e/workspace_app
+
+go 1.20
+
+require github.com/learning-go-book-2e/workspace_lib v0.1.0
+</pre>
+
+<p>You can validate that your code is working with the public module by setting the environment variable <code>GOWORK=off</code> and building your application:<a data-type="indexterm" data-primary="GOWORK environment variable" id="id2215"/><a data-type="indexterm" data-primary="environment variables" data-secondary="GOWORK" id="id2216"/></p>
+<pre data-type="programlisting">
+$ <strong>rm workspace_app</strong>
+$ <strong>GOWORK=off go build</strong>
+$ <strong>./workspace_app</strong>
+5
+</pre>
+
+<p>Even though there is now a <code>require</code> directive referring to the public module, you can continue to make updates in our local workspace and they will be used instead. In <em>workspace_lib</em>, modify the <em>lib.go</em> file and add the following function:<a data-type="indexterm" data-primary="lib.go file" id="id2217"/></p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="kd">func</code><code class="w"> </code><code class="nx">SubNums</code><code class="p">(</code><code class="nx">a</code><code class="p">,</code><code class="w"> </code><code class="nx">b</code><code class="w"> </code><code class="kt">int</code><code class="p">)</code><code class="w"> </code><code class="kt">int</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">    </code><code class="k">return</code><code class="w"> </code><code class="nx">a</code><code class="w"> </code><code class="o">-</code><code class="w"> </code><code class="nx">b</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+
+<p>In <em>workspace_app</em>, modify the <em>app.go</em> file and add the following line to the end of the <code>main</code> function:</p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="w">    </code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="nx">workspace_lib</code><code class="p">.</code><code class="nx">SubNums</code><code class="p">(</code><code class="mi">2</code><code class="p">,</code><code class="mi">3</code><code class="p">))</code><code class="w"/></pre>
+
+<p>Now run <code>go build</code> and see it use the local module instead of the public one:</p>
+<pre data-type="programlisting">
+$ <strong>go build</strong>
+$ <strong>./workspace_app</strong>
+5
+-1
+</pre>
+
+<p>Once you have made the edits and want to release your software, you need to update the version information in your modules’ <em>go.mod</em> files to refer to the updated code. This requires you to commit your modules to source control in dependency order:</p>
+<ol>
+<li>
+<p>Choose a modified module that has no dependencies on any of the modified modules in your workspace.</p>
+</li>
+<li>
+<p>Commit this module to your source code repository.</p>
+</li>
+<li>
+<p>Create a new version tag on the newly committed module in your source code repository.</p>
+</li>
+<li>
+<p>Use <code>go get</code> to update the version specified in <em>go.mod</em> in the modules that depend on the newly committed module.</p>
+</li>
+<li>
+<p>Repeat the first four steps until all modified modules are committed.</p>
+</li>
+
+</ol>
+
+<p>If you have to make changes to <em>workspace_lib</em> in the future and want to test them in <em>workspace_app</em> without pushing back to GitHub and creating lots of temporary versions, you can <code>git pull</code> the latest versions of the modules into your workspace again and make your updates.<a data-type="indexterm" data-startref="ch10-work" id="id2218"/><a data-type="indexterm" data-startref="ch10-work2" id="id2219"/><a data-type="indexterm" data-startref="ch10-work3" id="id2220"/></p>
+</div></section>
+</div></section>
+
+
+
+
+
+
+<section data-type="sect1" data-pdf-bookmark="Module Proxy Servers"><div class="sect1" id="proxy_server">
+<h1>Module Proxy Servers</h1>
+
+<p>Rather than relying on a single,<a data-type="indexterm" data-primary="modules" data-secondary="proxy server" id="id2221"/><a data-type="indexterm" data-primary="proxy server for modules" id="id2222"/><a data-type="indexterm" data-primary="repositories" data-secondary="proxy server for modules" id="id2223"/> central repository for libraries, Go uses a hybrid model. Every Go module is stored in a source code repository, like GitHub or GitLab. <a data-type="indexterm" data-primary="go commands" data-secondary="go get" data-tertiary="proxy server" id="id2224"/><a data-type="indexterm" data-primary="Google proxy server" id="id2225"/>But by default, <code>go get</code> doesn’t fetch code directly from source code repositories. Instead, it sends requests to a <a href="https://oreil.ly/TllQM"><em>proxy server</em></a> run by Google. When the proxy server receives the <code>go get</code> request, it checks its cache to see if there has been a request for this module version before. If so, it returns the cached information. If a module or a version of a module isn’t cached on the proxy server, it downloads the module from the module’s repository, stores a copy, and returns the module. This allows the proxy server to keep copies of every version of virtually all public Go modules.</p>
+
+<p>In addition to the proxy server, <a data-type="indexterm" data-primary="proxy server for modules" data-secondary="checksum database" id="id2226"/><a data-type="indexterm" data-primary="Google proxy server" data-secondary="checksum database" id="id2227"/><a data-type="indexterm" data-primary="checksum database" id="id2228"/><a data-type="indexterm" data-primary="modules" data-secondary="proxy server" data-tertiary="checksum database" id="id2229"/>Google also maintains a <em>checksum database</em>. It stores information on every version of every module cached by the proxy server. Just as the proxy server protects you from a module or a version of a module being removed from the internet, the checksum database protects you against modifications to a version of a module. This could be malicious (someone has hijacked a module and slipped in malicious code), or it could be inadvertent (a module maintainer fixes a bug or adds a new feature and reuses an existing version tag). In either case, you don’t want to use a module version that has changed because you won’t be building the same binary and don’t know what the effects are on your 
+<span class="keep-together">application.</span></p>
+
+<p>Every time you download a module via <code>go get</code> or <code>go mod tidy</code>, the Go tools calculate a hash for the module and contact the checksum database to compare the calculated hash to the hash stored for that module’s version. If they don’t match, the module isn’t installed.</p>
+
+
+
+
+
+
+
+
+<section data-type="sect2" data-pdf-bookmark="Specifying a Proxy Server"><div class="sect2" id="id136">
+<h2>Specifying a Proxy Server</h2>
+
+<p>Some people object to sending requests for third-party libraries to Google. There are a few options:<a data-type="indexterm" data-primary="environment variables" data-secondary="GOPROXY" id="id2230"/><a data-type="indexterm" data-primary="GOPROXY environment variable" id="id2231"/><a data-type="indexterm" data-primary="proxy server for modules" data-secondary="disabling via GOPROXY" id="id2232"/><a data-type="indexterm" data-primary="proxy server for modules" data-secondary="running own proxy server" id="id2233"/><a data-type="indexterm" data-primary="Artifactory proxy server support" id="id2234"/><a data-type="indexterm" data-primary="Sonatype proxy server support" id="id2235"/><a data-type="indexterm" data-primary="Athens Project open source proxy server" id="id2236"/></p>
+
+<ul>
+<li>
+<p>You can disable proxying entirely by setting the <code>GOPROXY</code> environment variable to <code>direct</code>. You’ll download modules directly from their repositories, but if you depend on a version that’s removed from the repository, you won’t be able to access it.</p>
+</li>
+<li>
+<p>You can run your own proxy server. Both Artifactory and Sonatype have Go proxy server support built into their enterprise repository products. The <a href="https://oreil.ly/Ud1uX">Athens Project</a> provides an open source proxy server. Install one of these products on your network and then point <code>GOPROXY</code> to the URL.</p>
+</li>
+</ul>
+</div></section>
+
+
+
+
+
+
+
+
+<section data-type="sect2" data-pdf-bookmark="Using Private Repositories"><div class="sect2" id="id137">
+<h2>Using Private Repositories</h2>
+
+<p>Most organizations keep their code<a data-type="indexterm" data-primary="repositories" data-secondary="private repositories" id="id2237"/><a data-type="indexterm" data-primary="private repositories" id="id2238"/> in private repositories. If you want to use a private module in another Go module, you can’t request it from Google’s proxy server. Go will fall back to checking the private repository directly, but you might not want to leak the names of private servers and repositories to external services.</p>
+
+<p>If you are using your own proxy server, or if you have disabled proxying, this isn’t an issue. Running a private proxy server has some additional benefits. First, it speeds up downloading of third-party modules, as they are cached in your company’s network. If accessing your private repositories requires authentication, using a private proxy server means that you don’t have to worry about exposing authentication information in your CI/CD pipeline. <a data-type="indexterm" data-primary="Athens Project open source proxy server" data-secondary="authentication configuration documentation URL" id="id2239"/>The private proxy server is configured to authenticate to your private repositories (see the <a href="https://oreil.ly/Nl4hv">authentication configuration documentation</a> for Athens), while the calls to the private proxy server are unauthenticated.</p>
+
+<p>If you are using a public proxy server, <a data-type="indexterm" data-primary="environment variables" data-secondary="GOPRIVATE" id="id2240"/><a data-type="indexterm" data-primary="GOPRIVATE environment variable" id="id2241"/>you can set the <code>GOPRIVATE</code> environment variable to a comma-separated list of your private repositories. For example, if you set <code>GOPRIVATE</code> to:</p>
+
+<pre data-type="programlisting">GOPRIVATE=*.example.com,company.com/repo</pre>
+
+<p>any module stored in a repository that’s located at any subdomain of <em>example.com</em> or at a URL that starts with <em>company.com/repo</em> will be downloaded directly.</p>
+</div></section>
+</div></section>
+
+
+
+
+
+
+<section data-type="sect1" data-pdf-bookmark="Additional Details"><div class="sect1" id="id253">
+<h1>Additional Details</h1>
+
+<p>The Go Team has a <a data-type="indexterm" data-primary="modules" data-secondary="documentation URL" id="id2242"/><a data-type="indexterm" data-primary="resources online" data-secondary="module documentation" id="id2243"/>complete <a href="https://oreil.ly/ZW-VD">Go Modules Reference</a> available online. In addition to the content in this chapter, the Module Reference also covers topics like using version control systems besides Git, the structure and API of the module cache, additional environment variables for controlling module lookup behavior, and the REST API for the module proxy and checksum database.</p>
+</div></section>
+
+
+
+
+
+
+<section data-type="sect1" data-pdf-bookmark="Exercises"><div class="sect1" id="id350">
+<h1>Exercises</h1>
+<ol>
+<li>
+<p>Create a module in your own public repository. This module has a single function named <code>Add</code> with two <code>int</code> parameters and one <code>int</code> return value. This function adds the two parameters together and returns them. Make this version v1.0.0.</p>
+</li>
+<li>
+<p>Add godoc comments to your module that describe the package and the <code>Add</code> function. Be sure to include a link to <em><a href="https://www.mathsisfun.com/numbers/addition.html" class="bare"><em class="hyperlink">https://www.mathsisfun.com/numbers/addition.html</em></a></em> in your <code>Add</code> function godoc. Make this version v1.0.1.</p>
+</li>
+<li>
+<p>Change <code>Add</code> to make it generic. Import the <code>golang.org/x/exp/constraints</code> package. Combine the <code>Integer</code> and <code>Float</code> types in that package to create an interface called <code>Number</code>. Rewrite <code>Add</code> to take in two parameters of type <code>Number</code> and return a value of type <code>Number</code>. Version your module again. Because this is a backward-breaking change, this should be v2.0.0 of your module.</p>
+</li>
+
+</ol>
+</div></section>
+
+
+
+
+
+
+<section data-type="sect1" data-pdf-bookmark="Wrapping Up"><div class="sect1" id="id351">
+<h1>Wrapping Up</h1>
+
+<p>In this chapter, you’ve learned how to organize code and interact with the ecosystem of Go source code. You’ve seen how modules work, how to organize your code into packages, how to use third-party modules, and how to release modules of your own. In the next chapter, you’re going to take a look at more of the development tools that are included with Go, learn about some essential third-party tools, and explore some techniques to give you better control over your build process.</p>
+</div></section>
+</div></section></div>
+</div>
+</body></html>

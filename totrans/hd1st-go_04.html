@@ -1,0 +1,771 @@
+<html><head></head><body><section data-pdf-bookmark="Chapter 3. call me: Functions" data-type="chapter" epub:type="chapter" class="preface"><div class="preface" id="call_mecolon_functions">
+<h1 class="calibre17"><span class="calibre">Chapter 3. </span>call me: Functions</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0079-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><strong class="calibre8">You’ve been missing out</strong>. You’ve been calling functions like a pro. But the only functions you could call were the ones Go defined for you. Now, it’s your turn. We’re going to show you how to create your own functions. We’ll learn how to declare functions with and without parameters. We’ll declare functions that return a single value, and we’ll learn how to return multiple values so that we can indicate when there’s been an error. And we’ll learn about <strong class="calibre8">pointers</strong>, which allow us to make more memory-efficient function calls.</p>
+<section data-pdf-bookmark="Some repetitive code" data-type="sect1" class="preface"><div class="preface" id="some_repetitive_code">
+<h1 class="calibre25">Some repetitive code</h1>
+<p class="calibre7"><a data-primary="repetitive code" data-type="indexterm" id="idm46062714317016" class="calibre10"/>Suppose we need to calculate the amount of paint needed to cover several walls. The manufacturer says each liter of paint covers 10 square meters. So, we’ll need to multiply each wall’s width (in meters) by its height to get its area, and then divide that by 10 to get the number of liters of paint needed.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0080-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0080-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">This works, but it has a couple problems:</p>
+<ul class="list_style_type_none">
+<li class="calibre18"><p class="calibre7">The calculations seem to be off by a tiny fraction, and are printing oddly precise floating-point values. We really only need a couple decimal places of precision.</p></li>
+<li class="calibre18"><p class="calibre7">There’s a fair amount of repeated code, even now. This will get worse as we add more walls.</p></li>
+</ul>
+<p class="calibre7">Both items will take a little explanation to address, so let’s just look at the first issue for now...</p>
+<p class="calibre7">The calculations are slightly off because ordinary floating-point arithmetic on computers is ever-so-slightly inaccurate. (Usually by a few quadrillionths.) The reasons are a little too complicated to get into here, but this problem isn’t exclusive to Go.</p>
+<p class="calibre7">But as long as we round the numbers to a reasonable degree of precision before displaying them, we should be fine. Let’s take a brief detour to look at a function that will help us do that.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/common3.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Formatting output with Printf and Sprintf" data-type="sect1" class="preface"><div class="preface" id="formatting_output_with_printf_and_sprint">
+<h1 class="calibre25">Formatting output with Printf and Sprintf</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/common3.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><a data-primary="fmt package" data-secondary="Sprintf function" data-type="indexterm" id="idm46062714301560" class="calibre10"/><a data-primary="output, formatting" data-type="indexterm" id="idm46062714300168" class="calibre10"/><a data-primary="Printf function (fmt)" data-secondary="formatting output" data-type="indexterm" id="idm46062714299336" class="calibre10"/><a data-primary="Sprintf function (fmt)" data-type="indexterm" id="idm46062714298152" class="calibre10"/><a data-primary="value widths, formatting for Printf" data-type="indexterm" id="idm46062714297352" class="calibre10"/><a data-primary="verbs, formatting for Printf" data-type="indexterm" id="idm46062714296520" class="calibre10"/>Floating-point numbers in Go are kept with a high degree of precision. This can be cumbersome when you want to display them:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0081-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">To deal with these sorts of formatting issues, the <code class="calibre20">fmt</code> package provides the <code class="calibre20">Printf</code> function. <code class="calibre20">Printf</code> stands for “<strong class="calibre8">print</strong>, with <strong class="calibre8">f</strong>ormatting.” It takes a string and inserts one or more values into it, formatted in specific ways. Then it prints the resulting string.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0081-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">The <code class="calibre20">Sprintf</code> function (also part of the <code class="calibre20">fmt</code> package) works just like <code class="calibre20">Printf</code>, except that it returns a formatted string instead of printing it.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0081-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">It looks like <code class="calibre20">Printf</code> and <code class="calibre20">Sprintf</code> <em class="calibre9">can</em> help us limit our displayed values to the correct number of places. The question is, <em class="calibre9">how</em>? First, to be able to use the <code class="calibre20">Printf</code> function effectively, we’ll need to learn about two of its features:</p>
+<ul class="list_style_type_none">
+<li class="calibre18"><p class="calibre7">Formatting verbs (the <code class="calibre20">%0.2f</code> in the strings above is a verb)</p></li>
+<li class="calibre18"><p class="calibre7">Value widths (that’s the <code class="calibre20">0.2</code> in the middle of the verb)</p></li>
+</ul>
+<aside data-type="sidebar" epub:type="sidebar" class="calibre30"><div class="sidebar" id="relax_4">
+<h5 class="calibre31"><span class="calibre"><img alt="image" src="assets/cup.png" class="calibre4"/></span> Relax</h5>
+<p class="calibre7"><strong class="calibre8">We’ll explain exactly what those arguments to <code class="calibre40">Printf</code> mean on the next few pages.</strong></p>
+<p class="calibre7">We know, those function calls above look a little confusing. We’ll show you a ton of examples that should clear that confusion up.</p>
+</div></aside>
+</div></section>
+<section data-pdf-bookmark="Formatting verbs" data-type="sect1" class="preface"><div class="preface" id="formatting_verbs">
+<h1 class="calibre25">Formatting verbs</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/common3.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><a data-primary="%% formatting verb" data-type="indexterm" id="idm46062714271384" class="calibre10"/><a data-primary="% (percent sign)" data-type="indexterm" id="idm46062714270424" class="calibre10"/><a data-primary="bool (Boolean value)" data-secondary="formatting verbs and" data-type="indexterm" id="idm46062714269544" class="calibre10"/><a data-primary="%d formatting verb" data-type="indexterm" id="idm46062714268392" class="calibre10"/><a data-primary="decimals" data-type="indexterm" id="idm46062714267592" class="calibre10"/><a data-primary="%f formatting verb" data-type="indexterm" id="idm46062714266728" class="calibre10"/><a data-primary="float64 type (floating-point number)" data-secondary="formatting verbs and" data-type="indexterm" id="idm46062714265864" class="calibre10"/><a data-primary="\n (newline character)" data-type="indexterm" id="idm46062714264792" class="calibre10"/><a data-primary="newline character (\n)" data-type="indexterm" id="idm46062714263960" class="calibre10"/><a data-primary="percent sign (%)" data-type="indexterm" id="idm46062714263128" class="calibre10"/><a data-primary="%s formatting verb" data-type="indexterm" id="idm46062714262296" class="calibre10"/><a data-primary="string type (strings)" data-secondary="formatting verbs and" data-type="indexterm" id="idm46062714261464" class="calibre10"/><a data-primary="%t formatting verb" data-type="indexterm" id="idm46062714260344" class="calibre10"/><a data-primary="%T formatting verb" data-type="indexterm" id="idm46062714259544" class="calibre10"/><a data-primary="%v formatting verb" data-type="indexterm" id="idm46062714258680" class="calibre10"/><a data-primary="%#v formatting verb" data-type="indexterm" id="idm46062714257816" class="calibre10"/>The first argument to <code class="calibre20">Printf</code> is a string that will be used to format the output. Most of it is formatted exactly as it appears in the string. Any percent signs (<code class="calibre20">%</code>), however, will be treated as the start of a <strong class="calibre8">formatting verb</strong>, a section of the string that will be substituted with a value in a particular format. The remaining arguments are used as values with those verbs.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0082-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">The letter following the percent sign indicates which verb to use. The most common verbs are:</p>
+<table class="calibre11">
+<thead class="calibre33">
+<tr class="calibre13">
+<th class="calibre34">Verb</th>
+<th class="calibre34">Output</th>
+</tr>
+</thead>
+<tbody class="calibre12">
+<tr class="calibre13">
+<td class="calibre14">%f</td>
+<td class="calibre14">Floating-point number</td>
+</tr>
+<tr class="calibre15">
+<td class="calibre14">%d</td>
+<td class="calibre14">Decimal integer</td>
+</tr>
+<tr class="calibre13">
+<td class="calibre14">%s</td>
+<td class="calibre14">String</td>
+</tr>
+<tr class="calibre15">
+<td class="calibre14">%t</td>
+<td class="calibre14">Boolean (<code class="calibre36">true</code> or <code class="calibre36">false</code>)</td>
+</tr>
+<tr class="calibre13">
+<td class="calibre14">%v</td>
+<td class="calibre14">Any value (chooses an appropriate format based on the supplied value’s type)</td>
+</tr>
+<tr class="calibre15">
+<td class="calibre14">%#v</td>
+<td class="calibre14">Any value, formatted as it would appear in Go program code</td>
+</tr>
+<tr class="calibre13">
+<td class="calibre14">%T</td>
+<td class="calibre14">Type of the supplied value (<code class="calibre36">int</code>, <code class="calibre36">string</code>, etc.)</td>
+</tr>
+<tr class="calibre15">
+<td class="calibre14">%%</td>
+<td class="calibre14">A literal percent sign</td>
+</tr>
+</tbody>
+</table>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0082-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Notice, by the way, that we are making sure to add a newline at the end of each formatting string using the <code class="calibre20">\n</code> escape sequence. This is because unlike <code class="calibre20">Println</code>, <code class="calibre20">Printf</code> does not automatically add a newline for us.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/common3.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><a data-primary="columns, aligning in tables" data-type="indexterm" id="idm46062714232072" class="calibre10"/><a data-primary="numbers and numeric types" data-secondary="rounding numbers" data-type="indexterm" id="idm46062714230968" class="calibre10"/><a data-primary="padding with spaces" data-type="indexterm" id="idm46062714229816" class="calibre10"/><a data-primary="rounding numbers" data-type="indexterm" id="idm46062714228968" class="calibre10"/><a data-primary="spaces, padding with" data-type="indexterm" id="idm46062714228120" class="calibre10"/><a data-primary="tables, aligning columns in" data-type="indexterm" id="idm46062714227272" class="calibre10"/><a data-primary="value widths, formatting for Printf" data-type="indexterm" id="idm46062714226424" class="calibre10"/>We want to point out the <code class="calibre20">%#v</code> formatting verb in particular. Because it prints values the way they would appear in Go code, rather than how they normally appear, <code class="calibre20">%#v</code> can show you some values that would otherwise be hidden in your output. In this code, for example, <code class="calibre20">%#v</code> reveals an empty string, a tab character, and a newline, all of which were invisible when printed with <code class="calibre20">%v</code>. We’ll use <code class="calibre20">%#v</code> more, later in the book!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0083-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Formatting value widths" data-type="sect1" class="preface"><div class="preface" id="formatting_value_widths">
+<h1 class="calibre25">Formatting value widths</h1>
+<p class="calibre7">So the <code class="calibre20">%f</code> formatting verb is for floating-point numbers. We can use <code class="calibre20">%f</code> in our program to format the amount of paint needed.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0083-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">It looks like our value is being rounded to a reasonable number. But it’s still showing six places after the decimal point, which is really too much for our current purpose.</p>
+<p class="calibre7">For situations like this, formatting verbs let you specify the <em class="calibre9">width</em> of the formatted value.</p>
+<p class="calibre7">Let’s say we want to format some data in a plain-text table. We need to ensure the formatted value fills a minimum number of spaces, so that the columns align properly.</p>
+<p class="calibre7">You can specify the minimum width after the percent sign for a formatting verb. If the argument matching that verb is shorter than the minimum width, it will be padded with spaces until the minimum width is reached.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0083-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Formatting fractional number widths" data-type="sect1" class="preface"><div class="preface" id="formatting_fractional_number_widths">
+<h1 class="calibre25">Formatting fractional number widths</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/common3.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><a data-primary="decimals" data-type="indexterm" id="idm46062714208280" class="calibre10"/><a data-primary="float64 type (floating-point number)" data-secondary="decimal points and" data-type="indexterm" id="idm46062714207048" class="calibre10"/>And now we come to the part that’s important for today’s task: you can use value widths to specify the precision (the number of displayed digits) for floating-point numbers. Here’s the format:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0084-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">The minimum width of the entire number includes decimal places and the decimal point. If it’s included, shorter numbers will be padded with spaces at the start until this width is reached. If it’s omitted, no spaces will ever be added.</p>
+<p class="calibre7">The width after the decimal point is the number of decimal places to show. If a more precise number is given, it will be rounded (up or down) to fit in the given number of decimal places.</p>
+<p class="calibre7">Here’s a quick demonstration of various width values in action:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0084-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">That last format, <code class="calibre20">"%.2f"</code>, will let us take floating-point numbers of any precision and round them to two decimal places. (It also won’t do any unnecessary padding.) Let’s try it with the overly precise values from our program to calculate paint volumes.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0084-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">That’s much more readable. It looks like the <code class="calibre20">Printf</code> function can format our numbers for us. Let’s get back to our paint calculator program, and apply what we’ve learned there.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/common4.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Using Printf in our paint calculator" data-type="sect1" class="preface"><div class="preface" id="using_printf_in_our_paint_calculator">
+<h1 class="calibre25">Using Printf in our paint calculator</h1>
+<p class="calibre7"><a data-primary="functions" data-secondary="about" data-type="indexterm" id="idm46062714192824" class="calibre10"/>Now we have a <code class="calibre20">Printf</code> verb, <code class="calibre20">"%.2f"</code>, that will let us round a floating-point number to two decimal places. Let’s update our paint quantity calculation program to use it.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0085-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">At last, we have reasonable-looking output! The tiny imprecisions introduced by floating-point arithmetic have been rounded away.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0085-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><strong class="calibre8">Good point. Go lets us declare our own functions, so perhaps we should move this code into a function</strong>.</p>
+<p class="calibre7">As we mentioned way back at the start of <a data-type="xref" href="ch01.html#letapsos_get_going_syntax_basics" class="calibre10">Chapter 1</a>, a function is a group of one or more lines of code that you can call from other places in your program. And our program has two groups of lines that look very similar:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0085-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Let’s see if we can convert these two sections of code into a single function.</p>
+</div></section>
+<section data-pdf-bookmark="Declaring functions" data-type="sect1" class="preface"><div class="preface" id="declaring_functions">
+<h1 class="calibre25">Declaring functions</h1>
+<p class="calibre7"><a data-primary="camel case" data-type="indexterm" id="idm46062714179272" class="calibre10"/><a data-primary="case-sensitivity" data-type="indexterm" id="idm46062714178008" class="calibre10"/><a data-primary="declaring functions" data-type="indexterm" id="idm46062714177176" class="calibre10"/><a data-primary="functions" data-secondary="declaring" data-type="indexterm" id="idm46062714176328" class="calibre10"/><a data-primary="functions" data-secondary="naming rules for" data-type="indexterm" id="idm46062714175240" class="calibre10"/><a data-primary="methods" data-secondary="naming rules for" data-type="indexterm" id="idm46062714174088" class="calibre10"/><a data-primary="naming rules" data-secondary="functions" data-type="indexterm" id="idm46062714172936" class="calibre10"/><a data-primary="naming rules" data-secondary="methods" data-type="indexterm" id="idm46062714171784" class="calibre10"/>A simple function declaration might look like this:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0086-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">A declaration begins with the <code class="calibre20">func</code> keyword, followed by the name you want the function to have, a pair of parentheses <code class="calibre20">()</code>, and then a block containing the function’s code.</p>
+<p class="calibre7">Once you’ve declared a function, you can call it elsewhere in your package simply by typing its name, followed by a pair of parentheses. When you do, the code in the function’s block will be run.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0086-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Notice that when we call <code class="calibre20">sayHi</code>, we’re not typing the package name and a dot before the function name. When you call a function that’s defined in the current package, you should not specify the package name. (Typing <code class="calibre20">main.sayHi()</code> would result in a compile error.)</p>
+<p class="calibre7">The rules for function names are the same as the rules for variable names:</p>
+<ul class="list_style_type_none">
+<li class="calibre18"><p class="calibre7">A name must begin with a letter, followed by any number of additional letters and numbers. (You’ll get a compile error if you break this rule.)</p></li>
+<li class="calibre18"><p class="calibre7">Functions whose name begins with a capital letter are <em class="calibre9">exported</em>, and can be used outside the current package. If you only need to use a function inside the current package, you should start its name with a lowercase letter.</p></li>
+<li class="calibre18"><p class="calibre7">Names with multiple words should use <code class="calibre20">camelCase</code>.</p></li>
+</ul>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0086-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Declaring function parameters" data-type="sect1" class="preface"><div class="preface" id="declaring_function_parameters">
+<h1 class="calibre25">Declaring function parameters</h1>
+<p class="calibre7"><a data-primary="arguments to functions" data-secondary="parentheses and" data-type="indexterm" id="idm46062714155688" class="calibre10"/><a data-primary="calling functions" data-secondary="parameters and" data-type="indexterm" id="idm46062714154312" class="calibre10"/><a data-primary="functions" data-secondary="parameters in" data-type="indexterm" id="idm46062714153160" class="calibre10"/><a data-primary="parameters" data-secondary="functions and" data-type="indexterm" id="idm46062714152040" class="calibre10"/><a data-primary="parentheses ()" data-secondary="in function calls" data-type="indexterm" id="idm46062714150888" class="calibre10"/><a data-primary="types" data-secondary="declaring function parameters" data-type="indexterm" id="idm46062714149752" class="calibre10"/>If you want calls to your function to include arguments, you’ll need to declare one or more parameters. A <strong class="calibre8">parameter</strong> is a variable, local to a function, whose value is set when the function is called.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0087-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">You can declare one or more parameters between the parentheses in the function declaration, separated by commas. As with any variable, you’ll need to provide a name followed by a type (<code class="calibre20">float64</code>, <code class="calibre20">bool</code>, etc.) for each parameter you declare.</p>
+<blockquote class="calibre37 pcalibre1 pcalibre2">
+<p class="calibre38"><strong class="calibre8">A parameter is a variable, local to a function, whose value is set when the function is called.</strong></p>
+</blockquote>
+<p class="calibre7">If a function has parameters defined, then you’ll need to pass a matching set of arguments when calling it. When the function is run, each parameter will be set to a copy of the value in the corresponding argument. Those parameter values are then used within the code in the function block.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0087-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Using functions in our paint calculator" data-type="sect1" class="preface"><div class="preface" id="using_functions_in_our_paint_calculator">
+<h1 class="calibre25">Using functions in our paint calculator</h1>
+<p class="calibre7"><a data-primary="repetitive code" data-type="indexterm" id="idm46062714140840" class="calibre10"/>Now that we know how to declare our own functions, let’s see if we can get rid of the repetition in our paint calculator.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0088-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">We’ll move the code to calculate the amount of paint to a function named <code class="calibre20">paintNeeded</code>. We’ll get rid of the separate <code class="calibre20">width</code> and <code class="calibre20">height</code> variables, and instead take those as function parameters. Then, in our <code class="calibre20">main</code> function, we’ll just call <code class="calibre20">paintNeeded</code> for each wall we need to paint.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0088-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">No more repeated code, and if we want to calculate the paint needed for additional walls, we just add more calls to <code class="calibre20">paintNeeded</code>. This is much cleaner!</p>
+<aside data-type="sidebar" epub:type="sidebar" class="calibre30"><div class="sidebar" id="exercise_6">
+<h5 class="calibre31"><span class="calibre"><img alt="image" src="assets/common.png" class="calibre4"/></span> Exercise</h5>
+<p class="calibre7">Below is a program that declares several functions, then calls those functions within <code class="calibre20">main</code>. Write down what the program output would be.</p>
+<div data-type="note" epub:type="note" class="calibre42"><h6 class="calibre23">Note</h6>
+<p class="calibre7">(We’ve done the first line for you.)</p>
+</div>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0089-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><span class="calibre"><img alt="image" src="assets/arrow.png" class="calibre4"/></span> Answers in <a data-type="xref" href="#exercise_solution_6" class="calibre10">“<span class="calibre"><img alt="image" src="assets/common1.png" class="calibre4"/></span> Exercise Solution”</a>.</p>
+</div></aside>
+</div></section>
+<section data-pdf-bookmark="Functions and variable scope" data-type="sect1" class="preface"><div class="preface" id="functions_and_variable_scope">
+<h1 class="calibre25">Functions and variable scope</h1>
+<p class="calibre7"><a data-primary="blocks of code" data-secondary="variable scope" data-type="indexterm" id="idm46062714119544" class="calibre10"/><a data-primary="functions" data-secondary="scope of" data-type="indexterm" id="idm46062714118152" class="calibre10"/><a data-primary="scope" data-secondary="blocks of code and" data-type="indexterm" id="idm46062714116968" class="calibre10"/><a data-primary="scope" data-secondary="functions and" data-type="indexterm" id="idm46062714115848" class="calibre10"/><a data-primary="variables" data-secondary="scope of" data-type="indexterm" id="idm46062714114696" class="calibre10"/>Our <code class="calibre20">paintNeeded</code> function declares an <code class="calibre20">area</code> variable within its function block:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0090-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">As with conditional and loop blocks, variables declared within a function block are only in scope within that function block. So if we were to try to access the <code class="calibre20">area</code> variable outside of the <code class="calibre20">paintNeeded</code> function, we’d get a compile error:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0090-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">But, also as with conditional and loop blocks, variables declared <em class="calibre9">outside</em> a function block will be in scope within that block. That means we can declare a variable at the package level, and access it within any function in that package.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0090-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Function return values" data-type="sect1" class="preface"><div class="preface" id="function_return_values_1">
+<h1 class="calibre25">Function return values</h1>
+<p class="calibre7"><a data-primary="return statement" data-type="indexterm" id="idm46062714102568" class="calibre10"/><a data-primary="return values" data-secondary="about" data-type="indexterm" id="idm46062714101480" class="calibre10"/>Suppose we wanted to total the amount of paint needed for all the walls we’re going to paint. We can’t do that with our current <code class="calibre20">paintNeeded</code> function; it just prints the amount and then discards it!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0091-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">So instead, let’s revise the <code class="calibre20">paintNeeded</code> function to return a value. Then, whoever calls it can print the amount, do additional calculations with it, or do whatever else they need.</p>
+<p class="calibre7">Functions always return values of a specific type (and only that type). To declare that a function returns a value, add the type of that return value following the parameters in the function declaration. Then use the <code class="calibre20">return</code> keyword in the function block, followed by the value you want to return.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0091-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Callers of the function can then assign the return value to a variable, pass it directly to another function, or do whatever else they need to do with it.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0091-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><a data-primary="return values" data-secondary="compile errors" data-type="indexterm" id="idm46062714091400" class="calibre10"/><a data-primary="types" data-secondary="compile errors" data-type="indexterm" id="idm46062714089656" class="calibre10"/>When a <code class="calibre20">return</code> statement runs, the function exits immediately, without running any code that follows it. You can use this together with an <code class="calibre20">if</code> statement to exit the function in conditions where there’s no point in running the remaining code (due to an error or some other condition).</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0092-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">That means that it’s possible to have code that never runs under any circumstances, if you include a <code class="calibre20">return</code> statement that isn’t part of an <code class="calibre20">if</code> block. This almost certainly indicates a bug in the code, so Go helps you detect this situation by requiring that any function that declares a return type must end with a <code class="calibre20">return</code> statement. Ending with any other statement will cause a compile error.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0092-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">You’ll also get a compile error if the type of your return value doesn’t match the declared return type.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0092-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Using a return value in our paint calculator" data-type="sect1" class="preface"><div class="preface" id="using_a_return_value_in_our_paint_calcul">
+<h1 class="calibre25">Using a return value in our paint calculator</h1>
+<p class="calibre7">Now that we know how to use function return values, let’s see if we can update our paint program to print the total amount of paint needed in addition to the amount needed for each wall.</p>
+<p class="calibre7">We’ll update the <code class="calibre20">paintNeeded</code> function to return the amount needed. We’ll use that return value in the <code class="calibre20">main</code> function, both to print the amount for the current wall, and to add to a <code class="calibre20">total</code> variable that tracks the total amount of paint needed.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0093-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">It works! Returning the value allowed our <code class="calibre20">main</code> function to decide what to do with the calculated amount, rather than relying on the <code class="calibre20">paintNeeded</code> function to print it.</p>
+</div></section>
+<section data-pdf-bookmark="Breaking Stuff is Educational!" data-type="sect1" class="preface"><div class="preface" id="breaking_stuff_is_educational_4">
+<h1 class="calibre25">Breaking Stuff is Educational!</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0094-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><a data-primary="return statement" data-type="indexterm" id="idm46062714068328" class="calibre10"/><a data-primary="return values" data-secondary="compile errors" data-type="indexterm" id="idm46062714067016" class="calibre10"/><a data-primary="types" data-secondary="compile errors" data-type="indexterm" id="idm46062714065864" class="calibre10"/>Here’s our updated version of the <code class="calibre20">paintNeeded</code> function that returns a value. Try making one of the changes below and try to compile it. Then undo your change and try the next one. See what happens!</p>
+<pre data-type="programlisting" class="calibre32">func paintNeeded(width float64, height float64) float64 {
+       area := width * height
+       return area / 10.0
+}</pre>
+<table class="calibre11">
+<thead class="calibre33">
+<tr class="calibre13">
+<th class="calibre34">If you do this...</th>
+<th class="calibre34">...it will break because...</th>
+</tr>
+</thead>
+<tbody class="calibre12">
+<tr class="calibre13">
+<td class="calibre14">Remove the <code class="calibre36">return</code> statement:<br class="calibre16"/>
+<code class="calibre36">func paintNeeded(width float64, height float64) float64 {
+       area := width * height
+       <s class="calibre35">return area / 10.0</s>
+}</code>
+</td>
+<td class="calibre14">If your function declares a return type, Go requires that it include a <code class="calibre36">return</code> statement.</td>
+</tr>
+<tr class="calibre15">
+<td class="calibre14">Add a line <em class="calibre9">after</em> the <code class="calibre36">return</code> statement:<br class="calibre16"/>
+<code class="calibre36">
+func paintNeeded(width float64, height float64) float64 {<br class="calibre16"/>
+       area := width * height<br class="calibre16"/>
+       return area / 10.0<br class="calibre16"/>
+       fmt.Println(area / 10.0)<br class="calibre16"/>
+}</code>
+</td>
+<td class="calibre14">If your function declares a return type, Go requires that its last statement be a <code class="calibre36">return</code> statement.</td>
+</tr>
+<tr class="calibre13">
+<td class="calibre14">Remove the return type declaration:<br class="calibre16"/>
+<code class="calibre36">
+func paintNeeded(width float64, height float64) float64 {<br class="calibre16"/>
+       area := width * height<br class="calibre16"/>
+       return area / 10.0<br class="calibre16"/>
+}
+</code>
+</td>
+<td class="calibre14">Go doesn’t allow you to return a value you haven’t declared.</td>
+</tr>
+<tr class="calibre15">
+<td class="calibre14">Change the type of value being returned:<br class="calibre16"/>
+<code class="calibre36">func paintNeeded(width float64, height float64) float64 {<br class="calibre16"/>
+       area := width * height<br class="calibre16"/>
+       return int(area / 10.0)<br class="calibre16"/>
+}</code>
+</td>
+<td class="calibre14">Go requires that the type of the returned value match the declared type.</td>
+</tr>
+</tbody>
+</table>
+</div></section>
+<section data-pdf-bookmark="The paintNeeded function needs error handling" data-type="sect1" class="preface"><div class="preface" id="the_paintneeded_function_needs_error_han">
+<h1 class="calibre25">The paintNeeded function needs error handling</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0095-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0095-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><a data-primary="Atoi function (strconv)" data-type="indexterm" id="idm46062714040472" class="calibre10"/><a data-primary="error handling" data-secondary="return values" data-type="indexterm" id="idm46062714039368" class="calibre10"/><a data-primary="functions" data-secondary="nil return value for" data-type="indexterm" id="idm46062714038328" class="calibre10"/><a data-primary="nil value" data-secondary="for functions" data-type="indexterm" id="idm46062714037288" class="calibre10"/><a data-primary="return values" data-secondary="error handling" data-type="indexterm" id="idm46062714036104" class="calibre10"/><a data-primary="strconv package" data-secondary="Atoi function" data-type="indexterm" id="idm46062714034984" class="calibre10"/>It looks like the <code class="calibre20">paintNeeded</code> function had no idea the argument passed to it was invalid. It went right ahead and used that invalid argument in its calculations, and returned an invalid result. This is a problem—even if you knew a store where you could purchase a negative number of liters of paint, would you really want to apply that to your house? We need a way of detecting invalid arguments and reporting an error.</p>
+<p class="calibre7">In <a data-type="xref" href="ch02.html#which_code_runs_nextquestcolon_condition" class="calibre10">Chapter 2</a>, we saw a couple different functions that, in addition to their main return value, also return a second value indicating whether there was an error. The <code class="calibre20">strconv.Atoi</code> function, for example, attempted to convert a string to an integer. If the conversion was successful, it returned an error value of <code class="calibre20">nil</code>, meaning our program could proceed. But if the error value <em class="calibre9">wasn’t</em> <code class="calibre20">nil</code>, it meant the string couldn’t be converted to a number. In that event, we chose to print the error value and exit the program.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0095-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">If we want to do the same when calling the <code class="calibre20">paintNeeded</code> function, we’re going to need two things:</p>
+<ul class="list_style_type_none">
+<li class="calibre18"><p class="calibre7">The ability to create a value representing an error</p></li>
+<li class="calibre18"><p class="calibre7">The ability to return an additional value from <code class="calibre20">paintNeeded</code></p></li>
+</ul>
+<p class="calibre7">Let’s get started figuring this out!</p>
+</div></section>
+<section data-pdf-bookmark="Error values" data-type="sect1" class="preface"><div class="preface" id="error_values">
+<h1 class="calibre25">Error values</h1>
+<p class="calibre7"><a data-primary="Errorf function (fmt)" data-type="indexterm" id="idm46062714021576" class="calibre10"/><a data-primary="Error method" data-type="indexterm" id="idm46062714020840" class="calibre10"/><a data-primary="errors package" data-type="indexterm" id="idm46062714020024" class="calibre10"/><a data-primary="fmt package" data-secondary="Errorf function" data-type="indexterm" id="idm46062714019144" class="calibre10"/><a data-primary="fmt package" data-secondary="error values and" data-type="indexterm" id="idm46062714017992" class="calibre10"/><a data-primary="fmt package" data-secondary="Sprintf function" data-type="indexterm" id="idm46062714016856" class="calibre10"/><a data-primary="log package" data-secondary="error handling and" data-type="indexterm" id="idm46062714015784" class="calibre10"/><a data-primary="New function (errors)" data-type="indexterm" id="idm46062714014648" class="calibre10"/><a data-primary="Printf function (fmt)" data-secondary="returning error values" data-type="indexterm" id="idm46062714013784" class="calibre10"/><a data-primary="return values" data-secondary="error values" data-type="indexterm" id="idm46062714012648" class="calibre10"/><a data-primary="Sprintf function (fmt)" data-type="indexterm" id="idm46062714011576" class="calibre10"/>Before we can return an error value from our <code class="calibre20">paintNeeded</code> function, we need an error value to return. An error value is any value with a method named <code class="calibre20">Error</code> that returns a string. The simplest way to create one is to pass a string to the <code class="calibre20">errors</code> package’s <code class="calibre20">New</code> function, which will return a new error value. If you call the <code class="calibre20">Error</code> method on that error value, you’ll get the string you passed to <code class="calibre20">errors.New</code>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0096-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">But if you’re passing the error value to a function in the <code class="calibre20">fmt</code> or <code class="calibre20">log</code> packages, you probably don’t need to call its <code class="calibre20">Error</code> method. Functions in <code class="calibre20">fmt</code> and <code class="calibre20">log</code> have been written to check whether the values passed to them have <code class="calibre20">Error</code> methods, and print the return value of <code class="calibre20">Error</code> if they do.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0096-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">If you need to format numbers or other values for use in your error message, you can use the <code class="calibre20">fmt.Errorf</code> function. It inserts values into a format string just like <code class="calibre20">fmt.Printf</code> or <code class="calibre20">fmt.Sprintf</code>, but instead of printing or returning a <code class="calibre20">string</code>, it returns an error value.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0096-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Declaring multiple return values" data-type="sect1" class="preface"><div class="preface" id="declaring_multiple_return_values">
+<h1 class="calibre25">Declaring multiple return values</h1>
+<p class="calibre7"><a data-primary="return values" data-secondary="multiple" data-type="indexterm" id="idm46062713994760" class="calibre10"/>Now we need a way to specify that our <code class="calibre20">paintNeeded</code> function will return an error value along with the amount of paint needed.</p>
+<p class="calibre7">To declare multiple return values for a function, place the return value types in a <em class="calibre9">second</em> set of parentheses in the function declaration (after the parentheses for the function parameters), separated with commas. (The parentheses around the return values are optional when there’s only one return value, but are required if there’s more than one return value.)</p>
+<p class="calibre7">From then on, when calling that function, you’ll need to account for the additional return values, usually by assigning them to additional variables.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0097-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">If it makes the purpose of the return values clearer, you can supply names for each one, similar to parameter names. The main purpose of named return values is as documentation for programmers reading the code.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0097-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Using multiple return values with our paintNeeded function" data-type="sect1" class="preface"><div class="preface" id="using_multiple_return_values_with_our_pa">
+<h1 class="calibre25">Using multiple return values with our paintNeeded function</h1>
+<p class="calibre7">As we saw on the previous page, it’s possible to return multiple values of any type. But the most common use for multiple return values is to return a primary return value, followed by an additional value indicating whether the function encountered an error. The additional value is usually set to <code class="calibre20">nil</code> if there were no problems, or an error value if an error occurred.</p>
+<p class="calibre7">We’ll follow that convention with our <code class="calibre20">paintNeeded</code> function as well. We’ll declare that it returns two values, a <code class="calibre20">float64</code> and an <code class="calibre20">error</code>. (Error values have a type of <code class="calibre20">error</code>.) The first thing we’ll do in the function block is to check whether the parameters are valid. If either the <code class="calibre20">width</code> or <code class="calibre20">height</code> parameter is less than <code class="calibre20">0</code>, we’ll return a paint amount of <code class="calibre20">0</code> (which is meaningless, but we do have to return something), and an error value that we generate by calling <code class="calibre20">fmt.Errorf</code>. Checking for errors at the start of the function allows us to easily skip the rest of the function’s code by calling <code class="calibre20">return</code> if there’s a problem.</p>
+<p class="calibre7">If there were no problems with the parameters, we proceed to calculate and return the paint amount just like before. The only other difference in the function code is that we return a second value of <code class="calibre20">nil</code> along with the paint amount, to indicate there were no errors.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0098-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">In the <code class="calibre20">main</code> function, we add a second variable to record the error value from <code class="calibre20">paintNeeded</code>. We print the error (if any), and then print the paint amount.</p>
+<p class="calibre7">If we pass an invalid argument to <code class="calibre20">paintNeeded</code>, we’ll get an error return value, and print that error. But we also get <code class="calibre20">0</code> as the amount of paint. (As we said, this value is meaningless when there’s an error, but we had to use <em class="calibre9">something</em> for the first return value.) So we wind up printing the message “0.00 liters needed”! We’ll need to fix that...</p>
+</div></section>
+<section data-pdf-bookmark="Always handle errors!" data-type="sect1" class="preface"><div class="preface" id="always_handle_errorsexcl">
+<h1 class="calibre25">Always handle errors!</h1>
+<p class="calibre7"><a data-primary="error handling" data-secondary="about" data-type="indexterm" id="idm46062713972056" class="calibre10"/><a data-primary="error handling" data-secondary="return values" data-type="indexterm" id="idm46062713968664" class="calibre10"/><a data-primary="return values" data-secondary="error handling" data-type="indexterm" id="idm46062713967576" class="calibre10"/>When we pass an invalid argument to <code class="calibre20">paintNeeded</code>, we get an error value back, which we print for the user to see. But we also get an (invalid) amount of paint, which we print as well!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0099-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">When a function returns an error value, it usually has to return a primary return value as well. But any other return values that accompany an error value should be considered unreliable, and ignored.</p>
+<p class="calibre7">When you call a function that returns an error value, it’s important to test whether that value is <code class="calibre20">nil</code> before proceeding. If it’s anything other than <code class="calibre20">nil</code>, it means there’s an error that must be handled.</p>
+<p class="calibre7"><em class="calibre9">How</em> the error should be handled depends on the situation. In the case of our <code class="calibre20">paintNeeded</code> function, it might be best to simply skip the current calculation and proceed with the rest of the program:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0099-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">But since this is such a short program, you could instead call <code class="calibre20">log.Fatal</code> to display the error message and exit the program.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0099-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">The important thing to remember is that you should always check the return values to see whether there <em class="calibre9">is</em> an error. What you do with the error at that point is up to you!</p>
+</div></section>
+<section data-pdf-bookmark="Breaking Stuff is Educational!" data-type="sect1" class="preface"><div class="preface" id="breaking_stuff_is_educational_5">
+<h1 class="calibre25">Breaking Stuff is Educational!</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0100-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><a data-primary="calling functions" data-secondary="parameters and" data-type="indexterm" id="idm46062713951352" class="calibre10"/><a data-primary="return values" data-secondary="compile errors" data-type="indexterm" id="idm46062713949864" class="calibre10"/>Here’s a program that calculates the square root of a number. But if a negative number is passed to the <code class="calibre20">squareRoot</code> function, it will return an error value. Make one of the changes below and try to compile it. Then undo your change and try the next one. See what happens!</p>
+<pre data-type="programlisting" class="calibre32">package main
+
+import (
+       "fmt"
+       "math"
+)
+func squareRoot(number float64) (float64, error) {
+       if number &lt; 0 {
+              return 0, fmt.Errorf("can't get square root of negative number")
+       }
+       return math.Sqrt(number), nil
+}
+
+func main() {
+       root, err := squareRoot(-9.3)
+       if err != nil {
+              fmt.Println(err)
+       } else {
+              fmt.Printf("%0.3f", root)
+       }
+}</pre>
+<table class="calibre11">
+<thead class="calibre33">
+<tr class="calibre13">
+<th class="calibre34">If you do this...</th>
+<th class="calibre34">...it will break because...</th>
+</tr>
+</thead>
+<tbody class="calibre12">
+<tr class="calibre13">
+<td class="calibre14">Remove one of the arguments to <code class="calibre36">return</code>:<br class="calibre16"/><code class="calibre36">return math.Sqrt(number)<s class="calibre35">, nil</s></code></td>
+<td class="calibre14">The number of arguments to <code class="calibre36">return</code> must always match the number of return values in the function declaration.</td>
+</tr>
+<tr class="calibre15">
+<td class="calibre14">Remove one of the variables the return values are assigned to:<br class="calibre16"/><code class="calibre36">root<s class="calibre35">, err</s> := squareRoot(-9.3)</code></td>
+<td class="calibre14">If you use any of the return values from a function, Go requires you to use all of them.</td>
+</tr>
+<tr class="calibre13">
+<td class="calibre14">Remove the code that uses one of the return values:<br class="calibre16"/><code class="calibre36">root, err := squareRoot(-9.3)<br class="calibre16"/><s class="calibre35">if err != nil {</s><br class="calibre16"/><s class="calibre35">       fmt.Println(err)</s><br class="calibre16"/><s class="calibre35">} else {</s><br class="calibre16"/>       fmt.Printf("%0.3f", root)<br class="calibre16"/><s class="calibre35">}</s></code></td>
+<td class="calibre14">Go requires that you use every variable you declare. This is actually a really useful feature when it comes to error return values, because it helps keep you from accidentally ignoring an error.</td>
+</tr>
+</tbody>
+</table>
+</div></section>
+<section data-pdf-bookmark="Pool Puzzle" data-type="sect1" class="preface"><div class="preface" id="pool_puzzle_2">
+<h1 class="calibre25">Pool Puzzle</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0101-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Your <strong class="calibre8">job</strong> is to take code snippets from the pool and place them into the blank lines in the code. <strong class="calibre8">Don’t</strong> use the same snippet more than once, and you won’t need to use all the snippets. Your <strong class="calibre8">goal</strong> is to make code that will run and produce the output shown.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0101-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0101-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><strong class="calibre8">Note: each snippet from the pool can only be used once!</strong></p>
+<p class="calibre7"><span class="calibre"><img alt="image" src="assets/arrow.png" class="calibre4"/></span> Answers in <a data-type="xref" href="#pool_puzzle_solution_2" class="calibre10">“Pool Puzzle Solution”</a>.</p>
+</div></section>
+<section data-pdf-bookmark="Function parameters receive copies of the arguments" data-type="sect1" class="preface"><div class="preface" id="function_parameters_receive_copies_of_th">
+<h1 class="calibre25">Function parameters receive copies of the arguments</h1>
+<p class="calibre7"><a data-primary="+= assignment operator" data-type="indexterm" id="idm46062713920632" class="calibre10"/><a data-primary="*= assignment operator" data-type="indexterm" id="idm46062713919560" class="calibre10"/><a data-primary="assignment operators" data-type="indexterm" id="idm46062713918760" class="calibre10"/><a data-primary="functions" data-secondary="parameters in" data-type="indexterm" id="idm46062713917960" class="calibre10"/><a data-primary="operators" data-secondary="assignment" data-type="indexterm" id="idm46062713916808" class="calibre10"/><a data-primary="parameters" data-secondary="functions and" data-type="indexterm" id="idm46062713915688" class="calibre10"/><a data-primary="pass-by-value languages" data-type="indexterm" id="idm46062713914616" class="calibre10"/>As we mentioned, when you call a function that has parameters declared, you need to provide arguments to the call. The value in each argument is <em class="calibre9">copied</em> to the corresponding parameter variable. (Programming languages that do this are sometimes called “pass-by-value.”)</p>
+<blockquote class="calibre37 pcalibre1 pcalibre2">
+<p class="calibre38"><strong class="calibre8">Go is a “pass-by-value” language; function parameters receive a <span class="calibre21">copy</span> of the arguments from the function call.</strong></p>
+</blockquote>
+<p class="calibre7">This is fine in most cases. But if you want to pass a variable’s value to a function and have it <em class="calibre9">change</em> the value in some way, you’ll run into trouble. The function can only change the <em class="calibre9">copy</em> of the value in its parameter, not the original. So any changes you make within the function won’t be visible outside it!</p>
+<p class="calibre7">Here’s an updated version of the <code class="calibre20">double</code> function we showed earlier. It takes a number, multiplies it by 2, and prints the result. (It uses the <code class="calibre20">*=</code> operator, which works just like <code class="calibre20">+=</code> , but it multiplies the value the variable holds instead of adding to it.)</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0102-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Suppose we wanted to move the statement that prints the doubled value from the <code class="calibre20">double</code> function back to the function that calls it, though. It won’t work, because <code class="calibre20">double</code> only alters its <em class="calibre9">copy</em> of the value. Back in the calling function, when we try to print, we’ll get the original value, not the doubled one!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0102-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">We need a way to allow a function to alter the original value a variable holds, rather than a copy. To learn how to do that, we’ll need to make one more detour away from functions, to learn about <em class="calibre9">pointers</em>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/common3.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Pointers" data-type="sect1" class="preface"><div class="preface" id="pointers">
+<h1 class="calibre25">Pointers</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/common3.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><a data-primary="&amp; address-of operator" data-type="indexterm" id="idm46062713895160" class="calibre10"/><a data-primary="address-of operator (&amp;)" data-type="indexterm" id="idm46062713894104" class="calibre10"/><a data-primary="ampersand (&amp;)" data-type="indexterm" id="idm46062713893368" class="calibre10"/><a data-primary="operators" data-secondary="address of" data-type="indexterm" id="idm46062713892504" class="calibre10"/><a data-primary="pointers and pointer types" data-secondary="about" data-type="indexterm" id="idm46062713891400" class="calibre10"/><a data-primary="variables" data-secondary="pointers and" data-type="indexterm" id="idm46062713890328" class="calibre10"/>You can get the <em class="calibre9">address</em> of a variable using <code class="calibre20">&amp;</code> (an ampersand), which is Go’s “address of” operator. For example, this code initializes a variable, prints its value, and then prints the variable’s address...</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0103-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">We can get addresses for variables of any type. Notice that the address differs for each variable.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0103-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">And what are these “addresses,” exactly? Well, if you want to find a particular house in a crowded city, you use its address...</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0103-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Just like a city, the memory your computer sets aside for your program is a crowded place. It’s full of variable values: booleans, integers, strings, and more. Just like the address of a house, if you have the address of a variable, you can use it to find the value that variable contains.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0103-04.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Values that represent the address of a variable are known as <strong class="calibre8">pointers</strong>, because they <em class="calibre9">point</em> to the location where the variable can be found.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0103-05.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Pointer types" data-type="sect1" class="preface"><div class="preface" id="pointer_types">
+<h1 class="calibre25">Pointer types</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/common3.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><a data-primary="asterisk (*)" data-secondary="as pointer type prefix" data-type="indexterm" id="idm46062713871672" class="calibre10"/><a data-primary="pointers and pointer types" data-secondary="getting/changing values at pointers" data-type="indexterm" id="idm46062713870392" class="calibre10"/><a data-primary="reflect package" data-type="indexterm" id="idm46062713869384" class="calibre10"/><a data-primary="TypeOf function (reflect)" data-type="indexterm" id="idm46062713868504" class="calibre10"/><a data-primary="types" data-secondary="pointer" data-type="indexterm" id="idm46062713867672" class="calibre10"/>The type of a pointer is written with a <code class="calibre20">*</code> symbol, followed by the type of the variable the pointer points to. The type of a pointer to an <code class="calibre20">int</code> variable, for example, would be written <code class="calibre20">*int</code> (you can read that aloud as “pointer to <code class="calibre20">int</code>”).</p>
+<p class="calibre7">We can use the <code class="calibre20">reflect.TypeOf</code> function to show us the types of our pointers from the previous program:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0104-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">We can declare variables that hold pointers. A pointer variable can only hold pointers to one type of value, so a variable might only hold <code class="calibre20">*int</code> pointers, only <code class="calibre20">*float64</code> pointers, and so on.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0104-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">As with other types, if you’ll be assigning a value to the pointer variable right away, you can use a short variable declaration instead:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0104-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Getting or changing the value at a pointer" data-type="sect1" class="preface"><div class="preface" id="getting_or_changing_the_value_at_a_point">
+<h1 class="calibre25">Getting or changing the value at a pointer</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/common3.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">You can get the value of the variable a pointer refers to by typing the <code class="calibre20">*</code> operator right before the pointer in your code. To get the value at <code class="calibre20">myIntPointer</code>, for example, you’d type <code class="calibre20">*myIntPointer</code>. (There’s no official consensus on how to read <code class="calibre20">*</code> aloud, but we like to pronounce it as “value at,” so <code class="calibre20">*myIntPointer</code> is “value at <code class="calibre20">myIntPointer</code>.”)</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0105-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">The <code class="calibre20">*</code> operator can also be used to update the value at a pointer:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0105-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">In the code above, <code class="calibre20">*myIntPointer = 8</code> accesses the variable at <code class="calibre20">myIntPointer</code> (that is, the <code class="calibre20">myInt</code> variable) and assigns a new value to it. So not only is the value of <code class="calibre20">*myIntPointer</code> updated, but <code class="calibre20">myInt</code> is as well.</p>
+</div></section>
+<section data-pdf-bookmark="Code Magnets" data-type="sect1" class="preface"><div class="preface" id="code_magnets_3">
+<h1 class="calibre25">Code Magnets</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0106-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">A Go program that uses a pointer variable is scrambled up on the fridge. Can you reconstruct the code snippets to make a working program that will produce the given output?</p>
+<p class="calibre7">The program should declare <code class="calibre20">myInt</code> as an integer variable, and <code class="calibre20">myIntPointer</code> as a variable that holds an integer pointer. Then it should assign a value to <code class="calibre20">myInt</code>, and assign a pointer to <code class="calibre20">myInt</code> as the value of <code class="calibre20">myIntPointer</code>. Finally, it should print the value at <code class="calibre20">myIntPointer</code>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0106-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><span class="calibre"><img alt="image" src="assets/arrow.png" class="calibre4"/></span> Answers in <a data-type="xref" href="#code_magnets_solution_3" class="calibre10">“Code Magnets Solution”</a>.</p>
+</div></section>
+<section data-pdf-bookmark="Using pointers with functions" data-type="sect1" class="preface"><div class="preface" id="using_pointers_with_functions">
+<h1 class="calibre25">Using pointers with functions</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/common3.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><a data-primary="arguments to functions" data-secondary="passing pointers" data-type="indexterm" id="idm46062713826504" class="calibre10"/><a data-primary="functions" data-secondary="pointers and" data-type="indexterm" id="idm46062713825112" class="calibre10"/><a data-primary="pointers and pointer types" data-secondary="functions and" data-type="indexterm" id="idm46062713823928" class="calibre10"/><a data-primary="types" data-secondary="pointer" data-type="indexterm" id="idm46062713822808" class="calibre10"/><a data-primary="variables" data-secondary="pointers and" data-type="indexterm" id="idm46062713821736" class="calibre10"/>It’s possible to return pointers from functions; just declare that the function’s return type is a pointer type.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0107-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">(By the way, unlike in some other languages in Go, it’s okay to return a pointer to a variable that’s local to a function. Even though that variable is no longer in scope, as long as you still have the pointer, Go will ensure you can still access the value.)</p>
+<p class="calibre7">You can also pass pointers to functions as arguments. Just specify that the type of one or more parameters should be a pointer.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0107-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Make sure you only use pointers as arguments, if that’s what the function declares it will take. If you try to pass a value directly to a function that’s expecting a pointer, you’ll get a compile error.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0107-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Now you know the basics of using pointers in Go. We’re ready to end our detour, and fix our <code class="calibre20">double</code> function!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/common4.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Fixing our “double” function using pointers" data-type="sect1" class="preface"><div class="preface" id="fixing_our_ldquodoublerdquor_function_us">
+<h1 class="calibre25">Fixing our “double” function using pointers</h1>
+<p class="calibre7">We have a <code class="calibre20">double</code> function that takes an <code class="calibre20">int</code> value and multiplies it by 2. We want to be able to pass a value in and have that value doubled. But, as we learned, Go is a pass-by-value language, meaning that function parameters receive a <em class="calibre9">copy</em> of any arguments from the caller. Our function is doubling its copy of the value and leaving the original untouched!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0108-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Here’s where our detour to learn about pointers is going to be useful. If we pass a pointer to the function and then alter the value at that pointer, the changes will still be effective outside the function!</p>
+<p class="calibre7">We only need to make a few small changes to get this working. In the <code class="calibre20">double</code> function, we need to update the type of the <code class="calibre20">number</code> parameter to take a <code class="calibre20">*int</code> rather than an <code class="calibre20">int</code>. Then we’ll need to change the function code to update the value at the <code class="calibre20">number</code> pointer, rather than updating a variable directly. Finally, in the <code class="calibre20">main</code> function, we just need to update our call to <code class="calibre20">double</code> to pass a pointer rather than a direct value.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0108-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">When we run this updated code, a pointer to the <code class="calibre20">amount</code> variable will be passed to the <code class="calibre20">double</code> function. The <code class="calibre20">double</code> function will take the value at that pointer and double it, thereby changing the value in the <code class="calibre20">amount</code> variable. When we return to the <code class="calibre20">main</code> function and print the <code class="calibre20">amount</code> variable, we’ll see our doubled value!</p>
+<p class="calibre7">You’ve learned a lot about writing your own functions in this chapter. The benefits of some of these features may not be clear right now. Don’t worry—as our programs get more complex in later chapters, we’ll be making good use of everything you’ve learned!</p>
+<aside data-type="sidebar" epub:type="sidebar" class="calibre30"><div class="sidebar" id="exercise_7">
+<h5 class="calibre31"><span class="calibre"><img alt="image" src="assets/common.png" class="calibre4"/></span> Exercise</h5>
+<p class="calibre7">We’ve written the <code class="calibre20">negate</code> function below, which is <em class="calibre9">supposed</em> to update the value of the <code class="calibre20">truth</code> variable to its opposite (<code class="calibre20">false</code>), and update the value of the <code class="calibre20">lies</code> variable to its opposite (<code class="calibre20">true</code>). But when we call <code class="calibre20">negate</code> on the <code class="calibre20">truth</code> and <code class="calibre20">lies</code> variables and then print their values, we see that they’re unchanged!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0109-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Fill in the blanks below so that <code class="calibre20">negate</code> takes a pointer to a Boolean value instead of taking a Boolean value directly, then updates the value at that pointer to the opposite value. Be sure to change the calls to <code class="calibre20">negate</code> to pass a pointer instead of passing the value directly!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0109-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><span class="calibre"><img alt="image" src="assets/arrow.png" class="calibre4"/></span> Answers in <a data-type="xref" href="#exercise_solution_7" class="calibre10">“<span class="calibre"><img alt="image" src="assets/common1.png" class="calibre4"/></span> Exercise Solution”</a>.</p>
+</div></aside>
+</div></section>
+<section data-pdf-bookmark="Your Go Toolbox" data-type="sect1" class="preface"><div class="preface" id="your_go_toolbox_3">
+<h1 class="calibre25">Your Go Toolbox</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0110-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><strong class="calibre8">That’s it for <a data-type="xref" href="#call_mecolon_functions" class="calibre10">Chapter 3</a>! You’ve added function declarations and pointers to your toolbox.</strong></p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0110-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<aside data-type="sidebar" epub:type="sidebar" class="calibre30"><div class="sidebar" id="bullet_point_3">
+<h5 class="calibre31">Bullet Points</h5>
+<ul class="list_style_type_none">
+<li class="calibre18"><p class="calibre7">The <code class="calibre20">fmt.Printf</code> and <code class="calibre20">fmt.Sprintf</code> functions format values they’re given. The first argument should be a formatting string containing <strong class="calibre8">verbs</strong> (<code class="calibre20">%d</code>, <code class="calibre20">%f</code>, <code class="calibre20">%s</code>, etc.) that values will be substituted for.</p></li>
+<li class="calibre18"><p class="calibre7">Within a formatting verb, you can include a <strong class="calibre8">width</strong>: a minimum number of characters the formatted value will take up. For example, <code class="calibre20">%12s</code> results in a 12-character string (padded with spaces), <code class="calibre20">%2d</code> results in a 2-character integer, and <code class="calibre20">%.3f</code> results in a floating-point number rounded to 3 decimal places.</p></li>
+<li class="calibre18"><p class="calibre7">If you want calls to your function to accept arguments, you must declare one or more <strong class="calibre8">parameters</strong>, including types for each, in the function declaration. The number and type of arguments must always match the number and type of parameters, or you’ll get a compile error.</p></li>
+<li class="calibre18"><p class="calibre7">If you want your function to return one or more values, you must declare the return value types in the function declaration.</p></li>
+<li class="calibre18"><p class="calibre7">You can’t access a variable declared within a function outside that function. But you can access a variable declared outside a function (usually at the package level) within that function.</p></li>
+<li class="calibre18"><p class="calibre7">When a function returns multiple values, the last value usually has a type of <code class="calibre20">error</code>. Error values have an <code class="calibre20">Error()</code> method that returns a string describing the error.</p></li>
+<li class="calibre18"><p class="calibre7">By convention, functions return an error value of <code class="calibre20">nil</code> to indicate there are no errors.</p></li>
+<li class="calibre18"><p class="calibre7">You can access the value a pointer holds by putting a <code class="calibre20">*</code> right before it: <code class="calibre20">*myPointer</code></p></li>
+<li class="calibre18"><p class="calibre7">If a function receives a pointer as a parameter, and it updates the value at that pointer, then the updated value will still be visible outside the function.</p></li>
+</ul>
+</div></aside>
+<aside data-type="sidebar" epub:type="sidebar" class="calibre30"><div class="sidebar" id="exercise_solution_6">
+<h5 class="calibre31"><span class="calibre"><img alt="image" src="assets/common1.png" class="calibre4"/></span> Exercise Solution</h5>
+<p class="calibre7">Below is a program that declares several functions, then calls those functions within <code class="calibre20">main</code>. Write down what the program output would be.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0111-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></aside>
+</div></section>
+<section data-pdf-bookmark="Pool Puzzle Solution" data-type="sect1" class="preface"><div class="preface" id="pool_puzzle_solution_2">
+<h1 class="calibre25">Pool Puzzle Solution</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0112-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Code Magnets Solution" data-type="sect1" class="preface"><div class="preface" id="code_magnets_solution_3">
+<h1 class="calibre25">Code Magnets Solution</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0112-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<aside data-type="sidebar" epub:type="sidebar" class="calibre30"><div class="sidebar" id="exercise_solution_7">
+<h5 class="calibre31"><span class="calibre"><img alt="image" src="assets/common1.png" class="calibre4"/></span> Exercise Solution</h5>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0112-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></aside>
+</div></section>
+</div></section></body></html>

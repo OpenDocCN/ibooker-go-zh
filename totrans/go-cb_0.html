@@ -1,0 +1,493 @@
+<html><head></head><body>
+<div id="sbo-rt-content"><section data-pdf-bookmark="Chapter 1. Error Handling Recipes" data-type="chapter" epub:type="chapter"><div class="chapter" id="unique_chapter_error">
+<h1><span class="label">Chapter 1. </span>Error Handling Recipes</h1>
+<aside data-type="sidebar" epub:type="sidebar"><div class="sidebar" id="idm45195532639552">
+<h5>A Note for Early Release Readers</h5>
+<p>With Early Release ebooks, you get books in their earliest form—the author’s raw and unedited content as they write—so you can take advantage of these technologies long before the official release of these titles.</p>
+<p>This will be the 3rd chapter of the final book.</p>
+<p>If you have comments about how we might improve the content and/or examples in this book, or if you notice missing material within this chapter, please reach out to the editor at <a href="mailto:sevans@oreilly.com">sevans@oreilly.com</a>.</p>
+</div></aside>
+<section data-pdf-bookmark="1.0 Introduction" data-type="sect1"><div class="sect1" id="idm45195532686576">
+<h1>1.0 Introduction</h1>
+<p>Alexander Pope wrote in his <em>An Essay on Criticism</em> — “to err is human”. And since software is written by humans (for now), software errs as well. And just like human errors, it’s all about how gracefully we can recover from those errors. That’s what error handling is all about — how do we recover when our program gets into a situation we did not expect or cater for in its normal flow.</p>
+<p>As programmers we often treat error handling as tedious work and an after-thought. That’s generally an error by itself. In fact, just like how we should treat testing, error handling should be top of mind and recovering from the error should be part of good software design. In Go, error handling is treated pretty seriously, though a bit unconventionally. Go has the <code>errors</code> package in the standard library that provides many functions to manipulate errors but most of error handling in Go is built into the language or is part of the idiomatic way of programming in Go. In this chapter we’ll talk about some of the basic ideas in error handling in Go.</p>
+<section data-pdf-bookmark="Errors are not exceptions" data-type="sect2"><div class="sect2" id="idm45195532683168">
+<h2>Errors are not exceptions</h2>
+<p>In many programming languages like Python and Java, error handling is done through exceptions. An exception is an object that represents an error and whenever something goes wrong, you can throw an exception. The calling function usually have a <code>try</code> and <code>catch</code> (or <code>try</code> and <code>except</code> in Python and so on) that handles anything that goes wrong.</p>
+<p>Go does this slightly differently (or completely differently, depending on how you look at it). Go doesn’t have exception handling. Instead of exceptions, it has errors. An <code>error</code> is a built-in type that represents an unexpected condition. Instead of throwing an exception you will create an error and returning it to the calling function. You might think, isn’t this like saying the <em>Odyssey</em> wasn’t written by Homer but by another Greek named Homer who also lived 2,800 years ago?</p>
+<p>Well, not exactly. Exceptions are not returned by the function at all, in fact you don’t know if any exceptions will be returned at all or what kind of exceptions (well sometimes you do but it’s a different story). You have to round it up using <code>try</code> and <code>catch</code>. It is only thrown when there is a problem (that’s why it’s called an exception), and you can wrap around a number of statements with the same <code>try</code> and <code>catch</code>. On the other hand, errors are deliberately returned by the function to be inspected by the calling function and dealt with individually.</p>
+<p>As a result, those who are more familiar with exceptions find error handling in Go particularly tedious. Rather using a wide net to catch exception in a series of statements, you have to inspect the returning errors every time and deal with it separately. Of course, you can also choose to ignore the errors altogether, though that idiomatically, you’re expected to take errors seriously and deal with it each time you get one. The only exception to this is probably when you don’t care about the returning results at all.</p>
+</div></section>
+</div></section>
+<section data-pdf-bookmark="1.1 Handling errors" data-type="sect1"><div class="sect1" id="idm45195532688400">
+<h1>1.1 Handling errors</h1>
+<section data-pdf-bookmark="Problem" data-type="sect2"><div class="sect2" id="idm45195532615168">
+<h2>Problem</h2>
+<p>You want to handle an unexpected condition in your code.</p>
+</div></section>
+<section data-pdf-bookmark="Solution" data-type="sect2"><div class="sect2" id="idm45195532613552">
+<h2>Solution</h2>
+<p>If you’re writing a function, return an <code>error</code> along with the return value (if any). If you’re calling a function, inspect the error returned, if it is not nil, handle the error accordingly.</p>
+</div></section>
+<section data-pdf-bookmark="Discussion" data-type="sect2"><div class="sect2" id="idm45195532576848">
+<h2>Discussion</h2>
+<p>The two ways you’ll be dealing with errors are if you are writing a function or if you’re calling a function.</p>
+<section data-pdf-bookmark="Writing a function" data-type="sect3"><div class="sect3" id="idm45195532575024">
+<h3>Writing a function</h3>
+<p>Go represents errors with the <code>error</code> built-in error type, which is actually an interface. The rule of thumb when writing functions is that if there is any way the function will fail, you need to return an error, along with whatever return value your function returns. This is possible because Go allows multiple return values. By convention, error is the last return value, for example this function below that allows you to guess a number.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">func</code><code class="w"> </code><code class="nx">guess</code><code class="p">(</code><code class="nx">number</code><code class="w"> </code><code class="kt">uint</code><code class="p">)</code><code class="w"> </code><code class="p">(</code><code class="nx">answer</code><code class="w"> </code><code class="kt">bool</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="kt">error</code><code class="p">)</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">    </code><code class="k">if</code><code class="w"> </code><code class="nx">number</code><code class="w"> </code><code class="p">&gt;</code><code class="w"> </code><code class="mi">99</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">        </code><code class="nx">err</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="nx">errors</code><code class="p">.</code><code class="nx">New</code><code class="p">(</code><code class="s">"Number is larger than 100"</code><code class="p">)</code><code class="w"/>
+<code class="w">    </code><code class="p">}</code><code class="w"/>
+<code class="w">    </code><code class="c1">// check if guess is correct</code><code class="w"/>
+<code class="w">    </code><code class="k">return</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>The input to the function should be less than 100, and the function should return you a true or false indicating if the guess is correct or not. Obviously if the input number is greater than 100 you want to flag out an error, which is what we do here by creating a new error using the <code>errors.New</code> function.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">err</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="nx">errors</code><code class="p">.</code><code class="nx">New</code><code class="p">(</code><code class="s">"Number is larger than 100"</code><code class="p">)</code><code class="w"/></pre>
+<p>This is not the only way to create a new error though, another popular way of creating a new error is in the popular <code>fmt</code> package using the <code>Errorf</code> function.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">err</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Errorf</code><code class="p">(</code><code class="s">"Number is larger than 100"</code><code class="p">)</code><code class="w"/></pre>
+<p>The big difference between the two in this example is trivial, but <code>fmt.Errorf</code> allows you to format the string, like the <code>Printf</code>, <code>Sprintf</code> <code>Sscanf</code> and so on functions in the <code>fmt</code> package. There’s a bit more to this in <code>fmt.Errorf</code> though, because it can actually allow you to wrap an error around another error, something we’ll discuss in recipe 3.4.</p>
+</div></section>
+<section data-pdf-bookmark="Calling a function" data-type="sect3"><div class="sect3" id="idm45195524714240">
+<h3>Calling a function</h3>
+<p>The other rule of thumb, which comes along with the philosophy of error handling in Go, is “don’t ignore errors”. The standard way to handle errors in Go is quite straightforward — you deal with it just like any other return value. The example below is taken from chapter 1, recipe 1.5.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">str</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="s">"123456789"</code><code class="w"/>
+<code class="nx">num</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">strconv</code><code class="p">.</code><code class="nx">ParseInt</code><code class="p">(</code><code class="nx">str</code><code class="p">,</code><code class="w"> </code><code class="mi">10</code><code class="p">,</code><code class="w"> </code><code class="mi">64</code><code class="p">)</code><code class="w"/>
+<code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">    </code><code class="nb">panic</code><code class="p">(</code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>The function <code>strconv.ParseInt</code> returns two values, the first is the converted integer, and the second is the error. You should inspect the error and if the error is nil, all is well and you can continue with the program flow. If it’s not nil, then you should handle it. In the example above, I called <code>panic</code> with the error, which we’ll get to later in the chapter, but you can handle it whichever way you want, including ignoring it. You can of course, also deliberately choose to ignore them like this.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">num</code><code class="p">,</code><code class="w"> </code><code class="nx">_</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">strconv</code><code class="p">.</code><code class="nx">ParseInt</code><code class="p">(</code><code class="nx">str</code><code class="p">,</code><code class="w"> </code><code class="mi">10</code><code class="p">,</code><code class="w"> </code><code class="mi">64</code><code class="p">)</code><code class="w"/></pre>
+<p>Here we’re assigning the returned error to the underscore <code>_</code> which means we’re ignoring it. In either case, it becomes clear that you are deliberately ignoring returned errors, which Go cannot stop you but a linter or your IDE or if you’re in a team, a code review can quickly surface.</p>
+</div></section>
+<section data-pdf-bookmark="Why is error handling done this way in Go?" data-type="sect3"><div class="sect3" id="idm45195524538848">
+<h3>Why is error handling done this way in Go?</h3>
+<p>You might wonder why Go does it this way, instead of how using exceptions like many other languages. Exceptions seem easier to handle because you can group statements together. Go’s way of forcing you to handle errors with each function call can be tedious to deal with.</p>
+<p>However because of this exceptions can also be easily missed unless you have a <code>try</code> and <code>catch</code>. If you’re wrapping a bunch of statements with <code>try</code> and <code>catch</code> it’s easy to miss handling specific errors and it can also be confusing if you bunch too many statements together.</p>
+<p>The other benefit of doing it this way is that the returned error is a value that you can use just like any other value in your normal flow. While you can also process exceptions, they are constructs in the <code>try</code> and <code>catch</code> loop which is not in your normal flow. This seems like a trivial point, but it’s important because this makes handling errors an integral part of writing your code instead of making it optional.</p>
+</div></section>
+</div></section>
+</div></section>
+<section data-pdf-bookmark="1.2 Simplifying repetitive error handling" data-type="sect1"><div class="sect1" id="idm45195524519408">
+<h1>1.2 Simplifying repetitive error handling</h1>
+<section data-pdf-bookmark="Problem" data-type="sect2"><div class="sect2" id="idm45195524518640">
+<h2>Problem</h2>
+<p>You want to reduce the number of lines of repetitive error handling code.</p>
+</div></section>
+<section data-pdf-bookmark="Solution" data-type="sect2"><div class="sect2" id="idm45195524517248">
+<h2>Solution</h2>
+<p>Use helper functions to reduce the number of lines of repetitive error handling code.</p>
+</div></section>
+<section data-pdf-bookmark="Discussion" data-type="sect2"><div class="sect2" id="idm45195524515856">
+<h2>Discussion</h2>
+<p>One of the most frequent complaints about Go’s error handling, especially from newcomers, is that it’s tedious to have to do repetitive checks. Let’s take for example this piece of code that opens up a JSON file to read and unmarshal to a struct.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">func</code><code class="w"> </code><code class="nx">unmarshal</code><code class="p">()</code><code class="w"> </code><code class="p">(</code><code class="nx">person</code><code class="w"> </code><code class="nx">Person</code><code class="p">)</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="nx">r</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">http</code><code class="p">.</code><code class="nx">Get</code><code class="p">(</code><code class="s">"https://swapi.dev/api/people/1"</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="c1">// handle error</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+<code class="w">	</code><code class="k">defer</code><code class="w"> </code><code class="nx">r</code><code class="p">.</code><code class="nx">Body</code><code class="p">.</code><code class="nx">Close</code><code class="p">()</code><code class="w"/>
+
+<code class="w">	</code><code class="nx">data</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">io</code><code class="p">.</code><code class="nx">ReadAll</code><code class="p">(</code><code class="nx">r</code><code class="p">.</code><code class="nx">Body</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="c1">// handle error</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+
+<code class="w">	</code><code class="nx">err</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="nx">json</code><code class="p">.</code><code class="nx">Unmarshal</code><code class="p">(</code><code class="nx">data</code><code class="p">,</code><code class="w"> </code><code class="o">&amp;</code><code class="nx">person</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="c1">// handle error</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+<code class="w">	</code><code class="k">return</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>You can see that there are 3 sets of error handling, one when we call <code>http.Get</code> to get the API response into a <code>http.Response</code>, then when we call <code>io.ReadAll</code> to get the JSON text from the <code>http.Response</code> and finally to unmarshal the JSON text into the <code>Person</code> struct. Each of these calls are potential points of failure so we need to handle errors that result from those failures.</p>
+<p>However these error handling routines are pretty similar to each other and in fact repetitive. How can we resolve this? There are a number of ways but the most straightforward is probably using helper functions.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">func</code><code class="w"> </code><code class="nx">helperUnmarshal</code><code class="p">()</code><code class="w"> </code><code class="p">(</code><code class="nx">person</code><code class="w"> </code><code class="nx">Person</code><code class="p">)</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="nx">r</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">http</code><code class="p">.</code><code class="nx">Get</code><code class="p">(</code><code class="s">"https://swapi.dev/api/people/1"</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="nx">check</code><code class="p">(</code><code class="nx">err</code><code class="p">,</code><code class="w"> </code><code class="s">"Calling SW people API"</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">defer</code><code class="w"> </code><code class="nx">r</code><code class="p">.</code><code class="nx">Body</code><code class="p">.</code><code class="nx">Close</code><code class="p">()</code><code class="w"/>
+
+<code class="w">	</code><code class="nx">data</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">io</code><code class="p">.</code><code class="nx">ReadAll</code><code class="p">(</code><code class="nx">r</code><code class="p">.</code><code class="nx">Body</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="nx">check</code><code class="p">(</code><code class="nx">err</code><code class="p">,</code><code class="w"> </code><code class="s">"Read JSON from response"</code><code class="p">)</code><code class="w"/>
+
+<code class="w">	</code><code class="nx">err</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="nx">json</code><code class="p">.</code><code class="nx">Unmarshal</code><code class="p">(</code><code class="nx">data</code><code class="p">,</code><code class="w"> </code><code class="o">&amp;</code><code class="nx">person</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="nx">check</code><code class="p">(</code><code class="nx">err</code><code class="p">,</code><code class="w"> </code><code class="s">"Unmarshalling"</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">return</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+
+<code class="kd">func</code><code class="w"> </code><code class="nx">check</code><code class="p">(</code><code class="nx">err</code><code class="w"> </code><code class="kt">error</code><code class="p">,</code><code class="w"> </code><code class="nx">msg</code><code class="w"> </code><code class="kt">string</code><code class="p">)</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Error encountered:"</code><code class="p">,</code><code class="w"> </code><code class="nx">msg</code><code class="p">)</code><code class="w"/>
+<code class="w">        </code><code class="c1">// do common error handling stuff</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>The helper function here is the <code>check</code> function that takes in an error and a string. Besides logging the string, you can also put all the common error handling stuff that you might want to do. Instead of a string you can also take in a function to be executed if an error is encountered.</p>
+<p>Of course this is only one possible type of helper function, let’s look at another one. This time we’re going to use a pattern that is found in another package in the standard library. In the <code>text/template</code> package you can find a helper function called <code>template.Must</code> that wraps around functions that returns <code>(*Template, error)</code>. If the function returns a non-nil error, then <code>Must</code> panics. We can similarly create something like this to wrap around other function calls.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">func</code><code class="w"> </code><code class="nx">must</code><code class="p">(</code><code class="nx">param</code><code class="w"> </code><code class="kd">interface</code><code class="p">{},</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="kt">error</code><code class="p">)</code><code class="w"> </code><code class="kd">interface</code><code class="p">{}</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="c1">// handle errors</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+<code class="w">	</code><code class="k">return</code><code class="w"> </code><code class="nx">param</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>Because it takes any single parameter (using <code>interface{}</code>) and returns a single value (also using <code>interface{}</code>) we can use this for any function that returns a single value along with an error. For example, we can convert our earlier <code>unmarshal</code> function to something like this.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">func</code><code class="w"> </code><code class="nx">mustUnmarshal</code><code class="p">()</code><code class="w"> </code><code class="p">(</code><code class="nx">person</code><code class="w"> </code><code class="nx">Person</code><code class="p">)</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="nx">r</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">must</code><code class="p">(</code><code class="nx">http</code><code class="p">.</code><code class="nx">Get</code><code class="p">(</code><code class="s">"https://swapi.dev/api/people/1"</code><code class="p">)).(</code><code class="o">*</code><code class="nx">http</code><code class="p">.</code><code class="nx">Response</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">defer</code><code class="w"> </code><code class="nx">r</code><code class="p">.</code><code class="nx">Body</code><code class="p">.</code><code class="nx">Close</code><code class="p">()</code><code class="w"/>
+<code class="w">	</code><code class="nx">data</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">must</code><code class="p">(</code><code class="nx">io</code><code class="p">.</code><code class="nx">ReadAll</code><code class="p">(</code><code class="nx">r</code><code class="p">.</code><code class="nx">Body</code><code class="p">)).([]</code><code class="kt">byte</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="nx">must</code><code class="p">(</code><code class="kc">nil</code><code class="p">,</code><code class="w"> </code><code class="nx">json</code><code class="p">.</code><code class="nx">Unmarshal</code><code class="p">(</code><code class="nx">data</code><code class="p">,</code><code class="w"> </code><code class="o">&amp;</code><code class="nx">person</code><code class="p">))</code><code class="w"/>
+<code class="w">	</code><code class="k">return</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>The code is more succinct but at the same time it also makes the code more unreadable so this kind of helper functions should be used sparingly.</p>
+</div></section>
+</div></section>
+<section data-pdf-bookmark="1.3 Creating customized errors" data-type="sect1"><div class="sect1" id="idm45195523944816">
+<h1>1.3 Creating customized errors</h1>
+<section data-pdf-bookmark="Problem" data-type="sect2"><div class="sect2" id="idm45195523966016">
+<h2>Problem</h2>
+<p>You want to create our own custom errors in order to communicate more information of the error encountered.</p>
+</div></section>
+<section data-pdf-bookmark="Solution" data-type="sect2"><div class="sect2" id="idm45195523964336">
+<h2>Solution</h2>
+<p>Create a new string-based error or implement the <code>error</code> interface by creating a struct that has an <code>Error</code> method that returns a string.</p>
+</div></section>
+<section data-pdf-bookmark="Discussion" data-type="sect2"><div class="sect2" id="idm45195523961920">
+<h2>Discussion</h2>
+<section data-pdf-bookmark="Using a string-based error" data-type="sect3"><div class="sect3" id="idm45195523960912">
+<h3>Using a string-based error</h3>
+<p>The simplest way to implement a customized error is to create a new string-based error. You can use either the <code>errors.New</code> function, which simply creates an error with a simple string, or using <code>fmt.Errorf</code> that allows you to use formatting.</p>
+<p>The <code>errors.New</code> function is very straightforward.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">errors</code><code class="p">.</code><code class="nx">New</code><code class="p">(</code><code class="s">"Syntax error in the code"</code><code class="p">)</code><code class="w"/></pre>
+<p>The <code>fmt.Errorf</code> function, like many of the functions in the <code>fmt</code> function, allows for formatting within the string.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Errorf</code><code class="p">(</code><code class="s">"Syntax error in the code at line %d"</code><code class="p">,</code><code class="w"> </code><code class="nx">line</code><code class="p">)</code><code class="w"/></pre>
+</div></section>
+<section data-pdf-bookmark="Implementing the error interface" data-type="sect3"><div class="sect3" id="idm45195523960544">
+<h3>Implementing the error interface</h3>
+<p>The <code>builtin</code> package contains all the definitions of the built-in types, interfaces and functions. One of the interfaces is the <code>error</code> interface.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">type</code><code class="w"> </code><code class="kt">error</code><code class="w"> </code><code class="kd">interface</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">    </code><code class="nx">Error</code><code class="p">()</code><code class="w"> </code><code class="kt">string</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>As you can see, any struct that has a method named <code>Error</code> that returns a string is an error. So if you want to define your own custom error to return an custom error message, just implement your own struct and add an <code>Error</code> method. For example let’s say you are writing a program used for communications and you want to create your own error to represent an error during communications.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">type</code><code class="w"> </code><code class="nx">CommsError</code><code class="w"> </code><code class="kd">struct</code><code class="p">{}</code><code class="w"/>
+
+<code class="kd">func</code><code class="w"> </code><code class="p">(</code><code class="nx">m</code><code class="w"> </code><code class="nx">CommsError</code><code class="p">)</code><code class="w"> </code><code class="nx">Error</code><code class="p">()</code><code class="w"> </code><code class="kt">string</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="k">return</code><code class="w"> </code><code class="s">"An error happened during data transfer"</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>Of course, you normally wouldn’t just want to override <code>Error</code> only, you can add fields and other methods to your custom error to carry more information.</p>
+<p>Let’s say you want to provide information about where in a line of code the error came from. You can create a custom error to contain the information.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">type</code><code class="w"> </code><code class="nx">SyntaxError</code><code class="w"> </code><code class="kd">struct</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="nx">Line</code><code class="w"> </code><code class="kt">int</code><code class="w"/>
+<code class="w">	</code><code class="nx">Col</code><code class="w">  </code><code class="kt">int</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+
+<code class="kd">func</code><code class="w"> </code><code class="p">(</code><code class="nx">err</code><code class="w"> </code><code class="o">*</code><code class="nx">SyntaxError</code><code class="p">)</code><code class="w"> </code><code class="nx">Error</code><code class="p">()</code><code class="w"> </code><code class="kt">string</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="k">return</code><code class="w"> </code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Sprintf</code><code class="p">(</code><code class="s">"Error at line %d, column %d"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">.</code><code class="nx">Line</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">.</code><code class="nx">Col</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>When you get such an error you can typecast it using the comma, ok idiom (because if you typecast it and it’s not that type, it will panic) and extract the additional data for your processing.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="nx">err</code><code class="p">,</code><code class="w"> </code><code class="nx">ok</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">err</code><code class="p">.(</code><code class="o">*</code><code class="nx">SyntaxError</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">if</code><code class="w"> </code><code class="nx">ok</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="c1">// do something with the error</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"> </code><code class="k">else</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="c1">// do something else</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+</div></section>
+</div></section>
+</div></section>
+<section data-pdf-bookmark="1.4 Wrapping error with other errors" data-type="sect1"><div class="sect1" id="idm45195523593632">
+<h1>1.4 Wrapping error with other errors</h1>
+<section data-pdf-bookmark="Problem" data-type="sect2"><div class="sect2" id="idm45195523630416">
+<h2>Problem</h2>
+<p>You want to provide additional information and context to an error you receive before returning it as another error.</p>
+</div></section>
+<section data-pdf-bookmark="Solution" data-type="sect2"><div class="sect2" id="idm45195523628800">
+<h2>Solution</h2>
+<p>Wrap the error you receive with another error you create before returning it.</p>
+</div></section>
+<section data-pdf-bookmark="Discussion" data-type="sect2"><div class="sect2" id="idm45195523627216">
+<h2>Discussion</h2>
+<p>Sometimes you will get and error but instead of just returning that, you want to provide additional context to it before returning the error. For example if you get a network connection error you might want to know where in the code that happened and what you were doing when that happened.</p>
+<p>Of course you can simply extract the information, create a new customized error with the additional information and return that. Alternatively, you can also wrap the error with another error and return it, passing thr error up the call stack while adding additional information and context to it.</p>
+<p>There are a couple of ways of wrapping errors. The easiest is simply to use <code>fmt.Errorf</code> again, and provide an error as part of the parameter.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">err1</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">errors</code><code class="p">.</code><code class="nx">New</code><code class="p">(</code><code class="s">"Oops something happened."</code><code class="p">)</code><code class="w"/>
+<code class="nx">err2</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Errorf</code><code class="p">(</code><code class="s">"An error was encountered - %w"</code><code class="p">,</code><code class="w"> </code><code class="nx">err1</code><code class="p">)</code><code class="w"/></pre>
+<p>The <code>%w</code> verb allows us to place an error within the format string. In the example above, <code>err2</code> wraps <code>err1</code>. But how do we extract <code>err1</code> out of <code>err2</code>? The <code>errors</code> package has a function <code>Unwrap</code> that does exactly this.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">errors</code><code class="p">.</code><code class="nx">Unwrap</code><code class="p">(</code><code class="nx">err2</code><code class="p">)</code><code class="w"/></pre>
+<p>This will give us back <code>err1</code>.</p>
+<p>Another way of wrapping an error with another one is to create a customized error struct like this.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">type</code><code class="w"> </code><code class="nx">ConnectionError</code><code class="w"> </code><code class="kd">struct</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="nx">Host</code><code class="w"> </code><code class="kt">string</code><code class="w"/>
+<code class="w">	</code><code class="nx">Port</code><code class="w"> </code><code class="kt">int</code><code class="w"/>
+<code class="w">	</code><code class="nx">Err</code><code class="w">  </code><code class="kt">error</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+
+<code class="kd">func</code><code class="w"> </code><code class="p">(</code><code class="nx">err</code><code class="w"> </code><code class="o">*</code><code class="nx">ConnectionError</code><code class="p">)</code><code class="w"> </code><code class="nx">Error</code><code class="p">()</code><code class="w"> </code><code class="kt">string</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="k">return</code><code class="w"> </code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Sprintf</code><code class="p">(</code><code class="s">"Error connecting to %s at port %d"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">.</code><code class="nx">Host</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">.</code><code class="nx">Port</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>Remember, to make it an error, the struct should have an <code>Error</code> method. To allow struct to be unwrapped, we need to implement an <code>Unwrap</code> function for it.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">func</code><code class="w"> </code><code class="p">(</code><code class="nx">err</code><code class="w"> </code><code class="o">*</code><code class="nx">ConnectionError</code><code class="p">)</code><code class="w"> </code><code class="nx">Unwrap</code><code class="p">()</code><code class="w"> </code><code class="kt">error</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="k">return</code><code class="w"> </code><code class="nx">err</code><code class="p">.</code><code class="nx">Err</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+</div></section>
+</div></section>
+<section data-pdf-bookmark="1.5 Inspecting errors" data-type="sect1"><div class="sect1" id="idm45195523626720">
+<h1>1.5 Inspecting errors</h1>
+<section data-pdf-bookmark="Problem" data-type="sect2"><div class="sect2" id="idm45195523356592">
+<h2>Problem</h2>
+<p>You want to check for specific errors or specific types of errors.</p>
+</div></section>
+<section data-pdf-bookmark="Solution" data-type="sect2"><div class="sect2" id="idm45195523383552">
+<h2>Solution</h2>
+<p>Use the <code>errors.Is</code> and <code>errors.As</code> functions. The <code>errors.Is</code> function compares an error to a value and the <code>errors.As</code> function checks if an error is of a specific type.</p>
+</div></section>
+<section data-pdf-bookmark="Discussion" data-type="sect2"><div class="sect2" id="idm45195523380208">
+<h2>Discussion</h2>
+<section data-pdf-bookmark="Using errors.Is" data-type="sect3"><div class="sect3" id="idm45195523379200">
+<h3>Using <code>errors.Is</code></h3>
+<p>The <code>errors.Is</code> function is essentially an equality check. Let’s say in your codebase you define a set of customized errors, for example <code>ApiErr</code> which happens when a connection to an API encounters an error.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">var</code><code class="w"> </code><code class="nx">ApiErr</code><code class="w"> </code><code class="kt">error</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="nx">errors</code><code class="p">.</code><code class="nx">New</code><code class="p">(</code><code class="s">"Error trying to get data from API"</code><code class="p">)</code><code class="w"/></pre>
+<p>Elsewhere in your code, you have a function that returns this error.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">func</code><code class="w"> </code><code class="nx">connectAPI</code><code class="p">()</code><code class="w"> </code><code class="kt">error</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="c1">// some other stuff happening here</code><code class="w"/>
+<code class="w">	</code><code class="k">return</code><code class="w"> </code><code class="nx">ApiErr</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>You can use <code>errors.Is</code> to check if the error returned is really <code>ApiErr</code>.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">connectAPI</code><code class="p">()</code><code class="w"/>
+<code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="k">if</code><code class="w"> </code><code class="nx">errors</code><code class="p">.</code><code class="nx">Is</code><code class="p">(</code><code class="nx">err</code><code class="p">,</code><code class="w"> </code><code class="nx">ApiErr</code><code class="p">)</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="c1">// handle the API error</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>You can also verify if <code>ApiErr</code> is somewhere along the chain of wrapped errors. Let’s take the example of a <code>connect</code> function that returns a <code>ConnectionError</code> that wraps around <code>ApiErr</code>.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">func</code><code class="w"> </code><code class="nx">connect</code><code class="p">()</code><code class="w"> </code><code class="kt">error</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="k">return</code><code class="w"> </code><code class="o">&amp;</code><code class="nx">ConnectionError</code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="nx">Host</code><code class="p">:</code><code class="w"> </code><code class="s">"localhost"</code><code class="p">,</code><code class="w"/>
+<code class="w">		</code><code class="nx">Port</code><code class="p">:</code><code class="w"> </code><code class="mi">8080</code><code class="p">,</code><code class="w"/>
+<code class="w">		</code><code class="nx">Err</code><code class="p">:</code><code class="w">  </code><code class="nx">ApiErr</code><code class="p">,</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>This code still works because <code>ConnectionError</code> wraps around <code>ApiErr</code>.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">connect</code><code class="p">()</code><code class="w"/>
+<code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="k">if</code><code class="w"> </code><code class="nx">errors</code><code class="p">.</code><code class="nx">Is</code><code class="p">(</code><code class="nx">err</code><code class="p">,</code><code class="w"> </code><code class="nx">ApiErr</code><code class="p">)</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="c1">// handle the API error</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+</div></section>
+<section data-pdf-bookmark="Using errors.As" data-type="sect3"><div class="sect3" id="idm45195523378544">
+<h3>Using <code>errors.As</code></h3>
+<p>The <code>errors.As</code> function allows us to check for a specific type of error. Let’s continue with the example above but this time round we want to check if the error is of the type <code>ConnectionError</code>.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">connect</code><code class="p">()</code><code class="w"/>
+<code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="kd">var</code><code class="w"> </code><code class="nx">connErr</code><code class="w"> </code><code class="o">*</code><code class="nx">ConnectionError</code><code class="w"/>
+<code class="w">	</code><code class="k">if</code><code class="w"> </code><code class="nx">errors</code><code class="p">.</code><code class="nx">As</code><code class="p">(</code><code class="nx">err</code><code class="p">,</code><code class="w"> </code><code class="o">&amp;</code><code class="nx">connErr</code><code class="p">)</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="nx">log</code><code class="p">.</code><code class="nx">Errorf</code><code class="p">(</code><code class="s">"Cannot connect to host %s at port %d"</code><code class="p">,</code><code class="w"> </code><code class="nx">connErr</code><code class="p">.</code><code class="nx">Host</code><code class="p">,</code><code class="w"> </code><code class="nx">connErr</code><code class="p">.</code><code class="nx">Port</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>We can use <code>errors.As</code> to check if the returned error is really a <code>ConnectionError</code> by passing it the returned error and a variable of type <code>*ConnectionError</code>, named <code>connErr</code>. If it turns out to be so, <code>errors.As</code> will then assign the returned error into <code>connErr</code> and you can process the error at the same time.</p>
+</div></section>
+</div></section>
+</div></section>
+<section data-pdf-bookmark="1.6 Handling errors with panic" data-type="sect1"><div class="sect1" id="idm45195522990384">
+<h1>1.6 Handling errors with panic</h1>
+<section data-pdf-bookmark="Problem" data-type="sect2"><div class="sect2" id="idm45195522989376">
+<h2>Problem</h2>
+<p>You want to report an error that causes your program to halt and is unable to continue.</p>
+</div></section>
+<section data-pdf-bookmark="Solution" data-type="sect2"><div class="sect2" id="idm45195522987792">
+<h2>Solution</h2>
+<p>Use the built-in <code>panic</code> function to stop the program.</p>
+</div></section>
+<section data-pdf-bookmark="Discussion" data-type="sect2"><div class="sect2" id="idm45195522966016">
+<h2>Discussion</h2>
+<p>Sometimes your program will encounter an error that makes it unable to continue. In this case you would want stop the program. Go provides a built-in function called <code>panic</code> that takes in a single parameter of any type and stops the normal execution of the current goroutine.</p>
+<p>When a function calls panic, the normal execution of the function stops immediately and any deferred actions (anything that you call that starts with <code>defer</code>) are executed before the function returns to its caller.</p>
+<p>The calling function will also panic and stops normal execution and execute deferred actions as well. This bubbles up until the entire program exits with a non-zero exit code.</p>
+<p>Let’s take a closer look at this. We create a normal flow of functions where <code>main</code> calls <code>A</code>, <code>A</code> calls <code>B</code> and <code>B</code> calls <code>C</code>.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kn">package</code><code class="w"> </code><code class="nx">main</code><code class="w"/>
+
+<code class="kn">import</code><code class="w"> </code><code class="s">"fmt"</code><code class="w"/>
+
+<code class="kd">func</code><code class="w"> </code><code class="nx">A</code><code class="p">()</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="k">defer</code><code class="w"> </code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"defer on A"</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"A"</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="nx">B</code><code class="p">()</code><code class="w"/>
+<code class="w">	</code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"end of A"</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+
+<code class="kd">func</code><code class="w"> </code><code class="nx">B</code><code class="p">()</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="k">defer</code><code class="w"> </code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"defer on B"</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"B"</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="nx">C</code><code class="p">()</code><code class="w"/>
+<code class="w">	</code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"end of B"</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+
+<code class="kd">func</code><code class="w"> </code><code class="nx">C</code><code class="p">()</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="k">defer</code><code class="w"> </code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"defer on C"</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"C"</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"end of C"</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+
+<code class="kd">func</code><code class="w"> </code><code class="nx">main</code><code class="p">()</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="k">defer</code><code class="w"> </code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"defer on main"</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"main"</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="nx">A</code><code class="p">()</code><code class="w"/>
+<code class="w">	</code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"end of main"</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>The execution results in this, which is the expected and normal flow.</p>
+<pre data-type="programlisting">% go run main.go
+main
+A
+B
+C
+end of C
+defer on C
+end of B
+defer on B
+end of A
+defer on A
+end of main
+defer on main</pre>
+<p>What happens if we call <code>panic</code> in <code>C</code> between the two <code>fmt.Println</code> statements, like this?</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">func</code><code class="w"> </code><code class="nx">C</code><code class="p">()</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="k">defer</code><code class="w"> </code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"defer on C"</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"C"</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="nb">panic</code><code class="p">(</code><code class="s">"panic called in C"</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"end of C"</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>When we <code>C</code> calls <code>panic</code> in the middle of the execution, <code>C</code> stops immediately and executes the deferred code within its scope. After that it bubbles up to the caller <code>B</code> which also stops immediately and executes the deferred code within its scope and returns to its caller, <code>A</code>. The same happens to <code>A</code> and it bubbles up the <code>main</code> function which executes the deferred code within its scope. Since that’s the end of the chain, it will print out the <code>panic</code> parameter.</p>
+<p>If you run this code on the terminal, this is what you should see.</p>
+<pre data-type="programlisting">% go run main.go
+main
+A
+B
+C
+defer on C
+defer on B
+defer on A
+defer on main
+panic: panic called in C</pre>
+<p>As you can see from the results, the rest of the code in all the functions never get executed, but all the deferred code gets executed before panic exits with a parameter.</p>
+</div></section>
+</div></section>
+<section data-pdf-bookmark="1.7 Recovering from panic" data-type="sect1"><div class="sect1" id="idm45195522717280">
+<h1>1.7 Recovering from panic</h1>
+<section data-pdf-bookmark="Problem" data-type="sect2"><div class="sect2" id="idm45195522716272">
+<h2>Problem</h2>
+<p>One of your goroutines have an error and cannot continue, and a panic is called but you don’t want to stop the rest of the program.</p>
+</div></section>
+<section data-pdf-bookmark="Solution" data-type="sect2"><div class="sect2" id="idm45195522714656">
+<h2>Solution</h2>
+<p>Use the built-in <code>recover</code> function to stop the panic. This only works in deferred functions.</p>
+</div></section>
+<section data-pdf-bookmark="Discussion" data-type="sect2"><div class="sect2" id="idm45195522712624">
+<h2>Discussion</h2>
+<p>In the previous recipe we see how <code>panic</code> stops the normal execution of code, runs the deferred code and bubbles up until the program terminates. Sometimes we want to stop <code>panic</code> from terminating the program. In this case we can use the built-in <code>recover</code> function to stop <code>panic</code> and continue the execution of the program.</p>
+<p>But why would we want that? There could be a few reasons. You could be using a package that panics whenever it encounters something it cannot recover from. However that doesn’t mean you want your program to terminate(maybe it’s ok for you even if that part of the code is not able to continue). Or you could also simply want to stop the execution of a goroutine without killing off the main program, for example if your web application is running, you don’t want a panicked handler function to shut down the whole server.</p>
+<p>Whichever case that is, <code>recover</code> can only work if you use it within a <code>defer</code>. This is because when a function calls <code>panic</code> everything else stops working, except for code that’s deferred.</p>
+<p>Let’s use the example from the previous recipe.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kn">package</code><code class="w"> </code><code class="nx">main</code><code class="w"/>
+
+<code class="kn">import</code><code class="w"> </code><code class="s">"fmt"</code><code class="w"/>
+
+<code class="kd">func</code><code class="w"> </code><code class="nx">A</code><code class="p">()</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="k">defer</code><code class="w"> </code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"defer on A"</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"A"</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="nx">B</code><code class="p">()</code><code class="w"/>
+<code class="w">	</code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"end of A"</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+
+<code class="kd">func</code><code class="w"> </code><code class="nx">B</code><code class="p">()</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="k">defer</code><code class="w"> </code><code class="nx">dontPanic</code><code class="p">()</code><code class="w"/>
+<code class="w">	</code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"B"</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="nx">C</code><code class="p">()</code><code class="w"/>
+<code class="w">	</code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"end of B"</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+
+<code class="kd">func</code><code class="w"> </code><code class="nx">C</code><code class="p">()</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="k">defer</code><code class="w"> </code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"defer on C"</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"C"</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"end of C"</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+
+<code class="kd">func</code><code class="w"> </code><code class="nx">main</code><code class="p">()</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="k">defer</code><code class="w"> </code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"defer on main"</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"main"</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="nx">A</code><code class="p">()</code><code class="w"/>
+<code class="w">	</code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"end of main"</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+
+<code class="kd">func</code><code class="w"> </code><code class="nx">dontPanic</code><code class="p">()</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nb">recover</code><code class="p">()</code><code class="w"/>
+<code class="w">	</code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"panic called but everything's ok now:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"> </code><code class="k">else</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"defer on B"</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>We add a new function named <code>dontPanic</code>. In this function we call the built-in function <code>recover</code>. If this function is called while the program is bubbling up a <code>panic</code>, it will return the parameter passed to <code>panic</code> and stops <code>panic</code> from continuing. Under normal circumstances, <code>recover</code> simply returns a nil and the normal deferred code is run.</p>
+<p>The execution is as what we expect, which is the normal flow. Calling <code>recover</code> returns nil and so the normal deferred code runs.</p>
+<pre data-type="programlisting">% go run main.go
+main
+A
+B
+C
+end of C
+defer on C
+end of B
+defer on B
+end of A
+defer on A
+end of main
+defer on main</pre>
+<p>Now let’s add a <code>panic</code> into <code>C</code>.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">func</code><code class="w"> </code><code class="nx">C</code><code class="p">()</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="k">defer</code><code class="w"> </code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"defer on C"</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"C"</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="nb">panic</code><code class="p">(</code><code class="s">"panic called in C"</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"end of C"</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>Let’s run it again and see what happens.</p>
+<pre data-type="programlisting">% go run main.go
+main
+A
+B
+C
+defer on C
+panic called but everything's ok now: panic called in C
+end of A
+defer on A
+end of main
+defer on main</pre>
+<p>When <code>panic</code> is called in <code>C</code>, the deferred code in <code>C</code> kicks in, without running the rest of the code in <code>C</code>, and bubbles up to <code>B</code>. <code>B</code> stops running the rest of the code and starts running the deferred code, which calls <code>dontPanic</code>. <code>dontPanic</code> calls <code>recover</code> which returns the parameter passed to the <code>panic</code> called in <code>C</code> and the recovery code is run.</p>
+<p>The normal execution of <code>B</code> doesn’t happen but when <code>B</code> returns to <code>A</code> all is well and the normal execution flow of the code continues.</p>
+</div></section>
+</div></section>
+<section data-pdf-bookmark="1.8 Handling interrupts" data-type="sect1"><div class="sect1" id="idm45195522354352">
+<h1>1.8 Handling interrupts</h1>
+<section data-pdf-bookmark="Problem" data-type="sect2"><div class="sect2" id="idm45195522353344">
+<h2>Problem</h2>
+<p>Your program receives an interrupt signal from the operating system (for example, if the user presses <code>ctrl-c</code>) and you want to clean-up and exit gracefully.</p>
+</div></section>
+<section data-pdf-bookmark="Solution" data-type="sect2"><div class="sect2" id="idm45195522351200">
+<h2>Solution</h2>
+<p>Use the goroutine to monitor the interrupt using the <code>os/signal</code> package. Place your clean-up code in the goroutine.</p>
+</div></section>
+<section data-pdf-bookmark="Discussion" data-type="sect2"><div class="sect2" id="idm45195522349200">
+<h2>Discussion</h2>
+<p>Signals are messages sent to running programs to trigger certain behaviors within the program.  Signals are asynchronous and can be sent by the operating system or other running programs. When a signal is sent, the operating system interrupts the running program to deliver the signal. If the process has a signal handler for the signal, that handler will be executed, otherwise a default handler will be executed.</p>
+<p>On the command line, certain key combinations like <code>ctrl-c</code> triggers a signal (in this case, <code>ctrl-c</code> sends the <code>SIGINT</code> signal) to the program running in the foreground. The <code>SIGINT</code> signal, or <em>signal interrupt</em> is a signal that interrupts the running program and causes it to terminate.</p>
+<p>You can capture such signals in Go using the <code>os/signal</code> package.</p>
+<p>Let’s take a look at how we can do this.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">ch</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nb">make</code><code class="p">(</code><code class="kd">chan</code><code class="w"> </code><code class="nx">os</code><code class="p">.</code><code class="nx">Signal</code><code class="p">)</code><code class="w"/>
+<code class="nx">signal</code><code class="p">.</code><code class="nx">Notify</code><code class="p">(</code><code class="nx">ch</code><code class="p">,</code><code class="w"> </code><code class="nx">os</code><code class="p">.</code><code class="nx">Interrupt</code><code class="p">)</code><code class="w"/>
+
+<code class="k">go</code><code class="w"> </code><code class="kd">func</code><code class="p">()</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="o">&lt;-</code><code class="nx">ch</code><code class="w"/>
+<code class="w">	</code><code class="c1">// clean up before graceful exit</code><code class="w"/>
+<code class="w">	</code><code class="nx">os</code><code class="p">.</code><code class="nx">Exit</code><code class="p">(</code><code class="mi">0</code><code class="p">)</code><code class="w"/>
+<code class="p">}()</code><code class="w"/></pre>
+<p>First, we create a channel <code>ch</code> to send the signals. Then we use the <code>signal.Notify</code> function to relay incoming signals to <code>ch</code>. The first parameter of <code>signal.Notify</code> is the channel, and the second parameter is variadic, which means we can pass in none or more parameters. In this case we pass in the various signals we want to capture. In the example code above, we want to relay <code>os.Interrupt</code> which is a <code>syscall.SIGINT</code> or <code>ctrl-c</code>. If no parameters are passed in, all signals will be relayed to the channel.</p>
+<p>After we have set things up, we spin up a goroutine where we wait for the signal to come in by receiving from <code>ch</code>. This causes the goroutine to block until a signal is send on it. Once a signal comes in, we continue the goroutine, executing whichever clean-up routine we want, before exiting gracefully from the program.</p>
+</div></section>
+</div></section>
+</div></section></div></body></html>

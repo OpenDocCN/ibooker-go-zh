@@ -1,0 +1,515 @@
+<html><head></head><body><section data-pdf-bookmark="Chapter 10. keep it to yourself: Encapsulation and Embedding" data-type="chapter" epub:type="chapter" class="preface"><div class="preface" id="keep_it_to_yourselfcolon_encapsulation_a">
+<h1 class="calibre17"><span class="calibre">Chapter 10. </span>keep it to yourself: Encapsulation and Embedding</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0289-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><a data-primary="embedding" data-secondary="about" data-type="indexterm" id="idm46062710930904" class="calibre10"/><a data-primary="encapsulation" data-secondary="about" data-type="indexterm" id="idm46062710929384" class="calibre10"/><a data-primary="encapsulation" data-secondary="struct types and" data-type="indexterm" id="idm46062710928264" class="calibre10"/><a data-primary="struct types" data-secondary="encapsulation and" data-type="indexterm" id="idm46062710927112" class="calibre10"/><strong class="calibre8">Mistakes happen.</strong> Sometimes, your program will receive invalid data from user input, a file you’re reading in, or elsewhere. In this chapter, you’ll learn about <strong class="calibre8">encapsulation</strong>: a way to protect your struct type’s fields from that invalid data. That way, you’ll know your field data is safe to work with!</p>
+<p class="calibre7">We’ll also show you how to <strong class="calibre8">embed</strong> other types within your struct type. If your struct type needs methods that already exist on another type, you don’t have to copy and paste the method code. You can embed the other type within your struct type, and then use the embedded type’s methods just as if they were defined on your own type!</p>
+<section data-pdf-bookmark="Creating a Date struct type" data-type="sect1" class="preface"><div class="preface" id="creating_a_date_struct_type">
+<h1 class="calibre25">Creating a Date struct type</h1>
+<p class="calibre7"><a data-primary="defined types" data-secondary="about" data-type="indexterm" id="idm46062710925496" class="calibre10"/><a data-primary="struct types" data-secondary="creating" data-type="indexterm" id="idm46062710922296" class="calibre10"/>A local startup called Remind Me is developing a calendar application to help users remember birthdays, anniversaries, and more.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0290-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">The year, month, and day sound like they all need to be grouped together; none of those values would be useful by itself. A struct type would probably be useful for keeping those separate values together in a single bundle.</p>
+<p class="calibre7">As we’ve seen, defined types can use any other type as their underlying type, including structs. In fact, struct types served as our introduction to defined types, back in <a data-type="xref" href="ch08.html#building_storagecolon_structs" class="calibre10">Chapter 8</a>.</p>
+<p class="calibre7">Let’s create a <code class="calibre20">Date</code> struct type to hold our year, month, and day values. We’ll add <code class="calibre20">Year</code>, <code class="calibre20">Month</code>, and <code class="calibre20">Day</code> fields to the struct, each with a type of <code class="calibre20">int</code>. In our <code class="calibre20">main</code> function, we’ll run a quick test of the new type, using a struct literal to create a <code class="calibre20">Date</code> value with all its fields populated. We’ll just use <code class="calibre20">Println</code> to print the <code class="calibre20">Date</code> out for now.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0290-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">If we run the finished program, we’ll see the <code class="calibre20">Year</code>, <code class="calibre20">Month</code>, and <code class="calibre20">Day</code> fields of our <code class="calibre20">Date</code> struct. It looks like everything’s working!</p>
+</div></section>
+<section data-pdf-bookmark="People are setting the Date struct field to invalid values!" data-type="sect1" class="preface"><div class="preface" id="people_are_setting_the_date_struct_field">
+<h1 class="calibre25">People are setting the Date struct field to invalid values!</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0291-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><a data-primary="date validation" data-type="indexterm" id="idm46062710902136" class="calibre10"/><a data-primary="struct types" data-secondary="invalid data" data-type="indexterm" id="idm46062710901144" class="calibre10"/><a data-primary="validation, date" data-type="indexterm" id="idm46062710899992" class="calibre10"/>Ah, we can see how that might happen. Only year numbers <code class="calibre20">1</code> or greater are valid, but we don’t have anything preventing users from accidentally setting the <code class="calibre20">Year</code> field to <code class="calibre20">0</code> or <code class="calibre20">-999</code>. Only month numbers from <code class="calibre20">1</code> through <code class="calibre20">12</code> are valid, but nothing prevents users from setting the <code class="calibre20">Month</code> field to <code class="calibre20">0</code> or <code class="calibre20">13</code>. Only the numbers <code class="calibre20">1</code> through <code class="calibre20">31</code> are valid for the <code class="calibre20">Day</code> field, but users can enter days like <code class="calibre20">-2</code> or <code class="calibre20">50</code>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0291-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">What we need is a way for our programs to ensure the user data is valid before accepting it. In computer science, this is known as <em class="calibre9">data validation</em>. We need to test that the <code class="calibre20">Year</code> is being set to a value of <code class="calibre20">1</code> or greater, the <code class="calibre20">Month</code> is being set between <code class="calibre20">1</code> and <code class="calibre20">12</code>, and the <code class="calibre20">Day</code> is being set between <code class="calibre20">1</code> and <code class="calibre20">31</code>.</p>
+<div data-type="note" epub:type="note" class="calibre22"><h6 class="calibre23">Note</h6>
+<p class="calibre7">(Yes, some months have fewer than 31 days, but to keep our code samples a reasonable length, we’ll just check that it’s between 1 and 31.)</p>
+</div>
+</div></section>
+<section data-pdf-bookmark="Setter methods" data-type="sect1" class="preface"><div class="preface" id="setter_methods">
+<h1 class="calibre25">Setter methods</h1>
+<p class="calibre7"><a data-primary="methods" data-secondary="setter" data-type="indexterm" id="idm46062710883640" class="calibre10"/><a data-primary="setter methods" data-secondary="about" data-type="indexterm" id="idm46062710882024" class="calibre10"/><a data-primary="struct types" data-secondary="about" data-type="indexterm" id="idm46062710880936" class="calibre10"/>A struct type is just another defined type, and that means you can define methods on it just like any other. We should be able to create <code class="calibre20">SetYear</code>, <code class="calibre20">SetMonth</code>, and <code class="calibre20">SetDay</code> methods on the <code class="calibre20">Date</code> type that take a value, check whether it’s valid, and if so, set the appropriate struct field.</p>
+<p class="calibre7">This kind of method is often called a <strong class="calibre8">setter method</strong>. By convention, Go setter methods are usually named in the form <code class="calibre20">Set<em class="calibre43">X</em></code>, where <code class="calibre20"><em class="calibre43">X</em></code> is the thing that you’re setting.</p>
+<blockquote class="calibre37 pcalibre1 pcalibre2">
+<p class="calibre38"><strong class="calibre8">Setter methods are methods used to set fields or other values within a defined type’s underlying value.</strong></p>
+</blockquote>
+<p class="calibre7">Here’s our first attempt at a <code class="calibre20">SetYear</code> method. The receiver parameter is the <code class="calibre20">Date</code> struct you’re calling the method on. <code class="calibre20">SetYear</code> accepts the year you want to set as a parameter, and sets the <code class="calibre20">Year</code> field on the receiver <code class="calibre20">Date</code> struct. It doesn’t validate the value at all currently, but we’ll add validation in a little bit.</p>
+<p class="calibre7">In our <code class="calibre20">main</code> method, we create a <code class="calibre20">Date</code> and call <code class="calibre20">SetYear</code> on it. Then we print the struct’s <code class="calibre20">Year</code> field.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0292-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">When we run the program, though, we’ll see that it didn’t work quite right. Even though we create a <code class="calibre20">Date</code> and call <code class="calibre20">SetYear</code> with a new value, the <code class="calibre20">Year</code> field is still set to its zero value!</p>
+</div></section>
+<section data-pdf-bookmark="Setter methods need pointer receivers" data-type="sect1" class="preface"><div class="preface" id="setter_methods_need_pointer_receivers">
+<h1 class="calibre25">Setter methods need pointer receivers</h1>
+<p class="calibre7"><a data-primary="pointers and pointer types" data-secondary="receiver parameters" data-type="indexterm" id="idm46062710863720" class="calibre10"/><a data-primary="receiver parameters (methods)" data-secondary="pointers and" data-type="indexterm" id="idm46062710862472" class="calibre10"/><a data-primary="receiver parameters (methods)" data-secondary="setter methods and" data-type="indexterm" id="idm46062710861352" class="calibre10"/><a data-primary="setter methods" data-secondary="pointer receiver parameters and" data-type="indexterm" id="idm46062710860088" class="calibre10"/>Remember the <code class="calibre20">Double</code> method on the <code class="calibre20">Number</code> type we showed you earlier? Originally, we wrote it with a plain value receiver type, <code class="calibre20">Number</code>. But we learned that, like any other parameter, receiver parameters receive a <em class="calibre9">copy</em> of the original value. The <code class="calibre20">Double</code> method was updating the copy, which was lost when the function exited.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0293-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">We needed to update <code class="calibre20">Double</code> to take a pointer receiver type, <code class="calibre20">*Number</code>. When we updated the value at the pointer, the changes were preserved after <code class="calibre20">Double</code> exited.</p>
+<p class="calibre7">The same holds true for <code class="calibre20">SetYear</code>. The <code class="calibre20">Date</code> receiver gets a <em class="calibre9">copy</em> of the original struct. Any updates to the fields of the copy are lost when <code class="calibre20">SetYear</code> exits!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0293-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">We can fix <code class="calibre20">SetYear</code> by updating it to take a pointer receiver: <code class="calibre20">(d *Date)</code>. That’s the only change that’s necessary. We don’t have to update the <code class="calibre20">SetYear</code> method block, because <code class="calibre20">d.Year</code> automatically gets the value at the pointer for us (as if we’d typed <code class="calibre20">(*d).Year</code>). The call to <code class="calibre20">date.SetYear</code> in <code class="calibre20">main</code> doesn’t need to be changed either, because the <code class="calibre20">Date</code> value is automatically converted to a <code class="calibre20">*Date</code> when it’s passed to the method.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0293-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Now that <code class="calibre20">SetYear</code> takes a pointer receiver, if we rerun the code, we’ll see that the <code class="calibre20">Year</code> field has been updated.</p>
+</div></section>
+<section data-pdf-bookmark="Adding the remaining setter methods" data-type="sect1" class="preface"><div class="preface" id="adding_the_remaining_setter_methods">
+<h1 class="calibre25">Adding the remaining setter methods</h1>
+<p class="calibre7"><a data-primary="setter methods" data-secondary="adding" data-type="indexterm" id="idm46062710839288" class="calibre10"/>Now it should be easy to follow the same pattern to define <code class="calibre20">SetMonth</code> and <code class="calibre20">SetDay</code> methods on the <code class="calibre20">Date</code> type. We just need to be sure to use a pointer receiver in the method definition. Go will convert the receiver to a pointer when we call each method, and convert the pointer back to a struct value when updating its fields.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0294-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">In <code class="calibre20">main</code>, we can create a <code class="calibre20">Date</code> struct value; set its <code class="calibre20">Year</code>, <code class="calibre20">Month</code>, and <code class="calibre20">Day</code> fields via our new methods; and print the whole struct out to see the results.</p>
+<p class="calibre7">Now we have setter methods for each of our <code class="calibre20">Date</code> type’s fields. But even if they use the methods, users can still accidentally set the fields to invalid values. We’ll look at preventing that next.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0294-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<aside data-type="sidebar" epub:type="sidebar" class="calibre30"><div class="sidebar" id="exercise_18">
+<h5 class="calibre31"><span class="calibre"><img alt="image" src="assets/common.png" class="calibre4"/></span> Exercise</h5>
+<p class="calibre7">In the <a data-type="xref" href="ch08.html#building_storagecolon_structs" class="calibre10">Chapter 8</a> exercises, you saw code for a <code class="calibre20">Coordinates</code> struct type. We’ve moved that type definition to a <em class="calibre9">coordinates.go</em> file within the <em class="calibre9">geo</em> package directory.</p>
+<p class="calibre7">We need to add setter methods to the <code class="calibre20">Coordinates</code> type for each of its fields.Fill in the blanks in the <em class="calibre9">coordinates.go</em> file below, so that the code in <em class="calibre9">main.go</em> will run and produce the output shown.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0295-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><img alt="image" src="assets/arrow.png" class="calibre4"/> Answers in <a data-type="xref" href="#exercise_solution_18" class="calibre10">“<span class="calibre"><img alt="image" src="assets/common.png" class="calibre4"/></span> Exercise Solution”</a>.</p>
+</div></aside>
+</div></section>
+<section data-pdf-bookmark="Adding validation to the setter methods" data-type="sect1" class="preface"><div class="preface" id="adding_validation_to_the_setter_methods">
+<h1 class="calibre25">Adding validation to the setter methods</h1>
+<p class="calibre7"><a data-primary="date validation" data-type="indexterm" id="idm46062710815064" class="calibre10"/><a data-primary="methods" data-secondary="setter" data-type="indexterm" id="idm46062710813896" class="calibre10"/><a data-primary="setter methods" data-secondary="adding validation to" data-type="indexterm" id="idm46062710812744" class="calibre10"/><a data-primary="validation, date" data-type="indexterm" id="idm46062710811704" class="calibre10"/>Adding validation to our setter methods will take a bit of work, but we learned everything we need to do it in <a data-type="xref" href="ch03.html#call_mecolon_functions" class="calibre10">Chapter 3</a>.</p>
+<p class="calibre7">In each setter method, we’ll test whether the value is in a valid range. If it’s invalid, we’ll return an <code class="calibre20">error</code> value. If it’s valid, we’ll set the <code class="calibre20">Date</code> struct field as normal and return <code class="calibre20">nil</code> for the error value.</p>
+<p class="calibre7">Let’s add validation to the <code class="calibre20">SetYear</code> method first. We add a declaration that the method will return a value, of type <code class="calibre20">error</code>. At the start of the method block, we test whether the <code class="calibre20">year</code> parameter provided by the caller is any number less than <code class="calibre20">1</code>. If it is, we return an <code class="calibre20">error</code> with a message of <code class="calibre20">"invalid year"</code>. If not, we set the struct’s <code class="calibre20">Year</code> field and return <code class="calibre20">nil</code>, indicating there was no error.</p>
+<p class="calibre7">In <code class="calibre20">main</code>, we call <code class="calibre20">SetYear</code> and store its return value in a variable named <code class="calibre20">err</code>. If <code class="calibre20">err</code> is not <code class="calibre20">nil</code>, it means the assigned value was invalid, so we log the error and exit. Otherwise, we proceed to print the <code class="calibre20">Date</code> struct’s <code class="calibre20">Year</code> field.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0296-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Passing an invalid value to <code class="calibre20">SetYear</code> causes the program to report the error and exit. But if we pass a valid value, the program will proceed to print it out. Looks like our <code class="calibre20">SetYear</code> method is working!</p>
+<p class="calibre7">Validation code in the <code class="calibre20">SetMonth</code> and <code class="calibre20">SetDay</code> methods will be similar to the code in <code class="calibre20">SetYear</code>.</p>
+<p class="calibre7">In <code class="calibre20">SetMonth</code>, we test whether the provided month number is less than <code class="calibre20">1</code> or greater than <code class="calibre20">12</code>, and return an error if so. Otherwise, we set the field and return <code class="calibre20">nil</code>.</p>
+<p class="calibre7">And in <code class="calibre20">SetDay</code>, we test whether the provided day of the month is less than <code class="calibre20">1</code> or greater than <code class="calibre20">31</code>. Invalid values result in a returned error, but valid values cause the field to be set and <code class="calibre20">nil</code> to be returned.</p>
+<pre data-type="programlisting" class="calibre32">// Package, imports, type declaration omitted
+func (d *Date) SetYear(year int) error {
+       if year &lt; 1 {
+              return errors.New("invalid year")
+       }
+       d.Year = year
+       return nil
+}
+func (d *Date) SetMonth(month int) error {
+       if month &lt; 1 || month &gt; 12 {
+              return errors.New("invalid month")
+       }
+       d.Month = month
+       return nil
+}
+func (d *Date) SetDay(day int) error {
+       if day &lt; 1 || day &gt; 31 {
+              return errors.New("invalid day")
+       }
+       d.Day = day
+       return nil
+}
+
+func main() {
+       // Try the below code snippets here
+}</pre>
+<p class="calibre7">You can test the setter methods by inserting the code snippets below into the block for <code class="calibre20">main</code>...</p>
+<p class="calibre7">Passing <code class="calibre20">14</code> to <code class="calibre20">SetMonth</code> results in an error:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0297-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">But passing <code class="calibre20">5</code> to <code class="calibre20">SetMonth</code> works:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0297-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Passing <code class="calibre20">50</code> to <code class="calibre20">SetDay</code> results in an error:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0297-04.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">But passing <code class="calibre20">27</code> to <code class="calibre20">SetDay</code> works:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0297-05.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="The fields can still be set to invalid values!" data-type="sect1" class="preface"><div class="preface" id="the_fields_can_still_be_set_to_invalid_v">
+<h1 class="calibre25">The fields can still be set to invalid values!</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0298-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><a data-primary="exporting from packages" data-secondary="struct types" data-type="indexterm" id="idm46062710771352" class="calibre10"/><a data-primary="naming rules" data-secondary="struct types" data-type="indexterm" id="idm46062710769768" class="calibre10"/><a data-primary="naming rules" data-secondary="types" data-type="indexterm" id="idm46062710768632" class="calibre10"/><a data-primary="struct types" data-secondary="naming rules for" data-type="indexterm" id="idm46062710767560" class="calibre10"/><a data-primary="types" data-secondary="naming rules for" data-type="indexterm" id="idm46062710766424" class="calibre10"/><a data-primary="unexported fields" data-secondary="types and" data-type="indexterm" id="idm46062710765352" class="calibre10"/>It’s true; there’s nothing preventing anyone from setting the <code class="calibre20">Date</code> struct fields directly. And if they do so, it bypasses the validation code in the setter methods. They can set any value they want!</p>
+<pre data-type="programlisting" class="calibre32">date := Date{}
+date.Year = 2019
+date.Month = 14
+date.Day = 50
+fmt.Println(date)</pre>
+<p class="calibre7">We need a way to protect these fields, so that users of our <code class="calibre20">Date</code> type can only update the fields using the setter methods.</p>
+<p class="calibre7">Go provides a way of doing this: we can move the <code class="calibre20">Date</code> type to another package and make its date fields unexported.</p>
+<p class="calibre7">So far, unexported variables, functions, and the like have mostly gotten in our way. The most recent example of this was in <a data-type="xref" href="ch08.html#building_storagecolon_structs" class="calibre10">Chapter 8</a>, when we discovered that even though our <code class="calibre20">Subscriber</code> struct type was exported from the <code class="calibre20">magazine</code> package, its fields were <em class="calibre9">unexported</em>, making them inaccessible outside the <code class="calibre20">magazine</code> package.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0298-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">But in this case, we don’t <em class="calibre9">want</em> the fields to be accessible. Unexported struct fields are exactly what we need!</p>
+<p class="calibre7">Let’s try moving our <code class="calibre20">Date</code> type to another package and making its fields unexported, and see if that fixes our problem.</p>
+</div></section>
+<section data-pdf-bookmark="Moving the Date type to another package" data-type="sect1" class="preface"><div class="preface" id="moving_the_date_type_to_another_package">
+<h1 class="calibre25">Moving the Date type to another package</h1>
+<p class="calibre7"><a data-primary="errors package" data-type="indexterm" id="idm46062710751672" class="calibre10"/><a data-primary="packages" data-secondary="moving struct types to different" data-type="indexterm" id="idm46062710750680" class="calibre10"/><a data-primary="structs" data-secondary="moving types to different packages" data-type="indexterm" id="idm46062710749560" class="calibre10"/><a data-primary="struct types" data-secondary="moving to different packages" data-type="indexterm" id="idm46062710748488" class="calibre10"/><a data-primary="types" data-secondary="moving to different packages" data-type="indexterm" id="idm46062710747368" class="calibre10"/>In the <em class="calibre9">headfirstgo</em> directory within your Go workspace, create a new directory to hold a package named <code class="calibre20">calendar</code>. Within <em class="calibre9">calendar</em>, create a file named <em class="calibre9">date.go</em>. (Remember, you can name the files within a package directory anything you want; they’ll all become part of the same package.)</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0299-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Within <em class="calibre9">date.go</em>, add a <code class="calibre20">package calendar</code> declaration and import the <code class="calibre20">"errors"</code> package. (That’s the only package that the code in this file will be using.) Then, copy all your old code for the <code class="calibre20">Date</code> type and paste it into this file.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0299-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Next, let’s create a program to try out the <code class="calibre20">calendar</code> package. Since this is just for experimenting, we’ll do as we did in <a data-type="xref" href="ch08.html#building_storagecolon_structs" class="calibre10">Chapter 8</a> and save a file <em class="calibre9">outside</em> the Go workspace, so it doesn’t interfere with any other packages. (We’ll just use the <code class="calibre20">go run</code> command to run it.) Name the file <em class="calibre9">main.go</em>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0300-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">At this point, code we add in <em class="calibre9">main.go</em> will still be able to create an invalid <code class="calibre20">Date</code>, either by setting its fields directly or by using a struct literal.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0300-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">If we run <em class="calibre9">main.go</em> from the terminal, we’ll see that both ways of setting the fields worked, and two invalid dates are printed.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0300-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Making Date fields unexported" data-type="sect1" class="preface"><div class="preface" id="making_date_fields_unexported">
+<h1 class="calibre25">Making Date fields unexported</h1>
+<p class="calibre7"><a data-primary="exporting from packages" data-secondary="methods" data-type="indexterm" id="idm46062710724712" class="calibre10"/><a data-primary="methods" data-secondary="setter" data-type="indexterm" id="idm46062710723416" class="calibre10"/><a data-primary="naming rules" data-secondary="struct types" data-type="indexterm" id="idm46062710722232" class="calibre10"/><a data-primary="setter methods" data-secondary="exported" data-type="indexterm" id="idm46062710721160" class="calibre10"/><a data-primary="structs" data-secondary="making fields unexported" data-type="indexterm" id="idm46062710720024" class="calibre10"/><a data-primary="struct types" data-secondary="naming rules for" data-type="indexterm" id="idm46062710718920" class="calibre10"/><a data-primary="unexported fields" data-secondary="accessing" data-type="indexterm" id="idm46062710717784" class="calibre10"/><a data-primary="unexported fields" data-secondary="struct types and" data-type="indexterm" id="idm46062710716712" class="calibre10"/>Now let’s try updating the <code class="calibre20">Date</code> struct so that its fields are unexported. Simply change the field names to begin with lowercase letters in the type definition and everywhere else they occur.</p>
+<p class="calibre7">The <code class="calibre20">Date</code> type itself needs to remain exported, as do all of the setter methods, because we <em class="calibre9">will</em> need to access these from outside the <code class="calibre20">calendar</code> package.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0301-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">To test our changes, update the field names in <em class="calibre9">main.go</em> to match the field names in <em class="calibre9">date.go</em>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0301-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Accessing unexported fields through exported methods" data-type="sect1" class="preface"><div class="preface" id="accessing_unexported_fields_through_expo">
+<h1 class="calibre25">Accessing unexported fields through exported methods</h1>
+<p class="calibre7"><a data-primary="functions" data-secondary="unexported" data-type="indexterm" id="idm46062710706136" class="calibre10"/><a data-primary="methods" data-secondary="unexported" data-type="indexterm" id="idm46062710704728" class="calibre10"/><a data-primary="packages" data-secondary="accessing unexported fields" data-type="indexterm" id="idm46062710703688" class="calibre10"/><a data-primary="struct literals" data-type="indexterm" id="idm46062710702536" class="calibre10"/><a data-primary="unexported fields" data-secondary="functions and" data-type="indexterm" id="idm46062710701704" class="calibre10"/><a data-primary="unexported fields" data-secondary="methods and" data-type="indexterm" id="idm46062710700584" class="calibre10"/><a data-primary="unexported fields" data-secondary="variables and" data-type="indexterm" id="idm46062710699432" class="calibre10"/><a data-primary="variables" data-secondary="unexported" data-type="indexterm" id="idm46062710698296" class="calibre10"/>As you might expect, now that we’ve converted the fields of <code class="calibre20">Date</code> to unexported, trying to access them from the <code class="calibre20">main</code> package results in compile errors. This is true both when we’re trying to set the field values directly, and when using them in a struct literal.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0302-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">But we can still access the fields indirectly. <em class="calibre9">Unexported</em> variables, struct fields, functions, methods, and the like can still be accessed by <em class="calibre9">exported</em> functions and methods in the same package. So when code in the <code class="calibre20">main</code> package calls the exported <code class="calibre20">SetYear</code> method on a <code class="calibre20">Date</code> value, <code class="calibre20">SetYear</code> can update the <code class="calibre20">Date</code>’s <code class="calibre20">year</code> struct field, even though it’s unexported. The exported <code class="calibre20">SetMonth</code> method can update the unexported <code class="calibre20">month</code> field. And so on.</p>
+<p class="calibre7">If we modify <em class="calibre9">main.go</em> to use the setter methods, we’ll be able to update a <code class="calibre20">Date</code> value’s fields:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0302-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<blockquote class="calibre37 pcalibre1 pcalibre2">
+<p class="calibre38"><strong class="calibre8">Unexported variables, struct fields, functions, and methods can still be accessed by exported functions and methods in the same package.</strong></p>
+</blockquote>
+<p class="calibre7">If we update <em class="calibre9">main.go</em> to call <code class="calibre20">SetYear</code> with an invalid value, we’ll get an error when we run it:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0303-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Now that a <code class="calibre20">Date</code> value’s fields can only be updated via its setter methods, programs are protected against accidentally entering invalid data.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0303-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Ah, that’s right. We provided setter methods that let us set <code class="calibre20">Date</code> fields, even though those fields are unexported from the <code class="calibre20">calendar</code> package. But we haven’t provided any methods to <em class="calibre9">get</em> the field values.</p>
+<p class="calibre7">We can print an entire <code class="calibre20">Date</code> struct. But if we try to update <em class="calibre9">main.go</em> to print an individual <code class="calibre20">Date</code> field, we won’t be able to access it!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0303-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Getter methods" data-type="sect1" class="preface"><div class="preface" id="getter_methods">
+<h1 class="calibre25">Getter methods</h1>
+<p class="calibre7"><a data-primary="getter methods" data-type="indexterm" id="idm46062710670984" class="calibre10"/><a data-primary="methods" data-secondary="getter" data-type="indexterm" id="idm46062710669928" class="calibre10"/><a data-primary="methods" data-secondary="setter" data-type="indexterm" id="idm46062710668808" class="calibre10"/><a data-primary="naming rules" data-secondary="getter methods" data-type="indexterm" id="idm46062710667704" class="calibre10"/><a data-primary="pointers and pointer types" data-secondary="receiver parameters" data-type="indexterm" id="idm46062710666568" class="calibre10"/><a data-primary="receiver parameters (methods)" data-secondary="pointers and" data-type="indexterm" id="idm46062710665464" class="calibre10"/><a data-primary="setter methods" data-secondary="about" data-type="indexterm" id="idm46062710664392" class="calibre10"/>As we’ve seen, methods whose main purpose is to <em class="calibre9">set</em> the value of a struct field or variable are called <em class="calibre9">setter methods</em>. And, as you might expect, methods whose main purpose is to <em class="calibre9">get</em> the value of a struct field or variable are called <strong class="calibre8">getter methods</strong>.</p>
+<p class="calibre7">Compared to the setter methods, adding getter methods to the <code class="calibre20">Date</code> type will be easy. They don’t need to do anything except return the field value when they’re called.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0304-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">By convention, a getter method’s name should be the same as the name of the field or variable it accesses. (Of course, if you want the method to be exported, its name will need to start with a capital letter.) So <code class="calibre20">Date</code> will need a <code class="calibre20">Year</code> method to access the <code class="calibre20">year</code> field, a <code class="calibre20">Month</code> method for the <code class="calibre20">month</code> field, and a <code class="calibre20">Day</code> method for the <code class="calibre20">day</code> field.</p>
+<p class="calibre7">Getter methods don’t need to modify the receiver at all, so we <em class="calibre9">could</em> use a direct <code class="calibre20">Date</code> value as a receiver. But if any method on a type takes a pointer receiver, convention says that they <em class="calibre9">all</em> should, for consistency’s sake. Since we have to use a pointer receiver for our setter methods, we use a pointer for the getter methods as well.</p>
+<p class="calibre7">With the changes to <em class="calibre9">date.go</em> complete, we can update <em class="calibre9">main.go</em> to set all the <code class="calibre20">Date</code> fields, then use the getter methods to print them all out.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0304-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Encapsulation" data-type="sect1" class="preface"><div class="preface" id="encapsulation">
+<h1 class="calibre25">Encapsulation</h1>
+<p class="calibre7"><a data-primary="encapsulation" data-secondary="about" data-type="indexterm" id="idm46062710647128" class="calibre10"/><a data-primary="functions" data-secondary="unexported" data-type="indexterm" id="idm46062710645800" class="calibre10"/><a data-primary="methods" data-secondary="unexported" data-type="indexterm" id="idm46062710644648" class="calibre10"/><a data-primary="packages" data-secondary="accessing unexported fields" data-type="indexterm" id="idm46062710643512" class="calibre10"/><a data-primary="setter methods" data-secondary="encapsulation and" data-type="indexterm" id="idm46062710642408" class="calibre10"/><a data-primary="unexported fields" data-secondary="accessing" data-type="indexterm" id="idm46062710641272" class="calibre10"/><a data-primary="unexported fields" data-secondary="functions and" data-type="indexterm" id="idm46062710640200" class="calibre10"/><a data-primary="unexported fields" data-secondary="methods and" data-type="indexterm" id="idm46062710639064" class="calibre10"/><a data-primary="unexported fields" data-secondary="variables and" data-type="indexterm" id="idm46062710637992" class="calibre10"/><a data-primary="variables" data-secondary="unexported" data-type="indexterm" id="idm46062710636856" class="calibre10"/>The practice of hiding data in one part of a program from code in another part is known as <strong class="calibre8">encapsulation</strong>, and it’s not unique to Go. Encapsulation is valuable because it can be used to protect against invalid data (as we’ve seen). Also, you can change an encapsulated portion of a program without worrying about breaking other code that accesses it, because direct access isn’t allowed.</p>
+<p class="calibre7">Many other programming languages encapsulate data within classes. (Classes are a concept similar, but not identical, to a Go type.) In Go, data is encapsulated within packages, using unexported variables, struct fields, functions, or methods.</p>
+<p class="calibre7">Encapsulation is used far more frequently in other languages than it is in Go. In some languages it’s conventional to define getters and setters for every field, even when accessing those fields directly would work just as well. Go developers generally only rely on encapsulation when it’s necessary, such as when field data needs to be validated by setter methods. In Go, if you don’t see a need to encapsulate a field, it’s generally okay to export it and allow direct access to it.</p>
+</div></section>
+<section data-pdf-bookmark="there are no Dumb Questions" data-type="sect1" class="preface"><div class="preface" id="there_are_no_dumb_questions_7">
+<h1 class="calibre25">there are no Dumb Questions</h1>
+<p class="calibre7"><strong class="calibre8">Q: Many other languages don’t allow access to encapsulated values outside of the class where they’re defined. Is it safe for Go to allow other code in the same package to access unexported fields?</strong></p>
+<p class="calibre7"><strong class="calibre8">A:</strong> Generally, all the code in a package is the work of a single developer (or group of developers). All the code in a package generally has a similar purpose, as well. The authors of code within the same package are most likely to need access to unexported data, and they’re also likely to only use that data in valid ways. So, yes, sharing unexported data with the rest of the package is generally safe.</p>
+<p class="calibre7">Code <em class="calibre9">outside</em> the package is likely to be written by <em class="calibre9">other</em> developers, but that’s okay because the unexported fields are hidden from them, so they can’t accidentally change their values to something invalid.</p>
+<p class="calibre7"><strong class="calibre8">Q: I’ve seen other languages where the name of every getter method started with “<code class="calibre40">Get”</code>, as in <code class="calibre40">GetName</code>, <code class="calibre40">GetCity</code>, and so on. Can I do that in Go?</strong></p>
+<p class="calibre7"><strong class="calibre8">A:</strong> The Go language will allow you to do that, but you shouldn’t. The Go community has decided on a convention of leaving the <code class="calibre20">Get</code> prefix off of getter method names. Including it would only lead to confusion for your fellow developers!</p>
+<p class="calibre7">Go still uses a <code class="calibre20">Set</code> prefix for setter methods, just like many other languages, because it’s needed to distinguish setter method names from getter method names for the same field.</p>
+<aside data-type="sidebar" epub:type="sidebar" class="calibre30"><div class="sidebar" id="exercise_19">
+<h5 class="calibre31"><span class="calibre"><img alt="image" src="assets/common.png" class="calibre4"/></span> Exercise</h5>
+<p class="calibre7">Bear with us; we’ll need two pages to fit all the code for this exercise...</p>
+<p class="calibre7">Fill in the blanks to make the following changes to the <code class="calibre20">Coordinates</code> type:</p>
+<ul class="list_style_type_none">
+<li class="calibre18"><p class="calibre7">Update its fields so they’re unexported.</p></li>
+<li class="calibre18"><p class="calibre7">Add getter methods for each field. (Be sure to follow the convention: a getter method’s name should be the same as the name of the field it accesses, with capitalization if the method needs to be exported.)</p></li>
+<li class="calibre18"><p class="calibre7">Add validation to the setter methods. <code class="calibre20">SetLatitude</code> should return an error if the passed-in value is less than <code class="calibre20">-90</code> or greater than <code class="calibre20">90</code>. <code class="calibre20">SetLongitude</code> should return an error if the new value is less than <code class="calibre20">-180</code> or greater than <code class="calibre20">180</code>.</p></li>
+</ul>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0306-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Next, update the <code class="calibre20">main</code> package code to make use of the revised <code class="calibre20">Coordinates</code> type.</p>
+<ul class="list_style_type_none">
+<li class="calibre18"><p class="calibre7">For each call to a setter method, store the <code class="calibre20">error</code> return value.</p></li>
+<li class="calibre18"><p class="calibre7">If the <code class="calibre20">error</code> is not <code class="calibre20">nil</code>, use the <code class="calibre20">log.Fatal</code> function to log the error message and exit.</p></li>
+<li class="calibre18"><p class="calibre7">If there were no errors setting the fields, call both getter methods to print the field values.</p></li>
+</ul>
+<p class="calibre7">The completed code should produce the output shown when it runs. (The call to <code class="calibre20">SetLatitude</code> should be successful, but we’re passing an invalid value to <code class="calibre20">SetLongitude</code>, so it should log an error and exit at that point.)</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0307-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><img alt="image" src="assets/arrow.png" class="calibre4"/> Answers in <a data-type="xref" href="#exercise_solution_19" class="calibre10">“<span class="calibre"><img alt="image" src="assets/common.png" class="calibre4"/></span> Exercise Solution”</a>.</p>
+</div></aside>
+</div></section>
+<section data-pdf-bookmark="Embedding the Date type in an Event type" data-type="sect1" class="preface"><div class="preface" id="embedding_the_date_type_in_an_event_type">
+<h1 class="calibre25">Embedding the Date type in an Event type</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0308-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><a data-primary="anonymous struct fields" data-type="indexterm" id="idm46062710598280" class="calibre10"/><a data-primary="embedding" data-secondary="struct types and" data-type="indexterm" id="idm46062710597064" class="calibre10"/><a data-primary="structs" data-secondary="anonymous fields" data-type="indexterm" id="idm46062710595976" class="calibre10"/><a data-primary="struct types" data-secondary="embedding" data-type="indexterm" id="idm46062710594840" class="calibre10"/>That shouldn’t take much work. Remember how we embedded an <code class="calibre20">Address</code> struct type within two other struct types back in <a data-type="xref" href="ch08.html#building_storagecolon_structs" class="calibre10">Chapter 8</a>?</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0308-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">The <code class="calibre20">Address</code> type was considered “embedded” because we used an anonymous field (a field with no name, just a type) in the outer struct to store it. This caused the fields of <code class="calibre20">Address</code> to be promoted to the outer struct, allowing us to access fields of the inner struct as if they belonged to the outer struct.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0308-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Since that strategy worked so well before, let’s define an <code class="calibre20">Event</code> type that embeds a <code class="calibre20">Date</code> with an anonymous field.</p>
+<p class="calibre7">Create another file within the <code class="calibre20">calendar</code> package folder, named <em class="calibre9">event.go</em>. (We could put it within the existing <em class="calibre9">date.go</em> field, but this organizes things a bit more neatly.) Within that file, define an <code class="calibre20">Event</code> type with two fields: a <code class="calibre20">Title</code> field with a type of <code class="calibre20">string</code>, and an anonymous <code class="calibre20">Date</code> field.</p>
+</div></section>
+<section data-pdf-bookmark="Unexported fields don’t get promoted" data-type="sect1" class="preface"><div class="preface" id="unexported_fields_donrsquot_get_promoted">
+<h1 class="calibre25">Unexported fields don’t get promoted</h1>
+<p class="calibre7"><a data-primary="dot operator (.)" data-secondary="chaining together" data-type="indexterm" id="idm46062710579880" class="calibre10"/><a data-primary="encapsulation" data-secondary="unexported fields and" data-type="indexterm" id="idm46062710578456" class="calibre10"/><a data-primary="unexported fields" data-secondary="encapsulation and" data-type="indexterm" id="idm46062710577336" class="calibre10"/><a data-primary="unexported fields" data-secondary="promotion and" data-type="indexterm" id="idm46062710576200" class="calibre10"/>Embedding a <code class="calibre20">Date</code> in the <code class="calibre20">Event</code> type will <em class="calibre9">not</em> cause the <code class="calibre20">Date</code> fields to be promoted to the <code class="calibre20">Event</code>, though. The <code class="calibre20">Date</code> fields are unexported, and Go doesn’t promote unexported fields to the enclosing type. That makes sense; we made sure the fields were encapsulated so they can only be accessed through setter and getter methods, and we don’t want that encapsulation to be circumvented through field promotion.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0309-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">In our <code class="calibre20">main</code> package, if we try to set the <code class="calibre20">month</code> field of a <code class="calibre20">Date</code> through its enclosing <code class="calibre20">Event</code>, we’ll get an error:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0309-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">And, of course, using dot operator chaining to retrieve the <code class="calibre20">Date</code> field and then access fields on it directly won’t work, either. You can’t access a <code class="calibre20">Date</code> value’s unexported fields when it’s by itself, and you can’t access its unexported fields when it’s part of an <code class="calibre20">Event</code>, either.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0309-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">So does that mean we won’t be able to access the fields of the <code class="calibre20">Date</code> type, if it’s embedded within the <code class="calibre20">Event</code> type? Don’t worry; there’s another way!</p>
+</div></section>
+<section data-pdf-bookmark="Exported methods get promoted just like fields" data-type="sect1" class="preface"><div class="preface" id="exported_methods_get_promoted_just_like">
+<h1 class="calibre25">Exported methods get promoted just like fields</h1>
+<p class="calibre7"><a data-primary="embedding" data-secondary="struct types and" data-type="indexterm" id="idm46062710559368" class="calibre10"/><a data-primary="exporting from packages" data-secondary="methods" data-type="indexterm" id="idm46062710557576" class="calibre10"/><a data-primary="method promotion" data-type="indexterm" id="idm46062710556456" class="calibre10"/><a data-primary="struct types" data-secondary="embedding" data-type="indexterm" id="idm46062710555624" class="calibre10"/>If you embed a type with exported methods within a struct type, its methods will be promoted to the outer type, meaning you can call the methods as if they were defined on the outer type. (Remember how embedding one struct type within another causes the inner struct’s fields to be promoted to the outer struct? This is the same idea, but with methods instead of fields.)</p>
+<p class="calibre7">Here’s a package that defines two types. <code class="calibre20">MyType</code> is a struct type and it embeds a second type, <code class="calibre20">EmbeddedType</code>, as an anonymous field.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0310-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Because <code class="calibre20">EmbeddedType</code> defines an exported method (named <code class="calibre20">ExportedMethod</code>), that method is promoted to <code class="calibre20">MyType</code>, and can be called on <code class="calibre20">MyType</code> values.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0310-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">As with unexported fields, unexported methods are <em class="calibre9">not</em> promoted. You’ll get an error if you try to call one.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0310-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><a data-primary="dot operator (.)" data-secondary="chaining together" data-type="indexterm" id="idm46062710543496" class="calibre10"/>Our <code class="calibre20">Date</code> fields weren’t promoted to the <code class="calibre20">Event</code> type, because they’re unexported. But the getter and setter methods on <code class="calibre20">Date</code> <em class="calibre9">are</em> exported, and they <em class="calibre9">do</em> get promoted to the <code class="calibre20">Event</code> type!</p>
+<p class="calibre7">That means we can create an <code class="calibre20">Event</code> value, and then call the getter and setter methods for the <code class="calibre20">Date</code> directly on the <code class="calibre20">Event</code>. That’s just what we do in the updated <em class="calibre9">main.go</em> code below. As always, the exported methods are able to access the unexported <code class="calibre20">Date</code> fields for us.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0311-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">And if you prefer to use dot operator chaining to call methods on the <code class="calibre20">Date</code> value directly, you can do that too:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0311-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Encapsulating the Event Title field" data-type="sect1" class="preface"><div class="preface" id="encapsulating_the_event_title_field">
+<h1 class="calibre25">Encapsulating the Event Title field</h1>
+<p class="calibre7"><a data-primary="encapsulation" data-secondary="exported fields and" data-type="indexterm" id="idm46062710530520" class="calibre10"/>Because the <code class="calibre20">Event</code> struct’s <code class="calibre20">Title</code> field is exported, we can still access it directly:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0312-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">This exposes us to the same sort of issues that we had with the <code class="calibre20">Date</code> fields, though. For example, there’s no limit on the length of the <code class="calibre20">Title</code> string:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0312-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">It seems like a good idea to encapsulate the title field as well, so we can validate new values. Here’s an update to the <code class="calibre20">Event</code> type that does so. We change the field’s name to <code class="calibre20">title</code> so it’s unexported, then add getter and setter methods. The <code class="calibre20">RuneCountInString</code> function from the <code class="calibre20">unicode/utf8</code> package is used to ensure there aren’t too many runes (characters) in the string.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0312-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Promoted methods live alongside the outer type’s methods" data-type="sect1" class="preface"><div class="preface" id="promoted_methods_live_alongside_the_oute">
+<h1 class="calibre25">Promoted methods live alongside the outer type’s methods</h1>
+<p class="calibre7"><a data-primary="method promotion" data-type="indexterm" id="idm46062710516872" class="calibre10"/>Now that we’ve added setter and getter methods for the <code class="calibre20">title</code> field, our programs can report an error if a title longer than 30 characters is used. An attempt to set a 39-character title causes an error to be returned:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0313-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">The <code class="calibre20">Event</code> type’s <code class="calibre20">Title</code> and <code class="calibre20">SetTitle</code> methods live alongside the methods promoted from the embedded <code class="calibre20">Date</code> type. Importers of the <code class="calibre20">calendar</code> package can treat all the methods as if they belong to the <code class="calibre20">Event</code> type, without worrying about which type they’re actually defined on.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0313-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Our calendar package is complete!" data-type="sect1" class="preface"><div class="preface" id="our_calendar_package_is_completeexcl">
+<h1 class="calibre25">Our calendar package is complete!</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0314-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Method promotion allows you to easily use one type’s methods as if they belonged to another. You can use this to compose types that combine the methods of several other types. This can help you keep your code clean, without sacrificing convenience!</p>
+<aside data-type="sidebar" epub:type="sidebar" class="calibre30"><div class="sidebar" id="exercise_20">
+<h5 class="calibre31"><span class="calibre"><img alt="image" src="assets/common.png" class="calibre4"/></span> Exercise</h5>
+<p class="calibre7">We completed the code for the <code class="calibre20">Coordinates</code> type in a previous exercise. You won’t need to make any updates to it this time; it’s just here for reference. On the next page, we’re going to embed it in the <code class="calibre20">Landmark</code> type (which we also saw back in <a data-type="xref" href="ch08.html#building_storagecolon_structs" class="calibre10">Chapter 8</a>), so that its methods are promoted to <code class="calibre20">Landmark</code>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0314-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Here’s an update to the <code class="calibre20">Landmark</code> type. We want its name field to be encapsulated, accessible only by a <code class="calibre20">Name</code> getter method and a <code class="calibre20">SetName</code> setter method. <code class="calibre20">SetName</code> should return an error if its argument is an empty string, or set the name field and return a <code class="calibre20">nil</code> error otherwise. <code class="calibre20">Landmark</code> should also have an anonymous <code class="calibre20">Coordinates</code> field, so that the methods of <code class="calibre20">Coordinates</code> are promoted to <code class="calibre20">Landmark</code>.</p>
+<p class="calibre7">Fill in the blanks to complete the code for the <code class="calibre20">Landmark</code> type.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0315-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">If the blanks in the code for <code class="calibre20">Landmark</code> are completed correctly, the code in the <code class="calibre20">main</code> package should run and produce the output shown.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0315-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><img alt="image" src="assets/arrow.png" class="calibre4"/> Answers in <a data-type="xref" href="#exercise_solution_20" class="calibre10">“<span class="calibre"><img alt="image" src="assets/common.png" class="calibre4"/></span> Exercise Solution”</a>.</p>
+</div></aside>
+</div></section>
+<section data-pdf-bookmark="Your Go Toolbox" data-type="sect1" class="preface"><div class="preface" id="your_go_toolbox_10">
+<h1 class="calibre25">Your Go Toolbox</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0316-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><strong class="calibre8">That’s it for <a data-type="xref" href="#keep_it_to_yourselfcolon_encapsulation_a" class="calibre10">Chapter 10</a>! You’ve added encapsulation and embedding to your toolbox.</strong></p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0316-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<div data-type="note" epub:type="note" class="calibre22"><h6 class="calibre23">Note</h6>
+<p class="calibre7">Embedding</p>
+<p class="calibre7">A type that is stored within a struct type using an anonymous field is said to be embedded within the struct.</p>
+<p class="calibre7">Methods of an embedded type get promoted to the outer type. They can be called as if they were defined on the outer type.</p>
+</div>
+<aside data-type="sidebar" epub:type="sidebar" class="calibre30"><div class="sidebar" id="bullet_point_10">
+<h5 class="calibre31">Bullet Points</h5>
+<ul class="list_style_type_none">
+<li class="calibre18"><p class="calibre7">In Go, data is encapsulated within packages, using unexported package variables or struct fields.</p></li>
+<li class="calibre18"><p class="calibre7">Unexported variables, struct fields, functions, methods, and the like can still be accessed by exported functions and methods defined in the same package.</p></li>
+<li class="calibre18"><p class="calibre7">The practice of ensuring that data is valid before accepting it is known as <strong class="calibre8">data validation</strong>.</p></li>
+<li class="calibre18"><p class="calibre7">A method that is primarily used to set the value of an encapsulated field is known as a <strong class="calibre8">setter method</strong>. Setter methods often include validation logic, to ensure the new value being provided is valid.</p></li>
+<li class="calibre18"><p class="calibre7">Since setter methods need to modify their receiver, their receiver parameter should have a pointer type.</p></li>
+<li class="calibre18"><p class="calibre7">It’s conventional for setter method names to be in the form <code class="calibre20">Set<em class="calibre43">X</em></code> where <code class="calibre20"><em class="calibre43">X</em></code> is the name of the field being set.</p></li>
+<li class="calibre18"><p class="calibre7">A method that is primarily used to get the value of an encapsulated field is known as a <strong class="calibre8">getter method</strong>.</p></li>
+<li class="calibre18"><p class="calibre7">It’s conventional for getter method names to be in the form <code class="calibre20"><em class="calibre43">X</em></code> where <code class="calibre20"><em class="calibre43">X</em></code> is the name of the field being set. Some other programming languages favor the form <code class="calibre20">Get<em class="calibre43">X</em></code> for getter method names, but you should <em class="calibre9">not</em> use that form in Go.</p></li>
+<li class="calibre18"><p class="calibre7">Methods defined on an outer struct type live alongside methods promoted from an embedded type.</p></li>
+<li class="calibre18"><p class="calibre7">An embedded type’s unexported methods don’t get promoted to the outer type.</p></li>
+</ul>
+</div></aside>
+<aside data-type="sidebar" epub:type="sidebar" class="calibre30"><div class="sidebar" id="exercise_solution_18">
+<h5 class="calibre31"><span class="calibre"><img alt="image" src="assets/common.png" class="calibre4"/></span> Exercise Solution</h5>
+<p class="calibre7">We need to add setter methods to the <code class="calibre20">Coordinates</code> type for each of its fields.Fill in the blanks in the <em class="calibre9">coordinates.go</em> file below, so that the code in <em class="calibre9">main.go</em> will run and produce the output shown.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0317-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></aside>
+<aside data-type="sidebar" epub:type="sidebar" class="calibre30"><div class="sidebar" id="exercise_solution_19">
+<h5 class="calibre31"><span class="calibre"><img alt="image" src="assets/common.png" class="calibre4"/></span> Exercise Solution</h5>
+<p class="calibre7">Your goal with updating this code was to encapsulate the fields of the <code class="calibre20">Coordinates</code> type and add validation to its setter methods.</p>
+<ul class="list_style_type_none">
+<li class="calibre18"><p class="calibre7">Update the fields of <code class="calibre20">Coordinates</code> so they’re unexported.</p></li>
+<li class="calibre18"><p class="calibre7">Add getter methods for each field.</p></li>
+<li class="calibre18"><p class="calibre7">Add validation to the setter methods. <code class="calibre20">SetLatitude</code> should return an error if the passed-in value is less than <code class="calibre20">-90</code> or greater than <code class="calibre20">90</code>. <code class="calibre20">SetLongitude</code> should return an error if the new value is less than <code class="calibre20">-180</code> or greater than <code class="calibre20">180</code>.</p></li>
+</ul>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0318-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Your next task was to update the <code class="calibre20">main</code> package code to make use of the revised <code class="calibre20">Coordinates</code> type.</p>
+<ul class="list_style_type_none">
+<li class="calibre18"><p class="calibre7">For each call to a setter method, store the <code class="calibre20">error</code> return value.</p></li>
+<li class="calibre18"><p class="calibre7">If the <code class="calibre20">error</code> is not <code class="calibre20">nil</code>, use the <code class="calibre20">log.Fatal</code> function to log the error message and exit.</p></li>
+<li class="calibre18"><p class="calibre7">If there were no errors setting the fields, call both getter methods to print the field values.</p></li>
+</ul>
+<p class="calibre7">The call to <code class="calibre20">SetLatitude</code> below is successful, but we’re passing an invalid value to <code class="calibre20">SetLongitude</code>, so it logs an error and exits at that point.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0319-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></aside>
+<aside data-type="sidebar" epub:type="sidebar" class="calibre30"><div class="sidebar" id="exercise_solution_20">
+<h5 class="calibre31"><span class="calibre"><img alt="image" src="assets/common.png" class="calibre4"/></span> Exercise Solution</h5>
+<p class="calibre7">Here’s an update to the <code class="calibre20">Landmark</code> type (which we also saw in <a data-type="xref" href="ch08.html#building_storagecolon_structs" class="calibre10">Chapter 8</a>). We want its name field to be encapsulated, accessible only by getter and setter methods. The <code class="calibre20">SetName</code> method should return an error if its argument is an empty string, or set the name field and return a <code class="calibre20">nil</code> error otherwise. <code class="calibre20">Landmark</code> should also have an anonymous <code class="calibre20">Coordinates</code> field, so that the methods of <code class="calibre20">Coordinates</code> are promoted to <code class="calibre20">Landmark</code>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0320-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></aside>
+</div></section>
+</div></section></body></html>

@@ -1,0 +1,602 @@
+<html><head></head><body><section data-pdf-bookmark="Chapter 4. bundles of code: Packages" data-type="chapter" epub:type="chapter" class="preface"><div class="preface" id="bundles_of_codecolon_packages">
+<h1 class="calibre17"><span class="calibre">Chapter 4. </span>bundles of code: Packages</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0113-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><a data-primary="packages" data-secondary="about" data-type="indexterm" id="idm46062713736664" class="calibre10"/><strong class="calibre8">It’s time to get organized</strong>. So far, we’ve been throwing all our code together in a single file. As our programs grow bigger and more complex, that’s going to quickly become a mess.</p>
+<p class="calibre7">In this chapter, we’ll show you how to create your own <strong class="calibre8">packages</strong> to help keep related code together in one place. But packages are good for more than just organization. Packages are an easy way to <em class="calibre9">share code between your programs</em>. And they’re an easy way to <em class="calibre9">share code with other developers</em>.</p>
+<section data-pdf-bookmark="Different programs, same function" data-type="sect1" class="preface"><div class="preface" id="different_programscomma_same_function">
+<h1 class="calibre25">Different programs, same function</h1>
+<p class="calibre7">We’ve written two programs, each with an identical copy of a function, and it’s becoming a maintenance headache...</p>
+<p class="calibre7">On this page, we’ve got a new version of our <em class="calibre9">pass_fail.go</em> program from <a data-type="xref" href="ch02.html#which_code_runs_nextquestcolon_condition" class="calibre10">Chapter 2</a>. The code that reads a grade from the keyboard has been moved to a new <code class="calibre20">getFloat</code> function. <code class="calibre20">getFloat</code> returns the floating-point number the user typed, unless there’s an error, in which case it returns <code class="calibre20">0</code> and an error value. If an error is returned, the program reports it and exits; otherwise, it reports whether the grade is passing or failing, as before.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0114-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">On this page, we’ve got a new <em class="calibre9">tocelsius.go</em> program that lets the user type a temperature in the Fahrenheit measurement system and converts it to the Celsius system.</p>
+<p class="calibre7">Notice that the <code class="calibre20">getFloat</code> function in <em class="calibre9">tocelsius.go</em> is identical to the <code class="calibre20">getFloat</code> function in <em class="calibre9">pass_fail.go</em>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0115-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Sharing code between programs using packages" data-type="sect1" class="preface"><div class="preface" id="sharing_code_between_programs_using_pack">
+<h1 class="calibre25">Sharing code between programs using packages</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0116-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<pre data-type="programlisting" class="calibre32">func getFloat() (float64, error) {
+       reader := bufio.NewReader(os.Stdin)
+       input, err := reader.ReadString('\n')
+       if err != nil {
+              return 0, err
+       }
+       input = strings.TrimSpace(input)
+       number, err := strconv.ParseFloat(input, 64)
+       if err != nil {
+             return 0, err
+       }
+       return number, nil
+}</pre>
+<p class="calibre7"><a data-primary="fmt package" data-type="indexterm" id="idm46062713715336" class="calibre10"/><a data-primary="fmt package" data-secondary="about" data-type="indexterm" id="idm46062713714088" class="calibre10"/><a data-primary="formatting output" data-see="fmt package" data-type="indexterm" id="idm46062713713016" class="calibre10"/><a data-primary="math package" data-type="indexterm" id="idm46062713711832" class="calibre10"/><a data-primary="packages" data-secondary="about" data-type="indexterm" id="idm46062713711032" class="calibre10"/><a data-primary="strings package" data-secondary="about" data-type="indexterm" id="idm46062713709896" class="calibre10"/><strong class="calibre8">Actually, there <span class="calibre21">is</span> something we can do—we can move the shared function to a new package!</strong></p>
+<p class="calibre7">Go allows us to define our own packages. As we discussed back in <a data-type="xref" href="ch01.html#letapsos_get_going_syntax_basics" class="calibre10">Chapter 1</a>, a package is a group of code that all does similar things. The <code class="calibre20">fmt</code> package formats output, the <code class="calibre20">math</code> package works with numbers, the <code class="calibre20">strings</code> package works with strings, and so on. We’ve used the functions from each of these packages in multiple programs already.</p>
+<p class="calibre7">Being able to use the same code between programs is one of the major reasons packages exist. If parts of your code are shared between multiple programs, you should consider moving them into packages.</p>
+<blockquote class="calibre37 pcalibre1 pcalibre2">
+<p class="calibre38"><strong class="calibre8">If parts of your code are shared between multiple programs, you should consider moving them into packages.</strong></p>
+</blockquote>
+</div></section>
+<section data-pdf-bookmark="The Go workspace directory holds package code" data-type="sect1" class="preface"><div class="preface" id="the_go_workspace_directory_holds_package">
+<h1 class="calibre25">The Go workspace directory holds package code</h1>
+<p class="calibre7"><a data-primary="bin workspace subdirectory" data-type="indexterm" id="idm46062713703816" class="calibre10"/><a data-primary="directories" data-secondary="workspace" data-type="indexterm" id="idm46062713700520" class="calibre10"/><a data-primary="go directory" data-type="indexterm" id="idm46062713699368" class="calibre10"/><a data-primary=".go file extension" data-type="indexterm" id="idm46062713698536" class="calibre10"/><a data-primary="packages" data-secondary="workspace directory and" data-type="indexterm" id="idm46062713697736" class="calibre10"/><a data-primary="pkg subdirectory" data-type="indexterm" id="idm46062713696552" class="calibre10"/><a data-primary="src subdirectory" data-type="indexterm" id="idm46062713695752" class="calibre10"/><a data-primary="workspace directory" data-type="indexterm" id="idm46062713694888" class="calibre10"/>Go tools look for package code in a special directory (folder) on your computer called the <strong class="calibre8">workspace</strong>. By default, the workspace is a directory named <em class="calibre9">go</em> in the current user’s home directory.</p>
+<p class="calibre7">The workspace directory contains three subdirectories:</p>
+<ul class="list_style_type_none">
+<li class="calibre18"><p class="calibre7"><em class="calibre9">bin</em>, which holds compiled binary executable programs. (We’ll talk more about <em class="calibre9">bin</em> later in the chapter.)</p></li>
+<li class="calibre18"><p class="calibre7"><em class="calibre9">pkg</em>, which holds compiled binary package files. (We’ll also talk more about <em class="calibre9">pkg</em> later in the chapter.)</p></li>
+<li class="calibre18"><p class="calibre7"><em class="calibre9">src</em>, which holds Go source code.</p></li>
+</ul>
+<p class="calibre7">Within <em class="calibre9">src</em>, code for each package lives in its own separate subdirectory. By convention, the subdirectory name should be the same as the package name (so code for a <code class="calibre20">gizmo</code> package would go in a <em class="calibre9">gizmo</em> subdirectory).</p>
+<p class="calibre7">Each package directory should contain one or more source code files. The filenames don’t matter, but they should end in a <em class="calibre9">.go</em> extension.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0117-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="there are no Dumb Questions" data-type="sect1" class="preface"><div class="preface" id="there_are_no_dumb_questions_3">
+<h1 class="calibre25">there are no Dumb Questions</h1>
+<p class="calibre7"><strong class="calibre8">Q: You said a package folder can contain multiple files. What should go in each file?</strong></p>
+<p class="calibre7"><strong class="calibre8">A:</strong> Whatever you want! You can keep all of a package’s code in one file, or split it between multiple files. Either way, it will all become part of the same package.</p>
+</div></section>
+<section data-pdf-bookmark="Creating a new package" data-type="sect1" class="preface"><div class="preface" id="creating_a_new_package">
+<h1 class="calibre25">Creating a new package</h1>
+<p class="calibre7"><a data-primary="directories" data-secondary="nesting" data-type="indexterm" id="idm46062713678696" class="calibre10"/><a data-primary="exporting from packages" data-secondary="functions" data-type="indexterm" id="idm46062713677384" class="calibre10"/><a data-primary="functions" data-secondary="naming rules for" data-type="indexterm" id="idm46062713676408" class="calibre10"/><a data-primary="main package" data-type="indexterm" id="idm46062713675288" class="calibre10"/><a data-primary="naming rules" data-secondary="functions" data-type="indexterm" id="idm46062713674488" class="calibre10"/><a data-primary="nesting" data-secondary="directories" data-type="indexterm" id="idm46062713673304" class="calibre10"/><a data-primary="package clause" data-type="indexterm" id="idm46062713672184" class="calibre10"/><a data-primary="packages" data-secondary="creating" data-type="indexterm" id="idm46062713671352" class="calibre10"/>Let’s try setting up a package of our own in the workspace. We’ll make a simple package named <code class="calibre20">greeting</code> that prints greetings in various languages.</p>
+<p class="calibre7">The workspace directory isn’t created by default when Go is installed, so you’ll need to create it yourself. Start by going to your home directory. (The path is <em class="calibre9">C:\Users\&lt;yourname&gt;</em> on most Windows systems, <em class="calibre9">/Users/&lt;yourname&gt;</em> on Macs, and <em class="calibre9">/home/&lt;yourname&gt;</em> on most Linux systems.) Within the home directory, create a directory named <em class="calibre9">go</em>—this will be our new workspace directory. Within the <em class="calibre9">go</em> directory, create a directory named <em class="calibre9">src</em>.</p>
+<p class="calibre7">Finally, we need a directory to hold our package code. By convention, a package’s directory should have the same name as a package. Since our package will be named <code class="calibre20">greeting</code>, that’s the name you should use for the directory.</p>
+<p class="calibre7">We know, that seems like a lot of nested directories (and actually, we’ll be nesting them even deeper shortly). But trust us, once you’ve built up a collection of packages of your own as well as packages from others, this structure will help you keep your code organized.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0118-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">And more importantly, this structure helps Go tools find the code. Because it’s always in the <em class="calibre9">src</em> directory, Go tools know exactly where to look to find code for the packages you’re importing.</p>
+<p class="calibre7">Your next step is to create a file within the <em class="calibre9">greeting</em> directory, and name it <em class="calibre9">greeting.go</em>. The file should include the code below. We’ll talk about it more shortly, but for now there’s just a couple things we want you to notice...</p>
+<p class="calibre7">Like all of our Go source code files thus far, this file starts with a <code class="calibre20">package</code> line. But unlike the others, this code isn’t part of the <code class="calibre20">main</code> package; it’s part of a package named <code class="calibre20">greeting</code>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0118-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Also notice the two function definitions. They aren’t much different from other functions we’ve seen so far. But because we want these functions to be accessible outside the <code class="calibre20">greeting</code> package, notice that we capitalize the first letter of their names so the functions are exported.</p>
+</div></section>
+<section data-pdf-bookmark="Importing our package into a program" data-type="sect1" class="preface"><div class="preface" id="Importing_our_package_into_a_program">
+<h1 class="calibre25">Importing our package into a program</h1>
+<p class="calibre7"><a data-primary="executing Go code" data-secondary="about" data-type="indexterm" id="idm46062713654584" class="calibre10"/><a data-primary=".go file extension" data-type="indexterm" id="idm46062713651960" class="calibre10"/><a data-primary="Go programming language" data-secondary="executing code" data-type="indexterm" id="idm46062713651128" class="calibre10"/><a data-primary="go run command" data-type="indexterm" id="idm46062713650024" class="calibre10"/><a data-primary="import statement" data-secondary="about" data-type="indexterm" id="idm46062713649192" class="calibre10"/>Now let’s try using our new package within a program.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0119-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">In your workspace directory, within the <em class="calibre9">src</em> subdirectory, create another subdirectory named <em class="calibre9">hi</em>. (We don’t <em class="calibre9">have</em> to store code for executable programs within the workspace, but it’s a good idea.)</p>
+<p class="calibre7">Then, within your new <em class="calibre9">hi</em> directory, we need to create another source file. We can name the file anything we want, as long as it ends with a <em class="calibre9">.go</em> extension, but since this is going to be an executable command, we’ll name it <em class="calibre9">main.go</em>. Save the code below within the file.</p>
+<p class="calibre7">Like in every Go source code file, this code starts with a <code class="calibre20">package</code> line. But because we intend this to be an executable command, we need to use a package name of <code class="calibre20">main</code>. Generally, the package name should match the name of the directory it’s kept in, but the <code class="calibre20">main</code> package is an exception to that rule.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0119-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Next we need to import the <code class="calibre20">greeting</code> package so we can use its functions. Go tools look for package code in a folder within the workspace’s <em class="calibre9">src</em> directory whose name matches the name in the <code class="calibre20">import</code> statement. To tell Go to look for code in the <em class="calibre9">src/greeting</em> directory within the workspace, we use <code class="calibre20">import "greeting"</code>.</p>
+<p class="calibre7">Finally, because this is code for an executable, we need a <code class="calibre20">main</code> function that will be called when the program runs. In <code class="calibre20">main</code> we call both functions that are defined in the <code class="calibre20">greeting</code> package. Both calls are preceded by the package name and a dot, so that Go knows which package the functions are a part of.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0119-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">We’re all set; let’s try running the program. In your terminal or command prompt window, use the <code class="calibre20"><strong class="calibre39">cd</strong></code> command to change to the <em class="calibre9">src/hi</em> directory within your workspace directory. (The path will vary based on the location of your home directory.) Then, use <code class="calibre20"><strong class="calibre39">go run main.go</strong></code> to run the program.</p>
+<p class="calibre7">When it sees the <code class="calibre20">import "greeting"</code> line, Go will look in the <em class="calibre9">greeting</em> directory in your workspace’s <em class="calibre9">src</em> directory for the package source code. That code gets compiled and imported, and we’re able to call the <code class="calibre20">greeting</code> package’s functions!</p>
+</div></section>
+<section data-pdf-bookmark="Packages use the same file layout" data-type="sect1" class="preface"><div class="preface" id="packages_use_the_same_file_layout">
+<h1 class="calibre25">Packages use the same file layout</h1>
+<p class="calibre7"><a data-primary="main function" data-secondary="about" data-type="indexterm" id="idm46062713625304" class="calibre10"/>Remember back in <a data-type="xref" href="ch01.html#letapsos_get_going_syntax_basics" class="calibre10">Chapter 1</a>, we talked about the three sections almost every Go source code file has?</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0120-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">That rule holds true for the <code class="calibre20">main</code> package in our <em class="calibre9">main.go</em> file, of course. In our code, you can see a <code class="calibre20">package</code> clause, followed by an imports section, followed by the actual code for our package.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0120-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Packages other than <code class="calibre20">main</code> follow the same format. You can see that our <em class="calibre9">greeting.go</em> file also has a package clause, imports section, and the actual package code at the end.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0120-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Breaking Stuff is Educational!" data-type="sect1" class="preface"><div class="preface" id="breaking_stuff_is_educational_6">
+<h1 class="calibre25">Breaking Stuff is Educational!</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0121-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><a data-primary="functions" data-secondary="naming rules for" data-type="indexterm" id="idm46062713610600" class="calibre10"/><a data-primary="functions" data-secondary="unexported" data-type="indexterm" id="idm46062713609016" class="calibre10"/><a data-primary="import paths" data-secondary="errors" data-type="indexterm" id="idm46062713607864" class="calibre10"/><a data-primary="naming rules" data-secondary="functions" data-type="indexterm" id="idm46062713606680" class="calibre10"/><a data-primary="unexported fields" data-secondary="functions and" data-type="indexterm" id="idm46062713605608" class="calibre10"/>Take our code for the <code class="calibre20">greeting</code> package, as well as the code for the program that imports it. Try making one of the changes below and run it. Then undo your change and try the next one. See what happens!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0121-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0121-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Pool Puzzle" data-type="sect1" class="preface"><div class="preface" id="pool_puzzle_3">
+<h1 class="calibre25">Pool Puzzle</h1>
+<p class="calibre7">Your <strong class="calibre8">job</strong> is to take code snippets from the pool and place them into the blank lines. <strong class="calibre8">Don’t</strong> use the same snippet more than once, and you won’t need to use all the snippets. Your <strong class="calibre8">goal</strong> is to set up a <code class="calibre20">calc</code> package within a Go workspace so <code class="calibre20">calc</code>’s functions can be used within <em class="calibre9">main.go</em>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0122-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0122-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><strong class="calibre8">Note: each snippet from the pool can only be used once!</strong></p>
+<p class="calibre7"><span class="calibre"><img alt="image" src="assets/arrow.png" class="calibre4"/></span> Answers in <a data-type="xref" href="#pool_puzzle_solution_4a" class="calibre10">“Pool Puzzle Solution”</a>.</p>
+</div></section>
+<section data-pdf-bookmark="Package naming conventions" data-type="sect1" class="preface"><div class="preface" id="package_naming_conventions">
+<h1 class="calibre25">Package naming conventions</h1>
+<p class="calibre7"><a data-primary="naming rules" data-secondary="packages" data-type="indexterm" id="idm46062713586904" class="calibre10"/><a data-primary="package names" data-secondary="naming conventions" data-type="indexterm" id="idm46062713585448" class="calibre10"/><a data-primary="packages" data-secondary="accessing contents of" data-type="indexterm" id="idm46062713584328" class="calibre10"/>Developers using a package are going to need to type its name each and every time they call a function from that package. (Think of <code class="calibre20">fmt.Printf</code>, <code class="calibre20">fmt.Println</code>, <code class="calibre20">fmt.Print</code>, etc.) To make that as painless as possible, there are a few rules package names should follow:</p>
+<ul class="list_style_type_none">
+<li class="calibre18"><p class="calibre7">A package name should be all lowercase.</p></li>
+<li class="calibre18"><p class="calibre7">The name should be abbreviated if the meaning is fairly obvious (such as <code class="calibre20">fmt</code>).</p></li>
+<li class="calibre18"><p class="calibre7">It should be one word, if possible. If two words are needed, they should <em class="calibre9">not</em> be separated by underscores, and the second word should <em class="calibre9">not</em> be capitalized. (The <code class="calibre20">strconv</code> package is one example.)</p></li>
+<li class="calibre18"><p class="calibre7">Imported package names can conflict with local variable names, so don’t use a name that package users are likely to want to use as well. (For example, if the <code class="calibre20">fmt</code> package were named <code class="calibre20">format</code>, anyone who imported that package would risk conflicts if they named a local variable <code class="calibre20">format</code>).</p></li>
+</ul>
+</div></section>
+<section data-pdf-bookmark="Package qualifiers" data-type="sect1" class="preface"><div class="preface" id="package_qualifiers">
+<h1 class="calibre25">Package qualifiers</h1>
+<p class="calibre7">When accessing a function, variable, or the like that’s exported from a different package, you need to qualify the name of the function or variable by typing the package name before it. When you access a function or variable that’s defined in the <em class="calibre9">current</em> package, however, you should <em class="calibre9">not</em> qualify the package name.</p>
+<p class="calibre7">In our <em class="calibre9">main.go</em> file, since our code is in the <code class="calibre20">main</code> package, we need to specify that the <code class="calibre20">Hello</code> and <code class="calibre20">Hi</code> functions are from the <code class="calibre20">greeting</code> package, by typing <code class="calibre20"><strong class="calibre39">greeting.Hello</strong></code> and <code class="calibre20"><strong class="calibre39">greeting.Hi</strong></code>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0123-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Suppose that we called the <code class="calibre20">Hello</code> and <code class="calibre20">Hi</code> functions from another function in the <code class="calibre20">greeting</code> package, though. There, we would just type <code class="calibre20">Hello</code> and <code class="calibre20">Hi</code> (without the package name qualifier) because we’d be calling the functions from the same package where they’re defined.</p>
+</div></section>
+<section data-pdf-bookmark="Moving our shared code to a package" data-type="sect1" class="preface"><div class="preface" id="moving_our_shared_code_to_a_package">
+<h1 class="calibre25">Moving our shared code to a package</h1>
+<p class="calibre7"><a data-primary="packages" data-secondary="moving shared code to" data-type="indexterm" id="idm46062713562200" class="calibre10"/>Now that we understand how to add packages to the Go workspace, we’re finally ready to move our <code class="calibre20">getFloat</code> <span class="calibre">function to a package that our <br class="calibre16"/></span><em class="calibre9">pass_fail.go</em> and <em class="calibre9">tocelsius.go</em> programs can both use.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0124-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Let’s name our package <code class="calibre20">keyboard</code>, since it reads user input from the keyboard. We’ll start by creating a new directory named <em class="calibre9">keyboard</em> inside our workspace’s <em class="calibre9">src</em> directory.</p>
+<p class="calibre7">Next, we’ll create a source code file within the <em class="calibre9">keyboard</em> directory. We can name it anything we want, but we’ll just name it after the package: <em class="calibre9">keyboard.go</em>.</p>
+<p class="calibre7">At the top of the file, we’ll need a <code class="calibre20">package</code> clause with the package name: <code class="calibre20">keyboard</code>.</p>
+<p class="calibre7">Then, because this is a separate file, we’ll need an <code class="calibre20">import</code> statement with all the packages used in our code: <code class="calibre20">bufio</code>, <code class="calibre20">os</code>, <code class="calibre20">strconv</code>, and <code class="calibre20">strings</code>. (We need to leave out the <code class="calibre20">fmt</code> and <code class="calibre20">log</code> packages, as those are only used in the <em class="calibre9">pass_fail.go</em> and <em class="calibre9">tocelsius.go</em> files.)</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0124-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Finally, we can copy the code from the old <code class="calibre20">getFloat</code> function as is. But we need to be sure to rename the function to <code class="calibre20">GetFloat</code>, because it won’t be exported unless the first letter of its name is capitalized.</p>
+<p class="calibre7">Now the <em class="calibre9">pass_fail.go</em> program can be updated to use our new <code class="calibre20">keyboard</code> package.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0125-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Because we’re removing the old <code class="calibre20">getFloat</code> function, we need to remove the unused <code class="calibre20">bufio</code>, <code class="calibre20">os</code>, <code class="calibre20">strconv</code>, and <code class="calibre20">strings</code> imports. In their place, we’ll import the new <code class="calibre20">keyboard</code> package.</p>
+<p class="calibre7">In our <code class="calibre20">main</code> function, in place of the old call to <code class="calibre20">getFloat</code>, we’ll call the new <code class="calibre20">keyboard.GetFloat</code> function. The rest of the code is unchanged.</p>
+<p class="calibre7">If we run the updated program, we’ll see the same output as before.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0125-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">We can make the same updates to the <em class="calibre9">tocelsius.go</em> program.</p>
+<p class="calibre7">We update the imports, remove the old <code class="calibre20">getFloat</code>, and call <code class="calibre20">keyboard.GetFloat</code> instead.</p>
+<p class="calibre7">And again, if we run the updated program, we’ll get the same output as before. But this time, instead of relying on redundant function code, we’re using the shared function in our new package!</p>
+</div></section>
+<section data-pdf-bookmark="Constants" data-type="sect1" class="preface"><div class="preface" id="constants">
+<h1 class="calibre25">Constants</h1>
+<p class="calibre7"><a data-primary="constants" data-type="indexterm" id="idm46062713528440" class="calibre10"/><a data-primary="const keyword" data-type="indexterm" id="idm46062713527272" class="calibre10"/><a data-primary="exporting from packages" data-type="indexterm" id="idm46062713526056" class="calibre10"/><a data-primary="exporting from packages" data-secondary="constants" data-type="indexterm" id="idm46062713525224" class="calibre10"/><a data-primary="packages" data-secondary="exporting from" data-see="exporting from packages" data-type="indexterm" id="idm46062713524104" class="calibre10"/><a data-primary="types" data-secondary="constants and" data-type="indexterm" id="idm46062713522680" class="calibre10"/>Many packages export <strong class="calibre8">constants</strong>: named values that never change.</p>
+<p class="calibre7">A constant declaration looks a lot like a variable declaration, with a name, optional type, and value for the constant. But the rules are slightly different:</p>
+<ul class="list_style_type_none">
+<li class="calibre18"><p class="calibre7">Instead of the <code class="calibre20">var</code> keyword, you use the <code class="calibre20">const</code> keyword.</p></li>
+<li class="calibre18"><p class="calibre7">You must assign a value at the time the constant is declared; you can’t assign a value later as with variables.</p></li>
+<li class="calibre18"><p class="calibre7">Variables have the <code class="calibre20">:=</code> short variable declaration syntax available, but there is no equivalent for constants.</p></li>
+</ul>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0126-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">As with variable declarations, you can omit the type, and it will be inferred from the value being assigned:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0126-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">The value of a <em class="calibre9">variable</em> can <em class="calibre9">vary</em>, but the value of a <em class="calibre9">constant</em> must remain <em class="calibre9">constant</em>. Attempting to assign a new value to a constant will result in a compile error. This is a safety feature: constants should be used for values that <em class="calibre9">shouldn’t</em> ever change.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0126-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">If your program includes “hardcoded” literal values, especially if those values are used in multiple places, you should consider replacing them with constants (even if the program isn’t broken up into multiple packages). Here’s a package with two functions, both featuring the integer literal <code class="calibre20">7</code> representing the number of days in a week:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0126-04.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><a data-primary="declaring constants" data-type="indexterm" id="idm46062713504248" class="calibre10"/><a data-primary="scope" data-secondary="of constants" data-type="indexterm" id="idm46062713503384" class="calibre10"/>By replacing the literal values with a constant, <code class="calibre20">DaysInWeek</code>, we can document what they mean. (Other developers will see the name <code class="calibre20">DaysInWeek</code>, and immediately know we didn’t randomly choose the number <code class="calibre20">7</code> to use in our functions.) Also, if we add more functions later, we can avoid inconsistencies by having them refer to <code class="calibre20">DaysInWeek</code> as well.</p>
+<p class="calibre7">Notice that we declare the constant outside of any function, at the package level. Although it’s possible to declare a constant inside a function, that would limit its scope to the block for that function. It’s much more typical to declare constants at the package level, so they can be accessed by all functions in that package.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0127-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">As with variables and functions, a constant whose name begins with a capital letter is exported, and we can access it from other packages by qualifying its name. Here, a program makes use of the <code class="calibre20">DaysInWeek</code> constant from the <code class="calibre20">main</code> package by importing the <code class="calibre20">dates</code> package and qualifying the constant name as <code class="calibre20">dates.DaysInWeek</code>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0127-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Nested package directories and import paths" data-type="sect1" class="preface"><div class="preface" id="nested_package_directories">
+<h1 class="calibre25">Nested package directories and import paths</h1>
+<p class="calibre7"><a data-primary="directories" data-secondary="nesting" data-type="indexterm" id="idm46062713491176" class="calibre10"/><a data-primary="directories" data-secondary="workspace" data-type="indexterm" id="idm46062713489720" class="calibre10"/><a data-primary="import paths" data-secondary="nested directories and" data-type="indexterm" id="idm46062713488616" class="calibre10"/><a data-primary="import statement" data-secondary="nested directories and import paths" data-type="indexterm" id="idm46062713487512" class="calibre10"/><a data-primary="nesting" data-secondary="directories" data-type="indexterm" id="idm46062713486440" class="calibre10"/><a data-primary="packages" data-secondary="nested directories and import paths" data-type="indexterm" id="idm46062713485304" class="calibre10"/><a data-primary="workspace directory" data-type="indexterm" id="idm46062713484200" class="calibre10"/>When you’re working with the packages that come with Go, like <code class="calibre20">fmt</code> and <code class="calibre20">strconv</code>, the package name is usually the same as its import path (the string you use in an <code class="calibre20">import</code> statement to import the package). But as we saw in <a data-type="xref" href="ch02.html#which_code_runs_nextquestcolon_condition" class="calibre10">Chapter 2</a>, that’s not always the case...</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0128-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Some sets of packages are grouped together by import path prefixes like <code class="calibre20">"archive/"</code> and <code class="calibre20">"math/"</code>. We said to think of these prefixes as being similar to the paths of directories on your hard drive...and that wasn’t a coincidence. These import path prefixes <em class="calibre9">are</em> created using directories!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0128-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">You can nest groups of similar packages together in a directory in your Go workspace. That directory then becomes part of the import path for all the packages it contains.</p>
+<p class="calibre7">Suppose, for example, that we wanted to add packages for greetings in additional languages. That would quickly become a mess if we placed them all directly in the <em class="calibre9">src</em> directory. But if we place the new packages under the <em class="calibre9">greeting</em> directory, they’ll all be grouped neatly together.</p>
+<p class="calibre7">And placing the packages under the <em class="calibre9">greeting</em> directory affects their import path, too. If the <code class="calibre20">dansk</code> package were stored directly under <em class="calibre9">src</em>, its import path would be <code class="calibre20">"dansk"</code>. But place it within the <em class="calibre9">greeting</em> directory, and its import path becomes <code class="calibre20">"greeting/dansk"</code>. Move the <code class="calibre20">deutsch</code> package under the <em class="calibre9">greeting</em> directory, and its import path becomes <code class="calibre20">"greeting/deutsch"</code>. The original <code class="calibre20">greeting</code> package will still be available at an import path of <code class="calibre20">"greeting"</code>, as long as its source code file is stored directly under the <em class="calibre9">greeting</em> directory (not a subdirectory).</p>
+<p class="calibre7">Suppose that we had a <code class="calibre20">deutsch</code> package nested under our <em class="calibre9">greeting</em> package directory, and that its code looked like this:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0129-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Let’s update our <em class="calibre9">hi/main.go</em> code to use the <code class="calibre20">deutsch</code> package as well. Since it’s nested under the <em class="calibre9">greeting</em> directory, we’ll need to use an import path of <code class="calibre20">"greeting/deutsch"</code>. But once it’s imported, we’ll be using just the package name to refer to it: <code class="calibre20">deutsch</code>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0129-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">As before, we run our code by using the <code class="calibre20"><strong class="calibre39">cd</strong></code> command to change to the <em class="calibre9">src/hi</em> directory within your workspace directory. Then, we use <code class="calibre20"><strong class="calibre39">go run main.go</strong></code> to run the program. We’ll see the results of our calls to the <code class="calibre20">deutsch</code> package functions in the output.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0129-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Installing program executables with “go install”" data-type="sect1" class="preface"><div class="preface" id="installing_program_executables_with">
+<h1 class="calibre25">Installing program executables with “go install”</h1>
+<p class="calibre7"><a data-primary="compiling Go code" data-type="indexterm" id="idm46062713452792" class="calibre10"/><a data-primary=".exe file extension" data-type="indexterm" id="idm46062713451576" class="calibre10"/><a data-primary="go build command" data-type="indexterm" id="idm46062713450664" class="calibre10"/><a data-primary="go install command" data-type="indexterm" id="idm46062713449896" class="calibre10"/><a data-primary="Go programming language" data-secondary="compiling Go code" data-type="indexterm" id="idm46062713449016" class="calibre10"/><a data-primary="PATH environment variable" data-type="indexterm" id="idm46062713447864" class="calibre10"/>When we use <code class="calibre20">go run</code>, Go has to compile the program, as well as all the packages it depends on, before it can execute it. And it throws that compiled code away when it’s done.</p>
+<p class="calibre7">In <a data-type="xref" href="ch01.html#letapsos_get_going_syntax_basics" class="calibre10">Chapter 1</a>, we showed you the <code class="calibre20">go build</code> command, which compiles and saves an executable binary file (a file you can execute even without Go installed) in the current directory. But using that too much risks littering your Go workspace with executables in random, inconvenient places.</p>
+<p class="calibre7">The <code class="calibre20">go install</code> command also saves compiled binary versions of executable programs, but in a well-defined, easily accessible place: a <em class="calibre9">bin</em> directory in your Go workspace. Just give <code class="calibre20">go install</code> the name of a directory within <em class="calibre9">src</em> that contains code for an executable program (that is, <em class="calibre9">.go</em> files that begin with <code class="calibre20">package main</code>). The program will be compiled and an executable will be stored in this standard directory.</p>
+<div data-type="note" epub:type="note" class="calibre22"><h6 class="calibre23">Note</h6>
+<p class="calibre7">(Be sure to pass the name of a directory within “src” to “go install”, not the name of a .go file! By default, “go install” isn’t set up to handle .go files directly.)</p>
+</div>
+<p class="calibre7">Let’s try installing an executable for our <em class="calibre9">hi/main.go</em> program. As before, from a terminal, we type <code class="calibre20"><strong class="calibre39">go install</strong></code>, a space, and the name of a folder within our <em class="calibre9">src</em> directory (<code class="calibre20"><strong class="calibre39">hi</strong></code>). Again, it doesn’t matter what directory you do this from; the <code class="calibre20">go</code> tool will look the directory up within the <em class="calibre9">src</em> directory.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0130-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">When Go sees that the file inside the <em class="calibre9">hi</em> directory contains a <code class="calibre20">package main</code> declaration, it will know this is code for an executable program. It will compile an executable file, storing it in a directory named <em class="calibre9">bin</em> in the Go workspace. (The <em class="calibre9">bin</em> directory will be created automatically if it doesn’t already exist.)</p>
+<p class="calibre7">Unlike the <code class="calibre20">go build</code> command, which names an executable after the <em class="calibre9">.go</em> file it’s based on, <code class="calibre20">go install</code> names an executable after the directory that contains the code. Since we compiled the contents of the <em class="calibre9">hi</em> directory, the executable will be named <code class="calibre20">hi</code> (or <code class="calibre20">hi.exe</code> on Windows).</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0130-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Now, you can use the <code class="calibre20"><strong class="calibre39">cd</strong></code> command to change to the <em class="calibre9">bin</em> directory within your Go workspace. Once you’re in <em class="calibre9">bin</em>, you can run the executable by typing <code class="calibre20"><strong class="calibre39">./hi</strong></code> (or <code class="calibre20"><strong class="calibre39">hi.exe</strong></code> on Windows).</p>
+<div data-type="note" epub:type="note" class="calibre22"><h6 class="calibre23">Note</h6>
+<p class="calibre7">You can also add your workspace’s “bin” directory to your system’s “PATH” environment variable. Then, you’ll be able to run executables in “bin” from anywhere on your system! Recent Go installers for Mac and Windows will update “PATH” for you.</p>
+</div>
+</div></section>
+<section data-pdf-bookmark="Changing workspaces with the GOPATH environment variable" data-type="sect1" class="preface"><div class="preface" id="changing_workspaces_with_the_gopath">
+<h1 class="calibre25">Changing workspaces with the GOPATH environment variable</h1>
+<p class="calibre7"><a data-primary="GOPATH environment variable" data-type="indexterm" id="idm46062713420776" class="calibre10"/>You may see developers on various websites talking about “setting your <code class="calibre20">GOPATH</code>” when discussing the Go workspace. <code class="calibre20">GOPATH</code> is an environment variable that Go tools consult to find the location of your workspace. Most Go developers keep all their code in a single workspace, and don’t change it from its default location. But if you want, you can use <code class="calibre20">GOPATH</code> to move your workspace to a different directory.</p>
+<p class="calibre7">An <strong class="calibre8">environment variable</strong> lets you store and retrieve values, kind of like a Go variable, but it’s maintained by the operating system, not by Go. You can configure some programs by setting environment variables, and that includes the Go tool.</p>
+<p class="calibre7">Suppose that, instead of in your home directory, you had set up your <code class="calibre20">greeting</code> package inside a directory named <em class="calibre9">code</em> in the root of your hard drive. And now you want to run your <em class="calibre9">main.go</em> file, which depends on <code class="calibre20">greeting</code>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0131-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">But you’re getting an error saying the <code class="calibre20">greeting</code> package can’t be found, because the <code class="calibre20">go</code> tool is still looking in the <em class="calibre9">go</em> directory in your home directory:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0131-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Setting GOPATH" data-type="sect1" class="preface"><div class="preface" id="setting_gopath">
+<h1 class="calibre25">Setting GOPATH</h1>
+<p class="calibre7"><a data-primary="export command" data-type="indexterm" id="idm46062713406744" class="calibre10"/><a data-primary="Linux operating systems" data-type="indexterm" id="idm46062713405560" class="calibre10"/><a data-primary="Mac operating systems" data-type="indexterm" id="idm46062713404696" class="calibre10"/><a data-primary="set command" data-type="indexterm" id="idm46062713403864" class="calibre10"/><a data-primary="Windows operating systems" data-type="indexterm" id="idm46062713403064" class="calibre10"/>If your code is stored in a directory other than the default, you’ll need to configure the <code class="calibre20">go</code> tool to look in the right place. You can do that by setting the <code class="calibre20">GOPATH</code> environment variable. How you’ll do that depends on your operating system.</p>
+<section data-pdf-bookmark="On Mac or Linux systems:" data-type="sect2" class="preface"><div class="preface" id="on_mac_or_linux_systems">
+<h2 class="calibre29">On Mac or Linux systems:</h2>
+<p class="calibre7">You can use the <code class="calibre20">export</code> command to set the environment variable. At a terminal prompt, type:</p>
+<pre data-type="programlisting" class="calibre32">export GOPATH="/code"</pre>
+<p class="calibre7">For a directory named <em class="calibre9">code</em> in the root of your hard drive, you’ll want to use a path of “<code class="calibre20">/code</code>”. You can substitute a different path if your code is in a different location.</p>
+</div></section>
+<section data-pdf-bookmark="On Windows systems:" data-type="sect2" class="preface"><div class="preface" id="on_windows_systems">
+<h2 class="calibre29">On Windows systems:</h2>
+<p class="calibre7">You can use the <code class="calibre20">set</code> command to set the environment variable. At a command prompt, type:</p>
+<pre data-type="programlisting" class="calibre32">set GOPATH="C:\code"</pre>
+<p class="calibre7">For a directory named <em class="calibre9">code</em> in the root of your hard drive, you’ll want to use a path of “<code class="calibre20">C:\code</code>”. You can substitute a different path if your code is in a different location.</p>
+<p class="calibre7">Once that’s done, <code class="calibre20">go run</code> should immediately begin using the directory you specified as its workspace (as should other Go tools). That means the <code class="calibre20">greeting</code> library will be found, and the program will run!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0132-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Note that the methods above will only set <code class="calibre20">GOPATH</code> for the <em class="calibre9">current</em> terminal/command prompt window. You’ll need to set it again for each new window you open. But there are ways to set an environment variable permanently, if you want. The methods differ for each operating system, so we don’t have space to go into them here. If you type “environment variables” followed by the name of your OS into your favorite search engine, the results should include helpful instructions.</p>
+</div></section>
+</div></section>
+<section data-pdf-bookmark="Publishing packages" data-type="sect1" class="preface"><div class="preface" id="publishing_packages">
+<h1 class="calibre25">Publishing packages</h1>
+<p class="calibre7"><a data-primary="GitHub website" data-type="indexterm" id="idm46062713384920" class="calibre10"/><a data-primary="packages" data-secondary="publishing" data-type="indexterm" id="idm46062713383848" class="calibre10"/><a data-primary="publishing packages" data-type="indexterm" id="idm46062713382664" class="calibre10"/>We’re getting so much use out of our <code class="calibre20">keyboard</code> package, we wonder if others might find it useful, too.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0133-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Let’s create a repository to hold our code on GitHub, a popular code sharing website. That way, other developers can download it and use it in their own projects! Our GitHub username is <code class="calibre20">headfirstgo</code>, and we’ll name the repository <em class="calibre9">keyboard</em>, so its URL will be:</p>
+<p class="calibre7"><em class="calibre9"><a href="https://github.com/headfirstgo/keyboard" class="calibre10">https://github.com/headfirstgo/keyboard</a></em></p>
+<p class="calibre7">We’ll upload just the <em class="calibre9">keyboard.go</em> file to the repository, without nesting it inside any directories.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0133-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0134-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Hmm, that’s a valid concern. There can only be one <em class="calibre9">keyboard</em> directory in the Go workspace’s <em class="calibre9">src</em> directory, and so it <em class="calibre9">looks</em> like we can only have one package named <code class="calibre20">keyboard</code>!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0134-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0135-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><a data-primary="import paths" data-secondary="package names vs." data-type="indexterm" id="idm46062713365144" class="calibre10"/><a data-primary="import statement" data-secondary="import paths vs. package names" data-type="indexterm" id="idm46062713363848" class="calibre10"/><a data-primary="package names" data-secondary="import paths vs." data-type="indexterm" id="idm46062713362776" class="calibre10"/>Let’s try that: we’ll move our package into a directory structure that represents the URL where it’s hosted. Inside our <em class="calibre9">src</em> directory, we’ll create another directory named <em class="calibre9"><a href="http://github.com" class="calibre10">github.com</a></em>. Inside that, we’ll create a directory named after the next segment of the URL, <em class="calibre9">headfirstgo</em>. And then we’ll move our <em class="calibre9">keyboard</em> package directory from the <em class="calibre9">src</em> directory into the <em class="calibre9">headfirstgo</em> directory.</p>
+<p class="calibre7">Although moving the package into a new subdirectory will change its <em class="calibre9">import path</em>, it won’t change the package <em class="calibre9">name</em>. And since the package itself only contains references to the name, we don’t have to make any changes to the package code!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0135-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">We <em class="calibre9">will</em> need to update the programs that rely on our package, though, because the package import path has changed. Because we named each subdirectory after part of the URL where the package is hosted, our new import path looks a lot like that URL:</p>
+<pre data-type="programlisting" class="calibre32">"github.com/headfirstgo/keyboard"</pre>
+<p class="calibre7">We only need to update the <code class="calibre20">import</code> statement in each program. Because the package name is the same, references to the package in the rest of the code will be unchanged.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0136-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0136-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">With those changes made, all the programs that rely on our <code class="calibre20">keyboard</code> package should resume working normally.</p>
+<p class="calibre7">By the way, we wish we could take credit for this idea of using domain names and paths to ensure a package import path is unique, but we didn’t really come up with it. The Go community has been using this as a package naming standard from the beginning. And similar ideas have been used in languages like Java for decades now.</p>
+</div></section>
+<section data-pdf-bookmark="Downloading and installing packages with “go get”" data-type="sect1" class="preface"><div class="preface" id="downloading_and_installing_packages_with">
+<h1 class="calibre25">Downloading and installing packages with “go get”</h1>
+<p class="calibre7"><a data-primary="downloading packages" data-type="indexterm" id="idm46062713341848" class="calibre10"/><a data-primary="go get command" data-type="indexterm" id="idm46062713345736" class="calibre10"/><a data-primary="installing packages" data-type="indexterm" id="idm46062713344968" class="calibre10"/><a data-primary="packages" data-secondary="downloading" data-type="indexterm" id="idm46062713344200" class="calibre10"/><a data-primary="packages" data-secondary="installing" data-type="indexterm" id="idm46062713343048" class="calibre10"/>Using a package’s hosting URL as an import path has another benefit. The <code class="calibre20">go</code> tool has another subcommand named <code class="calibre20">go get</code> that can automatically download and install packages for you.</p>
+<p class="calibre7">We’ve set up a Git repository with the <code class="calibre20">greeting</code> package that we showed you previously at this URL:</p>
+<p class="calibre7"><em class="calibre9"><a href="https://github.com/headfirstgo/greeting" class="calibre10">https://github.com/headfirstgo/greeting</a></em></p>
+<p class="calibre7">That means that from any computer with Go installed, you can type this in a terminal:</p>
+<p class="calibre7"><code class="calibre20">go get github.com/headfirstgo/greeting</code></p>
+<div data-type="note" epub:type="note" class="calibre22"><h6 class="calibre23">Note</h6>
+<p class="calibre7">(Note: “go get” still may not be able to find Git after it’s installed. If this happens, try closing your old terminal or command prompt window and opening a new one.)</p>
+</div>
+<p class="calibre7">That’s <code class="calibre20">go get</code> followed by the repository URL, but with the “scheme” portion (the “https://”) left off. The <code class="calibre20">go</code> tool will connect to <em class="calibre9"><a href="http://github.com" class="calibre10">github.com</a></em>, download the Git repository at the <em class="calibre9">/headfirstgo/greeting</em> path, and save it in your Go workspace’s <em class="calibre9">src</em> directory. (Note: if your system doesn’t have Git installed, you’ll be prompted to install it when you run the <code class="calibre20">go get</code> command. Just follow the instructions on your screen. The <code class="calibre20">go get</code> command can also work with Subversion, Mercurial, and Bazaar repositories.)</p>
+<p class="calibre7">The <code class="calibre20">go get</code> command will automatically create whatever subdirectories are needed to set up the appropriate import path (a <em class="calibre9"><a href="http://github.com" class="calibre10">github.com</a></em> directory, a <em class="calibre9">headfirstgo</em> directory, etc.). The packages saved in the <em class="calibre9">src</em> directory will look like this:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0137-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">With the packages saved in the Go workspace, they’re ready for use in programs. You can use the <code class="calibre20">greeting</code>, <code class="calibre20">dansk</code>, and <code class="calibre20">deutsch</code> packages in a program with an <code class="calibre20">import</code> statement like this:</p>
+<pre data-type="programlisting" class="calibre32">import (
+       "github.com/headfirstgo/greeting"
+       "github.com/headfirstgo/greeting/dansk"
+       "github.com/headfirstgo/greeting/deutsch")</pre>
+<p class="calibre7">The <code class="calibre20">go get</code> command works for other packages, too. If you don’t already have the <code class="calibre20">keyboard</code> package we showed you previously, this command will install it:</p>
+<p class="calibre7"><code class="calibre20">go get github.com/headfirstgo/keyboard</code></p>
+<p class="calibre7">In fact, the <code class="calibre20">go get</code> command works for any package that has been set up properly on a hosting service, no matter who the author is. All you’ll need to do is run <code class="calibre20">go get</code> and give it the package import path. The tool will look at the part of the path that corresponds to the host address, connect to that host, and download the package at the URL represented by the rest of the import path. It makes using other developers’ code really easy!</p>
+<aside data-type="sidebar" epub:type="sidebar" class="calibre30"><div class="sidebar" id="exercise_8">
+<h5 class="calibre31"><span class="calibre"><img alt="image" src="assets/common.png" class="calibre4"/></span> Exercise</h5>
+<p class="calibre7">We’ve set up a Go workspace with a simple package named <code class="calibre20">mypackage</code>. Complete the program below to import <code class="calibre20">mypackage</code> and call its <code class="calibre20">MyFunction</code> function.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0138-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><span class="calibre"><img alt="image" src="assets/arrow.png" class="calibre4"/></span> Answers in <a data-type="xref" href="#exercise_solutions_8" class="calibre10">“<span class="calibre"><img alt="image" src="assets/common.png" class="calibre4"/></span> Exercise Solution”</a>.</p>
+</div></aside>
+</div></section>
+<section data-pdf-bookmark="Reading package documentation with “go doc”" data-type="sect1" class="preface"><div class="preface" id="reading_package_documentation_with">
+<h1 class="calibre25">Reading package documentation with “go doc”</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0139-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><a data-primary="documentation" data-secondary="reading for packages" data-type="indexterm" id="idm46062713306392" class="calibre10"/><a data-primary="go doc command" data-type="indexterm" id="idm46062713305048" class="calibre10"/><a data-primary="import paths" data-secondary="go doc command and" data-type="indexterm" id="idm46062713304168" class="calibre10"/><a data-primary="import paths" data-secondary="package names vs." data-type="indexterm" id="idm46062713303016" class="calibre10"/><a data-primary="import statement" data-secondary="import paths vs. package names" data-type="indexterm" id="idm46062713301944" class="calibre10"/><a data-primary="package names" data-secondary="import paths vs." data-type="indexterm" id="idm46062713300824" class="calibre10"/><a data-primary="packages" data-secondary="reading documentation on" data-type="indexterm" id="idm46062713299672" class="calibre10"/><a data-primary="reading documentation on packages" data-type="indexterm" id="idm46062713298600" class="calibre10"/><a data-primary="strconv package" data-secondary="reading documentation on" data-type="indexterm" id="idm46062713297800" class="calibre10"/><strong class="calibre8">You can use the <code class="calibre40"><strong class="calibre39">go doc</strong></code> command to display documentation on any package or function.</strong></p>
+<p class="calibre7">You can get a documentation for a package by passing its import path to <code class="calibre20">go doc</code>. For example, we can get info on the <code class="calibre20">strconv</code> package by running <code class="calibre20">go doc strconv</code>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0139-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">The output includes the package name and import path (which are one and the same in this case), a description of the package as a whole, and a list of all the functions the package exports.</p>
+<p class="calibre7">You can also use <code class="calibre20">go doc</code> to get detailed info on specific functions by providing a function name following the package name. Suppose we saw the <code class="calibre20">ParseFloat</code> function in the list of the <code class="calibre20">strconv</code> package’s functions and we wanted to know more about it. We could bring up its documentation with <code class="calibre20">go doc strconv ParseFloat</code>.</p>
+<p class="calibre7">You’ll get back a description of the function and what it does:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0140-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">The first line looks just like a function declaration would look in code. It includes the function name, followed by parentheses containing the names and types of the parameters it takes (if any). If there are any return values, those will appear after the parameters.</p>
+<p class="calibre7">This is followed by a detailed description of what the function does, along with any other information developers need in order to use it.</p>
+<p class="calibre7">We can get documentation for our <code class="calibre20">keyboard</code> package in the same way, by providing its import path to <code class="calibre20">go doc</code>. Let’s see if there’s anything there that will help our would-be user. From a terminal, run:</p>
+<pre data-type="programlisting" class="calibre32">go doc github.com/headfirstgo/keyboard</pre>
+<p class="calibre7">The <code class="calibre20">go doc</code> tool is able to derive basic information like the package name and import path from the code. But there’s no package description, so it’s not that helpful.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0140-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Requesting info on the <code class="calibre20">GetFloat</code> function doesn’t get us a description either:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0140-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Documenting your packages with doc comments" data-type="sect1" class="preface"><div class="preface" id="documenting_your_packages_with_doc_comme">
+<h1 class="calibre25">Documenting your packages with doc comments</h1>
+<p class="calibre7"><a data-primary="// (comments)" data-type="indexterm" id="idm46062713275928" class="calibre10"/><a data-primary="comments (//)" data-type="indexterm" id="idm46062713274552" class="calibre10"/><a data-primary="documentation" data-secondary="creating for packages" data-type="indexterm" id="idm46062713273752" class="calibre10"/><a data-primary="packages" data-secondary="documenting" data-type="indexterm" id="idm46062713272600" class="calibre10"/>The <code class="calibre20">go doc</code> tool works hard to add useful info to its output based on examining the code. Package names and import paths are added for you. So are function names, parameters, and return types.</p>
+<p class="calibre7">But <code class="calibre20">go doc</code> isn’t magic. If you want your users to see documentation of a package or function’s intent, you’ll need to add it yourself.</p>
+<p class="calibre7">Fortunately, that’s easy to do: you simply add <strong class="calibre8">doc comments</strong> to your code. Ordinary Go comments that appear immediately before a package clause or function declaration are treated as doc comments, and will be displayed in <code class="calibre20">go doc</code>’s output.</p>
+<p class="calibre7">Let’s try adding doc comments for the <code class="calibre20">keyboard</code> package. At the top of the <em class="calibre9">keyboard.go</em> file, immediately before the <code class="calibre20">package</code> line, we’ll add a comment describing what the package does. And immediately before the declaration of <code class="calibre20">GetFloat</code>, we’ll add a couple comment lines describing that function.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0141-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">The next time we run <code class="calibre20">go doc</code> for the package, it will find the comment before the <code class="calibre20">package</code> line and convert it to a package description. And when we run <code class="calibre20">go doc</code> for the <code class="calibre20">GetFloat</code> function, we’ll see a description based on the comment lines we added above <code class="calibre20">GetFloat</code>’s declaration.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0141-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Being able to display documentation via <code class="calibre20">go doc</code> makes developers that install a package happy.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0142-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">And doc comments make developers who work on a package’s code happy, too! They’re ordinary comments, so they’re easy to add. And you can easily refer to them while making changes to the code.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0142-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">There are a few conventions to follow when adding doc comments:</p>
+<ul class="list_style_type_none">
+<li class="calibre18"><p class="calibre7">Comments should be complete sentences.</p></li>
+<li class="calibre18"><p class="calibre7">Package comments should begin with “Package” followed by the package name:</p>
+<pre data-type="programlisting" class="calibre32">// Package mypackage enables widget management.</pre></li>
+<li class="calibre18"><p class="calibre7">Function comments should begin with the name of the function they describe:</p>
+<pre data-type="programlisting" class="calibre32">// MyFunction converts widgets to gizmos.</pre>
+</li>
+<li class="calibre18"><p class="calibre7">You can include code examples in your comments by indenting them.</p></li>
+<li class="calibre18"><p class="calibre7">Other than indentation for code samples, don’t add extra punctuation characters for emphasis or formatting. Doc comments will be displayed as plain text, and should be formatted that way.</p></li>
+</ul>
+</div></section>
+<section data-pdf-bookmark="Viewing documentation in a web browser" data-type="sect1" class="preface"><div class="preface" id="viewing_documentation_in_a_web_browser">
+<h1 class="calibre25">Viewing documentation in a web browser</h1>
+<p class="calibre7"><a data-primary="documentation" data-secondary="viewing in web browsers" data-type="indexterm" id="idm46062713246216" class="calibre10"/><a data-primary="golang.org site" data-type="indexterm" id="idm46062713244952" class="calibre10"/><a data-primary="HTML documentation" data-type="indexterm" id="idm46062713243896" class="calibre10"/>If you’re more comfortable in a web browser than a terminal, there are other ways to view package documentation.</p>
+<p class="calibre7">The simplest is to type the word “golang” followed by the name of the package you want into your favorite search engine. (“Golang” is commonly used for web searches regarding the Go language because “go” is too common a word to be useful for filtering out irrelevant results.) If we wanted documentation for the <code class="calibre20">fmt</code> package, we could search for “golang fmt”:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0143-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">The results should include sites that offer Go documentation in HTML format. If you’re searching for a package in the Go standard library (like <code class="calibre20">fmt</code>), one of the top results will probably be from <em class="calibre9"><a href="http://golang.org" class="calibre10">golang.org</a></em>, a site run by the Go development team. The documentation will have much the same contents as the output of the <code class="calibre20">go doc</code> tool, with package names, import paths, and descriptions.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0143-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">One major advantage of the HTML documentation is that each function name in the list of the package’s functions will be a handy clickable link leading to the function documentation.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0143-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">But the content is just the same as what you’d see when running <code class="calibre20">go doc</code> in your terminal. It’s all based on the same simple doc comments in the code.</p>
+</div></section>
+<section data-pdf-bookmark="Serving HTML documentation to yourself with “godoc”" data-type="sect1" class="preface"><div class="preface" id="serving_html_documentation_to_yourself_w">
+<h1 class="calibre25">Serving HTML documentation to yourself with “godoc”</h1>
+<p class="calibre7"><a data-primary="godoc tool" data-type="indexterm" id="idm46062713230008" class="calibre10"/>The same software that powers the <em class="calibre9"><a href="http://golang.org" class="calibre10">golang.org</a></em> site’s documentation section is actually available on <em class="calibre9">your</em> computer, too. It’s a tool called <code class="calibre20">godoc</code> (not to be confused with the <code class="calibre20">go doc</code> command), and it’s automatically installed along with Go. The <code class="calibre20">godoc</code> tool generates HTML documentation based on the code in your main Go installation and your workspace. It includes a web server that can share the resulting pages with browsers. (Don’t worry, with its default settings <code class="calibre20">godoc</code> won’t accept connections from any computer other than your own.)</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0144-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">To run <code class="calibre20">godoc</code> in web server mode, we’ll type the <code class="calibre20">godoc</code> command (again, don’t confuse that with <code class="calibre20">go doc</code>) in a terminal, followed by a special option: <code class="calibre20">-http=:6060</code>.</p>
+<p class="calibre7">Then with <code class="calibre20">godoc</code> running, you can type the URL:</p>
+<pre data-type="programlisting" class="calibre32">http://localhost:6060/pkg</pre>
+<p class="calibre7">...into your web browser’s address bar and press Enter. Your browser will connect to your own computer, and the <code class="calibre20">godoc</code> server will respond with an HTML page. You’ll be presented with a list of all the packages installed on your machine.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0144-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Each package name in the list is a link to that package’s documentation. Click it, and you’ll see the same package docs that you’d see on <em class="calibre9"><a href="http://golang.org" class="calibre10">golang.org</a></em>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0144-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="The “godoc” server includes YOUR packages!" data-type="sect1" class="preface"><div class="preface" id="the_ldquogodocrdquo_server_includes_your">
+<h1 class="calibre25">The “godoc” server includes YOUR packages!</h1>
+<p class="calibre7">If we scroll further through our local <code class="calibre20">godoc</code> server’s list of packages, we’ll see something interesting: our <code class="calibre20">keyboard</code> package!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0145-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">In addition to packages from Go’s standard library, the <code class="calibre20">godoc</code> tool also builds HTML documentation for any packages in your Go workspace. These could be third-party packages you’ve installed, or packages you’ve written yourself.</p>
+<p class="calibre7">Click the <em class="calibre9">keyboard</em> link, and you’ll be taken to the package’s documentation. The docs will include any doc comments from our code!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0145-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">When you’re ready to stop the <code class="calibre20">godoc</code> server, return to your terminal window, then hold the Ctrl key and press C. You’ll be returned to your system prompt.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0145-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Go makes it easy to document your packages, which makes packages easier to share, which in turn makes them easier for other developers to use. It’s just one more feature that makes packages a great way to share code!</p>
+</div></section>
+<section data-pdf-bookmark="Your Go Toolbox" data-type="sect1" class="preface"><div class="preface" id="your_go_toolbox_4">
+<h1 class="calibre25">Your Go Toolbox</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0074-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><strong class="calibre8">That’s it for <a data-type="xref" href="#bundles_of_codecolon_packages" class="calibre10">Chapter 4</a>! You’ve added packages to your toolbox.</strong></p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0146-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<aside data-type="sidebar" epub:type="sidebar" class="calibre30"><div class="sidebar" id="bullet_point_4">
+<h5 class="calibre31">Bullet Points</h5>
+<ul class="list_style_type_none">
+<li class="calibre18"><p class="calibre7">By default, the workspace directory is a directory named <em class="calibre9">go</em> within your user’s home directory.</p></li>
+<li class="calibre18"><p class="calibre7">You can use another directory as your workspace by setting the <code class="calibre20">GOPATH</code> environment variable.</p></li>
+<li class="calibre18"><p class="calibre7">Go uses three subdirectories within the workspace: the <em class="calibre9">bin</em> directory holds compiled executable programs, the <em class="calibre9">pkg</em> directory holds compiled package code, and the <em class="calibre9">src</em> directory holds Go source code.</p></li>
+<li class="calibre18"><p class="calibre7">The names of the directories within the <em class="calibre9">src</em> directory are used to form a package’s import path. Names of nested directories are separated by <code class="calibre20">/</code> characters in the import path.</p></li>
+<li class="calibre18"><p class="calibre7">The package’s name is determined by the <code class="calibre20">package</code> clauses at the top of the source code files within the package directory. Except for the <code class="calibre20">main</code> package, the package name should be the same as the name of the directory that contains it.</p></li>
+<li class="calibre18"><p class="calibre7">Package names should be all lowercase, and ideally consist of a single word.</p></li>
+<li class="calibre18"><p class="calibre7">A package’s functions can only be called from outside that package if they’re <strong class="calibre8">exported</strong>. A function is exported if its name begins with a capital letter.</p></li>
+<li class="calibre18"><p class="calibre7">A <strong class="calibre8">constant</strong> is a name referring to a value that will never change.</p></li>
+<li class="calibre18"><p class="calibre7">The <code class="calibre20">go install</code> command compiles a package’s code and stores it in the <em class="calibre9">pkg</em> directory for general packages, or the <em class="calibre9">bin</em> directory for executable programs.</p></li>
+<li class="calibre18"><p class="calibre7">A common convention is to use the URL where a package is hosted as its import path. This allows the <code class="calibre20">go get</code> tool to find, download, and install packages given only their import path.</p></li>
+<li class="calibre18"><p class="calibre7">The <code class="calibre20">go doc</code> tool displays documentation for packages. Doc comments within the code are included in <code class="calibre20">go doc</code>’s output.</p></li>
+</ul>
+</div></aside>
+</div></section>
+<section data-pdf-bookmark="Pool Puzzle Solution" data-type="sect1" class="preface"><div class="preface" id="pool_puzzle_solution_4a">
+<h1 class="calibre25">Pool Puzzle Solution</h1>
+<p class="calibre7">Your <strong class="calibre8">job</strong> is to take code snippets from the pool and place them into the blank lines. <strong class="calibre8">Don’t</strong> use the same snippet more than once, and you won’t need to use all the snippets. Your <strong class="calibre8">goal</strong> is to set up a <code class="calibre20">calc</code> package within a Go workspace so <code class="calibre20">calc’</code>s functions can be used within <em class="calibre9">main.go</em>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0147-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<aside data-type="sidebar" epub:type="sidebar" class="calibre30"><div class="sidebar" id="exercise_solutions_8">
+<h5 class="calibre31"><span class="calibre"><img alt="image" src="assets/common.png" class="calibre4"/></span> Exercise Solution</h5>
+<p class="calibre7">We’ve set up a Go workspace with a simple package named <code class="calibre20">mypackage</code>. Complete the program below to import <code class="calibre20">mypackage</code> and call its <code class="calibre20">MyFunction</code> function.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0147-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></aside>
+</div></section>
+</div></section></body></html>

@@ -1,0 +1,316 @@
+<html><head></head><body>
+<div id="sbo-rt-content"><section data-pdf-bookmark="Chapter 3. General Input/Output Recipes" data-type="chapter" epub:type="chapter"><div class="chapter" id="unique_chapter_io">
+<h1><span class="label">Chapter 3. </span>General Input/Output Recipes</h1>
+<aside data-type="sidebar" epub:type="sidebar"><div class="sidebar" id="idm45195516968720">
+<h5>A Note for Early Release Readers</h5>
+<p>With Early Release ebooks, you get books in their earliest form—the author’s raw and unedited content as they write—so you can take advantage of these technologies long before the official release of these titles.</p>
+<p>This will be the 7th chapter of the final book.</p>
+<p>If you have comments about how we might improve the content and/or examples in this book, or if you notice missing material within this chapter, please reach out to the editor at <a href="mailto:sevans@oreilly.com">sevans@oreilly.com</a>.</p>
+</div></aside>
+<section data-pdf-bookmark="3.0 Introduction" data-type="sect1"><div class="sect1" id="idm45195516965680">
+<h1>3.0 Introduction</h1>
+<p>Input and output (or more popularly known as I/O) is how a computer communicates with the external world. I/O is a key part of developing software and therefore most programming languages, including Go, has standard libraries that can read from input and write to output. Typical input into a computer refers to the keystrokes from a keyboard or  clicks or movement from a mouse, but can also refer to other external sources like a camera or a microphone, or gaming joystick and so on. Output in many cases refer to whatever is shown on the screen (or on the terminal) or printed out on a printer. I/O can also refer to network connections and often also to files.</p>
+<p>In this chapter, we’ll be exploring some common Go recipes for managing I/O. We’ll warm up with with some basic I/O recipes, then talk about files in general. In the next few chapters we’ll move on to CSV, followed by JSON and also binary files.</p>
+<p>The <code>io</code> package is the base package for input and output in Go. It contains the main interfaces for I/O and a few convenient functions. The main and the most commonly used interfaces are <code>Reader</code> and <code>Writer</code> but there are a number of variants of these like the <code>ReadWriter</code>, <code>TeeReader</code>, <code>WriterTo</code> and many more.</p>
+<p>Generally these interfaces are nothing more than a descriptor for functions, for example a struct that is a <code>Reader</code> is one that has a <code>Read</code> function. A struct that is a <code>WriterTo</code> is one with a <code>WriteTo</code> function. Some interfaces combine more two or more interfaces for example, the <code>ReadWriter</code> combines the <code>Reader</code> and <code>Writer</code> interfaces and has both the <code>Read</code> and <code>Write</code> functions.</p>
+<p>This chapter explains a bit more about how these interfaces are used.</p>
+</div></section>
+<section data-pdf-bookmark="3.1 Reading from an input" data-type="sect1"><div class="sect1" id="idm45195516930832">
+<h1>3.1 Reading from an input</h1>
+<section data-pdf-bookmark="Problem" data-type="sect2"><div class="sect2" id="idm45195516929952">
+<h2>Problem</h2>
+<p>You want to read from an input.</p>
+</div></section>
+<section data-pdf-bookmark="Solution" data-type="sect2"><div class="sect2" id="idm45195516928560">
+<h2>Solution</h2>
+<p>Use the <code>io.Reader</code> interface to read from an input.</p>
+</div></section>
+<section data-pdf-bookmark="Discussion" data-type="sect2"><div class="sect2" id="idm45195516926528">
+<h2>Discussion</h2>
+<p>Go uses the <code>io.Reader</code> interface to represent the ability to read from an input stream of data. Many packages in the Go standard library as well as 3rd party packages use the <code>Reader</code> interface to allow data to be read from it.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">type</code><code class="w"> </code><code class="nx">Reader</code><code class="w"> </code><code class="kd">interface</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="nx">Read</code><code class="p">(</code><code class="nx">p</code><code class="w"> </code><code class="p">[]</code><code class="kt">byte</code><code class="p">)</code><code class="w"> </code><code class="p">(</code><code class="nx">n</code><code class="w"> </code><code class="kt">int</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="kt">error</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>Any struct that implement the <code>Read</code> function is a <code>Reader</code>. Let’s say you have a reader (a struct that implements the Reader interface). To read data from the reader, you make a slice of bytes and you pass that slice to the <code>Read</code> method.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">bytes</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="nb">make</code><code class="p">([]</code><code class="kt">byte</code><code class="p">,</code><code class="w"> </code><code class="mi">1024</code><code class="p">)</code><code class="w"/>
+<code class="nx">reader</code><code class="p">.</code><code class="nx">Read</code><code class="p">(</code><code class="nx">bytes</code><code class="p">)</code><code class="w"/></pre>
+<p>It might look counterintuitive and seems like you would want to read data from <code>bytes</code> into the reader, but you’re actually reading the data from the reader into <code>bytes</code>. Just think of it as the data flowing from left to right, from the reader into <code>bytes</code>.</p>
+<p><code>Read</code> will only fill up the bytes to its capacity. If you want to read everything from the reader, you can use the <code>io.ReadAll</code> function.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">bytes</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">os</code><code class="p">.</code><code class="nx">ReadAll</code><code class="p">(</code><code class="nx">reader</code><code class="p">)</code><code class="w"/></pre>
+<p>This looks more intuitive because the <code>ReadAll</code> reads from the reader passed into the parameter and returns the data into <code>bytes</code>. In this case, the data flows from the reader on the right, into the bytes on the lft.</p>
+<p>You will also often find functions that expect a reader as an input parameter. Let’s say you have a string and you want to pass the string to the function, what can you do? You can create a reader from the string using the <code>strings.NewReader</code> function then pass it into the function.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">str</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="err">“</code><code class="nx">My</code><code class="w"> </code><code class="nx">String</code><code class="w"> </code><code class="nx">Data</code><code class="err">”</code><code class="w"/>
+<code class="nx">reader</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">strings</code><code class="p">.</code><code class="nx">NewReader</code><code class="p">(</code><code class="nx">str</code><code class="p">)</code><code class="w"/></pre>
+<p>You can now pass <code>reader</code> into functions that expect a reader.</p>
+</div></section>
+</div></section>
+<section data-pdf-bookmark="3.2 Writing to an output" data-type="sect1"><div class="sect1" id="idm45195516826304">
+<h1>3.2 Writing to an output</h1>
+<section data-pdf-bookmark="Problem" data-type="sect2"><div class="sect2" id="idm45195516769904">
+<h2>Problem</h2>
+<p>You want to write to an output.</p>
+</div></section>
+<section data-pdf-bookmark="Solution" data-type="sect2"><div class="sect2" id="idm45195516768288">
+<h2>Solution</h2>
+<p>Use the <code>io.Writer</code> interface to write to an output.</p>
+</div></section>
+<section data-pdf-bookmark="Discussion" data-type="sect2"><div class="sect2" id="idm45195516766256">
+<h2>Discussion</h2>
+<p>The interface <code>io.Writer</code> works the same way as <code>io.Reader</code>.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">type</code><code class="w"> </code><code class="nx">Writer</code><code class="w"> </code><code class="kd">interface</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="nx">Write</code><code class="p">(</code><code class="nx">p</code><code class="w"> </code><code class="p">[]</code><code class="kt">byte</code><code class="p">)</code><code class="w"> </code><code class="p">(</code><code class="nx">n</code><code class="w"> </code><code class="kt">int</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="kt">error</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>When you call <code>Write</code> on an <code>io.Writer</code> you are writing the bytes to the underlying data stream.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">bytes</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="p">[]</code><code class="nb">byte</code><code class="p">(</code><code class="s">"Hello World"</code><code class="p">)</code><code class="w"/>
+<code class="nx">writer</code><code class="p">.</code><code class="nx">Write</code><code class="p">(</code><code class="nx">bytes</code><code class="p">)</code><code class="w"/></pre>
+<p>You might notice that this method calling pattern is the reverse of <code>io.Reader</code> in recipe 8.1. In <code>Reader</code> you call the <code>Read</code> method to read from the struct into the <code>bytes</code> variable, whereas here you call the <code>Write</code> method to write from the <code>bytes</code> variable into the struct. In this case, the data flows from right to left, from <code>bytes</code> into the writer.</p>
+<p>A common pattern in Go is for a function to take in a writer as a parameter. The function then calls the <code>Write</code> function on the writer, and later you can extract the data from writer. Let’s take a look at an example of this.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">var</code><code class="w"> </code><code class="nx">buf</code><code class="w"> </code><code class="nx">bytes</code><code class="p">.</code><code class="nx">Buffer</code><code class="w"/>
+<code class="nx">fmt</code><code class="p">.</code><code class="nx">Fprintf</code><code class="p">(</code><code class="o">&amp;</code><code class="nx">buf</code><code class="p">,</code><code class="w"> </code><code class="s">"Hello %s"</code><code class="p">,</code><code class="w"> </code><code class="s">"World"</code><code class="p">)</code><code class="w"/>
+<code class="nx">s</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">buf</code><code class="p">.</code><code class="nx">String</code><code class="p">()</code><code class="w"> </code><code class="c1">// s == "Hello World"</code><code class="w"/></pre>
+<p>The <code>bytes.Buffer</code> struct is a <code>Writer</code> (it implements the <code>Write</code> function) so you can easily create one, and pass it to the <code>fmt.Fprintf</code> function, which takes in an <code>io.Writer</code> as its first parameter. The <code>fmt.Fprintf</code> function writes data on to the buffer and you can extract the data out from it later.</p>
+<p>This pattern of using a writer to pass data around by writing to it, then extracting it out later is quite common in Go. Another example is in the HTTP handlers with the <code>http.ResponseWriter</code>.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">func</code><code class="w"> </code><code class="nx">myHandler</code><code class="p">(</code><code class="nx">w</code><code class="w"> </code><code class="nx">http</code><code class="p">.</code><code class="nx">ResponseWriter</code><code class="p">,</code><code class="w"> </code><code class="nx">r</code><code class="w"> </code><code class="o">*</code><code class="nx">http</code><code class="p">.</code><code class="nx">Request</code><code class="p">)</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">    </code><code class="nx">w</code><code class="p">.</code><code class="nx">Write</code><code class="p">([]</code><code class="nx">bytes</code><code class="p">(</code><code class="s">"Hello World"</code><code class="p">))</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>Here, we write to the <code>ResponseWriter</code> and the data will be taken as input to be sent back to the browser.</p>
+</div></section>
+</div></section>
+<section data-pdf-bookmark="3.3 Copying from a Reader to a Writer" data-type="sect1"><div class="sect1" id="idm45195516523296">
+<h1>3.3 Copying from a Reader to a Writer</h1>
+<section data-pdf-bookmark="Problem" data-type="sect2"><div class="sect2" id="idm45195516522384">
+<h2>Problem</h2>
+<p>You want to copy from a reader to a writer.</p>
+</div></section>
+<section data-pdf-bookmark="Solution" data-type="sect2"><div class="sect2" id="idm45195516520800">
+<h2>Solution</h2>
+<p>Use the <code>io.Copy</code> function to copy from a reader to a writer.</p>
+</div></section>
+<section data-pdf-bookmark="Discussion" data-type="sect2"><div class="sect2" id="idm45195516518768">
+<h2>Discussion</h2>
+<p>Sometimes we read from a reader because we want to write it to a writer. The process can take a few steps to read everything from a reader into buffer then write it out to the writer again. Instead of doing this, we can use the <code>io.Copy</code> function instead. The <code>io.Copy</code> function takes from a reader and writes to a writer all in one function.</p>
+<p>Let’s see how <code>io.Copy</code> can be used. We want to download a file, so we use <code>http.Get</code> to get a reader, which we read and then we use <code>os.WriteFile</code> to write to a file.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="c1">// using a random 1MB test file</code><code class="w"/>
+<code class="kd">var</code><code class="w"> </code><code class="nx">url</code><code class="w"> </code><code class="kt">string</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="s">"http://speedtest.ftp.otenet.gr/files/test1Mb.db"</code><code class="w"/>
+
+<code class="kd">func</code><code class="w"> </code><code class="nx">readWrite</code><code class="p">()</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="nx">r</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">http</code><code class="p">.</code><code class="nx">Get</code><code class="p">(</code><code class="nx">url</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Cannot get from URL"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+<code class="w">	</code><code class="k">defer</code><code class="w"> </code><code class="nx">r</code><code class="p">.</code><code class="nx">Body</code><code class="p">.</code><code class="nx">Close</code><code class="p">()</code><code class="w"/>
+<code class="w">	</code><code class="nx">data</code><code class="p">,</code><code class="w"> </code><code class="nx">_</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">os</code><code class="p">.</code><code class="nx">ReadAll</code><code class="p">(</code><code class="nx">r</code><code class="p">.</code><code class="nx">Body</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="nx">os</code><code class="p">.</code><code class="nx">WriteFile</code><code class="p">(</code><code class="s">"rw.data"</code><code class="p">,</code><code class="w"> </code><code class="nx">data</code><code class="p">,</code><code class="w"> </code><code class="mo">0755</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>When we use <code>http.Get</code> to download a file we get a <code>http.Response</code> struct back. The content of the file is in the <code>Body</code> variable of the <code>http.Response</code> struct, which is a <code>io.ReadCloser</code>. A <code>ReadCloser</code> is just an interface that groups a <code>Reader</code> and a <code>Closer</code> so we here we can treat it just like a reader. We use the <code>os.ReadAll</code> function to read the data from <code>Body</code> and then <code>os.WriteFile</code> to write it to file.</p>
+<p>That’s simple enough but let’s take a look at the performance of the function. We use the benchmarking capabilities that’s part of the standard Go tools to do this. First we create a test file, just like any other test files.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kn">package</code><code class="w"> </code><code class="nx">main</code><code class="w"/>
+
+<code class="kn">import</code><code class="w"> </code><code class="s">"testing"</code><code class="w"/>
+
+<code class="kd">func</code><code class="w"> </code><code class="nx">BenchmarkReadWrite</code><code class="p">(</code><code class="nx">b</code><code class="w"> </code><code class="o">*</code><code class="nx">testing</code><code class="p">.</code><code class="nx">B</code><code class="p">)</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="nx">readWrite</code><code class="p">()</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>In this test file instead of a function that starts with <code>Testxxx</code> we create a function that starts with <code>Benchmarkxxx</code> which takes in a parameter <code>b</code> that is a reference to <code>testing.B</code>.</p>
+<p>The benchmark function is very simple, we just call our <code>readWrite</code> function. Let’s run it from the command line and see how we perform.</p>
+<pre data-type="programlisting">$ go test -bench=. -benchmem</pre>
+<p>We use the <code>-bench=.</code> flag telling Go to run all the benchmark tests and <code>-benchmem</code> flag to show memory benchmarks. This is what you should see.</p>
+<pre data-type="programlisting">goos: darwin
+goarch: amd64
+pkg: github.com/sausheong/go-cookbook/io/copy
+cpu: Intel(R) Core(TM) i7-7920HQ CPU @ 3.10GHz
+BenchmarkReadWrite-8   	       1	1998957055 ns/op	 5892440 B/op
+219 allocs/op
+PASS
+ok  	github.com/sausheong/go-cookbook/io/copy	2.327s</pre>
+<p>We ran a benchmark test for a function that downloaded a 1 MB file. The test only ran one time, and it took 1.99 seconds. It also took 5.89 MB of memory and 219 distinct memory allocations.</p>
+<p>As you can see, it’s quite an expensive operation just to download a 1 MB file. After all, it takes almost 6 MB of memory to download a 1 MB file. Alternatively we can use <code>io.Copy</code> to do pretty much the same thing for a lot less memory.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">func</code><code class="w"> </code><code class="nb">copy</code><code class="p">()</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="nx">r</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">http</code><code class="p">.</code><code class="nx">Get</code><code class="p">(</code><code class="nx">url</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Cannot get from URL"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+<code class="w">	</code><code class="k">defer</code><code class="w"> </code><code class="nx">r</code><code class="p">.</code><code class="nx">Body</code><code class="p">.</code><code class="nx">Close</code><code class="p">()</code><code class="w"/>
+<code class="w">	</code><code class="nx">file</code><code class="p">,</code><code class="w"> </code><code class="nx">_</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">os</code><code class="p">.</code><code class="nx">Create</code><code class="p">(</code><code class="s">"copy.data"</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">defer</code><code class="w"> </code><code class="nx">file</code><code class="p">.</code><code class="nx">Close</code><code class="p">()</code><code class="w"/>
+<code class="w">	</code><code class="nx">writer</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">bufio</code><code class="p">.</code><code class="nx">NewWriter</code><code class="p">(</code><code class="nx">file</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="nx">io</code><code class="p">.</code><code class="nx">Copy</code><code class="p">(</code><code class="nx">writer</code><code class="p">,</code><code class="w"> </code><code class="nx">r</code><code class="p">.</code><code class="nx">Body</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="nx">writer</code><code class="p">.</code><code class="nx">Flush</code><code class="p">()</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>First, we need to create a file for the data, here using <code>os.Create</code>. Next we create a buffered writer using <code>bufio.NewWriter</code>, wrapping around the file. This will be used in the <code>Copy</code> function, copying the contents of the response <code>Body</code> into the buffered writer. Finally we flush the writer’s buffers and make the underlying writer write to the file.</p>
+<p>If you run this, <code>copy</code> function it works the same way, but how does the performance compare? Let’s go back to our benchmark and add another benchmark function for this <code>copy</code> function.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kn">package</code><code class="w"> </code><code class="nx">main</code><code class="w"/>
+
+<code class="kn">import</code><code class="w"> </code><code class="s">"testing"</code><code class="w"/>
+
+<code class="kd">func</code><code class="w"> </code><code class="nx">BenchmarkReadWrite</code><code class="p">(</code><code class="nx">b</code><code class="w"> </code><code class="o">*</code><code class="nx">testing</code><code class="p">.</code><code class="nx">B</code><code class="p">)</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="nx">readWrite</code><code class="p">()</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+
+<code class="kd">func</code><code class="w"> </code><code class="nx">BenchmarkCopy</code><code class="p">(</code><code class="nx">b</code><code class="w"> </code><code class="o">*</code><code class="nx">testing</code><code class="p">.</code><code class="nx">B</code><code class="p">)</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="nb">copy</code><code class="p">()</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>We run the benchmark again and this is what you should see.</p>
+<pre data-type="programlisting">goos: darwin
+goarch: amd64
+pkg: github.com/sausheong/go-cookbook/io/copy
+cpu: Intel(R) Core(TM) i7-7920HQ CPU @ 3.10GHz
+BenchmarkReadWrite-8   	       1	2543665782 ns/op	 5895360 B/op
+227 allocs/op
+BenchmarkCopy-8        	       1	1426656774 ns/op	   42592 B/op
+61 allocs/op
+PASS
+ok  	github.com/sausheong/go-cookbook/io/copy	4.103s</pre>
+<p>This time the <code>readWrite</code> function took 2.54 seconds, used 5.89 MB of memory and did 227 memory allocations. The <code>copy</code> function however only too 1.43 seconds, used 42.6 kB of memory and did 61 memory allocations.</p>
+<p>The <code>copy</code> function is around 80% faster, but uses only a fraction (less than 1%) of the memory. With really large files, if you’re using the <code>os.ReadAll</code> and <code>os.WriteFile</code> you might run out of memory quickly.</p>
+</div></section>
+</div></section>
+<section data-pdf-bookmark="3.4 Reading from a text file" data-type="sect1"><div class="sect1" id="idm45195516517696">
+<h1>3.4 Reading from a text file</h1>
+<section data-pdf-bookmark="Problem" data-type="sect2"><div class="sect2" id="idm45195516105824">
+<h2>Problem</h2>
+<p>You want to read a text file into memory.</p>
+</div></section>
+<section data-pdf-bookmark="Solution" data-type="sect2"><div class="sect2" id="idm45195516104240">
+<h2>Solution</h2>
+<p>You can usethe <code>os.Open</code> function to open the file, followed by <code>Read</code> on the file. Alternatively you can also use the simpler <code>os.ReadFile</code> function to do it in a single function call.</p>
+</div></section>
+<section data-pdf-bookmark="Discussion" data-type="sect2"><div class="sect2" id="idm45195516101376">
+<h2>Discussion</h2>
+<p>Reading and writing to the filesystem are one of the basic things a programming language needs to do. Of course you can always store in memory but sooner or later if you need to persist the data beyond a shutdown you need to store it somewhere. There are a number of ways that data can be persistent but the most commonly accessible is probably to the local filesystem.</p>
+<section data-pdf-bookmark="Read everything at one go" data-type="sect3"><div class="sect3" id="idm45195516099920">
+<h3>Read everything at one go</h3>
+<p>The easiest way to read a text file is to use <code>os.ReadFile</code>. Let’s say we want to read from a text file named <code>data.txt</code>.</p>
+<pre data-type="programlisting">hello world!</pre>
+<p>To read the file, just give the name of the file as a parameter to <code>os.ReadFile</code> and you’re done!</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">data</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">os</code><code class="p">.</code><code class="nx">ReadFile</code><code class="p">(</code><code class="s">"data.txt"</code><code class="p">)</code><code class="w"/>
+<code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">  </code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Cannot read file:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+<code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="nb">string</code><code class="p">(</code><code class="nx">data</code><code class="p">))</code><code class="w"/></pre>
+<p>This will print out <code>hello world!</code>.</p>
+</div></section>
+<section data-pdf-bookmark="Opening a file and reading from it" data-type="sect3"><div class="sect3" id="idm45195515980016">
+<h3>Opening a file and reading from it</h3>
+<p>Reading a file by opening it and then doing a read on it is more flexible but takes a few more steps. First, you need to open the file.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="c1">// open the file</code><code class="w"/>
+<code class="nx">file</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">os</code><code class="p">.</code><code class="nx">Open</code><code class="p">(</code><code class="s">"data.txt"</code><code class="p">)</code><code class="w"/>
+<code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">  </code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Cannot open file:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+<code class="c1">// close the file when we are done with it</code><code class="w"/>
+<code class="k">defer</code><code class="w"> </code><code class="nx">file</code><code class="p">.</code><code class="nx">Close</code><code class="p">()</code><code class="w"/></pre>
+<p>This can be done using <code>os.Open</code>, which returns a <code>File</code> struct in read-only. If you want to open it in different modes, you can use <code>os.OpenFile</code>. It’s good practice to set up the file for closing using the <code>defer</code> keyword, which will close the file just before the function returns.</p>
+<p>Next, we need to create a byte array to store the data.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="c1">// get some info from the file</code><code class="w"/>
+<code class="nx">stat</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">file</code><code class="p">.</code><code class="nx">Stat</code><code class="p">()</code><code class="w"/>
+<code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">  </code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Cannot read file stats:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+<code class="c1">// create the byte array to store the read data</code><code class="w"/>
+<code class="nx">data</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nb">make</code><code class="p">([]</code><code class="kt">byte</code><code class="p">,</code><code class="w"> </code><code class="nx">stat</code><code class="p">.</code><code class="nx">Size</code><code class="p">())</code><code class="w"/></pre>
+<p>To do this, we need to know how large the byte array should be, and that should be the size of the file. We use the <code>Stat</code> method on the file to get a <code>FileInfo</code> struct, which we can call the <code>Size</code> method to get the size of the file.</p>
+<p>Once we have the byte array, we can pass it as a parameter to the <code>Read</code> method on the file struct.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="c1">// read the file</code><code class="w"/>
+<code class="nx">bytes</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">file</code><code class="p">.</code><code class="nx">Read</code><code class="p">(</code><code class="nx">data</code><code class="p">)</code><code class="w"/>
+<code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">  </code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Cannot read file:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+<code class="nx">fmt</code><code class="p">.</code><code class="nx">Printf</code><code class="p">(</code><code class="s">"Read %d bytes from file\n"</code><code class="p">,</code><code class="w"> </code><code class="nx">bytes</code><code class="p">)</code><code class="w"/>
+<code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="nb">string</code><code class="p">(</code><code class="nx">data</code><code class="p">))</code><code class="w"/></pre>
+<p>This will store the read data into the byte array and return the number of bytes read. If all goes well you should see something like this from the output.</p>
+<pre data-type="programlisting">Read 13 bytes from file
+Hello World!</pre>
+<p>There are a few more steps, but you have the flexibility of reading parts of the whole document and you can also do other stuff in between opening the file and reading it.</p>
+</div></section>
+</div></section>
+</div></section>
+<section data-pdf-bookmark="3.5 Writing to a text file" data-type="sect1"><div class="sect1" id="idm45195515778368">
+<h1>3.5 Writing to a text file</h1>
+<section data-pdf-bookmark="Problem" data-type="sect2"><div class="sect2" id="idm45195515777456">
+<h2>Problem</h2>
+<p>You want to write data a text file.</p>
+</div></section>
+<section data-pdf-bookmark="Solution" data-type="sect2"><div class="sect2" id="idm45195515775840">
+<h2>Solution</h2>
+<p>You can use the <code>os.Open</code> function to open the file, followed by <code>Write</code> on the file. Alternatively you can use the <code>os.WriteFile</code> function to do it in a single function call.</p>
+</div></section>
+<section data-pdf-bookmark="Discussion" data-type="sect2"><div class="sect2" id="idm45195515772976">
+<h2>Discussion</h2>
+<p>Just as in reading a file, there are a couple of ways of writing to a file.</p>
+<section data-pdf-bookmark="Writing to a file at one go" data-type="sect3"><div class="sect3" id="idm45195515771520">
+<h3>Writing to a file at one go</h3>
+<p>Given the data, you can write to a file at one go using <code>os.WriteFile</code>.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">data</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="p">[]</code><code class="nb">byte</code><code class="p">(</code><code class="s">"Hello World!\n"</code><code class="p">)</code><code class="w"/>
+
+<code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">os</code><code class="p">.</code><code class="nx">WriteFile</code><code class="p">(</code><code class="s">"data.txt"</code><code class="p">,</code><code class="w"> </code><code class="nx">data</code><code class="p">,</code><code class="w"> </code><code class="mo">0644</code><code class="p">)</code><code class="w"/>
+<code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">  </code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Cannot write to file:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>The first parameter is the name of the file, the data is in a byte array and the final parameter is the Unix file permissions you want to give to the file. If the file doesn’t exist, this will create a new file. If it exists, it will remove all the data in the file and write the new data into it, but without changing the permissions.</p>
+</div></section>
+<section data-pdf-bookmark="Creating a file and writing to it" data-type="sect3"><div class="sect3" id="idm45195515665488">
+<h3>Creating a file and writing to it</h3>
+<p>Writing to a file by creating the file and then writing to it is a bit more involved but it’s also more flexible. First, you need to create or open a file using the <code>os.Create</code> function.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">data</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="p">[]</code><code class="nb">byte</code><code class="p">(</code><code class="s">"Hello World!\n"</code><code class="p">)</code><code class="w"/>
+<code class="c1">// write to file and read from file using the File struct</code><code class="w"/>
+<code class="nx">file</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">os</code><code class="p">.</code><code class="nx">Create</code><code class="p">(</code><code class="s">"data.txt"</code><code class="p">)</code><code class="w"/>
+<code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">  </code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Cannot create file:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+<code class="k">defer</code><code class="w"> </code><code class="nx">file</code><code class="p">.</code><code class="nx">Close</code><code class="p">()</code><code class="w"/></pre>
+<p>This will create a new file with the given name and mode <code>0666</code> if the file doesn’t exist. If the file exists, this will remove all the data in it. As before you would want to set up the file to be closed at the end of the function, using the <code>defer</code> keyword.</p>
+<p>Once you have the file you can write to it directly using the <code>Write</code> method and passing it the byte array with the data.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">bytes</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">file</code><code class="p">.</code><code class="nx">Write</code><code class="p">(</code><code class="nx">data</code><code class="p">)</code><code class="w"/>
+<code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">  </code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Cannot write to file:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+<code class="nx">fmt</code><code class="p">.</code><code class="nx">Printf</code><code class="p">(</code><code class="s">"Wrote %d bytes to file\n"</code><code class="p">,</code><code class="w"> </code><code class="nx">bytes</code><code class="p">)</code><code class="w"/></pre>
+<p>This will return the number of bytes that was written to the file. As before while it takes a few more steps, breaking up the steps between creating a file and writing to it gives you more flexibility to write in smaller chunks instead of everything at once.</p>
+</div></section>
+</div></section>
+</div></section>
+<section data-pdf-bookmark="3.6 Using a temporary file" data-type="sect1"><div class="sect1" id="idm45195515519392">
+<h1>3.6 Using a temporary file</h1>
+<section data-pdf-bookmark="Problem" data-type="sect2"><div class="sect2" id="idm45195515518512">
+<h2>Problem</h2>
+<p>You want to create a temporary file for use and depose of it afterwards.</p>
+</div></section>
+<section data-pdf-bookmark="Solution" data-type="sect2"><div class="sect2" id="idm45195515516928">
+<h2>Solution</h2>
+<p>Use the <code>os.CreateTemp</code> function to create a temporary file, and then remove it once you don’t need it anymore.</p>
+</div></section>
+<section data-pdf-bookmark="Discussion" data-type="sect2"><div class="sect2" id="idm45195515514784">
+<h2>Discussion</h2>
+<p>A temporary file is a file that’s created to store data temporarily while the program is doing something. It’s meant to be deleted or copied to permanent storage once the task is done. In Go, we can use <code>os.CreateTemp</code> function to create a temporary file. Then after that we can remove it.</p>
+<p>Different operating systems store their temporary files in different places. Regardless where it is, Go will let you know where it is using the <code>os.TempDir</code> function.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="nx">os</code><code class="p">.</code><code class="nx">TempDir</code><code class="p">())</code><code class="w"/></pre>
+<p>We need to know because the temp files created by <code>os.CreateTemp</code> will be created there. Normally we wouldn’t care, but because we’re trying to analyse step by step how the temp files get created, we want to know exactly where it is. When we execute this statement, we should see something like this.</p>
+<pre data-type="programlisting">/var/folders/nj/2xd4ssp94zz41gnvsyvth38m0000gn/T/</pre>
+<p>This is the directory that your computer tells Go (and some other programs) to use as a temporary directory. We can use this directly or we can create our own directory here using the <code>os.MkdirTemp</code> function.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">tmpdir</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">os</code><code class="p">.</code><code class="nx">MkdirTemp</code><code class="p">(</code><code class="nx">os</code><code class="p">.</code><code class="nx">TempDir</code><code class="p">(),</code><code class="w"> </code><code class="s">"mytmpdir_*"</code><code class="p">)</code><code class="w"/>
+<code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Cannot create temp directory:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+<code class="k">defer</code><code class="w"> </code><code class="nx">os</code><code class="p">.</code><code class="nx">RemoveAll</code><code class="p">(</code><code class="nx">tmpdir</code><code class="p">)</code><code class="w"/></pre>
+<p>The first parameter to <code>os.MkdirTemp</code> is the temporary directory and the second parameter is a pattern string. The function will apply a random string to replace the <code>*</code> in the pattern string. It is also a good practise to defer the cleaning up of the temporary directory by remove it using <code>os.RemoveAll</code>.</p>
+<p>Next we’re creating the actual temporary file using <code>os.CreateTemp</code>, passing it the temporary directory we just created and also a pattern string for the file name, which works the same as as the temporary directory.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">tmpfile</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">os</code><code class="p">.</code><code class="nx">CreateTemp</code><code class="p">(</code><code class="nx">tmpdir</code><code class="p">,</code><code class="w"> </code><code class="s">"mytmp_*"</code><code class="p">)</code><code class="w"/>
+<code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Cannot create temp file:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>With that, we have a file and everything else works the same way as any other file.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">data</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="p">[]</code><code class="nb">byte</code><code class="p">(</code><code class="s">"Some random stuff for the temporary file"</code><code class="p">)</code><code class="w"/>
+<code class="nx">_</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="nx">tmpfile</code><code class="p">.</code><code class="nx">Write</code><code class="p">(</code><code class="nx">data</code><code class="p">)</code><code class="w"/>
+<code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Cannot write to temp file:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+<code class="nx">err</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="nx">tmpfile</code><code class="p">.</code><code class="nx">Close</code><code class="p">()</code><code class="w"/>
+<code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Cannot close temp file:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>If you didn’t choose to put your temporary files into a separate directory (which you delete and also everything in it when you’re done), you can use <code>os.Remove</code> with the temporary file name like this.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="k">defer</code><code class="w"> </code><code class="nx">os</code><code class="p">.</code><code class="nx">Remove</code><code class="p">(</code><code class="nx">tmpfile</code><code class="p">.</code><code class="nx">Name</code><code class="p">())</code><code class="w"/></pre>
+</div></section>
+</div></section>
+</div></section></div></body></html>

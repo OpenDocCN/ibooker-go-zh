@@ -1,0 +1,577 @@
+<html><head></head><body>
+<div id="book-content">
+<div id="sbo-rt-content"><section data-type="chapter" epub:type="chapter" data-pdf-bookmark="Chapter 6. Pointers"><div class="chapter" id="unique_chapter_id_06">
+<h1><span class="label">Chapter 6. </span>Pointers</h1>
+
+
+<p>Now that you’ve seen variables and functions, it’s time to learn about pointer syntax. Then I’ll clarify the behavior of pointers in Go by comparing them to the behavior of classes in other languages. You’ll also learn how and when to use pointers, how memory is allocated in Go, and how using pointers and values properly makes Go programs faster and more efficient.</p>
+
+
+
+
+
+
+<section data-type="sect1" data-pdf-bookmark="A Quick Pointer Primer"><div class="sect1" id="id72">
+<h1>A Quick Pointer Primer</h1>
+
+<p>A <em>pointer</em> is a variable that holds<a data-type="indexterm" data-primary="pointers" id="id1375"/><a data-type="indexterm" data-primary="variables" data-secondary="pointers" data-seealso="pointers" id="id1376"/> the location in memory where a value is stored. If you’ve taken computer science courses, you might have seen a graphic to represent the way variables are stored in memory. The representation of the following two variables would look something like <a data-type="xref" href="#storing_two_variables_in_memory">Figure 6-1</a>:</p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="kd">var</code><code class="w"> </code><code class="nx">x</code><code class="w"> </code><code class="kt">int32</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="mi">10</code><code class="w"/>
+<code class="kd">var</code><code class="w"> </code><code class="nx">y</code><code class="w"> </code><code class="kt">bool</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="kc">true</code><code class="w"/></pre>
+
+<figure><div id="storing_two_variables_in_memory" class="figure">
+<img src="assets/lgo2_0601.png" alt="Variables in Memory" width="615" height="169"/>
+<h6><span class="label">Figure 6-1. </span>Storing two variables in memory</h6>
+</div></figure>
+
+<p>Every variable is stored<a data-type="indexterm" data-primary="variables" data-secondary="storage in memory" id="id1377"/><a data-type="indexterm" data-primary="memory" data-secondary="variable storage" id="id1378"/><a data-type="indexterm" data-primary="types" data-secondary="storage in memory" id="id1379"/><a data-type="indexterm" data-primary="addresses" data-secondary="variable storage in memory" id="id1380"/> in one or more contiguous memory locations, called <em>addresses</em>. Different types of variables can take up different amounts of memory. In this example, you have two variables, <code>x</code>, which is a 32-bit int, and <code>y</code>, which is a boolean. Storing a 32-bit int requires four bytes, so the value for <code>x</code> is stored in four bytes, starting at address 1 and ending at address 4. A boolean requires only a single byte (you need only a bit to represent <code>true</code> or <code>false</code>, but the smallest amount of memory that can be independently addressed is a byte), so the value for <code>y</code> is stored in one byte at address 5, with <code>true</code> represented by the value 1.</p>
+
+<p>A pointer is a variable that<a data-type="indexterm" data-primary="pointers" data-secondary="address pointing to" id="id1381"/><a data-type="indexterm" data-primary="addresses" data-secondary="pointers pointing to" id="id1382"/> contains the address where another variable is stored. <a data-type="xref" href="#storing_pointers_in_memory">Figure 6-2</a> demonstrates how the following pointers are stored in memory:</p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="kd">var</code><code class="w"> </code><code class="nx">x</code><code class="w"> </code><code class="kt">int32</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="mi">10</code><code class="w"/>
+<code class="kd">var</code><code class="w"> </code><code class="nx">y</code><code class="w"> </code><code class="kt">bool</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="kc">true</code><code class="w"/>
+<code class="nx">pointerX</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="o">&amp;</code><code class="nx">x</code><code class="w"/>
+<code class="nx">pointerY</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="o">&amp;</code><code class="nx">y</code><code class="w"/>
+<code class="kd">var</code><code class="w"> </code><code class="nx">pointerZ</code><code class="w"> </code><code class="o">*</code><code class="kt">string</code><code class="w"/></pre>
+
+<figure><div id="storing_pointers_in_memory" class="figure">
+<img src="assets/lgo2_0602.png" alt="Pointers in Memory" width="1439" height="154"/>
+<h6><span class="label">Figure 6-2. </span>Storing pointers in memory</h6>
+</div></figure>
+
+<p>While different types of variables can take up different numbers of memory locations, every pointer, no matter what type it is pointing to, is always the same number of memory locations. The examples in this chapter use 4-byte pointers, but many modern computers use 8 bytes for a pointer. A pointer holds a number that indicates the location in memory where the data being pointed to is stored. That number is called the <em>address</em>. Our pointer to <code>x</code>, 
+<span class="keep-together"><code>pointerX</code>,</span> is stored at location 6 and has the value 1, the address of <code>x</code>. Similarly, our pointer to <code>y</code>, <code>pointerY</code>, is stored at location 10 and has the value 5, the address of <code>y</code>. The last pointer, <code>pointerZ</code>, is stored at location 14 and has the value 0, because it doesn’t point to anything.</p>
+
+<p>The zero value for a pointer is <code>nil</code>. <a data-type="indexterm" data-primary="zero value of unassigned variables" data-secondary="pointers as nil" id="id1383"/><a data-type="indexterm" data-primary="pointers" data-secondary="zero value as nil" id="id1384"/><a data-type="indexterm" data-primary="nil" data-secondary="zero value" data-tertiary="pointers" id="id1385"/>You’ve seen <code>nil</code> a few times before, as the zero value for slices, maps, and functions. All these types are implemented with pointers. (Two more types, channels and interfaces, are also implemented with pointers. You’ll look at them in detail in <a data-type="xref" href="ch07.html#interfaces">“A Quick Lesson on Interfaces”</a> and <a data-type="xref" href="ch12.html#channels">“Channels”</a>.) <a data-type="indexterm" data-primary="nil" data-secondary="about" id="id1386"/><a data-type="indexterm" data-primary="types" data-secondary="nil untyped" id="id1387"/>As I covered in <a data-type="xref" href="ch03.html#unique_chapter_id_03">Chapter 3</a>, <code>nil</code> is an untyped identifier that represents the lack of a value for certain types. Unlike <code>NULL</code> in C, <code>nil</code> is not another name for 0; you can’t convert it back and forth with a number.</p>
+<div data-type="warning" epub:type="warning"><h6>Warning</h6>
+<p>As alluded to in <a data-type="xref" href="ch04.html#unique_chapter_id_04">Chapter 4</a>,<a data-type="indexterm" data-primary="nil" data-secondary="defined in universe block" id="id1388"/><a data-type="indexterm" data-primary="universe block" data-secondary="nil defined" id="id1389"/><a data-type="indexterm" data-primary="nil" data-secondary="defined in universe block" data-tertiary="can be shadowed" id="id1390"/> <code>nil</code> is defined in the universe block. Because <code>nil</code> is a value defined in the universe block, it can be shadowed. Never name a variable or function <code>nil</code>, unless you are trying to trick your coworker and are unconcerned about your annual review.</p>
+</div>
+
+<p class="pagebreak-before">Go’s pointer syntax is partially borrowed from C and C++. <a data-type="indexterm" data-primary="garbage collector" data-secondary="pointer memory management" id="id1391"/>Since Go has a garbage collector, most memory management pain is removed. Furthermore, some tricks that you can do with pointers in C and C++, including <em>pointer arithmetic</em>, are not allowed in Go.</p>
+<div data-type="note" epub:type="note"><h6>Note</h6>
+<p>The Go standard library does<a data-type="indexterm" data-primary="unsafe package" id="id1392"/><a data-type="indexterm" data-primary="standard library" data-secondary="unsafe package" id="id1393"/> have an <code>unsafe</code> package that lets you do some low-level operations on data structures. While pointer manipulation is used in C for common operations, it is exceedingly rare for Go developers to use <code>unsafe</code>. You’ll take a quick look at it in <a data-type="xref" href="ch16.html#unique_chapter_id_16">Chapter 16</a>.</p>
+</div>
+
+<p>The <code>&amp;</code> is the <em>address</em> operator. It precedes a value type and returns the address where the value is stored:<a data-type="indexterm" data-primary="pointers" data-secondary="syntax" data-tertiary="&amp; as address operator" id="id1394"/><a data-type="indexterm" data-primary="&amp; (ampersand) as pointer address operator" id="id1395"/><a data-type="indexterm" data-primary="ampersand (&amp;) as pointer address operator" id="id1396"/></p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="nx">x</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="s">"hello"</code><code class="w"/>
+<code class="nx">pointerToX</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="o">&amp;</code><code class="nx">x</code><code class="w"/></pre>
+
+<p>The <code>*</code> is the <em>indirection</em> operator. <a data-type="indexterm" data-primary="pointers" data-secondary="syntax" data-tertiary="* as indirection operator" id="id1397"/><a data-type="indexterm" data-primary="* (asterisk)" data-secondary="pointer indirection operator" id="id1398"/><a data-type="indexterm" data-primary="asterisk (*)" data-secondary="pointer indirection operator" id="id1399"/><a data-type="indexterm" data-primary="dereferencing" id="id1400"/><a data-type="indexterm" data-primary="pointers" data-secondary="dereferencing" id="id1401"/><a data-type="indexterm" data-primary="panics" data-secondary="dereferencing a nil pointer" id="id1402"/>It precedes a variable of pointer type and returns the pointed-to value. This is called <em>dereferencing</em>:</p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="nx">x</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="mi">10</code><code class="w"/>
+<code class="nx">pointerToX</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="o">&amp;</code><code class="nx">x</code><code class="w"/>
+<code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="nx">pointerToX</code><code class="p">)</code><code class="w">  </code><code class="c1">// prints a memory address</code><code class="w"/>
+<code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="o">*</code><code class="nx">pointerToX</code><code class="p">)</code><code class="w"> </code><code class="c1">// prints 10</code><code class="w"/>
+<code class="nx">z</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="mi">5</code><code class="w"> </code><code class="o">+</code><code class="w"> </code><code class="o">*</code><code class="nx">pointerToX</code><code class="w"/>
+<code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="nx">z</code><code class="p">)</code><code class="w">           </code><code class="c1">// prints 15</code><code class="w"/></pre>
+
+<p>Before dereferencing a pointer,<a data-type="indexterm" data-primary="pointers" data-secondary="dereferencing" data-tertiary="non-nil pointers only" id="id1403"/><a data-type="indexterm" data-primary="dereferencing" data-secondary="non-nil pointers only" id="id1404"/> you must make sure that the pointer is non-nil. Your program will panic if you attempt to dereference a <code>nil</code> pointer:</p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="kd">var</code><code class="w"> </code><code class="nx">x</code><code class="w"> </code><code class="o">*</code><code class="kt">int</code><code class="w"/>
+<code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="nx">x</code><code class="w"> </code><code class="o">==</code><code class="w"> </code><code class="kc">nil</code><code class="p">)</code><code class="w"> </code><code class="c1">// prints true</code><code class="w"/>
+<code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="o">*</code><code class="nx">x</code><code class="p">)</code><code class="w">       </code><code class="c1">// panics</code><code class="w"/></pre>
+
+<p>A <em>pointer type</em> is a type<a data-type="indexterm" data-primary="pointer type" id="id1405"/><a data-type="indexterm" data-primary="pointers" data-secondary="pointer type" id="id1406"/><a data-type="indexterm" data-primary="types" data-secondary="pointer type" id="id1407"/><a data-type="indexterm" data-primary="asterisk (*)" data-secondary="pointer type declaration" id="id1408"/><a data-type="indexterm" data-primary="* (asterisk)" data-secondary="pointer type declaration" id="id1409"/><a data-type="indexterm" data-primary="variables" data-secondary="declaration" data-tertiary="pointers" id="id1410"/> that represents a pointer. It is written with a <code>*</code> before a type name. A pointer type can be based on any type:</p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="nx">x</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="mi">10</code><code class="w"/>
+<code class="kd">var</code><code class="w"> </code><code class="nx">pointerToX</code><code class="w"> </code><code class="o">*</code><code class="kt">int</code><code class="w"/>
+<code class="nx">pointerToX</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="o">&amp;</code><code class="nx">x</code><code class="w"/></pre>
+
+<p>The built-in function <code>new</code> creates<a data-type="indexterm" data-primary="pointers" data-secondary="creating" data-tertiary="new function rarely used" id="id1411"/><a data-type="indexterm" data-primary="new function for pointer variable creation rarely used" id="id1412"/> a pointer variable. It returns a pointer to a zero-value instance of the provided type:</p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="kd">var</code><code class="w"> </code><code class="nx">x</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="nb">new</code><code class="p">(</code><code class="kt">int</code><code class="p">)</code><code class="w"/>
+<code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="nx">x</code><code class="w"> </code><code class="o">==</code><code class="w"> </code><code class="kc">nil</code><code class="p">)</code><code class="w"> </code><code class="c1">// prints false</code><code class="w"/>
+<code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="o">*</code><code class="nx">x</code><code class="p">)</code><code class="w">       </code><code class="c1">// prints 0</code><code class="w"/></pre>
+
+<p class="pagebreak-before">The <code>new</code> function is rarely used. <a data-type="indexterm" data-primary="pointers" data-secondary="creating" data-tertiary="&amp; before struct literal" id="id1413"/><a data-type="indexterm" data-primary="pointers" data-secondary="creating" data-tertiary="numbers, booleans, strings, constants need variable" id="id1414"/>For structs, use an <code>&amp;</code> before a struct literal to create a pointer instance. You can’t use an <code>&amp;</code> before a primitive literal (numbers, booleans, and strings) or a constant because they don’t have memory addresses; they exist only at compile time. When you need a pointer to a primitive type, declare a variable and point to it:</p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="nx">x</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="o">&amp;</code><code class="nx">Foo</code><code class="p">{}</code><code class="w"/>
+<code class="kd">var</code><code class="w"> </code><code class="nx">y</code><code class="w"> </code><code class="kt">string</code><code class="w"/>
+<code class="nx">z</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="o">&amp;</code><code class="nx">y</code><code class="w"/></pre>
+
+<p>Not being able to take the address of a constant is sometimes inconvenient. <a data-type="indexterm" data-primary="pointers" data-secondary="creating" data-tertiary="&amp; before struct literal exception" id="id1415"/><a data-type="indexterm" data-primary="errors" data-secondary="compile-time errors" data-tertiary="struct pointer field assigned a literal" id="id1416"/>If you have a struct with a field of a pointer to a primitive type, you can’t assign a literal directly to the field:</p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="kd">type</code><code class="w"> </code><code class="nx">person</code><code class="w"> </code><code class="kd">struct</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">    </code><code class="nx">FirstName</code><code class="w">  </code><code class="kt">string</code><code class="w"/>
+<code class="w">    </code><code class="nx">MiddleName</code><code class="w"> </code><code class="o">*</code><code class="kt">string</code><code class="w"/>
+<code class="w">    </code><code class="nx">LastName</code><code class="w">   </code><code class="kt">string</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+
+<code class="nx">p</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">person</code><code class="p">{</code><code class="w"/>
+<code class="w">  </code><code class="nx">FirstName</code><code class="p">:</code><code class="w">  </code><code class="s">"Pat"</code><code class="p">,</code><code class="w"/>
+<code class="w">  </code><code class="nx">MiddleName</code><code class="p">:</code><code class="w"> </code><code class="s">"Perry"</code><code class="p">,</code><code class="w"> </code><code class="c1">// This line won't compile</code><code class="w"/>
+<code class="w">  </code><code class="nx">LastName</code><code class="p">:</code><code class="w">   </code><code class="s">"Peterson"</code><code class="p">,</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+
+<p>Compiling this code returns the error:</p>
+
+<pre data-type="programlisting">cannot use "Perry" (type string) as type *string in field value</pre>
+
+<p>If you try to put an <code>&amp;</code> before <code>"Perry"</code>, you’ll get the error message:</p>
+
+<pre data-type="programlisting">cannot take the address of "Perry"</pre>
+
+<p>There are two ways around this problem. The first is to do what was shown previously, which is to introduce a variable to hold the constant value. <a data-type="indexterm" data-primary="functions" data-secondary="generic functions" data-see="generic functions" id="id1417"/><a data-type="indexterm" data-primary="generic functions" data-secondary="fixing struct pointer error" id="id1418"/><a data-type="indexterm" data-primary="helper functions" data-secondary="fixing struct pointer error" id="id1419"/>The second way is to write a generic helper function that takes in a parameter of any type and returns a pointer to that type:</p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="kd">func</code><code class="w"> </code><code class="nx">makePointer</code><code class="p">[</code><code class="nx">T</code><code class="w"> </code><code class="kt">any</code><code class="p">](</code><code class="nx">t</code><code class="w"> </code><code class="nx">T</code><code class="p">)</code><code class="w"> </code><code class="o">*</code><code class="nx">T</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">    </code><code class="k">return</code><code class="w"> </code><code class="o">&amp;</code><code class="nx">t</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+
+<p>With that function, you can now write:</p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="nx">p</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">person</code><code class="p">{</code><code class="w"/>
+<code class="w">  </code><code class="nx">FirstName</code><code class="p">:</code><code class="w">  </code><code class="s">"Pat"</code><code class="p">,</code><code class="w"/>
+<code class="w">  </code><code class="nx">MiddleName</code><code class="p">:</code><code class="w"> </code><code class="nx">makePointer</code><code class="p">(</code><code class="s">"Perry"</code><code class="p">),</code><code class="w"> </code><code class="c1">// This works</code><code class="w"/>
+<code class="w">  </code><code class="nx">LastName</code><code class="p">:</code><code class="w">   </code><code class="s">"Peterson"</code><code class="p">,</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+
+<p class="pagebreak-before">Why does this work? When you pass a constant to a function, the constant is copied to a parameter, which is a variable. Since it’s a variable, it has an address in memory. The function then returns the variable’s memory address. Writing generic functions is covered in <a data-type="xref" href="ch08.html#unique_chapter_id_08">Chapter 8</a>.</p>
+<div data-type="tip"><h6>Tip</h6>
+<p>Use a helper function to turn a constant value into a pointer.</p>
+</div>
+</div></section>
+
+
+
+
+
+
+<section data-type="sect1" data-pdf-bookmark="Don’t Fear the Pointers"><div class="sect1" id="id233">
+<h1>Don’t Fear the Pointers</h1>
+
+<p>The first rule of pointers<a data-type="indexterm" data-primary="pointers" data-secondary="using values versus pointers" id="id1420"/> is to not be afraid of them. If you are used to Java, JavaScript, Python, or Ruby, you might find pointers intimidating. However, pointers are actually the familiar behavior for classes. It’s the nonpointer structs in Go that are unusual.</p>
+
+<p>In Java and JavaScript, there is a difference in the behavior between primitive types and classes (Python and Ruby don’t have primitive values but use immutable instances to simulate them). When a primitive value is assigned to another variable or passed to a function or method, any changes made to the other variable aren’t reflected in the original, as shown in <a data-type="xref" href="#EX_6_1">Example 6-1</a>.</p>
+<div id="EX_6_1" data-type="example">
+<h5><span class="label">Example 6-1. </span>Assigning primitive variables doesn’t share memory in Java</h5>
+
+<pre data-type="programlisting" data-code-language="java"><code class="kt">int</code><code class="w"> </code><code class="n">x</code><code class="w"> </code><code class="o">=</code><code class="w"> </code><code class="mi">10</code><code class="p">;</code><code class="w"/>
+<code class="kt">int</code><code class="w"> </code><code class="n">y</code><code class="w"> </code><code class="o">=</code><code class="w"> </code><code class="n">x</code><code class="p">;</code><code class="w"/>
+<code class="n">y</code><code class="w"> </code><code class="o">=</code><code class="w"> </code><code class="mi">20</code><code class="p">;</code><code class="w"/>
+<code class="n">System</code><code class="p">.</code><code class="na">out</code><code class="p">.</code><code class="na">println</code><code class="p">(</code><code class="n">x</code><code class="p">);</code><code class="w"> </code><code class="c1">// prints 10</code><code class="w"/></pre></div>
+
+<p>However, let’s take a look at what happens when an instance of a class is assigned to another variable or passed to a function or method (the code in <a data-type="xref" href="#EX_6_2a">Example 6-2</a> is written in Python, but you can find similar code for Java, JavaScript, and Ruby in the <em>sample_code/language_pointer_examples</em> directory in the <a href="https://oreil.ly/riOYA">Chapter 6 repository</a>).<a data-type="indexterm" data-primary="book supplemental material URL" data-secondary="code repository" data-tertiary="Chapter 6" data-tertiary-sortas="fff" id="id1421"/><a data-type="indexterm" data-primary="resources online" data-secondary="book supplemental material" data-tertiary="Chapter 6" data-tertiary-sortas="fff" id="id1422"/></p>
+<div id="EX_6_2a" data-type="example">
+<h5><span class="label">Example 6-2. </span>Passing a class instance into a function</h5>
+
+<pre data-type="programlisting" data-code-language="python"><code class="k">class</code> <code class="nc">Foo</code><code class="p">:</code>
+    <code class="k">def</code> <code class="fm">__init__</code><code class="p">(</code><code class="bp">self</code><code class="p">,</code> <code class="n">x</code><code class="p">):</code>
+        <code class="bp">self</code><code class="o">.</code><code class="n">x</code> <code class="o">=</code> <code class="n">x</code>
+
+
+<code class="k">def</code> <code class="nf">outer</code><code class="p">():</code>
+    <code class="n">f</code> <code class="o">=</code> <code class="n">Foo</code><code class="p">(</code><code class="mi">10</code><code class="p">)</code>
+    <code class="n">inner1</code><code class="p">(</code><code class="n">f</code><code class="p">)</code>
+    <code class="nb">print</code><code class="p">(</code><code class="n">f</code><code class="o">.</code><code class="n">x</code><code class="p">)</code>
+    <code class="n">inner2</code><code class="p">(</code><code class="n">f</code><code class="p">)</code>
+    <code class="nb">print</code><code class="p">(</code><code class="n">f</code><code class="o">.</code><code class="n">x</code><code class="p">)</code>
+    <code class="n">g</code> <code class="o">=</code> <code class="kc">None</code>
+    <code class="n">inner2</code><code class="p">(</code><code class="n">g</code><code class="p">)</code>
+    <code class="nb">print</code><code class="p">(</code><code class="n">g</code> <code class="ow">is</code> <code class="kc">None</code><code class="p">)</code>
+
+
+<code class="k">def</code> <code class="nf">inner1</code><code class="p">(</code><code class="n">f</code><code class="p">):</code>
+    <code class="n">f</code><code class="o">.</code><code class="n">x</code> <code class="o">=</code> <code class="mi">20</code>
+
+
+<code class="k">def</code> <code class="nf">inner2</code><code class="p">(</code><code class="n">f</code><code class="p">):</code>
+    <code class="n">f</code> <code class="o">=</code> <code class="n">Foo</code><code class="p">(</code><code class="mi">30</code><code class="p">)</code>
+
+
+<code class="n">outer</code><code class="p">()</code></pre></div>
+
+<p>Running this code prints the following output:</p>
+
+<pre data-type="programlisting">20
+20
+True</pre>
+
+<p>That’s because the following scenarios are true in Java, Python, JavaScript, and Ruby:</p>
+
+<ul>
+<li>
+<p>If you pass an instance of a class to a function and you change the value of a field, the change is reflected in the variable that was passed in.</p>
+</li>
+<li>
+<p>If you reassign the parameter, the change is <em>not</em> reflected in the variable that was passed in.</p>
+</li>
+<li>
+<p>If you pass <code>nil/null/None</code> for a parameter value, setting the parameter itself to a new value doesn’t modify the variable in the calling function.</p>
+</li>
+</ul>
+
+<p>Some people explain this behavior by saying that class instances are passed by reference in these languages. This is untrue. If they were being passed by reference, scenarios two and three would change the variable in the calling function. These languages are always pass-by-value, just as in Go.</p>
+
+<p>What you are seeing is that every instance of a class in these languages is implemented as a pointer. When a class instance is passed to a function or method, the value being copied is the pointer to the instance. Since <code>outer</code> and <code>inner1</code> are referring to the same memory, changes made to fields in <code>f</code> in <code>inner1</code> are reflected in the variable in <code>outer</code>. When <code>inner2</code> reassigns <code>f</code> to a new class instance, this creates a separate instance and does not affect the variable in <code>outer</code>.</p>
+
+<p>When you use a pointer variable or parameter in Go, you see the exact same behaviors. The difference between Go and these languages is that Go gives you the <em>choice</em> to use pointers or values for both primitives and structs. Most of the time, you should use a value. Values make it easier to understand how and when your data is modified. <a data-type="indexterm" data-primary="garbage collector" data-secondary="using values versus pointers" id="id1423"/>A secondary benefit is that using values reduces the amount of work that the garbage collector has to do. I’ll talk about that in <a data-type="xref" href="#memory">“Reducing the Garbage Collector’s Workload”</a>.</p>
+</div></section>
+
+
+
+
+
+
+<section data-type="sect1" data-pdf-bookmark="Pointers Indicate Mutable Parameters"><div class="sect1" id="pointer_mutable">
+<h1>Pointers Indicate Mutable Parameters</h1>
+
+<p>As you’ve already seen, <a data-type="indexterm" data-primary="pointers" data-secondary="indicating mutable parameters" id="ch06-muta"/><a data-type="indexterm" data-primary="parameters" data-secondary="pointers indicating mutable parameters" id="ch06-muta2"/><a data-type="indexterm" data-primary="immutable values in Go" id="id1424"/>Go constants provide names for literal expressions that can be calculated at compile time. Go has no mechanism to declare that other kinds of values are immutable. Modern software engineering embraces immutability. <a href="https://oreil.ly/FbUTJ">MIT’s course on Software Construction</a> sums up the reasons: “[I]mmutable types are safer from bugs, easier to understand, and more ready for change. Mutability makes it harder to understand what your program is doing, and much harder to enforce contracts.”</p>
+
+<p>The lack of immutable declarations<a data-type="indexterm" data-primary="pointers" data-secondary="using values versus pointers" data-tertiary="lack of immutable declarations and" id="id1425"/> in Go might seem problematic, but the ability to choose between value and pointer parameter types addresses the issue. As the Software Construction course materials go on to explain: “[U]sing mutable objects is just fine if you are using them entirely locally within a method, and with only one reference to the object.” Rather than declare that some variables and parameters are immutable, Go developers use pointers to indicate that a parameter is mutable.</p>
+
+<p>Since Go is a call-by-value language,<a data-type="indexterm" data-primary="call by value language" id="id1426"/><a data-type="indexterm" data-primary="functions" data-secondary="call by value language" id="id1427"/><a data-type="indexterm" data-primary="Go" data-secondary="call by value language" id="id1428"/><a data-type="indexterm" data-primary="parameters" data-secondary="call by value language" id="id1429"/><a data-type="indexterm" data-primary="variables" data-secondary="call by value language" id="id1430"/><a data-type="indexterm" data-primary="parameters" data-secondary="input parameters not modified" id="id1431"/><a data-type="indexterm" data-primary="functions" data-secondary="input parameters not modified" id="id1432"/> the values passed to functions are copies. For nonpointer types like primitives, structs, and arrays, this means that the called function cannot modify the original. Since the called function has a copy of the original data, the original data’s immutability is guaranteed.</p>
+<div data-type="note" epub:type="note"><h6>Note</h6>
+<p>I’ll talk about passing maps and slices to functions in <a data-type="xref" href="#map_slice">“The Difference Between Maps and Slices”</a>.</p>
+</div>
+
+<p>However, if a pointer is passed<a data-type="indexterm" data-primary="call by value language" data-secondary="pointer passed to a function" id="ch06-pass"/><a data-type="indexterm" data-primary="functions" data-secondary="call by value language" data-tertiary="pointer passed to a function" id="ch06-pass2"/><a data-type="indexterm" data-primary="Go" data-secondary="call by value language" data-tertiary="pointer passed to a function" id="ch06-pass3"/><a data-type="indexterm" data-primary="parameters" data-secondary="call by value language" data-tertiary="pointer passed to a function" id="ch06-pass4"/><a data-type="indexterm" data-primary="variables" data-secondary="call by value language" data-tertiary="pointer passed to a function" id="ch06-pass5"/><a data-type="indexterm" data-primary="parameters" data-secondary="input parameters not modified" data-tertiary="pointer passed to a function" id="ch06-pass6"/><a data-type="indexterm" data-primary="functions" data-secondary="input parameters not modified" data-tertiary="pointer passed to a function" id="ch06-pass7"/><a data-type="indexterm" data-primary="pointers" data-secondary="pointer passed to a function" id="ch06-pass8"/> to a function, the function gets a copy of the pointer. This still points to the original data, which means that the original data can be modified by the called function.</p>
+
+<p>This has a couple of related implications.</p>
+
+<p>The first implication is that when you pass a <code>nil</code> pointer to a function, you cannot make the value non-nil. You can reassign the value only if there was a value already assigned to the pointer. While confusing at first, it makes sense. Since the memory location was passed to the function via call-by-value, you can’t change the memory address, any more than you could change the value of an <code>int</code> parameter. You can demonstrate this with the following program:</p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="kd">func</code><code class="w"> </code><code class="nx">failedUpdate</code><code class="p">(</code><code class="nx">g</code><code class="w"> </code><code class="o">*</code><code class="kt">int</code><code class="p">)</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">    </code><code class="nx">x</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="mi">10</code><code class="w"/>
+<code class="w">    </code><code class="nx">g</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="o">&amp;</code><code class="nx">x</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+
+<code class="kd">func</code><code class="w"> </code><code class="nx">main</code><code class="p">()</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">    </code><code class="kd">var</code><code class="w"> </code><code class="nx">f</code><code class="w"> </code><code class="o">*</code><code class="kt">int</code><code class="w"> </code><code class="c1">// f is nil</code><code class="w"/>
+<code class="w">    </code><code class="nx">failedUpdate</code><code class="p">(</code><code class="nx">f</code><code class="p">)</code><code class="w"/>
+<code class="w">    </code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="nx">f</code><code class="p">)</code><code class="w"> </code><code class="c1">// prints nil</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+
+<p>The flow through this code is shown in <a data-type="xref" href="#failing_to_update_a_nil_pointer">Figure 6-3</a>.</p>
+
+<figure><div id="failing_to_update_a_nil_pointer" class="figure">
+<img src="assets/lgo2_0603.png" alt="Failing To Update a nil Pointer" width="1289" height="1255"/>
+<h6><span class="label">Figure 6-3. </span>Failing to update a <code>nil</code> pointer</h6>
+</div></figure>
+
+<p class="pagebreak-before">You start with a <code>nil</code> variable <code>f</code> in <code>main</code>. When you call <code>failedUpdate</code>, you copy the value of <code>f</code>, which is <code>nil</code>, into the parameter named <code>g</code>. This means that <code>g</code> is also set to <code>nil</code>. You then declare a new variable <code>x</code> within <code>failedUpdate</code> with the value 10. Next, you change <code>g</code> in <code>failedUpdate</code> to point to <code>x</code>. This does not change the <code>f</code> in <code>main</code>, and when you exit <code>failedUpdate</code> and return to <code>main</code>, <code>f</code> is still <code>nil</code>.</p>
+
+<p>The second implication of copying a pointer is that if you want the value assigned to a pointer parameter to still be there when you exit the function, you must dereference the pointer and set the value. If you change the pointer, you have changed the copy, not the original. Dereferencing puts the new value in the memory location pointed to by both the original and the copy. Here’s a short program that shows how this works:</p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="kd">func</code><code class="w"> </code><code class="nx">failedUpdate</code><code class="p">(</code><code class="nx">px</code><code class="w"> </code><code class="o">*</code><code class="kt">int</code><code class="p">)</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">    </code><code class="nx">x2</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="mi">20</code><code class="w"/>
+<code class="w">    </code><code class="nx">px</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="o">&amp;</code><code class="nx">x2</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+
+<code class="kd">func</code><code class="w"> </code><code class="nx">update</code><code class="p">(</code><code class="nx">px</code><code class="w"> </code><code class="o">*</code><code class="kt">int</code><code class="p">)</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">    </code><code class="o">*</code><code class="nx">px</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="mi">20</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+
+<code class="kd">func</code><code class="w"> </code><code class="nx">main</code><code class="p">()</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">    </code><code class="nx">x</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="mi">10</code><code class="w"/>
+<code class="w">    </code><code class="nx">failedUpdate</code><code class="p">(</code><code class="o">&amp;</code><code class="nx">x</code><code class="p">)</code><code class="w"/>
+<code class="w">    </code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="nx">x</code><code class="p">)</code><code class="w"> </code><code class="c1">// prints 10</code><code class="w"/>
+<code class="w">    </code><code class="nx">update</code><code class="p">(</code><code class="o">&amp;</code><code class="nx">x</code><code class="p">)</code><code class="w"/>
+<code class="w">    </code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="nx">x</code><code class="p">)</code><code class="w"> </code><code class="c1">// prints 20</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+
+<p>The flow through this code is shown in <a data-type="xref" href="#the_wrong_way_and_the_right_way">Figure 6-4</a>.</p>
+
+<p>In this example, you start with <code>x</code> in <code>main</code> set to 10. When you call <code>failedUpdate</code>, you copy the address of <code>x</code> into the parameter <code>px</code>. Next, you declare <code>x2</code> in <code>failedUpdate</code>, set to 20. You then point <code>px</code> in <code>failedUpdate</code> to the address of <code>x2</code>. When you return to <code>main</code>, the value of <code>x</code> is unchanged. When you call <code>update</code>, you copy the address of <code>x</code> into <code>px</code> again. However, this time you change the value of what <code>px</code> in <code>update</code> points to, the variable <code>x</code> in <code>main</code>. When you return to <code>main</code>, <code>x</code> has been changed.<a data-type="indexterm" data-startref="ch06-muta" id="id1433"/><a data-type="indexterm" data-startref="ch06-muta2" id="id1434"/><a data-type="indexterm" data-startref="ch06-pass" id="id1435"/><a data-type="indexterm" data-startref="ch06-pass2" id="id1436"/><a data-type="indexterm" data-startref="ch06-pass3" id="id1437"/><a data-type="indexterm" data-startref="ch06-pass4" id="id1438"/><a data-type="indexterm" data-startref="ch06-pass5" id="id1439"/><a data-type="indexterm" data-startref="ch06-pass6" id="id1440"/><a data-type="indexterm" data-startref="ch06-pass7" id="id1441"/><a data-type="indexterm" data-startref="ch06-pass8" id="id1442"/></p>
+
+<figure><div id="the_wrong_way_and_the_right_way" class="figure">
+<img src="assets/lgo2_0604.png" alt="The Wrong Way and The Right Way To Update a Pointer" width="1289" height="2028"/>
+<h6><span class="label">Figure 6-4. </span>The wrong way and the right way to update a pointer</h6>
+</div></figure>
+</div></section>
+
+
+
+
+
+
+<section data-type="sect1" data-pdf-bookmark="Pointers Are a Last Resort"><div class="sect1" id="last_resort">
+<h1>Pointers Are a Last Resort</h1>
+
+<p>That said, you should be careful<a data-type="indexterm" data-primary="parameters" data-secondary="pointers indicating mutable parameters" data-tertiary="pointers used as last resort" id="id1443"/><a data-type="indexterm" data-primary="pointers" data-secondary="indicating mutable parameters" data-tertiary="pointers used as last resort" id="id1444"/><a data-type="indexterm" data-primary="pointers" data-secondary="used as last resort" id="id1445"/> when using pointers in Go. As discussed earlier, they make it harder to understand data flow and can create extra work for the garbage collector. Rather than populating a struct by passing a pointer to it into a function, have the function instantiate and return the struct (see Examples <a data-type="xref" data-xrefstyle="select:labelnumber" href="#EX_6_3">6-3</a> and <a data-type="xref" data-xrefstyle="select:labelnumber" href="#EX_6_4">6-4</a>).</p>
+<div id="EX_6_3" data-type="example">
+<h5><span class="label">Example 6-3. </span>Don’t do this</h5>
+
+<pre data-type="programlisting" data-code-language="go"><code class="kd">func</code><code class="w"> </code><code class="nx">MakeFoo</code><code class="p">(</code><code class="nx">f</code><code class="w"> </code><code class="o">*</code><code class="nx">Foo</code><code class="p">)</code><code class="w"> </code><code class="kt">error</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">  </code><code class="nx">f</code><code class="p">.</code><code class="nx">Field1</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="s">"val"</code><code class="w"/>
+<code class="w">  </code><code class="nx">f</code><code class="p">.</code><code class="nx">Field2</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="mi">20</code><code class="w"/>
+<code class="w">  </code><code class="k">return</code><code class="w"> </code><code class="kc">nil</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre></div>
+<div id="EX_6_4" data-type="example">
+<h5><span class="label">Example 6-4. </span>Do this</h5>
+
+<pre data-type="programlisting" data-code-language="go"><code class="kd">func</code><code class="w"> </code><code class="nx">MakeFoo</code><code class="p">()</code><code class="w"> </code><code class="p">(</code><code class="nx">Foo</code><code class="p">,</code><code class="w"> </code><code class="kt">error</code><code class="p">)</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">  </code><code class="nx">f</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">Foo</code><code class="p">{</code><code class="w"/>
+<code class="w">    </code><code class="nx">Field1</code><code class="p">:</code><code class="w"> </code><code class="s">"val"</code><code class="p">,</code><code class="w"/>
+<code class="w">    </code><code class="nx">Field2</code><code class="p">:</code><code class="w"> </code><code class="mi">20</code><code class="p">,</code><code class="w"/>
+<code class="w">  </code><code class="p">}</code><code class="w"/>
+<code class="w">  </code><code class="k">return</code><code class="w"> </code><code class="nx">f</code><code class="p">,</code><code class="w"> </code><code class="kc">nil</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre></div>
+
+<p>The only time you should use pointer parameters to modify a variable is when the function expects an interface. <a data-type="indexterm" data-primary="encoding/json package" data-secondary="json.Unmarshal" data-tertiary="populating variable from" id="id1446"/><a data-type="indexterm" data-primary="JSON support in encoding/jason package" data-secondary="json.Unmarshal" data-tertiary="populating variable" id="id1447"/><a data-type="indexterm" data-primary="Unmarshal function" data-secondary="populating variable from JSON" id="id1448"/>You see this pattern when working with JSON (I’ll talk more about the JSON support in Go’s standard library in <a data-type="xref" href="ch13.html#json">“encoding/json”</a>):</p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="nx">f</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="kd">struct</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">  </code><code class="nx">Name</code><code class="w"> </code><code class="kt">string</code><code class="w"> </code><code class="s">`json:"name"`</code><code class="w"/>
+<code class="w">  </code><code class="nx">Age</code><code class="w"> </code><code class="kt">int</code><code class="w"> </code><code class="s">`json:"age"`</code><code class="w"/>
+<code class="p">}{}</code><code class="w"/>
+<code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">json</code><code class="p">.</code><code class="nx">Unmarshal</code><code class="p">([]</code><code class="nb">byte</code><code class="p">(</code><code class="s">`{"name": "Bob", "age": 30}`</code><code class="p">),</code><code class="w"> </code><code class="o">&amp;</code><code class="nx">f</code><code class="p">)</code><code class="w"/></pre>
+
+<p>The <code>Unmarshal</code> function populates a variable from a slice of bytes containing JSON. It is declared to take a slice of bytes and an <code>any</code> parameter. <a data-type="indexterm" data-primary="Unmarshal function" data-secondary="populating variable from JSON" data-tertiary="pointer input parameter" id="id1449"/>The value passed in for the <code>any</code> parameter must be a pointer. If it is not, an error is returned.</p>
+
+<p>Why do you pass a pointer into <code>Unmarshal</code> instead of having it return a value? There are two reasons. First, this function predates the addition of generics to Go, and without generics (which I’ll talk about in detail in <a data-type="xref" href="ch08.html#unique_chapter_id_08">Chapter 8</a>), there is no way to know what type of value to create and return.</p>
+
+<p>The second reason is that passing in a pointer gives you control over memory allocation. Iterating over data and converting it from JSON to a Go struct is a common design pattern, so <code>Unmarshal</code> is optimized for this case. If the <code>Unmarshal</code> function returned a value and <code>Unmarshal</code> was called in a loop, one struct instance would be created on each loop iteration. This creates a lot more work for the garbage collector, which slows down your program. You’ll see another use of this pattern when you look at <a data-type="xref" href="#buffers">“Slices as Buffers”</a>, and I’ll talk more about efficient memory usage in <a data-type="xref" href="#memory">“Reducing the Garbage Collector’s Workload”</a>.</p>
+
+<p>Because JSON integration is so common, this API is sometimes treated as a common case by new Go developers, instead of the exception that it should be.</p>
+
+<p>When returning values from a function,<a data-type="indexterm" data-primary="functions" data-secondary="returning values" data-tertiary="value types favored over pointers" id="id1450"/><a data-type="indexterm" data-primary="return keyword" data-secondary="value types favored over pointer return values" id="id1451"/> you should favor value types. Use a pointer type as a return type only if there is state within the data type that needs to be modified. When you look at I/O in <a data-type="xref" href="ch13.html#io_friends">“io and Friends”</a>, you’ll see that with buffers for reading or writing data. In addition, some data types used with concurrency must always be passed as pointers. You’ll see those in <a data-type="xref" href="ch12.html#unique_chapter_id_12">Chapter 12</a>.</p>
+</div></section>
+
+
+
+
+
+
+<section data-type="sect1" data-pdf-bookmark="Pointer Passing Performance"><div class="sect1" id="id235">
+<h1>Pointer Passing Performance</h1>
+
+<p>If a struct is large enough,<a data-type="indexterm" data-primary="structs" data-secondary="pointer input parameter or return value for" id="id1452"/><a data-type="indexterm" data-primary="pointers" data-secondary="used as last resort" data-tertiary="but performance improvements" id="id1453"/><a data-type="indexterm" data-primary="pointers" data-secondary="indicating mutable parameters" data-tertiary="pointers improving performance" id="id1454"/><a data-type="indexterm" data-primary="parameters" data-secondary="pointers indicating mutable parameters" data-tertiary="pointers improving performance" id="id1455"/> using a pointer to the struct as either an input parameter or a return value improves performance. The time to pass a pointer into a function is constant for all data sizes, roughly one nanosecond. This makes sense, as the size of a pointer is the same for all data types. Passing a value into a function takes longer as the data gets larger. It takes about 0.7 milliseconds once the value gets to be around 10 megabytes of data.</p>
+
+<p>The behavior for returning a pointer versus returning a value is more interesting. For data structures that are smaller than 10 megabytes, it is actually <em>slower</em> to return a pointer type than a value type. For example, a 100-byte data structure takes around 10 nanoseconds to be returned, but a pointer to that data structure takes about 30 nanoseconds. As your data structures get larger, the performance advantage flips. It takes nearly 1.5 milliseconds to return 10 megabytes of data, but a little less than half a millisecond to return a pointer to it.</p>
+
+<p>You should be aware that these are very short times. For the vast majority of cases, the difference between using a pointer and a value won’t affect your program’s performance. But if you are passing megabytes of data between functions, consider using a pointer even if the data is meant to be immutable.</p>
+
+<p>All these numbers are from an i7-8700 computer with 32 GB of RAM. Different CPUs can produce different crossover points. For example, on an Apple M1 CPU with 16 GB of RAM, it is faster to return a pointer (5 microseconds) than a value (8 microseconds) at sizes of around 100 kilobytes. You can run your own performance tests with the code in the <em>sample_code/pointer_perf</em> directory in the <a href="https://oreil.ly/riOYA">Chapter 6 repository</a>. <a data-type="indexterm" data-primary="book supplemental material URL" data-secondary="code repository" data-tertiary="Chapter 6" data-tertiary-sortas="fff" id="id1456"/><a data-type="indexterm" data-primary="resources online" data-secondary="book supplemental material" data-tertiary="Chapter 6" data-tertiary-sortas="fff" id="id1457"/><a data-type="indexterm" data-primary="go commands" data-secondary="go test" id="id1458"/><a data-type="indexterm" data-primary="testing" data-secondary="go test" id="id1459"/>Run the command <code>go test ./…​ -bench=.</code> to find your own results. (Benchmarks are covered in <a data-type="xref" href="ch15.html#benchmarking">“Using Benchmarks”</a>.)</p>
+</div></section>
+
+
+
+
+
+
+<section data-type="sect1" data-pdf-bookmark="The Zero Value Versus No Value"><div class="sect1" id="id236">
+<h1>The Zero Value Versus No Value</h1>
+
+<p>Go pointers<a data-type="indexterm" data-primary="pointers" data-secondary="zero value versus no value indication" id="id1460"/><a data-type="indexterm" data-primary="comma ok idiom" data-secondary="zero value versus no value indication" id="id1461"/> are also commonly used to indicate the difference between a variable or field that’s been assigned the zero value and a variable or field that hasn’t been assigned a value at all. If this distinction matters in your program, use a <code>nil</code> pointer to represent an unassigned variable or struct field.</p>
+
+<p>Because pointers also indicate mutability, be careful when using this pattern. Rather than return a pointer set to <code>nil</code> from a function, use the comma ok idiom that you saw for maps, and return a value type and a boolean.</p>
+
+<p>Remember, if a <code>nil</code> pointer is passed into a function via a parameter or a field on a parameter, you cannot set the value within the function, as there’s nowhere to store the value. If a non-nil value is passed in for the pointer, do not modify it unless you document the behavior.</p>
+
+<p>Again, JSON conversions are<a data-type="indexterm" data-primary="JSON support in encoding/jason package" data-secondary="zero value versus no value via pointers" id="id1462"/><a data-type="indexterm" data-primary="encoding/json package" data-secondary="JSON" data-tertiary="zero value versus no value via pointers" id="id1463"/> the exception that proves the rule. When converting data back and forth from JSON (yes, I’ll talk more about the JSON support in Go’s standard library in <a data-type="xref" href="ch13.html#json">“encoding/json”</a>), you often need a way to differentiate between the zero value and not having a value assigned at all. Use a pointer value for fields in the struct that are nullable.</p>
+
+<p>When not working with JSON (or other external protocols), resist the temptation to use a pointer field to indicate no value. While a pointer does provide a handy way to indicate no value, if you are not going to modify the value, you should use a value type instead, paired with a boolean.</p>
+</div></section>
+
+
+
+
+
+
+<section data-type="sect1" data-pdf-bookmark="The Difference Between Maps and Slices"><div class="sect1" id="map_slice">
+<h1>The Difference Between Maps and Slices</h1>
+
+<p>As you saw in the previous chapter, <a data-type="indexterm" data-primary="maps" data-secondary="call by value language" data-tertiary="pointer implementation of maps" id="id1464"/><a data-type="indexterm" data-primary="call by value language" data-secondary="map passed to a function" id="id1465"/><a data-type="indexterm" data-primary="functions" data-secondary="call by value language" data-tertiary="map passed to a function" id="id1466"/><a data-type="indexterm" data-primary="Go" data-secondary="call by value language" data-tertiary="map passed to a function" id="id1467"/><a data-type="indexterm" data-primary="maps" data-secondary="call by value language" data-tertiary="maps for input parameters or return values" id="id1468"/><a data-type="indexterm" data-primary="parameters" data-secondary="input parameters not modified" data-tertiary="maps for input parameters" id="id1469"/><a data-type="indexterm" data-primary="return keyword" data-secondary="maps for return values" id="id1470"/><a data-type="indexterm" data-primary="functions" data-secondary="returning values" data-tertiary="maps for return values" id="id1471"/>any modifications made to a map that’s passed to a function are reflected in the original variable that was passed in. Now that you know about pointers, you can understand why: within the Go runtime, a map is implemented as a pointer to a struct. Passing a map to a function means that you are copying a pointer.</p>
+
+<p>Because of this, you should consider<a data-type="indexterm" data-primary="APIs" data-secondary="maps for input parameters or return values" id="id1472"/> carefully before using maps for input parameters or return values, especially on public APIs. On an API-design level, maps are a bad choice because they say nothing about the values contained within; nothing explicitly defines any keys in the map, so the only way to know what they are is to trace through the code. From the standpoint of immutability, maps are bad because the only way to know what ended up in the map is to trace through all the functions that interact with it. This prevents your API from being self-documenting. If you are used to dynamic languages, don’t use a map as a replacement for another language’s lack of structure. Go is a strongly typed language; <a data-type="indexterm" data-primary="structs" data-secondary="input parameters" id="id1473"/><a data-type="indexterm" data-primary="structs" data-secondary="return values" id="id1474"/>rather than passing a map around, use a struct. (You’ll learn another reason to prefer structs when I talk about memory layout in <a data-type="xref" href="#memory">“Reducing the Garbage Collector’s Workload”</a>.)</p>
+<div data-type="note" epub:type="note"><h6>Note</h6>
+<p>A map input parameter or return value is the correct choice in certain situations. A struct requires you to name its fields at compile time. If the keys for your data aren’t known at compile time, a map is ideal.</p>
+</div>
+
+<p>Meanwhile, passing a slice to<a data-type="indexterm" data-primary="parameters" data-secondary="input parameters not modified" data-tertiary="slices for input parameters" id="id1475"/><a data-type="indexterm" data-primary="slices" data-secondary="function input parameters" id="id1476"/><a data-type="indexterm" data-primary="append function" data-secondary="slices grown via" data-tertiary="slice for input parameter then using append" id="id1477"/> a function has more complicated behavior: any modification to the slice’s contents is reflected in the original variable, but using <code>append</code> to change the length isn’t reflected in the original variable, even if the slice has a capacity greater than its length. That’s because a slice is implemented as a struct with three fields: an <code>int</code> field for length, an <code>int</code> field for capacity, and a pointer to a block of memory. <a data-type="xref" href="#the_memory_layout_of_a_slice">Figure 6-5</a> demonstrates the relationship.</p>
+
+<figure><div id="the_memory_layout_of_a_slice" class="figure">
+<img src="assets/lgo2_0605.png" alt="The memory layout of a slice" width="699" height="357"/>
+<h6><span class="label">Figure 6-5. </span>The memory layout of a slice</h6>
+</div></figure>
+
+<p>When a slice is copied to a different variable or passed to a function, a copy is made of the length, capacity, and the pointer. <a data-type="xref" href="#the_memory_layout_of_a_slice_and_its_copy">Figure 6-6</a> shows how both slice variables point to the same memory.</p>
+
+<figure><div id="the_memory_layout_of_a_slice_and_its_copy" class="figure">
+<img src="assets/lgo2_0606.png" alt="The memory layout of a slice and its copy" width="711" height="615"/>
+<h6><span class="label">Figure 6-6. </span>The memory layout of a slice and its copy</h6>
+</div></figure>
+
+<p>Changing the values in the slice changes the memory that the pointer points to, so the changes are seen in both the copy and the original. You see in <a data-type="xref" href="#modifying_the_contents_of_a_slice">Figure 6-7</a> how this looks in memory.</p>
+
+<figure class="width-70"><div id="modifying_the_contents_of_a_slice" class="figure">
+<img src="assets/lgo2_0607.png" alt="Modifying the Contents of a Slice" width="971" height="615"/>
+<h6><span class="label">Figure 6-7. </span>Modifying the contents of a slice</h6>
+</div></figure>
+
+<p>If the slice copy is appended to<a data-type="indexterm" data-primary="slices" data-secondary="function input parameters" data-tertiary="slice copy appended to" id="id1478"/> and there <em>is</em> enough capacity in the slice for the new values, the length changes in the copy, and the new values are stored in the block of memory that’s shared by the copy and the original. However, the length in the original slice remains unchanged. The Go runtime prevents the original slice from seeing those values since they are beyond the length of the original slice. <a data-type="xref" href="#changing_the_length_is_invisible_in_the_original">Figure 6-8</a> highlights the values that are visible in one slice variable but not in the other.</p>
+
+<figure class="width-60"><div id="changing_the_length_is_invisible_in_the_original" class="figure">
+<img src="assets/lgo2_0608.png" alt="Changing The Length Is Invisible In The Original" width="791" height="615"/>
+<h6><span class="label">Figure 6-8. </span>Changing the length is invisible in the original</h6>
+</div></figure>
+
+<p>If the slice copy is appended to and there <em>isn’t</em> enough capacity in the slice for the new values, a new, bigger block of memory is allocated, values are copied over, and the pointer, length, and capacity fields in the copy are updated. Changes to the pointer, length, and capacity are not reflected in the original, because they are only in the copy. <a data-type="xref" href="#changing_the_capacity_changes_the_storage">Figure 6-9</a> shows how each slice variable now points to a different memory block.</p>
+
+<figure class="width-60"><div id="changing_the_capacity_changes_the_storage" class="figure">
+<img src="assets/lgo2_0609.png" alt="Changing The Capacity Changes the Storage" width="803" height="778"/>
+<h6><span class="label">Figure 6-9. </span>Changing the capacity changes the storage</h6>
+</div></figure>
+
+<p>The result is that a slice that’s passed to a function can have its contents modified, but the slice can’t be resized. As the only usable linear data structure, slices are frequently passed around in Go programs. By default, you should assume that a slice is not modified by a function. Your function’s documentation should specify whether it modifies the slice’s contents.</p>
+<div data-type="note" epub:type="note"><h6>Note</h6>
+<p>The reason you can pass a slice<a data-type="indexterm" data-primary="slices" data-secondary="function input parameters" data-tertiary="how slices passed to functions" id="id1479"/> of any size to a function is that the data type that’s passed to the function is the same for any size slice: a struct of two <code>int</code> values and a pointer. <a data-type="indexterm" data-primary="arrays" data-secondary="function input parameters" id="id1480"/>The reason you can’t write a function that takes an array of any size is that the entire array is passed to the function, not just a pointer to the data.</p>
+</div>
+
+<p>There is one situation where the ability to modify the contents (but not the size) of a slice input parameter is very useful. This makes them ideal for reusable buffers.</p>
+</div></section>
+
+
+
+
+
+
+<section data-type="sect1" data-pdf-bookmark="Slices as Buffers"><div class="sect1" id="buffers">
+<h1>Slices as Buffers</h1>
+
+<p>When reading data from an external resource (like a file or a network connection), many languages use code like this:<a data-type="indexterm" data-primary="slices" data-secondary="buffers for reading data" id="id1481"/><a data-type="indexterm" data-primary="buffers for reading data via slices" id="id1482"/></p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="nx">r</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="nx">open_resource</code><code class="p">()</code><code class="w"/>
+<code class="nx">while</code><code class="w"> </code><code class="nx">r</code><code class="p">.</code><code class="nx">has_data</code><code class="p">()</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">  </code><code class="nx">data_chunk</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="nx">r</code><code class="p">.</code><code class="nx">next_chunk</code><code class="p">()</code><code class="w"/>
+<code class="w">  </code><code class="nx">process</code><code class="p">(</code><code class="nx">data_chunk</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+<code class="nb">close</code><code class="p">(</code><code class="nx">r</code><code class="p">)</code><code class="w"/></pre>
+
+<p>The problem with this pattern<a data-type="indexterm" data-primary="buffers for reading data via slices" data-secondary="reducing garbage collector’s workload" id="id1483"/><a data-type="indexterm" data-primary="garbage collector" data-secondary="reducing workload" data-tertiary="buffers" id="id1484"/> is that every time you iterate through that <code>while</code> loop, you allocate another <code>data_chunk</code> even though each one is used only once. This creates lots of unnecessary memory allocations, just as I discussed in <a data-type="xref" href="#last_resort">“Pointers Are a Last Resort”</a> when looking at the <code>Unmarshal</code> function. Garbage-collected languages handle those allocations for you automatically, but the work still needs to be done to clean them up when you are done processing.</p>
+
+<p>Even though Go is a garbage-collected language, writing idiomatic Go means avoiding unneeded allocations. Rather than returning a new allocation each time you read from a data source, you create a slice of bytes once and use it as a buffer to read data from the data source:</p>
+
+<pre data-type="programlisting" data-code-language="go"><code class="nx">file</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">os</code><code class="p">.</code><code class="nx">Open</code><code class="p">(</code><code class="nx">fileName</code><code class="p">)</code><code class="w"/>
+<code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">    </code><code class="k">return</code><code class="w"> </code><code class="nx">err</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+<code class="k">defer</code><code class="w"> </code><code class="nx">file</code><code class="p">.</code><code class="nx">Close</code><code class="p">()</code><code class="w"/>
+<code class="nx">data</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nb">make</code><code class="p">([]</code><code class="kt">byte</code><code class="p">,</code><code class="w"> </code><code class="mi">100</code><code class="p">)</code><code class="w"/>
+<code class="k">for</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">    </code><code class="nx">count</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">file</code><code class="p">.</code><code class="nx">Read</code><code class="p">(</code><code class="nx">data</code><code class="p">)</code><code class="w"/>
+<code class="w">    </code><code class="nx">process</code><code class="p">(</code><code class="nx">data</code><code class="p">[:</code><code class="nx">count</code><code class="p">])</code><code class="w"/>
+<code class="w">    </code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">        </code><code class="k">if</code><code class="w"> </code><code class="nx">errors</code><code class="p">.</code><code class="nx">Is</code><code class="p">(</code><code class="nx">err</code><code class="p">,</code><code class="w"> </code><code class="nx">io</code><code class="p">.</code><code class="nx">EOF</code><code class="p">)</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">            </code><code class="k">return</code><code class="w"> </code><code class="kc">nil</code><code class="w"/>
+<code class="w">        </code><code class="p">}</code><code class="w"/>
+<code class="w">        </code><code class="k">return</code><code class="w"> </code><code class="nx">err</code><code class="w"/>
+<code class="w">    </code><code class="p">}</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+
+<p>Remember that you can’t change the length or capacity of a slice when it is passed into a function, but you can change the contents up to the current length. In this code, you create a buffer of 100 bytes, and each time through the loop, you copy the next block of bytes (up to 100) into the slice. You then pass the populated portion of the buffer to <code>process</code>. If an error happens (other than <code>io.EOF</code>, a special-case error that indicates there is no more data to read), it is returned. When <code>io.EOF</code> is returned as the error, there is no more data and the function returns <code>nil</code>. You’ll look at more details about I/O in <a data-type="xref" href="ch13.html#io_friends">“io and Friends”</a> and error handling is covered in <a data-type="xref" href="ch09.html#unique_chapter_id_09">Chapter 9</a>.</p>
+</div></section>
+
+
+
+
+
+
+<section data-type="sect1" data-pdf-bookmark="Reducing the Garbage Collector’s Workload"><div class="sect1" id="memory">
+<h1>Reducing the Garbage Collector’s Workload</h1>
+
+<p>Using buffers is just one example<a data-type="indexterm" data-primary="garbage collector" data-secondary="reducing workload" id="ch06-gc"/><a data-type="indexterm" data-primary="garbage collector" data-secondary="reducing workload" data-tertiary="buffers" id="id1485"/><a data-type="indexterm" data-primary="memory" data-secondary="reducing garbage collector’s workload" id="ch06-gc2"/><a data-type="indexterm" data-primary="stack" data-secondary="garbage collector workload reduced" id="ch06-gc3"/><a data-type="indexterm" data-primary="heap" data-secondary="garbage collector workload reduced" id="ch06-gc4"/><a data-type="indexterm" data-primary="buffers for reading data via slices" data-secondary="reducing garbage collector’s workload" id="id1486"/> of how you reduce the work done by the garbage collector. When programmers talk about “garbage,” what they mean is “data that has no more pointers pointing to it.” Once there are no more pointers pointing to some data, the memory that this data takes up can be reused. If the memory isn’t recovered, the program’s memory usage would continue to grow until the computer ran out of RAM. The job of a garbage collector is to automatically detect unused memory and recover it so it can be reused. It is fantastic that Go has a garbage collector, because decades of experience have shown that it is very difficult for people to properly manage memory manually. But just because you have a garbage collector doesn’t mean you should create lots of garbage.</p>
+
+<p>If you’ve spent time learning how programming languages are implemented,<a data-type="indexterm" data-primary="stack" id="id1487"/><a data-type="indexterm" data-primary="memory" data-secondary="stack" id="id1488"/> you’ve probably learned about the <em>heap</em> and the stack. If you’re unfamiliar, here’s how a stack works. A <em>stack</em> is a consecutive block of memory. <a data-type="indexterm" data-primary="functions" data-secondary="calling" data-tertiary="stack" id="id1489"/>Every function call in a thread of execution shares the same stack. Allocating memory on the stack is fast and simple. <a data-type="indexterm" data-primary="stack" data-secondary="stack pointer" id="id1490"/><a data-type="indexterm" data-primary="memory" data-secondary="stack" data-tertiary="stack pointer" id="id1491"/><a data-type="indexterm" data-primary="memory" data-secondary="memory allocation via stack pointer value" id="id1492"/>A <em>stack pointer</em> tracks the last location where memory was allocated. Allocating additional memory is done by changing the value of the stack pointer. <a data-type="indexterm" data-primary="stack" data-secondary="stack frame" id="id1493"/>When a function is invoked, a new <em>stack frame</em> is created for the function’s data. Local variables are stored on the stack, along with parameters passed into a function. Each new variable moves the stack pointer by the size of the value. <a data-type="indexterm" data-primary="functions" data-secondary="returning values" data-tertiary="stack for" id="id1494"/><a data-type="indexterm" data-primary="return keyword" data-secondary="stack for returning values" id="id1495"/><a data-type="indexterm" data-primary="garbage collector" data-secondary="stack" id="id1496"/>When a function exits, its return values are copied back to the calling function via the stack, and the stack pointer is moved back to the beginning of the stack frame for the exited function, deallocating all the stack memory that was used by that function’s local variables and parameters.</p>
+<div data-type="note" epub:type="note"><h6>Note</h6>
+<p>Since version 1.17, Go uses a combination of registers (a small set of very high-speed memory that’s directly on the CPU) and the stack to pass values into and out of functions. It’s faster and more complicated, but the general concepts of stack-only function calls still apply.</p>
+</div>
+
+<p>To store something on the stack,<a data-type="indexterm" data-primary="arrays" data-secondary="size affecting array type" data-tertiary="stack and" id="id1497"/><a data-type="indexterm" data-primary="types" data-secondary="array size affecting type" data-tertiary="stack and" id="id1498"/> you have to know exactly how big it is at compile time. When you look at the value types in Go (primitive values, arrays, and structs), they all have one thing in common: you know exactly how much memory they take at compile time. This is why the size is considered part of the type for an array. Because their sizes are known, they can be allocated on the stack instead of the heap. <a data-type="indexterm" data-primary="stack" data-secondary="pointer type stored on stack" id="id1499"/>The size of a pointer type is also known, and it is also stored on the stack.</p>
+<div data-type="note" epub:type="note"><h6>Note</h6>
+<p>Go is unusual in that it can<a data-type="indexterm" data-primary="stack" data-secondary="size increase during execution" id="id1500"/> increase the size of a stack while the program is running. This is possible because each goroutine has its own stack and goroutines are managed by the Go runtime, not by the underlying operating system (I discuss goroutines when I talk about concurrency in <a data-type="xref" href="ch12.html#unique_chapter_id_12">Chapter 12</a>). This has advantages (Go stacks start small and use less memory) and disadvantages (when the stack needs to grow, all data on the stack needs to be copied, which is slow). It’s also possible to write worst-case-scenario code that causes the stack to grow and shrink over and over.</p>
+</div>
+
+<p>The rules are more complicated when<a data-type="indexterm" data-primary="stack" data-secondary="pointer type stored on stack" data-tertiary="data pointer pointing to" id="id1501"/> it comes to the data that the pointer points to. In order for Go to allocate the data the pointer points to on the stack, several conditions must be true. The data must be a local variable whose data size is known at compile time. The pointer cannot be returned from the function. If the pointer is passed into a function, the compiler must be able to ensure that these conditions still hold. If the size isn’t known, you can’t make space for it by moving the stack pointer. If the pointer variable is returned, the memory that the pointer points to will no longer be valid when the function exits. When the compiler determines that the data can’t be stored on the stack, we say that the data the pointer points to <em>escapes</em> the stack, and the compiler stores the data on the heap.</p>
+
+<p>The heap is the memory that’s managed<a data-type="indexterm" data-primary="heap" id="id1502"/><a data-type="indexterm" data-primary="memory" data-secondary="heap" id="id1503"/><a data-type="indexterm" data-primary="garbage collector" data-secondary="heap" id="id1504"/> by the garbage collector (or by hand in languages like C and C++). I won’t discuss the details of garbage collector algorithm implementation, but they are much more complicated than moving a stack pointer. Any data that’s stored on the heap is valid as long as it can be tracked back to a pointer type variable on a stack. Once there are no more variables on the stack pointing to that data, either directly or via a chain of pointers, the data becomes <em>garbage</em>, and it’s the job of the garbage collector to clear it out. This program on <a href="https://oreil.ly/VDi4t">The Go Playground</a> demonstrates when data on the heap becomes garbage.</p>
+<div data-type="note" epub:type="note"><h6>Note</h6>
+<p>A common source of bugs in C programs is returning a pointer to a local variable. In C, this results in a pointer pointing to invalid memory. The Go compiler is smarter. When it sees that a pointer to a local variable is returned, the local variable’s value is stored on the heap.</p>
+</div>
+
+<p>The <em>escape analysis</em> done by<a data-type="indexterm" data-primary="escape analysis" id="id1505"/> the Go compiler isn’t perfect. In some cases, data that could be stored on the stack escapes to the heap. However, the compiler has to be conservative; it can’t take the chance of leaving a value on the stack when it might need to be on the heap because leaving a reference to invalid data causes memory corruption. Newer Go releases improve escape analysis.</p>
+
+<p>You might be wondering: what’s so bad about storing things on the heap? Two problems arise related to performance. First, the garbage collector takes time to do its work. It isn’t trivial to keep track of all available chunks of free memory on the heap or to track which used blocks of memory still have valid pointers. This is time that’s taken away from doing the processing that your program is written to do. <a data-type="indexterm" data-primary="garbage collector" data-secondary="algorithm" id="id1506"/>Many garbage-collection algorithms have been written, and they can be placed into two rough categories: those that are designed for higher throughput (find the most garbage possible in a single scan) or lower latency (finish the garbage scan as quickly as possible).<a data-type="indexterm" data-primary="Dean, Jeff" id="id1507"/><a data-type="indexterm" data-primary="The Tail at Scale (Dean)" data-primary-sortas="Tail at Scale" id="id1508"/> <a href="https://oreil.ly/x2Rxr">Jeffrey Dean</a>, the genius behind many of Google’s engineering successes, cowrote a paper in 2013 called <a href="https://oreil.ly/cvLpa">“The Tail at Scale”</a>. It argues that systems should be optimized for latency, to keep response times low. The garbage collector used by the Go runtime favors low latency. Each garbage-collection cycle is designed to “stop the world” (i.e., pause your program) for fewer than 500 microseconds. However, if your Go program creates lots of garbage, the garbage collector won’t be able to find all the garbage during a cycle, slowing the collector and increasing memory usage.</p>
+<div data-type="note" epub:type="note"><h6>Note</h6>
+<p>If you are interested in the implementation details,<a data-type="indexterm" data-primary="Hudson, Rick" id="id1509"/><a data-type="indexterm" data-primary="garbage collector" data-secondary="algorithm" data-tertiary="implementation details talk URL" id="id1510"/><a data-type="indexterm" data-primary="resources online" data-secondary="garbage collector algorithm implementation details" id="id1511"/> you may want to listen to the talk Rick Hudson gave at the International Symposium on Memory Management in 2018, describing the <a href="https://oreil.ly/UUhGK">history and implementation</a> of the Go garbage 
+<span class="keep-together">collector.</span></p>
+</div>
+
+<p>The second problem deals with the nature of computer hardware. RAM might mean “random access memory,” but the fastest way to read from memory is to read it sequentially. A slice of structs in Go has all the data laid out sequentially in memory. This makes it fast to load and fast to process. A slice of pointers to structs (or structs whose fields are pointers) has its data scattered across RAM, making it far slower to read and process. <a data-type="indexterm" data-primary="Smith, Forrest" id="id1512"/><a data-type="indexterm" data-primary="resources online" data-secondary="memory efficiency blog post" id="id1513"/>Forrest Smith wrote an in-depth <a href="https://oreil.ly/v_urr">blog post</a> that explores how much this can affect performance. His numbers indicate that it’s roughly two orders of magnitude slower to access data via pointers stored randomly in RAM.</p>
+
+<p>This approach of writing software<a data-type="indexterm" data-primary="mechanical sympathy" id="id1514"/> that’s aware of the hardware it’s running on is called <em>mechanical sympathy</em>. The term comes from the world of car racing, where the idea is that a driver who understands what the car is doing can best squeeze the last bits of performance out of it. <a data-type="indexterm" data-primary="Thompson, Martin" id="id1515"/>In 2011, Martin Thompson began applying the term to software development. Following best practices in Go gives it to you automatically.</p>
+
+<p>Compare Go’s approach to Java’s.<a data-type="indexterm" data-primary="garbage collector" data-secondary="reducing workload" data-tertiary="Java versus Go" id="id1516"/> In Java, local variables and parameters are stored in the stack, just as in Go. However, as discussed earlier, objects in Java are implemented as pointers. For every object variable instance, only the pointer to it is allocated on the stack; the data within the object is allocated on the heap. Only primitive values (numbers, booleans, and chars) are stored entirely on the stack. This means that the garbage collector in Java has to do a great deal of work. It also means that implementations of the <code>List</code> interface in Java are built using a pointer to an array of pointers. Even though they <em>look</em> like a linear data structure, reading from them actually involves bouncing through memory, which is highly inefficient. There are similar behaviors for the sequential data types in Python, Ruby, and JavaScript. To work around all this inefficiency, the Java Virtual Machine includes some very clever garbage collectors that do lots of work, some optimized for throughput, some for latency, and all with configuration settings to tune them for the best performance. The virtual machines for Python, Ruby, and JavaScript are less optimized, and their performance suffers accordingly.</p>
+
+<p>Now you can see why Go encourages<a data-type="indexterm" data-primary="pointers" data-secondary="indicating mutable parameters" data-tertiary="pointers used as last resort" id="id1517"/> you to use pointers sparingly. You reduce the garbage collector’s workload by making sure that as much as possible is stored on the stack. Slices of structs or primitive types have their data lined up sequentially in memory for rapid access. And when the garbage collector does do work, it is optimized to return quickly rather than gather the most garbage. The key to making this approach work is to simply create less garbage in the first place. While focusing on optimizing memory allocations can feel like premature optimization, the idiomatic approach in Go is also the most efficient.</p>
+
+<p>If you want to learn more about<a data-type="indexterm" data-primary="heap" data-secondary="more information on heap versus stack" id="id1518"/><a data-type="indexterm" data-primary="stack" data-secondary="more information on heap versus stack" id="id1519"/><a data-type="indexterm" data-primary="memory" data-secondary="heap versus stack information URL" id="id1520"/><a data-type="indexterm" data-primary="escape analysis" data-secondary="URLs to more information" id="id1521"/><a data-type="indexterm" data-primary="resources online" data-secondary="heap versus stack and escape analysis" id="id1522"/><a data-type="indexterm" data-primary="Kennedy, Bill" id="id1523"/><a data-type="indexterm" data-primary="Roussel, Achille" id="id1524"/><a data-type="indexterm" data-primary="Branson, Rick" id="id1525"/> heap versus stack allocation and escape analysis in Go, excellent blog posts cover the topic, including ones by <a href="https://oreil.ly/juu44">Bill Kennedy of Ardan Labs</a>  and <a href="https://oreil.ly/c_gvC">Achille Roussel and Rick Branson of Segment</a>.<a data-type="indexterm" data-startref="ch06-gc" id="id1526"/><a data-type="indexterm" data-startref="ch06-gc2" id="id1527"/><a data-type="indexterm" data-startref="ch06-gc3" id="id1528"/><a data-type="indexterm" data-startref="ch06-gc4" id="id1529"/></p>
+</div></section>
+
+
+
+
+
+
+<section data-type="sect1" data-pdf-bookmark="Tuning the Garbage Collector"><div class="sect1" id="id76">
+<h1>Tuning the Garbage Collector</h1>
+
+<p>A garbage collector doesn’t immediately<a data-type="indexterm" data-primary="garbage collector" data-secondary="tuning" id="ch06-tungc"/><a data-type="indexterm" data-primary="memory" data-secondary="garbage collector tuning" id="ch06-tungc2"/><a data-type="indexterm" data-primary="heap" data-secondary="garbage collector tuning" id="ch06-tungc3"/><a data-type="indexterm" data-primary="Go runtime" data-secondary="garbage collector tuning" id="ch06-tungc4"/><a data-type="indexterm" data-primary="GOGC environment variable" id="ch06-tungc5"/><a data-type="indexterm" data-primary="environment variables" data-secondary="GOGC" id="ch06-tungc6"/><a data-type="indexterm" data-primary="variables" data-secondary="environment variables" data-see="environment variables" id="id1530"/><a data-type="indexterm" data-primary="heap" data-secondary="heap size control environment variable" id="ch06-tungc8"/> reclaim memory as soon as it is no longer referenced. Doing so would seriously impact performance. Instead, it lets the garbage pile up for a bit. The heap almost always contains both live data and memory that’s no longer needed. The Go runtime provides users a couple of settings to control the heap’s size. The first is the <code>GOGC</code> environment variable. The garbage collector looks at the heap size at the end of a garbage-collection cycle and uses the formula <code>CURRENT_HEAP_SIZE + CURRENT_HEAP_SIZE*GOGC/100</code> to calculate the heap size that needs to be reached to trigger the next garbage-collection cycle.</p>
+<div data-type="note" epub:type="note"><h6>Note</h6>
+<p>The <code>GOGC</code> heap size calculation is a little more complicated than just described. It takes into account not just the heap size, but the sizes of all the stacks of all the goroutines and the memory set aside to hold package-level variables. Most of the time, the heap size is far bigger than the size of these other memory areas, but in some situations they do have an effect.</p>
+</div>
+
+<p>By default, <code>GOGC</code> is set to <code>100</code>, which means that the heap size that triggers the next collection is roughly double the heap size at the end of the current collection. Setting <code>GOGC</code> to a smaller value will decrease the target heap size, and setting it to a larger value will increase it. As a rough estimate, doubling the value of <code>GOGC</code> will halve the amount of CPU time spent on GC.</p>
+
+<p>Setting <code>GOGC</code> to <code>off</code> disables garbage collection. This will make your programs run faster. However, turning off garbage collection on a long-running process will potentially use all available memory on your computer. This is not usually considered optimal behavior.</p>
+
+<p>The second garbage-collection setting<a data-type="indexterm" data-primary="GOMEMLIMIT environment variable" id="id1531"/><a data-type="indexterm" data-primary="environment variables" data-secondary="GOMEMLIMIT" id="id1532"/><a data-type="indexterm" data-primary="memory" data-secondary="memory limit environment variable" id="id1533"/> specifies a limit on the total amount of memory your Go program is allowed to use. Java developers are likely familiar with the <code>-Xmx</code> JVM argument, and <code>GOMEMLIMIT</code> is similar. By default, it is disabled (technically, it is set to <code>math.MaxInt64</code>, but it’s unlikely that your computer has that much memory). <a data-type="indexterm" data-primary="memory" data-secondary="B, KiB, MiB, GiB, TiB suffixes" id="id1534"/><a data-type="indexterm" data-primary="B suffix" id="id1535"/><a data-type="indexterm" data-primary="KiB suffix" id="id1536"/><a data-type="indexterm" data-primary="MiB suffix" id="id1537"/><a data-type="indexterm" data-primary="GiB suffix" id="id1538"/><a data-type="indexterm" data-primary="TiB suffix" id="id1539"/>The value for <code>GOMEMLIMIT</code> is specified in bytes, but you can optionally use the suffixes <code>B</code>, <code>KiB</code>, <code>MiB</code>, <code>GiB</code>, and <code>TiB</code>. For example, <code>GOMEMLIMIT=3GiB</code> sets the memory limit to 3 gibibytes (which is equal to 3,221,225,472 bytes).</p>
+<div data-type="note" epub:type="note"><h6>Note</h6>
+<p>If you haven’t seen these suffixes before, they are the official power-of-two analogues of the more commonly used power-of-ten KB, MB, GB, and TB. KiB is equal to 2<sup>10</sup>, MiB is equal to 2<sup>20</sup>, and so on. It is <a href="https://oreil.ly/W3XkL">technically correct</a> to use KiB, MiB, and friends when dealing with computers.</p>
+</div>
+
+<p>It might seem counterintuitive that limiting the maximum amount of memory could improve a program’s performance, but there are good reasons this flag was added. The primary reason is that computers (or virtual machines or containers) don’t have infinite RAM. If a sudden, temporary spike occurs in memory usage, relying on <code>GOGC</code> alone might result in the maximum heap size exceeding the amount of available memory. This can cause memory to swap to disk, which is very slow. Depending on your operating system and its settings, it might crash your program. Specifying a maximum memory limit prevents the heap from growing beyond the computer’s resources.</p>
+
+<p><code>GOMEMLIMIT</code> is a <em>soft</em> limit <a data-type="indexterm" data-primary="GOMEMLIMIT environment variable" data-secondary="soft limit" id="id1540"/>that can be exceeded in certain circumstances. A common problem occurs in garbage-collected systems when the collector is unable to free up enough memory to get within a memory limit or the garbage-collection cycles are rapidly being triggered because a program is repeatedly hitting the limit. <a data-type="indexterm" data-primary="thrashing" id="id1541"/><a data-type="indexterm" data-primary="memory" data-secondary="thrashing" id="id1542"/><a data-type="indexterm" data-primary="garbage collector" data-secondary="thrashing" id="id1543"/>Called <em>thrashing</em>, this results in a program that does nothing other than run the garbage collector. If the Go runtime detects that thrashing is starting to happen, it chooses to end the current garbage-collection cycle and exceed the limit. This does mean that you should set <code>GOMEMLIMIT</code> below the absolute maximum amount of available memory so you have spare capacity.</p>
+
+<p>If you specify a value for <code>GOMEMLIMIT</code>, you could set <code>GOGC</code> to <code>off</code> and not run out of memory, but this may not produce the desired performance effect. You are likely to find yourself trading frequent, very short pauses for infrequent, longer pauses. If you are running a web service, this produces inconsistent response times, which was one of the behaviors that Go’s garbage collection was designed to avoid.</p>
+
+<p>The best option is to use these two environment variables together to ensure both a reasonable pace for garbage collection and a maximum that should be respected. <a data-type="indexterm" data-primary="garbage collector" data-secondary="“A Guide to the Go Garbage Collector” URL" data-secondary-sortas="Guide to the Go" id="id1544"/><a data-type="indexterm" data-primary="“A Guide to the Go Garbage Collector” URL" data-primary-sortas="Guide to the Go" id="id1545"/><a data-type="indexterm" data-primary="resources online" data-secondary="“A Guide to the Go Garbage Collector”" data-secondary-sortas="Guide to the Go" id="id1546"/>You can learn more about how to use <code>GOGC</code> and <code>GOMEMLIMIT</code> by reading <a href="https://oreil.ly/lM_X8">“A Guide to the Go Garbage Collector”</a> from Go’s development team.<a data-type="indexterm" data-startref="ch06-tungc" id="id1547"/><a data-type="indexterm" data-startref="ch06-tungc2" id="id1548"/><a data-type="indexterm" data-startref="ch06-tungc3" id="id1549"/><a data-type="indexterm" data-startref="ch06-tungc4" id="id1550"/><a data-type="indexterm" data-startref="ch06-tungc5" id="id1551"/><a data-type="indexterm" data-startref="ch06-tungc6" id="id1552"/><a data-type="indexterm" data-startref="ch06-tungc8" id="id1553"/></p>
+</div></section>
+
+
+
+
+
+
+<section data-type="sect1" data-pdf-bookmark="Exercises"><div class="sect1" id="id281">
+<h1>Exercises</h1>
+
+<p>Now that you have learned about pointers and memory in Go, work through these exercises to reinforce using pointers effectively. You can find answers to these exercises in the <a href="https://oreil.ly/riOYA">Chapter 6 repository</a>.<a data-type="indexterm" data-primary="book supplemental material URL" data-secondary="code repository" data-tertiary="Chapter 6" data-tertiary-sortas="fff" id="id1554"/><a data-type="indexterm" data-primary="resources online" data-secondary="book supplemental material" data-tertiary="Chapter 6" data-tertiary-sortas="fff" id="id1555"/></p>
+<ol>
+<li>
+<p>Create a struct named <code>Person</code> with three fields: <code>FirstName</code> and <code>LastName</code> of type <code>string</code> and <code>Age</code> of type <code>int</code>. Write a function called <code>MakePerson</code> that takes in <code>firstName</code>, <code>lastName</code>, and <code>age</code> and returns a <code>Person</code>. Write a second function <code>MakePersonPointer</code> that takes in <code>firstName</code>, <code>lastName</code>, and <code>age</code> and returns a <code>*Person</code>. Call both from <code>main</code>. Compile your program with <code>go build -gcflags="-m"</code>. This both compiles your code and prints out which values escape to the heap. Are you surprised about what escapes?</p>
+</li>
+<li>
+<p>Write two functions. The <code>UpdateSlice</code> function takes in a <code>[]string</code> and a <code>string</code>. It sets the last position in the passed-in slice to the passed-in <code>string</code>. At the end of <code>UpdateSlice</code>, print the slice after making the change. The <code>GrowSlice</code> function also takes in a <code>[]string</code> and a <code>string</code>. It appends the <code>string</code> onto the slice. At the end of <code>GrowSlice</code>, print the slice after making the change. Call these functions from <code>main</code>. Print out the slice before each function is called and after each function is called. Do you understand why some changes are visible in <code>main</code> and why some changes are not?</p>
+</li>
+<li>
+<p>Write a program that builds a <code>[]Person</code> with 10,000,000 entries (they could all be the same names and ages). See how long it takes to run. Change the value of <code>GOGC</code> and see how that affects the time it takes for the program to complete. Set the environment variable <code>GODEBUG=gctrace=1</code> to see when garbage collections happen and see how changing <code>GOGC</code> changes the number of garbage collections. What happens if you create the slice with a capacity of 10,000,000?</p>
+</li>
+
+</ol>
+</div></section>
+
+
+
+
+
+
+<section data-type="sect1" data-pdf-bookmark="Wrapping Up"><div class="sect1" id="id344">
+<h1>Wrapping Up</h1>
+
+<p>This chapter peeked under the covers a bit to help you understand pointers, what they are, how to use them, and, most importantly, when to use them. In the next chapter, you’ll take a look at Go’s implementation of methods, interfaces, and types, how they differ from other languages, and the power they possess.</p>
+</div></section>
+</div></section></div>
+</div>
+</body></html>

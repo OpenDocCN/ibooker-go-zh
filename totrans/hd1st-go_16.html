@@ -1,0 +1,383 @@
+<html><head></head><body><section data-pdf-bookmark="Chapter 15. responding to requests: Web Apps" data-type="chapter" epub:type="chapter" class="preface"><div class="preface" id="responding_to_requestscolon_web_apps">
+<h1 class="calibre17"><span class="calibre">Chapter 15. </span>responding to requests: Web Apps</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0425-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><strong class="calibre8">This is the 21st century. Users want web apps.</strong> Go’s got you covered there, too! The Go standard library includes packages to help you host your own web applications and make them accessible from any web browser. So we’re going to spend the final two chapters of the book showing you how to build web apps.</p>
+<p class="calibre7">The first thing your web app needs is the ability to respond when a browser sends it a request. In this chapter, we’ll learn to use the <code class="calibre20">net/http</code> package to do just that.</p>
+<section data-pdf-bookmark="Writing web apps in Go" data-type="sect1" class="preface"><div class="preface" id="writing_web_apps_in_go">
+<h1 class="calibre25">Writing web apps in Go</h1>
+<p class="calibre7"><a data-primary="http package" data-see="net/http package" data-type="indexterm" id="idm46062708627752" class="calibre10"/><a data-primary="net/http package" data-type="indexterm" id="idm46062708623864" class="calibre10"/><a data-primary="net/http package" data-secondary="about" data-type="indexterm" id="idm46062708622792" class="calibre10"/><a data-primary="web apps" data-secondary="writing" data-type="indexterm" id="idm46062708621656" class="calibre10"/><a data-primary="writing" data-secondary="web apps" data-type="indexterm" id="idm46062708620584" class="calibre10"/>An app that runs in your terminal is great—for your own use. But ordinary users have been spoiled by the internet and the World Wide Web. They don’t want to learn to use a terminal so they can use your app. They don’t even want to install your app. They want it to be ready to use the moment they click a link in their browser.</p>
+<p class="calibre7">But don’t worry! Go can help you write apps for the web, too.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0426-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">We won’t lead you on—writing a web app is not a small task. This is going to require all of the skills you’ve learned so far, plus a few new ones. But Go has some excellent packages available that will make the process easier!</p>
+<p class="calibre7">This includes the <code class="calibre20">net/http</code> package. HTTP stands for “<strong class="calibre8">H</strong>yper<strong class="calibre8">T</strong>ext <strong class="calibre8">T</strong>ransfer <strong class="calibre8">P</strong>rotocol,” and it’s used for communication by web browsers and web servers. With <code class="calibre20">net/http</code>, you’ll be able to create your very own web apps using Go!</p>
+</div></section>
+<section data-pdf-bookmark="Browsers, requests, servers, and responses" data-type="sect1" class="preface"><div class="preface" id="browserscomma_requestscomma_serverscomma">
+<h1 class="calibre25">Browsers, requests, servers, and responses</h1>
+<p class="calibre7"><a data-primary="request/response process for web apps" data-type="indexterm" id="idm46062708611272" class="calibre10"/><a data-primary="web apps" data-secondary="request/response process" data-type="indexterm" id="idm46062708610040" class="calibre10"/>When you type a URL into your browser, you’re actually sending a <em class="calibre9">request</em> for a web page. That request goes to a <em class="calibre9">server</em>. A server’s job is to get the appropriate page and send it back to the browser in a <em class="calibre9">response</em>.</p>
+<p class="calibre7">In the early days of the web, the server usually read the contents of an HTML file on the server’s hard drive and sent that HTML back to the browser.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0427-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">But today, it’s much more common for the server to communicate with a <em class="calibre9">program</em> to fulfill the request, instead of reading from a file. This program can be written in pretty much any language you want, including Go!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0427-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="A simple web app" data-type="sect1" class="preface"><div class="preface" id="a_simple_web_app">
+<h1 class="calibre25">A simple web app</h1>
+<p class="calibre7"><a data-primary="Ctrl+C keyboard shortcut" data-type="indexterm" id="idm46062708599832" class="calibre10"/><a data-primary="executing Go code" data-secondary="halting code execution" data-type="indexterm" id="idm46062708598952" class="calibre10"/><a data-primary="Go programming language" data-secondary="halting code execution" data-type="indexterm" id="idm46062708597768" class="calibre10"/><a data-primary="halting code execution" data-type="indexterm" id="idm46062708596648" class="calibre10"/><a data-primary="web apps" data-secondary="simple example" data-type="indexterm" id="idm46062708595816" class="calibre10"/>Handling a request from a browser is a lot of work. Fortunately, we don’t have to do it all ourselves. Back in <a data-type="xref" href="ch13.html#sharing_workcolon_goroutines_and_channel" class="calibre10">Chapter 13</a>, we used the <code class="calibre20">net/http</code> package to make requests to servers. The <code class="calibre20">net/http</code> package also includes a small web server, so it’s also able to <em class="calibre9">respond</em> to requests. All <em class="calibre9">we</em> have to do is write the code that fills those responses with data.</p>
+<p class="calibre7">Here’s a program that uses <code class="calibre20">net/http</code> to serve simple responses to the browser. Although the program is short, there’s a lot going on here, some of it new. We’ll run the program first, then go back and explain it piece by piece.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0428-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Save the above code to a file of your choosing, and run it from your terminal using <strong class="calibre8"><code class="calibre40">go run</code></strong>:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0428-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">We’re running our own web app! Now we just need to connect a web browser to it and test it out. Open your browser and type this URL into the address bar. (If the URL looks a little strange to you, don’t worry; we’ll explain what it means in a moment.)</p>
+<pre data-type="programlisting" class="calibre32">http://localhost:8080/hello</pre>
+<p class="calibre7">The browser will send a request to the app, which will respond with “<code class="calibre20">Hello, web!</code>”. We’ve just sent our first response to the browser!</p>
+<p class="calibre7">The app will keep listening for requests until we stop it. When you’re done with the page, press Ctrl-C in your terminal to signal the program to exit.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0428-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Your computer is talking to itself" data-type="sect1" class="preface"><div class="preface" id="your_computer_is_talking_to_itself">
+<h1 class="calibre25">Your computer is talking to itself</h1>
+<p class="calibre7"><a data-primary="localhost hostname" data-type="indexterm" id="idm46062708579288" class="calibre10"/><a data-primary="ports" data-type="indexterm" id="idm46062708578136" class="calibre10"/>When we launched our little web app, it started its very own web server, right there on your computer.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0429-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Because the app is running <em class="calibre9">on</em> your computer (and not somewhere out on the internet), we use the special hostname <code class="calibre20">localhost</code> in the URL. This tells your browser that it needs to establish a connection <em class="calibre9">from</em> your computer <em class="calibre9">to</em> that same computer.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0429-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">We also need to specify a port as part of the URL. (A <em class="calibre9">port</em> is a numbered network communication channel that an application can listen for messages on.) In our code, we specified that the server should listen on port 8080, so we include that in the URL, following the hostname.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0429-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="there are no Dumb Questions" data-type="sect1" class="preface"><div class="preface" id="there_are_no_dumb_questions_13">
+<h1 class="calibre25">there are no Dumb Questions</h1>
+<p class="calibre7"><strong class="calibre8">Q: I got an error saying the browser was unable to connect!</strong></p>
+<p class="calibre7"><strong class="calibre8">A:</strong> Your server might not actually be running. Look for error messages in your terminal. Also check the hostname and port number in your browser, in case you mistyped them.</p>
+<p class="calibre7"><strong class="calibre8">Q: Why do I have to specify a port number in the URL? I don’t have to do that with other websites!</strong></p>
+<p class="calibre7"><strong class="calibre8">A:</strong> Most web servers listen for HTTP requests on port 80, because that’s the port that web browsers make HTTP requests to by default. But on many operating systems, you need special permissions to run a service that listens on port 80, for security reasons. That’s why we set up our server to listen on port 8080 instead.</p>
+<p class="calibre7"><strong class="calibre8">Q: My browser just displays the message, “404 page not found.”</strong></p>
+<p class="calibre7"><strong class="calibre8">A:</strong> That’s a response from the server, which is good, but it also means the resource you requested wasn’t found. Check that your URL ends in <em class="calibre9">/hello</em>, and ensure you haven’t made a typo in the server program code.</p>
+<p class="calibre7"><strong class="calibre8">Q: When I tried to run my app, I got an error saying “listen tcp 127.0.0.1:8080: bind: address already in use”!</strong></p>
+<p class="calibre7"><strong class="calibre8">A:</strong> Your program is trying to listen on the same port as another program (which your OS won’t allow). Have you run the server program more than once? If so, did you press Ctrl-C in the terminal to stop it when you were done? Be sure to stop the old server before running a new one.</p>
+</div></section>
+<section data-pdf-bookmark="Our simple web app, explained" data-type="sect1" class="preface"><div class="preface" id="our_simple_web_appcomma_explained">
+<h1 class="calibre25">Our simple web app, explained</h1>
+<p class="calibre7"><a data-primary="HandleFunc function (net/http)" data-type="indexterm" id="idm46062708560584" class="calibre10"/><a data-primary="Handler interface (net/http)" data-type="indexterm" id="idm46062708556216" class="calibre10"/><a data-primary="ListenAndServe function (net/http)" data-type="indexterm" id="idm46062708555480" class="calibre10"/><a data-primary="net/http package" data-secondary="HandleFunc function" data-type="indexterm" id="idm46062708554712" class="calibre10"/><a data-primary="net/http package" data-secondary="Handler interface" data-type="indexterm" id="idm46062708553416" class="calibre10"/><a data-primary="net/http package" data-secondary="ListenAndServe function" data-type="indexterm" id="idm46062708552408" class="calibre10"/><a data-primary="net/http package" data-secondary="Request type" data-type="indexterm" id="idm46062708551320" class="calibre10"/><a data-primary="net/http package" data-secondary="ResponseWriter interface" data-type="indexterm" id="idm46062708550168" class="calibre10"/><a data-primary="net/http package" data-secondary="ServeMux type" data-type="indexterm" id="idm46062708549048" class="calibre10"/><a data-primary="Request type (net/http)" data-type="indexterm" id="idm46062708547896" class="calibre10"/><a data-primary="ResponseWriter interface (net/http)" data-type="indexterm" id="idm46062708547064" class="calibre10"/><a data-primary="ServeMux type (net/http)" data-type="indexterm" id="idm46062708546264" class="calibre10"/>Now let’s take a closer look at the parts of our little web app.</p>
+<p class="calibre7">In the <code class="calibre20">main</code> function, we call <code class="calibre20">http.HandleFunc</code> with the string <code class="calibre20">"/hello"</code>, and the <code class="calibre20">viewHandler</code> function. (Go supports <em class="calibre9">first-class functions</em>, which allow you to pass functions to other functions. We’ll talk more about those shortly.) This tells the app to call <code class="calibre20">viewHandler</code> whenever a request for a URL ending in <em class="calibre9">/hello</em> is received.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0430-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Then, we call <code class="calibre20">http.ListenAndServe</code>, which starts up the web server. We pass it the string <code class="calibre20">"localhost:8080"</code>, which will cause it to accept requests only from your own machine on port 8080. (When you’re ready to open apps up to requests from other computers, you can use a string of <code class="calibre20">"0.0.0.0:8080"</code> instead. You can also change the port number to something other than 8080, if you want.) The <code class="calibre20">nil</code> value in the second argument just means that requests will be handled using functions set up via <code class="calibre20">HandleFunc</code>.</p>
+<div data-type="note" epub:type="note" class="calibre22"><h6 class="calibre23">Note</h6>
+<p class="calibre7">(Later, if you want to learn about alternate ways to handle requests, look up the documentation for the “ListenAndServe” function, the “Handler” interface, and the “ServeMux” type from the “http” package.)</p>
+</div>
+<p class="calibre7">We call <code class="calibre20">ListenAndServe</code> <em class="calibre9">after</em> <code class="calibre20">HandleFunc</code> because <code class="calibre20">ListenAndServe</code> will run forever, unless it encounters an error. If it does, it will return that error, which we log before the program exits. If there are no errors, though, this program will just continue running until we interrupt it by pressing Ctrl-C in the terminal.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0430-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Compared to <code class="calibre20">main</code>, there’s nothing very surprising in the <code class="calibre20">viewHandler</code> function. The server passes <code class="calibre20">viewHandler</code> an <code class="calibre20">http.ResponseWriter</code>, which is used for writing data to the browser response, and a pointer to an <code class="calibre20">http.Request</code> value, which represents the browser’s request. (We don’t use the <code class="calibre20">Request</code> value in this program, but handler functions still have to accept one.)</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0430-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><a data-primary="byte type" data-type="indexterm" id="idm46062708524984" class="calibre10"/><a data-primary="conversions" data-secondary="between strings and bytes" data-type="indexterm" id="idm46062708523896" class="calibre10"/><a data-primary="net/http package" data-secondary="Write method" data-type="indexterm" id="idm46062708522744" class="calibre10"/><a data-primary="string type (strings)" data-secondary="converting between bytes" data-type="indexterm" id="idm46062708521624" class="calibre10"/><a data-primary="Write method (net/http)" data-type="indexterm" id="idm46062708520472" class="calibre10"/>Within <code class="calibre20">viewHandler</code>, we add data to the response by calling the <code class="calibre20">Write</code> method on the <code class="calibre20">ResponseWriter</code>. <code class="calibre20">Write</code> doesn’t accept strings, but it does accept a slice of <code class="calibre20">byte</code> values, so we convert our <code class="calibre20">"Hello, web!"</code> string to a <code class="calibre20">[]byte</code>, then pass it to <code class="calibre20">Write</code>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0431-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">You might remember <code class="calibre20">byte</code> values from <a data-type="xref" href="ch13.html#sharing_workcolon_goroutines_and_channel" class="calibre10">Chapter 13</a>. The <code class="calibre20">ioutil.Readall</code> function returned a slice of <code class="calibre20">byte</code> values when called on a response retrieved via the <code class="calibre20">http.Get</code> function.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0431-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">As we saw in <a data-type="xref" href="ch13.html#sharing_workcolon_goroutines_and_channel" class="calibre10">Chapter 13</a>, a <code class="calibre20">[]byte</code> can be converted to a <code class="calibre20">string</code>:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0431-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">And as you’ve just seen in this simple web app, a <code class="calibre20">string</code> can be converted to a <code class="calibre20">[]byte</code>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0431-04.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">The <code class="calibre20">ResponseWriter</code>’s <code class="calibre20">Write</code> method returns the number of bytes successfully written, and any error encountered. We can’t do anything useful with the number of bytes written, so we ignore that. But if there’s an error, we log it and exit the program.</p>
+<pre data-type="programlisting" class="calibre32">_, err := writer.Write(message)
+if err != nil {
+        log.Fatal(err)
+}</pre>
+</div></section>
+<section data-pdf-bookmark="Resource paths" data-type="sect1" class="preface"><div class="preface" id="resource_paths">
+<h1 class="calibre25">Resource paths</h1>
+<p class="calibre7"><a data-primary="HandleFunc function (net/http)" data-type="indexterm" id="idm46062708499048" class="calibre10"/><a data-primary="net/http package" data-secondary="HandleFunc function" data-type="indexterm" id="idm46062708497928" class="calibre10"/><a data-primary="resource paths" data-type="indexterm" id="idm46062708495688" class="calibre10"/><a data-primary="web apps" data-secondary="resource paths" data-type="indexterm" id="idm46062708494888" class="calibre10"/>When we entered a URL in our browser to access our web app, we made sure it ended in <em class="calibre9">/hello</em>. But why did we need to?</p>
+<pre data-type="programlisting" class="calibre32">http://localhost:8080/hello</pre>
+<p class="calibre7">A server usually has lots of different resources that it can send to a browser, including HTML pages, images, and more.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0432-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">The part of a URL following the host address and port is the resource <em class="calibre9">path</em>. It tells the server which of its many resources you want to act on. The <code class="calibre20">net/http</code> server pulls the path off the end of the URL, and uses it in handling the request.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0432-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">When we called <code class="calibre20">http.HandleFunc</code> in our web app, we passed it the string <code class="calibre20">"/hello"</code>, and the <code class="calibre20">viewHandler</code> function. The string is used as a request resource path to look for. From then on, any time a request with a path of <code class="calibre20">/hello</code> is received, the app will call the <code class="calibre20">viewHandler</code> function. The <code class="calibre20">viewHandler</code> function is then responsible for generating a response that’s appropriate for the request it received.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0432-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">In this case, that means responding with the text “Hello, web!”</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0432-04.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Your app can’t just respond “Hello, web!” to every request it receives, though. Most apps will need to respond to different request paths in different ways.</p>
+<p class="calibre7">One way to accomplish this is by calling <code class="calibre20">HandleFunc</code> once for each path you want to handle, and provide a different function to handle each path. Your app will then be able to respond to requests for any of those paths.</p>
+</div></section>
+<section data-pdf-bookmark="Responding differently for different resource paths" data-type="sect1" class="preface"><div class="preface" id="responding_differently_for_different_res">
+<h1 class="calibre25">Responding differently for different resource paths</h1>
+<p class="calibre7"><a data-primary="net/http package" data-secondary="ResponseWriter interface" data-type="indexterm" id="idm46062708476824" class="calibre10"/><a data-primary="ResponseWriter interface (net/http)" data-type="indexterm" id="idm46062708473784" class="calibre10"/>Here’s an update to our app that provides greetings in three different languages. We call <code class="calibre20">HandleFunc</code> three different times. Requests with a <code class="calibre20">"/hello"</code> path cause the <code class="calibre20">englishHandler</code> function to be called, requests for <code class="calibre20">"/salut"</code> are handled by the <code class="calibre20">frenchHandler</code> function, and requests for <code class="calibre20">"/namaste"</code> are handled by <code class="calibre20">hindiHandler</code>. Each of these handler functions passes its <code class="calibre20">ResponseWriter</code> and a string to a new <code class="calibre20">write</code> function, which writes the string to the response.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0433-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0433-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<aside data-type="sidebar" epub:type="sidebar" class="calibre30"><div class="sidebar" id="exercise_25">
+<h5 class="calibre31"><span class="calibre"><img alt="image" src="assets/common.png" class="calibre4"/></span> Exercise</h5>
+<p class="calibre7">Code for a simple web app is below, followed by several possible responses. Next to each response, write the URL you’d need to type in your browser to generate that response.</p>
+<pre data-type="programlisting" class="calibre32">package main
+
+import (
+       "log"
+       "net/http"
+)
+
+func write(writer http.ResponseWriter, message string) {
+       _, err := writer.Write([]byte(message))
+       if err != nil {
+              log.Fatal(err)
+       }
+}
+
+func d(writer http.ResponseWriter, request *http.Request) {
+       write(writer, "z")
+}
+func e(writer http.ResponseWriter, request *http.Request) {
+       write(writer, "x")
+}
+func f(writer http.ResponseWriter, request *http.Request) {
+       write(writer, "y")
+}
+
+func main() {
+       http.HandleFunc("/a", f)
+       http.HandleFunc("/b", d)
+       http.HandleFunc("/c", e)
+       err := http.ListenAndServe("localhost:4567", nil)
+       log.Fatal(err)
+}</pre>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0434-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><img alt="image" src="assets/arrow.png" class="calibre4"/> Answers in <a data-type="xref" href="#exercise_solutions_25" class="calibre10">“<span class="calibre"><img alt="image" src="assets/common.png" class="calibre4"/></span> Exercise Solution”</a>.</p>
+</div></aside>
+</div></section>
+<section data-pdf-bookmark="First-class functions" data-type="sect1" class="preface"><div class="preface" id="firsthyphenclass_functions">
+<h1 class="calibre25">First-class functions</h1>
+<p class="calibre7"><a data-primary="first-class functions" data-type="indexterm" id="idm46062708454504" class="calibre10"/><a data-primary="functions" data-secondary="first-class" data-type="indexterm" id="idm46062708453704" class="calibre10"/><a data-primary="functions" data-secondary="handler" data-type="indexterm" id="idm46062708452632" class="calibre10"/><a data-primary="handler functions" data-type="indexterm" id="idm46062708451560" class="calibre10"/><a data-primary="variables" data-secondary="first-class functions and" data-type="indexterm" id="idm46062708450728" class="calibre10"/><a data-primary="web apps" data-secondary="first-class functions" data-type="indexterm" id="idm46062708449608" class="calibre10"/>When we call <code class="calibre20">http.HandleFunc</code> with handler functions, we’re not calling the handler function and passing its result to <code class="calibre20">HandleFunc</code>. We are passing the <em class="calibre9">function itself</em> to <code class="calibre20">HandleFunc</code>. That function is stored to be called later when a matching request path is received.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0435-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">The Go language supports <strong class="calibre8">first-class functions</strong>; that is, functions in Go are treated as “first-class citizens.”</p>
+<p class="calibre7">In a programming language with first-class functions, functions can be assigned to variables, and then called from those variables.</p>
+<p class="calibre7">The code below first defines a <code class="calibre20">sayHi</code> function. In our <code class="calibre20">main</code> function, we declare a <code class="calibre20">myFunction</code> variable with a type of <code class="calibre20">func()</code>, meaning the variable can hold a function.</p>
+<p class="calibre7">Then we assign the <code class="calibre20">sayHi</code> function itself to <code class="calibre20">myFunction</code>. Notice that we don’t put any parentheses—we don’t write <code class="calibre20">sayHi()</code>—because doing so would <em class="calibre9">call</em> <code class="calibre20">sayHi</code>. We type only the function name, like this:</p>
+<pre data-type="programlisting" class="calibre32">myFunction = sayHi</pre>
+<p class="calibre7">This causes the <code class="calibre20">sayHi</code> function itself to be assigned to the <code class="calibre20">myFunction</code> variable.</p>
+<p class="calibre7">But on the next line, we <em class="calibre9">do</em> include parentheses following the <code class="calibre20">myFunction</code> variable name, like this:</p>
+<pre data-type="programlisting" class="calibre32">myFunction()</pre>
+<p class="calibre7">This causes the function stored inside the <code class="calibre20">myFunction</code> variable to be called.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0435-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Passing functions to other functions" data-type="sect1" class="preface"><div class="preface" id="passing_functions_to_other_functions">
+<h1 class="calibre25">Passing functions to other functions</h1>
+<p class="calibre7"><a data-primary="functions" data-secondary="passing to other functions" data-type="indexterm" id="idm46062708429464" class="calibre10"/><a data-primary="functions" data-secondary="as types" data-type="indexterm" id="idm46062708428136" class="calibre10"/><a data-primary="passing functions to other functions" data-type="indexterm" id="idm46062708427016" class="calibre10"/><a data-primary="types" data-secondary="functions as" data-type="indexterm" id="idm46062708426216" class="calibre10"/><a data-primary="web apps" data-secondary="functions as types" data-type="indexterm" id="idm46062708425032" class="calibre10"/><a data-primary="web apps" data-secondary="passing functions to other functions" data-type="indexterm" id="idm46062708423912" class="calibre10"/>Programming languages with first-class functions also allow you to pass functions as arguments to other functions. This code defines simple <code class="calibre20">sayHi</code> and <code class="calibre20">sayBye</code> functions. It also defines a <code class="calibre20">twice</code> function that takes another function as a parameter named <code class="calibre20">theFunction</code>. The <code class="calibre20">twice</code> function then calls whatever function is stored in <code class="calibre20">theFunction</code> twice.</p>
+<p class="calibre7">In <code class="calibre20">main</code>, we call <code class="calibre20">twice</code> and pass the <code class="calibre20">sayHi</code> function as an argument, which causes <code class="calibre20">sayHi</code> to be run twice. Then we call <code class="calibre20">twice</code> with the <code class="calibre20">sayBye</code> function, which causes <code class="calibre20">sayBye</code> to be run twice.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0436-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Functions as types" data-type="sect1" class="preface"><div class="preface" id="functions_as_types">
+<h1 class="calibre25">Functions as types</h1>
+<p class="calibre7">We can’t just use any function as an argument when calling any other function, though. If we tried to pass the <code class="calibre20">sayHi</code> function as an argument to <code class="calibre20">http.HandleFunc</code>, we’d get a compile error:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0436-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">A function’s parameters and return value are part of its type. A variable that holds a function needs to specify what parameters and return values that function should have. That variable can only hold functions whose number and types of parameters and return values match the specified type.</p>
+<p class="calibre7">This code defines a <code class="calibre20">greeterFunction</code> variable with a type of <code class="calibre20">func()</code>: it holds a function that accepts no parameters and returns no values. Then we define a <code class="calibre20">mathFunction</code> variable with a type of <code class="calibre20">func(int, int) float64</code>: it holds a function that accepts two integer parameters and returns a <code class="calibre20">float64</code> value.</p>
+<p class="calibre7">The code also defines <code class="calibre20">sayHi</code> and <code class="calibre20">divide</code> functions. If we assign <code class="calibre20">sayHi</code> to the <code class="calibre20">greeterFunction</code> variable and <code class="calibre20">divide</code> to the <code class="calibre20">mathFunction</code> variable, everything compiles and runs fine:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0437-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">But if we try to reverse the two, we’ll get compile errors again:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0437-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">The <code class="calibre20">divide</code> function accepts two <code class="calibre20">int</code> parameters and returns a <code class="calibre20">float64</code> value, so it can’t be stored in the <code class="calibre20">greeterFunction</code> variable (which expects a function with no parameters and no return value). And the <code class="calibre20">sayHi</code> function accepts no parameters and returns no value, so it can’t be stored in the <code class="calibre20">mathFunction</code> variable (which expects a function with two <code class="calibre20">int</code> parameters and a <code class="calibre20">float64</code> return value).</p>
+<p class="calibre7">Functions that accept a function as a parameter also need to specify the parameters and return types the passed-in function should have.</p>
+<p class="calibre7">Here’s a <code class="calibre20">doMath</code> function with a <code class="calibre20">passedFunction</code> parameter. The passed-in function needs to accept two <code class="calibre20">int</code> parameters, and return one <code class="calibre20">float64</code> value.</p>
+<p class="calibre7">We also define <code class="calibre20">divide</code> and <code class="calibre20">multiply</code> functions, both of which accept two <code class="calibre20">int</code> parameters and return one <code class="calibre20">float64</code>. Either <code class="calibre20">divide</code> or <code class="calibre20">multiply</code> can be passed to <code class="calibre20">doMath</code> successfully.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0438-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">A function that doesn’t match the specified type can’t be passed to <code class="calibre20">doMath</code>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0438-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">And that’s why we get compile errors if we pass the wrong function to <code class="calibre20">http.HandleFunc</code>. <code class="calibre20">HandleFunc</code> expects to be passed a function that takes a <code class="calibre20">ResponseWriter</code> and a pointer to a <code class="calibre20">Request</code> as parameters. Pass anything else, and you’ll get a compile error.</p>
+<p class="calibre7">And really, that’s a good thing. A function that can’t analyze a request and write a response probably isn’t going to be able to handle browser requests. If you try to pass a function with the wrong type, Go will alert you to the problem before your program even compiles.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0438-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Pool Puzzle" data-type="sect1" class="preface"><div class="preface" id="pool_puzzle_10">
+<h1 class="calibre25">Pool Puzzle</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0439-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Your <strong class="calibre8">job</strong> is to take code snippets from the pool and place them into the blank lines in this code. <strong class="calibre8">Don’t</strong> use the same snippet more than once, and you won’t need to use all the snippets. Your <strong class="calibre8">goal</strong> is to make a program that will run and produce the output shown.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0439-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<pre data-type="programlisting" class="calibre32">func callFunction(passedFunction ________) {
+       passedFunction()
+}
+func callTwice(passedFunction ________) {
+       passedFunction()
+       passedFunction()
+}
+func callWithArguments(passedFunction ________________) {
+       passedFunction("This sentence is", false)
+}
+func printReturnValue(passedFunction func() string) {
+       fmt.Println(____________________)
+}
+
+func functionA() {
+       fmt.Println("function called")
+}
+func functionB() ________ {
+       fmt.Println("function called")
+       return "Returning from function"
+}
+func functionC(a string, b bool) {
+       fmt.Println("function called")
+       fmt.Println(a, b)
+}
+
+func main() {
+       callFunction(___________)
+       callTwice(___________)
+       callWithArguments(functionC)
+       printReturnValue(functionB)
+}</pre>
+<p class="calibre7"><strong class="calibre8">Note: each snippet from the pool can only be used once!</strong></p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0439-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><img alt="image" src="assets/arrow.png" class="calibre4"/> Answers in <a data-type="xref" href="#pool_puzzle_solution_8" class="calibre10">“Pool Puzzle Solution”</a>.</p>
+</div></section>
+<section data-pdf-bookmark="What’s next" data-type="sect1" class="preface"><div class="preface" id="whatrsquos_next">
+<h1 class="calibre25">What’s next</h1>
+<p class="calibre7">Now you know how to receive a request from a browser and send a response. The trickiest part is done!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0440-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">In the final chapter, we’ll use this knowledge to build a more complex app.</p>
+<p class="calibre7">So far, all our responses have used plain text. We’re going to learn to use HTML to give the page more structure. And we’ll learn to use the <code class="calibre20">html/template</code> package to insert data into our HTML before sending it back to the browser. See you there!</p>
+</div></section>
+<section data-pdf-bookmark="Your Go Toolbox" data-type="sect1" class="preface"><div class="preface" id="your_go_toolbox_15">
+<h1 class="calibre25">Your Go Toolbox</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0441-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><strong class="calibre8">That’s it for <a data-type="xref" href="#responding_to_requestscolon_web_apps" class="calibre10">Chapter 15</a>! You’ve added HTTP handler functions and first-class functions to your toolbox.</strong></p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0441-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<aside data-type="sidebar" epub:type="sidebar" class="calibre30"><div class="sidebar" id="bullet_points_15">
+<h5 class="calibre31">Bullet Points</h5>
+<ul class="list_style_type_none">
+<li class="calibre18"><p class="calibre7">The <code class="calibre20">net/http</code> package’s <code class="calibre20">ListenAndServe</code> function runs a web server on a port you specify.</p></li>
+<li class="calibre18"><p class="calibre7">The <code class="calibre20">localhost</code> hostname handles connections from your computer back to itself.</p></li>
+<li class="calibre18"><p class="calibre7">Each HTTP request includes a resource path, which specifies which of a server’s many resources the browser is requesting.</p></li>
+<li class="calibre18"><p class="calibre7">The <code class="calibre20">HandleFunc</code> function takes a path string, and a function that will handle requests for that path.</p></li>
+<li class="calibre18"><p class="calibre7">You can call <code class="calibre20">HandleFunc</code> repeatedly to set up different handler functions for different paths.</p></li>
+<li class="calibre18"><p class="calibre7">Handler functions must accept an <code class="calibre20">http.ResponseWriter</code> value and a pointer to an <code class="calibre20">http.Request</code> value as parameters.</p></li>
+<li class="calibre18"><p class="calibre7">If you call the <code class="calibre20">Write</code> method on an <code class="calibre20">http.ResponseWriter</code> with a slice of bytes, that data will be added to the response sent to the browser.</p></li>
+<li class="calibre18"><p class="calibre7">Variables that can hold a function have a function type.</p></li>
+<li class="calibre18"><p class="calibre7">A function type includes the number and type of parameters that the function accepts (or lack thereof), and the number and type of values that the function returns (or lack thereof).</p></li>
+<li class="calibre18"><p class="calibre7">If <code class="calibre20">myVar</code> holds a function, you can call that function by putting parentheses (containing any arguments the function might require) after the variable name.</p></li>
+</ul>
+</div></aside>
+<aside data-type="sidebar" epub:type="sidebar" class="calibre30"><div class="sidebar" id="exercise_solutions_25">
+<h5 class="calibre31"><span class="calibre"><img alt="image" src="assets/common.png" class="calibre4"/></span> Exercise Solution</h5>
+<p class="calibre7">Code for a simple web app is below, followed by several possible responses. Next to each response, write the URL you’d need to type in your browser to generate that response.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0442-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></aside>
+</div></section>
+<section data-pdf-bookmark="Pool Puzzle Solution" data-type="sect1" class="preface"><div class="preface" id="pool_puzzle_solution_8">
+<h1 class="calibre25">Pool Puzzle Solution</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0443-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+</div></section></body></html>

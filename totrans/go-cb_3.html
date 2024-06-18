@@ -1,0 +1,233 @@
+<html><head></head><body>
+<div id="sbo-rt-content"><section data-pdf-bookmark="Chapter 4. CSV Recipes" data-type="chapter" epub:type="chapter"><div class="chapter" id="unique_chapter_csv">
+<h1><span class="label">Chapter 4. </span>CSV Recipes</h1>
+<aside data-type="sidebar" epub:type="sidebar"><div class="sidebar" id="idm45195515177888">
+<h5>A Note for Early Release Readers</h5>
+<p>With Early Release ebooks, you get books in their earliest form—the author’s raw and unedited content as they write—so you can take advantage of these technologies long before the official release of these titles.</p>
+<p>This will be the 8th chapter of the final book.</p>
+<p>If you have comments about how we might improve the content and/or examples in this book, or if you notice missing material within this chapter, please reach out to the editor at <a href="mailto:sevans@oreilly.com">sevans@oreilly.com</a>.</p>
+</div></aside>
+<section data-pdf-bookmark="4.0 Introduction" data-type="sect1"><div class="sect1" id="idm45195515174848">
+<h1>4.0 Introduction</h1>
+<p>The CSV format is a file format in which tabular data (numbers and text) can be easily written and read in a text editor. CSV is widely supported, and most spreadsheet programs, such as Microsoft Excel and Apple Numbers, support CSV. Consequently, many programming languages, including Go, come with libraries that produce and consume the data in CSV files.</p>
+<p>It might come as a surprise to you that CSV has been around for almost 50 years. The IBM Fortran compiler supported it in OS/360 back in 1972. If you’re not quite sure that that is, OS/360 is the batch processing operating system developed by IBM for their System/360 mainframe computer. So yes, one of the first uses for CSV was for Fortran in an IBM mainframe computer.</p>
+<p>CSV (comma separated values) is not very well standardized and not all CSV formats are separated by commas either. Sometimes it can be a tab or a semicolon or other delimiters. However, there is a RFC specification for CSV — the RFC 4180 though not everyone follows that standard.</p>
+<p>The Go standard library has an <code>encoding/csv</code> package that supports RFC 4180 and helps us to read and write CSV.</p>
+</div></section>
+<section data-pdf-bookmark="4.1 Reading a CSV file" data-type="sect1"><div class="sect1" id="idm45195515171456">
+<h1>4.1 Reading a CSV file</h1>
+<section data-pdf-bookmark="Problem" data-type="sect2"><div class="sect2" id="idm45195515170368">
+<h2>Problem</h2>
+<p>You want to read a CSV file into memory for use.</p>
+</div></section>
+<section data-pdf-bookmark="Solution" data-type="sect2"><div class="sect2" id="idm45195515148272">
+<h2>Solution</h2>
+<p>Use the <code>encoding/csv</code> package and <code>csv.ReadAll</code> to read all data in the CSV file into a 2 dimensional array of strings.</p>
+</div></section>
+<section data-pdf-bookmark="Discussion" data-type="sect2"><div class="sect2" id="idm45195515146112">
+<h2>Discussion</h2>
+<p>Let’s say you have a file like this:</p>
+<pre data-type="programlisting">id,first_name,last_name,email
+1,Sausheong,Chang,sausheong@email.com
+2,John,Doe,john@email.com</pre>
+<p>The first row is the header, the next 2 rows are data for the user. Here’s the code to open the file and read it into the 2 dimensional array of strings.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">file</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">os</code><code class="p">.</code><code class="nx">Open</code><code class="p">(</code><code class="s">"users.csv"</code><code class="p">)</code><code class="w"/>
+<code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w"> </code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Cannot open CSV file:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+<code class="k">defer</code><code class="w"> </code><code class="nx">file</code><code class="p">.</code><code class="nx">Close</code><code class="p">()</code><code class="w"/>
+<code class="nx">reader</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">csv</code><code class="p">.</code><code class="nx">NewReader</code><code class="p">(</code><code class="nx">file</code><code class="p">)</code><code class="w"/>
+<code class="nx">rows</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">reader</code><code class="p">.</code><code class="nx">ReadAll</code><code class="p">()</code><code class="w"/>
+<code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w"> </code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Cannot read CSV file:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>First, we open the file using <code>os.Open</code>. This creates an <code>os.File</code> struct (which is an <code>io.Reader</code>) that we can use as a parameter to <code>csv.NewReader</code>. The <code>csv.NewReader</code> creates a new <code>csv.Reader</code> struct that can be used to read data from the CSV file. With this CSV reader, we can use <code>ReadAll</code> to read all the data in the file and return a 2D array of strings [][]string.</p>
+<p>A 2 dimensional array of strings? You might be surprised, what if the CSV row item is an integer? Or a boolean or any other types? You should remember CSV files are text files, so there is really no way for you to differentiate if a value is anything else other than a string. In other words, all values are assumed to be string, and if you think otherwise you need to cast it to something else.</p>
+</div></section>
+<section data-pdf-bookmark="Unmarshalling CSV data into structs" data-type="sect2"><div class="sect2" id="idm45195515038160">
+<h2>Unmarshalling CSV data into structs</h2>
+<section data-pdf-bookmark="Problem" data-type="sect3"><div class="sect3" id="idm45195515037152">
+<h3>Problem</h3>
+<p>You want to unmarshal CSV data into structs instead of a 2-dimensional array of strings.</p>
+</div></section>
+<section data-pdf-bookmark="Solution" data-type="sect3"><div class="sect3" id="idm45195515035456">
+<h3>Solution</h3>
+<p>First read the CSV into a 2-dimensional array of strings then store it into structs.</p>
+</div></section>
+<section data-pdf-bookmark="Discussion" data-type="sect3"><div class="sect3" id="idm45195515033872">
+<h3>Discussion</h3>
+<p>For some other formats like JSON or XML, it’s common to unmarshal the data read from file (or anywhere) into structs. You can also do this in CSV though you need to do a bit more work.</p>
+<p>Let’s say you want to put the data into a User struct.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">type</code><code class="w"> </code><code class="nx">User</code><code class="w"> </code><code class="kd">struct</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">   </code><code class="nx">Id</code><code class="w">         </code><code class="kt">int</code><code class="w"/>
+<code class="w">   </code><code class="nx">firstName</code><code class="w">  </code><code class="kt">string</code><code class="w"/>
+<code class="w">   </code><code class="nx">lastName</code><code class="w">   </code><code class="kt">string</code><code class="w"/>
+<code class="w">   </code><code class="nx">email</code><code class="w">      </code><code class="kt">string</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>If you want to unmarshal the data in the 2D array of strings to the User struct, you need to convert each item yourself.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">var</code><code class="w"> </code><code class="nx">users</code><code class="w"> </code><code class="p">[]</code><code class="nx">User</code><code class="w"/>
+<code class="k">for</code><code class="w"> </code><code class="nx">_</code><code class="p">,</code><code class="w"> </code><code class="nx">row</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="k">range</code><code class="w"> </code><code class="nx">rows</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w"> </code><code class="nx">id</code><code class="p">,</code><code class="w"> </code><code class="nx">_</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">strconv</code><code class="p">.</code><code class="nx">ParseInt</code><code class="p">(</code><code class="nx">row</code><code class="p">[</code><code class="mi">0</code><code class="p">],</code><code class="w"> </code><code class="mi">0</code><code class="p">,</code><code class="w"> </code><code class="mi">0</code><code class="p">)</code><code class="w"/>
+<code class="w"> </code><code class="nx">user</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">User</code><code class="p">{</code><code class="nx">Id</code><code class="p">:</code><code class="w"> </code><code class="nb">int</code><code class="p">(</code><code class="nx">id</code><code class="p">),</code><code class="w"/>
+<code class="w">   </code><code class="nx">firstName</code><code class="p">:</code><code class="w"> </code><code class="nx">row</code><code class="p">[</code><code class="mi">1</code><code class="p">],</code><code class="w"/>
+<code class="w">   </code><code class="nx">lastName</code><code class="p">:</code><code class="w">  </code><code class="nx">row</code><code class="p">[</code><code class="mi">2</code><code class="p">],</code><code class="w"/>
+<code class="w">   </code><code class="nx">email</code><code class="p">:</code><code class="w">     </code><code class="nx">row</code><code class="p">[</code><code class="mi">3</code><code class="p">],</code><code class="w"/>
+<code class="w"> </code><code class="p">}</code><code class="w"/>
+<code class="w"> </code><code class="nx">users</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="nb">append</code><code class="p">(</code><code class="nx">users</code><code class="p">,</code><code class="w"> </code><code class="nx">user</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>In the example above, because the user ID is an integer, I used <code>strconv.ParseInt</code> to convert the string into integer before using it to create the User struct.</p>
+<p>You see that at the end of the for loop you will have an array of User structs. If you print that out, this is what you should see.</p>
+<pre data-type="programlisting">{0  first_name  last_name  email}
+{1  Sausheong  Chang  sausheong@email.com}
+{2  John  Doe  john@email.com}</pre>
+</div></section>
+</div></section>
+</div></section>
+<section data-pdf-bookmark="4.2 Removing the header line" data-type="sect1"><div class="sect1" id="idm45195514901552">
+<h1>4.2 Removing the header line</h1>
+<section data-pdf-bookmark="Problem" data-type="sect2"><div class="sect2" id="idm45195514900576">
+<h2>Problem</h2>
+<p>If your CSV file has a line of headers that are column labels, you will get that as well in your returned 2 dimensional array of strings or array of structs. You want to remove it.</p>
+</div></section>
+<section data-pdf-bookmark="Solution" data-type="sect2"><div class="sect2" id="idm45195514898992">
+<h2>Solution</h2>
+<p>Read the first line using <code>Read</code> and then continue reading the rest.</p>
+</div></section>
+<section data-pdf-bookmark="Discussion" data-type="sect2"><div class="sect2" id="idm45195514896992">
+<h2>Discussion</h2>
+<p>When you use <code>Read</code> on the reader, you will read the first line and then move the cursor to the next line. If you use <code>ReadAll</code> afterwards, you can read the rest of the file into the rows that you want.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">file</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">os</code><code class="p">.</code><code class="nx">Open</code><code class="p">(</code><code class="s">"users.csv"</code><code class="p">)</code><code class="w"/>
+<code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w"> </code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Cannot open CSV file:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+<code class="k">defer</code><code class="w"> </code><code class="nx">file</code><code class="p">.</code><code class="nx">Close</code><code class="p">()</code><code class="w"/>
+<code class="nx">reader</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">csv</code><code class="p">.</code><code class="nx">NewReader</code><code class="p">(</code><code class="nx">file</code><code class="p">)</code><code class="w"/>
+<code class="nx">reader</code><code class="p">.</code><code class="nx">Read</code><code class="p">()</code><code class="w"> </code><code class="c1">// use Read to remove the first line</code><code class="w"/>
+<code class="nx">rows</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">reader</code><code class="p">.</code><code class="nx">ReadAll</code><code class="p">()</code><code class="w"/>
+<code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w"> </code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Cannot read CSV file:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>This will give us something like this:</p>
+<pre data-type="programlisting">{1  Sausheong  Chang  sausheong@email.com}
+{2  John  Doe  john@email.com}</pre>
+</div></section>
+</div></section>
+<section data-pdf-bookmark="4.3 Using different delimiters" data-type="sect1"><div class="sect1" id="idm45195514797584">
+<h1>4.3 Using different delimiters</h1>
+<section data-pdf-bookmark="Problem" data-type="sect2"><div class="sect2" id="idm45195514749952">
+<h2>Problem</h2>
+<p>CSV doesn’t necessarily need to use commas as delimiters. You want to read a CSV file which has delimiter that is not a comma.</p>
+</div></section>
+<section data-pdf-bookmark="Solution" data-type="sect2"><div class="sect2" id="idm45195514748368">
+<h2>Solution</h2>
+<p>Set the <code>Comma</code> variable in the <code>csv.Reader</code> struct to the delimiter used in the file and read as before.</p>
+</div></section>
+<section data-pdf-bookmark="Discussion" data-type="sect2"><div class="sect2" id="idm45195514745888">
+<h2>Discussion</h2>
+<p>Let’s say the file we want to read has semi-colons as delimiters.</p>
+<pre data-type="programlisting">id;first_name;last_name;email
+1;Sausheong;Chang;sausheong@email.com
+2;John;Doe;john@email.com</pre>
+<p>What we just need to do is the set the <code>Comma</code> in the <code>csv.Reader</code> struct we created earlier and you read the file as before.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">file</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">os</code><code class="p">.</code><code class="nx">Open</code><code class="p">(</code><code class="s">"users2.csv"</code><code class="p">)</code><code class="w"/>
+<code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">  </code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Cannot open CSV file:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+<code class="k">defer</code><code class="w"> </code><code class="nx">file</code><code class="p">.</code><code class="nx">Close</code><code class="p">()</code><code class="w"/>
+<code class="nx">reader</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">csv</code><code class="p">.</code><code class="nx">NewReader</code><code class="p">(</code><code class="nx">file</code><code class="p">)</code><code class="w"/>
+<code class="nx">reader</code><code class="p">.</code><code class="nx">Comma</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="sc">';'</code><code class="w"> </code><code class="c1">// change Comma to the delimiter in the file</code><code class="w"/>
+<code class="nx">rows</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">reader</code><code class="p">.</code><code class="nx">ReadAll</code><code class="p">()</code><code class="w"/>
+<code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">  </code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Cannot read CSV file:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+</div></section>
+</div></section>
+<section data-pdf-bookmark="4.4 Ignoring rows" data-type="sect1"><div class="sect1" id="idm45195514739488">
+<h1>4.4 Ignoring rows</h1>
+<section data-pdf-bookmark="Problem" data-type="sect2"><div class="sect2" id="idm45195514738608">
+<h2>Problem</h2>
+<p>You want to ignore certain rows when reading the CSV file.</p>
+</div></section>
+<section data-pdf-bookmark="Solution" data-type="sect2"><div class="sect2" id="idm45195514546848">
+<h2>Solution</h2>
+<p>Use comments in the file to indicate the rows to be ignored. Then enable coding in the <code>csv.Reader</code> and read the file as before.</p>
+</div></section>
+<section data-pdf-bookmark="Discussion" data-type="sect2"><div class="sect2" id="idm45195514544848">
+<h2>Discussion</h2>
+<p>Let’s say you want to ignore certain rows; what you’d like to do is simply comment those rows out. Well, in CSV you can’t because comments are not in the standard. However with the Go <code>encoding/csv</code> package you can specify a comment rune, which if you place at the beginning of the row, ignores the entire row.</p>
+<p>So say you have this CSV file.</p>
+<pre data-type="programlisting">id,first_name,last_name,email
+1,Sausheong,Chang,sausheong@email.com
+# 2,John,Doe,john@email.com</pre>
+<p>To enable commenting, just set the Comment variable in the csv.Reader struct that we got from csv.NewReader.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">file</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">os</code><code class="p">.</code><code class="nx">Open</code><code class="p">(</code><code class="s">"users.csv"</code><code class="p">)</code><code class="w"/>
+<code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">  </code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Cannot open CSV file:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+<code class="k">defer</code><code class="w"> </code><code class="nx">file</code><code class="p">.</code><code class="nx">Close</code><code class="p">()</code><code class="w"/>
+<code class="nx">reader</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">csv</code><code class="p">.</code><code class="nx">NewReader</code><code class="p">(</code><code class="nx">file</code><code class="p">)</code><code class="w"/>
+<code class="nx">reader</code><code class="p">.</code><code class="nx">Comment</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="sc">'#'</code><code class="w"> </code><code class="c1">// lines that start with this will be ignored</code><code class="w"/>
+<code class="nx">rows</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">reader</code><code class="p">.</code><code class="nx">ReadAll</code><code class="p">()</code><code class="w"/>
+<code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">  </code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Cannot read CSV file:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>When you run this, you’ll see:</p>
+<pre data-type="programlisting">{0 first_name last_name email}
+{1 Sausheong Chang sausheong@email.com}</pre>
+</div></section>
+</div></section>
+<section data-pdf-bookmark="4.5 Writing CSV files" data-type="sect1"><div class="sect1" id="idm45195514509632">
+<h1>4.5 Writing CSV files</h1>
+<section data-pdf-bookmark="Problem" data-type="sect2"><div class="sect2" id="idm45195514403376">
+<h2>Problem</h2>
+<p>You want to write data from memory into a CSV file.</p>
+</div></section>
+<section data-pdf-bookmark="Solution" data-type="sect2"><div class="sect2" id="idm45195514401760">
+<h2>Solution</h2>
+<p>Use the <code>encoding/csv</code> package and <code>csv.Writer</code> to write to file.</p>
+</div></section>
+<section data-pdf-bookmark="Discussion" data-type="sect2"><div class="sect2" id="idm45195514399280">
+<h2>Discussion</h2>
+<p>We had fun reading CSV files, now we have to write one. Writing is quite simliar to reading. First you need to create a file (an <code>io.Writer</code>).</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">file</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">os</code><code class="p">.</code><code class="nx">Create</code><code class="p">(</code><code class="s">"new_users.csv"</code><code class="p">)</code><code class="w"/>
+<code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">  </code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Cannot create CSV file:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+<code class="k">defer</code><code class="w"> </code><code class="nx">file</code><code class="p">.</code><code class="nx">Close</code><code class="p">()</code><code class="w"/></pre>
+<p>The data to write to the file needs to be in a 2 dimensional array of strings. Remember, if you don’t have the data as a string, just convert it into a string before you do this. Create a <code>csv.Writer</code> struct with the file. After that you can call <code>WriteAll</code> on the writer and the file will be created. This writes all the data in your 2 dimensional string array into the file.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">data</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="p">[][]</code><code class="kt">string</code><code class="p">{</code><code class="w"/>
+<code class="w"> </code><code class="p">{</code><code class="s">"id"</code><code class="p">,</code><code class="w"> </code><code class="s">"first_name"</code><code class="p">,</code><code class="w"> </code><code class="s">"last_name"</code><code class="p">,</code><code class="w"> </code><code class="s">"email"</code><code class="p">},</code><code class="w"/>
+<code class="w"> </code><code class="p">{</code><code class="s">"1"</code><code class="p">,</code><code class="w"> </code><code class="s">"Sausheong"</code><code class="p">,</code><code class="w"> </code><code class="s">"Chang"</code><code class="p">,</code><code class="w"> </code><code class="s">"sausheong@email.com"</code><code class="p">},</code><code class="w"/>
+<code class="w"> </code><code class="p">{</code><code class="s">"2"</code><code class="p">,</code><code class="w"> </code><code class="s">"John"</code><code class="p">,</code><code class="w"> </code><code class="s">"Doe"</code><code class="p">,</code><code class="w"> </code><code class="s">"john@email.com"</code><code class="p">},</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+<code class="nx">writer</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">csv</code><code class="p">.</code><code class="nx">NewWriter</code><code class="p">(</code><code class="nx">file</code><code class="p">)</code><code class="w"/>
+<code class="nx">err</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="nx">writer</code><code class="p">.</code><code class="nx">WriteAll</code><code class="p">(</code><code class="nx">data</code><code class="p">)</code><code class="w"/>
+<code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w"> </code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Cannot write to CSV file:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+</div></section>
+</div></section>
+<section data-pdf-bookmark="4.6 Writing to file one row at a time" data-type="sect1"><div class="sect1" id="idm45195514271056">
+<h1>4.6 Writing to file one row at a time</h1>
+<section data-pdf-bookmark="Problem" data-type="sect2"><div class="sect2" id="idm45195514270176">
+<h2>Problem</h2>
+<p>Instead of writing everything in our 2 dimensional string, we want to write to the file one row at a time.</p>
+</div></section>
+<section data-pdf-bookmark="Solution" data-type="sect2"><div class="sect2" id="idm45195514209776">
+<h2>Solution</h2>
+<p>Use the <code>Write</code> method on <code>csv.Writer</code> to write a single row/</p>
+</div></section>
+<section data-pdf-bookmark="Discussion" data-type="sect2"><div class="sect2" id="idm45195514207296">
+<h2>Discussion</h2>
+<p>Writing to file one row at a time is pretty much the same, except you will want to iterate the 2 dimensional array of strings to get each row and then call <code>Write</code>, passing that row. You will also need to call <code>Flush</code> whenever you want to write the buffered data to the <code>Writer</code> (the file). In the example above I called <code>Flush</code> after I have written all the data to the writer, but that’s because I don’t have a lot of data. If you have a lot of rows, you would probably want to flush the data to the file once in a while. To check if there’s any problems with writing or flushing, you can call <code>Error</code>.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">writer</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">csv</code><code class="p">.</code><code class="nx">NewWriter</code><code class="p">(</code><code class="nx">file</code><code class="p">)</code><code class="w"/>
+<code class="k">for</code><code class="w"> </code><code class="nx">_</code><code class="p">,</code><code class="w"> </code><code class="nx">row</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="k">range</code><code class="w"> </code><code class="nx">data</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="nx">writer</code><code class="p">.</code><code class="nx">Write</code><code class="p">(</code><code class="nx">row</code><code class="p">)</code><code class="w"/>
+<code class="w"> </code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">  </code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Cannot write to CSV file:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="w"> </code><code class="p">}</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+<code class="nx">writer</code><code class="p">.</code><code class="nx">Flush</code><code class="p">()</code><code class="w"/></pre>
+</div></section>
+</div></section>
+</div></section></div></body></html>

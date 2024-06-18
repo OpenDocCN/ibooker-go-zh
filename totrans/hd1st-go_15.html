@@ -1,0 +1,444 @@
+<html><head></head><body><section data-pdf-bookmark="Chapter 14. code quality assurance: Automated Testing" data-type="chapter" epub:type="chapter" class="preface"><div class="preface" id="code_quality_assurancecolon_automated_te">
+<h1 class="calibre17"><span class="calibre">Chapter 14. </span>code quality assurance: Automated Testing</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0401-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><a data-primary="automated testing" data-secondary="about" data-type="indexterm" id="idm46062709014696" class="calibre10"/><a data-primary="go test command" data-type="indexterm" id="idm46062709013624" class="calibre10"/><a data-primary="testing" data-secondary="about" data-type="indexterm" id="idm46062709012792" class="calibre10"/><a data-primary="testing package" data-secondary="about" data-type="indexterm" id="idm46062709011720" class="calibre10"/><strong class="calibre8">Are you sure your software is working right now? Really sure?</strong> Before you sent that new version to your users, you presumably tried out the new features to ensure they all worked. But did you try the <em class="calibre9">old</em> features to ensure you didn’t break any of them? <em class="calibre9">All</em> the old features? If that question makes you worry, your program needs <strong class="calibre8">automated testing</strong>. Automated tests ensure your program’s components work correctly, even after you change your code. Go’s <code class="calibre20">testing</code> package and <code class="calibre20">go test</code> tool make it easy to write automated tests, using the skills that you’ve already learned!</p>
+<section data-pdf-bookmark="Automated tests find your bugs before someone else does" data-type="sect1" class="preface"><div class="preface" id="automated_tests_find_your_bugs_before_so">
+<h1 class="calibre25">Automated tests find your bugs before someone else does</h1>
+<p class="calibre7">Developer A runs into Developer B at a restaurant they both frequent…</p>
+<table class="calibre11">
+<thead class="calibre33">
+<tr class="calibre13">
+<th class="calibre34"><strong class="calibre8">Developer A:</strong></th>
+<th class="calibre34"><strong class="calibre8">Developer B:</strong></th>
+</tr>
+</thead>
+<tbody class="calibre12">
+<tr class="calibre13">
+<td class="calibre14">How’s the new job going?</td>
+<td class="calibre14">Not so great. I have to head back into the office after dinner. We found a bug that’s causing some customers to be billed twice as often as they should be.</td>
+</tr>
+<tr class="calibre15">
+<td class="calibre14">Ouch. How did <em class="calibre9">that</em> get onto your billing server?</td>
+<td class="calibre14">We think it might have gotten introduced a couple of months ago. One of our devs made some changes to the billing code then.</td>
+</tr>
+<tr class="calibre13">
+<td class="calibre14">Wow, that long ago… And your tests didn’t catch it?</td>
+<td class="calibre14">Tests?</td>
+</tr>
+<tr class="calibre15">
+<td class="calibre14">Your automated tests. They didn’t fail when the bug got introduced?</td>
+<td class="calibre14">Um, we don’t have any of those.</td>
+</tr>
+<tr class="calibre13">
+<td class="calibre14"><em class="calibre9">What?!</em></td>
+<td class="calibre14"/>
+</tr>
+</tbody>
+</table>
+<p class="calibre7">Your customers rely on your code. When it fails, it can be disastrous. Your company’s reputation is damaged. And <em class="calibre9">you’ll</em> have to put in overtime fixing the bugs.</p>
+<p class="calibre7">That’s why automated tests were invented. An <strong class="calibre8">automated test</strong> is a separate program that executes components of your main program, and verifies they behave as expected.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0402-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<blockquote class="calibre37 pcalibre1 pcalibre2">
+<p class="calibre38"><strong class="calibre8">Not unless you’re going to test all the <span class="calibre21">old</span> features as well, to make sure your changes haven’t broken anything. Automated tests save time over manual testing, and they’re usually more thorough, too.</strong></p>
+</blockquote>
+</div></section>
+<section data-pdf-bookmark="A function we should have had automated tests for" data-type="sect1" class="preface"><div class="preface" id="a_function_we_should_have_had_automated">
+<h1 class="calibre25">A function we <span class="calibre21">should</span> have had automated tests for</h1>
+<p class="calibre7"><a data-primary="Join function (strings)" data-type="indexterm" id="idm46062708987464" class="calibre10"/><a data-primary="strings package" data-secondary="Join function" data-type="indexterm" id="idm46062708986184" class="calibre10"/>Let’s look at an example of a bug that could be caught by automated tests. Here we have a simple package with a function that joins several strings into a single string suitable for use in an English sentence. If there are two items, they’ll be joined with the word <em class="calibre9">and</em> (as in “apple and orange”). If there are more than two items, commas will be added as appropriate (as in “apple, orange and pear”).</p>
+<div data-type="note" epub:type="note" class="calibre22"><h6 class="calibre23">Note</h6>
+<p class="calibre7">One last, great example borrowed from Head First Ruby (which also has a chapter on testing)!</p>
+</div>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0403-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">The code makes use of the <code class="calibre20">strings.Join</code> function, which takes a slice of strings and a string to join them all together with. <code class="calibre20">Join</code> returns a single string with all the items from the slice combined, with the joining string separating each entry.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0403-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">In <code class="calibre20">JoinWithCommas</code>, we use the slice operator to gather every phrase in the slice except the last, and pass them to <code class="calibre20">strings.Join</code> to join them together in a single string, with a comma and a space between each. Then we add the word <em class="calibre9">and</em> (surrounded by spaces), and end the string with the final phrase.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0403-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Here’s a quick program to try our new function. We import our <code class="calibre20">prose</code> package and pass a couple slices to <code class="calibre20">JoinWithCommas</code>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0404-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">It works, but there’s a small problem with the results. Maybe we’re just immature, but we can imagine this leading to jokes that the parents <em class="calibre9">are</em> a rodeo clown and a prize bull. And formatting lists in this way could cause other misunderstandings, too.</p>
+<p class="calibre7">To resolve any confusion, let’s update our package code to place an additional comma before the <em class="calibre9">and</em> (as in “apple, orange, and pear”):</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0404-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">If we rerun our program, we’ll see commas before the <em class="calibre9">and</em> in both the resulting strings. Now it should be clear that the parents were in the photo <em class="calibre9">with</em> the clown and the bull.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0404-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="We’ve introduced a bug!" data-type="sect1" class="preface"><div class="preface" id="wersquove_introduced_a_bugexcl">
+<h1 class="calibre25">We’ve introduced a bug!</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0405-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Oh, that’s true! The function used to return <code class="calibre20">"my parents and a rodeo clown"</code> for this list of two items, but an extra comma got included here as well! We were so focused on fixing the list of <em class="calibre9">three</em> items that we introduced a bug with lists of <em class="calibre9">two</em> items...</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0405-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">If we had automated tests for this function, this problem could have been avoided.</p>
+<p class="calibre7">An automated test runs your code with a particular set of inputs and looks for a particular result. As long as your code’s output matches the expected value, the test will “pass.”</p>
+<p class="calibre7">But suppose that you accidentally introduced a bug in your code (like we did with the extra comma). Your code’s output would no longer match the expected value, and the test would “fail.” You’d know about the bug immediately.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0405-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0405-03a.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<blockquote class="calibre37 pcalibre1 pcalibre2">
+<p class="calibre38"><strong class="calibre8">Having automated tests is like having your code inspected for bugs automatically every time you make a change!</strong></p>
+</blockquote>
+</div></section>
+<section data-pdf-bookmark="Writing tests" data-type="sect1" class="preface"><div class="preface" id="writing_tests">
+<h1 class="calibre25">Writing tests</h1>
+<p class="calibre7"><a data-primary="automated testing" data-secondary="writing tests" data-type="indexterm" id="idm46062708947336" class="calibre10"/><a data-primary="Error method" data-type="indexterm" id="idm46062708945736" class="calibre10"/><a data-primary="go test command" data-type="indexterm" id="idm46062708944872" class="calibre10"/><a data-primary="naming rules" data-secondary="test function names" data-type="indexterm" id="idm46062708944072" class="calibre10"/><a data-primary="pointers and pointer types" data-secondary="test functions and" data-type="indexterm" id="idm46062708942888" class="calibre10"/><a data-primary="T type (testing)" data-type="indexterm" id="idm46062708941912" class="calibre10"/><a data-primary="testing" data-secondary="writing tests" data-type="indexterm" id="idm46062708941048" class="calibre10"/><a data-primary="testing package" data-secondary="about" data-type="indexterm" id="idm46062708940072" class="calibre10"/><a data-primary="testing package" data-secondary="T type" data-type="indexterm" id="idm46062708938952" class="calibre10"/><a data-primary="writing" data-secondary="tests" data-type="indexterm" id="idm46062708937848" class="calibre10"/>Go includes a <code class="calibre20">testing</code> package that you can use to write automated tests for your code, and a <code class="calibre20">go test</code> command that you can use to run those tests.</p>
+<p class="calibre7">Let’s start by writing a simple test. We won’t test anything practical at first, we’re just going to show you how tests work. Then we’ll actually use tests to help us fix our <code class="calibre20">JoinWithCommas</code> function.</p>
+<p class="calibre7">In your <em class="calibre9">prose</em> package directory, right alongside the <em class="calibre9">join.go</em> file, create a <em class="calibre9">join_test.go</em> file. The <em class="calibre9">join</em> part of the filename isn’t important, but the <em class="calibre9">_test.go</em> part is; the <code class="calibre20">go test</code> tool looks for files named with that suffix.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0406-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">The code within the test file consists of ordinary Go functions, but it needs to follow certain conventions in order to work with the <code class="calibre20">go test</code> tool:</p>
+<ul class="list_style_type_none">
+<li class="calibre18"><p class="calibre7">You’re not required to make your tests part of the same package as the code you’re testing, but if you want to access unexported types or functions from the package, you’ll need to.</p></li>
+<li class="calibre18"><p class="calibre7">Tests are required to use a type from the <code class="calibre20">testing</code> package, so you’ll need to import that package at the top of each test file.</p></li>
+<li class="calibre18"><p class="calibre7">Test function names should begin with <code class="calibre20">Test</code>. (The rest of the name can be whatever you want, but it should begin with a capital letter.)</p></li>
+<li class="calibre18"><p class="calibre7">Test functions should accept a single parameter: a pointer to a <code class="calibre20">testing.T</code> value.</p></li>
+<li class="calibre18"><p class="calibre7">You can report that a test has failed by calling methods (such as <code class="calibre20">Error</code>) on the <code class="calibre20">testing.T</code> value. Most methods accept a string with a message explaining the reason the test failed.</p></li>
+</ul>
+</div></section>
+<section data-pdf-bookmark="Running tests with the “go test” command" data-type="sect1" class="preface"><div class="preface" id="running_tests_with_the_ldquogo_testrdquo">
+<h1 class="calibre25">Running tests with the “go test” command</h1>
+<p class="calibre7"><a data-primary="automated testing" data-secondary="running tests" data-type="indexterm" id="idm46062708920152" class="calibre10"/>To run tests, you use the <code class="calibre20">go test</code> command. The command takes the import paths of one or more packages, just like <code class="calibre20">go install</code> or <code class="calibre20">go doc</code>. It will find all files in those package directories whose names end in <em class="calibre9">_test.go</em>, and run every function contained in those files whose name starts with <code class="calibre20">Test</code>.</p>
+<p class="calibre7">Let’s run the tests we just added to our <code class="calibre20">prose</code> package. In your terminal, run this command:</p>
+<pre data-type="programlisting" class="calibre32">go test github.com/headfirstgo/prose</pre>
+<p class="calibre7">The test functions will run and print their results.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0407-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Because both test functions make a call to the <code class="calibre20">Error</code> method on the <code class="calibre20">testing.T</code> value passed to them, both tests fail. The name of each failing test function is printed, as well as the line containing the call to <code class="calibre20">Error</code>, and the failure message that was given.</p>
+<p class="calibre7">At the bottom of the output is the status for the entire <code class="calibre20">prose</code> package. If any test within the package fails (as ours did), a status of “<code class="calibre20">FAIL</code>” will be printed for the package as a whole.</p>
+<p class="calibre7">If we remove the calls to the <code class="calibre20">Error</code> method within the tests...</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0407-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">...then we’ll be able to rerun the same <code class="calibre20">go test</code> command and the tests will pass. Since every test is passing, <code class="calibre20">go test</code> will only print a status of “<code class="calibre20">ok</code>” for the entire <code class="calibre20">prose</code> package.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0407-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Testing our actual return values" data-type="sect1" class="preface"><div class="preface" id="testing_our_actual_return_values">
+<h1 class="calibre25">Testing our actual return values</h1>
+<p class="calibre7"><a data-primary="automated testing" data-secondary="testing return values" data-type="indexterm" id="idm46062708900776" class="calibre10"/><a data-primary="return values" data-secondary="testing" data-type="indexterm" id="idm46062708899256" class="calibre10"/><a data-primary="testing" data-secondary="return values" data-type="indexterm" id="idm46062708898152" class="calibre10"/>We can make our tests pass, and we can make them fail. Now let’s try writing some tests that will actually help us troubleshoot our <code class="calibre20">JoinWithCommas</code> function.</p>
+<p class="calibre7">We’ll update <code class="calibre20">TestTwoElements</code> to show the return value we <em class="calibre9">expect</em> from the <code class="calibre20">JoinWithCommas</code> function when it’s called with a two-element slice. We’ll do the same for <code class="calibre20">TestThreeElements</code> with a three-element slice. We’ll run the tests, and confirm that <code class="calibre20">TestTwoElements</code> is currently failing and <code class="calibre20">TestThreeElements</code> is passing.</p>
+<p class="calibre7">Once our tests are set up the way we want, we’ll alter the <code class="calibre20">JoinWithCommas</code> function to make the all the tests pass. At that point, we’ll know our code is fixed!</p>
+<p class="calibre7">In <code class="calibre20">TestTwoElements</code>, we’ll pass a slice with two elements, <code class="calibre20">[]string{"apple", "orange"}</code>, to <code class="calibre20">JoinWithCommas</code>. If the result doesn’t equal <code class="calibre20">"apple and orange"</code>, we’ll fail the test. Likewise, in <code class="calibre20">TestThreeElements</code>, we’ll pass a slice with three elements, <br class="calibre16"/><code class="calibre20">[]string{"apple", "orange", "pear"}</code>. If the result doesn’t equal <code class="calibre20">"apple, orange, and pear"</code>, we’ll fail the test.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0408-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">If we rerun the tests, the <code class="calibre20">TestThreeElements</code> test will pass, but the <code class="calibre20">TestTwoElements</code> test will fail.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0408-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">This is a <em class="calibre9">good</em> thing; it matches what we expected to see based on the output of our <code class="calibre20">join</code> program. It means that we’ll be able to rely on our tests as an indicator of whether <code class="calibre20">JoinWithCommas</code> is working as it should be!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0409-01a.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0409-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<aside data-type="sidebar" epub:type="sidebar" class="calibre30"><div class="sidebar" id="exercise_24">
+<h5 class="calibre31"><span class="calibre"><img alt="image" src="assets/common.png" class="calibre4"/></span> Exercise</h5>
+<p class="calibre7">Fill in the blanks in the test code below.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0409-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><img alt="image" src="assets/arrow.png" class="calibre4"/> Answers in <a data-type="xref" href="#exercise_solutions_24" class="calibre10">“<span class="calibre"><img alt="image" src="assets/common.png" class="calibre4"/></span> Exercise Solution”</a>.</p>
+</div></aside>
+</div></section>
+<section data-pdf-bookmark="More detailed test failure messages with the “Errorf” method" data-type="sect1" class="preface"><div class="preface" id="more_detailed_test_failure_messages_with">
+<h1 class="calibre25">More detailed test failure messages with the “Errorf” method</h1>
+<p class="calibre7"><a data-primary="automated testing" data-secondary="detailed test failure messages" data-type="indexterm" id="idm46062708868600" class="calibre10"/><a data-primary="Errorf method (testing)" data-type="indexterm" id="idm46062708866984" class="calibre10"/><a data-primary="fmt package" data-secondary="Sprintf function" data-type="indexterm" id="idm46062708866104" class="calibre10"/><a data-primary="Printf function (fmt)" data-secondary="formatting output" data-type="indexterm" id="idm46062708864952" class="calibre10"/><a data-primary="Sprintf function (fmt)" data-type="indexterm" id="idm46062708863880" class="calibre10"/><a data-primary="T type (testing)" data-type="indexterm" id="idm46062708863048" class="calibre10"/><a data-primary="testing" data-secondary="Errorf method test failure messages" data-type="indexterm" id="idm46062708862216" class="calibre10"/><a data-primary="testing package" data-secondary="Errorf method" data-type="indexterm" id="idm46062708861096" class="calibre10"/><a data-primary="testing package" data-secondary="T type" data-type="indexterm" id="idm46062708859944" class="calibre10"/>Our test failure message isn’t very helpful in diagnosing the problem right now. We know there was some value that was expected, and we know the return value from <code class="calibre20">JoinWithCommas</code> was different than that, but we don’t know what those values were.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0410-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">A test function’s <code class="calibre20">testing.T</code> parameter also has an <code class="calibre20">Errorf</code> method you can call. Unlike <code class="calibre20">Error</code>, <code class="calibre20">Errorf</code> takes a string with formatting verbs, just like the <code class="calibre20">fmt.Printf</code> and <code class="calibre20">fmt.Sprintf</code> functions. You can use <code class="calibre20">Errorf</code> to include additional information in your test’s failure messages, such as the arguments you passed to a function, the return value you got, and the value you were expecting.</p>
+<p class="calibre7">Here’s an update to our tests that uses <code class="calibre20">Errorf</code> to generate more detailed failure messages. So that we don’t have to repeat strings within each test, we add a <code class="calibre20">want</code> variable (as in “the value we <em class="calibre9">want</em>”) to hold the return value we expect <code class="calibre20">JoinWithCommas</code> to return. We also add a <code class="calibre20">got</code> variable (as in “the value we actually <em class="calibre9">got</em>”) to hold the actual return value. If <code class="calibre20">got</code> isn’t equal to <code class="calibre20">want</code>, we’ll call <code class="calibre20">Errorf</code> and have it generate an error message that includes the slice we passed to <code class="calibre20">JoinWithCommas</code> (we use a format verb of <code class="calibre20">%#v</code> so the slice is printed the same way it would appear in Go code), the return value we got, and the return value we wanted.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0410-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">If we rerun the tests, we’ll see exactly what the failure was.</p>
+</div></section>
+<section data-pdf-bookmark="Test “helper” functions" data-type="sect1" class="preface"><div class="preface" id="test_ldquohelperrdquor_functions">
+<h1 class="calibre25">Test “helper” functions</h1>
+<p class="calibre7"><a data-primary="automated testing" data-secondary="test helper functions" data-type="indexterm" id="idm46062708842952" class="calibre10"/><a data-primary="go test command" data-type="indexterm" id="idm46062708841496" class="calibre10"/>You aren’t limited to only having test functions in your <em class="calibre9">_test.go</em> files. You can reduce repeated code in your tests by moving it to other “helper” functions within your test file. The <code class="calibre20">go test</code> command only uses functions whose names begin with <code class="calibre20">Test</code>, so as long as you name your functions anything else, you’ll be fine.</p>
+<p class="calibre7">There’s a fairly cumbersome call to <code class="calibre20">t.Errorf</code> that’s duplicated between our <code class="calibre20">TestTwoElements</code> and <code class="calibre20">TestThreeElements</code> functions (with the possibility for more duplication as we add more tests). One solution might be to move the string generation out to a separate <code class="calibre20">errorString</code> function the tests can call.</p>
+<p class="calibre7">We’ll have <code class="calibre20">errorString</code> accept the slice that’s passed to <code class="calibre20">JoinWithCommas</code>, the <code class="calibre20">got</code> value, and the <code class="calibre20">want</code> value. Then, instead of calling <code class="calibre20">Errorf</code> on a <code class="calibre20">testing.T</code> value, we’ll have <code class="calibre20">errorString</code> call <code class="calibre20">fmt.Sprintf</code> to generate an (identical) error string for us to return. The test itself can then call <code class="calibre20">Error</code> with the returned string to indicate a test failure. This code is slightly cleaner, but still gets us the same output.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0411-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Getting the tests to pass" data-type="sect1" class="preface"><div class="preface" id="getting_the_tests_to_pass">
+<h1 class="calibre25">Getting the tests to pass</h1>
+<p class="calibre7"><a data-primary="automated testing" data-secondary="getting tests to pass" data-type="indexterm" id="idm46062708828280" class="calibre10"/><a data-primary="testing" data-secondary="getting tests to pass" data-type="indexterm" id="idm46062708826696" class="calibre10"/>Now that our tests are set up with useful failure messages, it’s time to look at using them to fix our main code.</p>
+<p class="calibre7">We have two tests for our <code class="calibre20">JoinWithCommas</code> function. The test that passes a slice with three items passes, but the test that passes a slice with two items fails.</p>
+<p class="calibre7">This is because <code class="calibre20">JoinWithCommas</code> currently includes a comma even when returning a list of just two items.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0412-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Let’s modify <code class="calibre20">JoinWithCommas</code> to fix this. If there are just two elements in the slice of strings, we’ll simply join them together with <code class="calibre20">" and "</code>, then return the resulting string. Otherwise, we’ll follow the same logic we always have.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0412-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">We’ve updated our code, but is it working correctly? Our tests can tell us immediately! If we rerun our tests now, <code class="calibre20">TestTwoElements</code> will pass, meaning all tests are passing.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0412-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><a data-primary="automated testing" data-secondary="test-driven development" data-type="indexterm" id="idm46062708815224" class="calibre10"/><a data-primary="test-driven development" data-type="indexterm" id="idm46062708813608" class="calibre10"/><a data-primary="testing" data-secondary="test-driven development" data-type="indexterm" id="idm46062708812776" class="calibre10"/>We can say with certainty that <code class="calibre20">JoinWithCommas</code> works with a slice of two strings now, because the corresponding unit test now passes. And we don’t need to worry about whether it still works correctly with slices of three strings; we have a unit test assuring us that’s fine, too.</p>
+<p class="calibre7">This is reflected in the output of our <code class="calibre20">join</code> program, too. If we rerun it now, we’ll see that both slices are formatted correctly!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0413-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Test-driven development" data-type="sect1" class="preface"><div class="preface" id="testhyphendriven_development">
+<h1 class="calibre25">Test-driven development</h1>
+<p class="calibre7">Once you have some experience with unit testing, you’ll probably fall into a cycle known as <em class="calibre9">test-driven development</em>:</p>
+<ol class="calibre27">
+<li class="calibre28"><p class="calibre7"><strong class="calibre8">Write the test:</strong> You write a test for the feature you <em class="calibre9">want</em>, even though it doesn’t exist yet. Then you run the test to ensure that it <em class="calibre9">fails</em>.</p></li>
+<li class="calibre28"><p class="calibre7"><strong class="calibre8">Make it pass:</strong> You implement the feature in your main code. Don’t worry about whether the code you’re writing is sloppy or inefficient; your only goal is to get it working. Then you run the test to ensure that it <em class="calibre9">passes</em>.</p></li>
+<li class="calibre28"><p class="calibre7"><strong class="calibre8">Refactor your code:</strong> Now, you’re free to <em class="calibre9">refactor</em> the code, to change and improve it, however you please. You’ve watched the test <em class="calibre9">fail</em>, so you know it will fail again if your app code breaks. You’ve watched the test <em class="calibre9">pass</em>, so you know it will continue passing as long as your code is working correctly.</p></li>
+</ol>
+<p class="calibre7">This freedom to <em class="calibre9">change</em> your code without worrying about it breaking is the real reason you want unit tests. Anytime you see a way to make your code shorter or easier to read, you won’t hesitate to do it. When you’re finished, you can simply run your tests again, and you’ll be confident that everything is still working.</p>
+<blockquote class="calibre37 pcalibre1 pcalibre2">
+<p class="calibre38"><img alt="image" src="assets/wrong.png" class="calibre4"/> <strong class="calibre8">Write the test!</strong></p>
+<p class="calibre38"><img alt="image" src="assets/tick.png" class="calibre4"/> <strong class="calibre8">Make it pass!</strong></p>
+<p class="calibre38"><img alt="image" src="assets/tick.png" class="calibre4"/> <strong class="calibre8">Refactor your code!</strong></p>
+</blockquote>
+</div></section>
+<section data-pdf-bookmark="Another bug to fix" data-type="sect1" class="preface"><div class="preface" id="another_bug_to_fix">
+<h1 class="calibre25">Another bug to fix</h1>
+<p class="calibre7"><a data-primary="automated testing" data-secondary="fixing bugs" data-type="indexterm" id="idm46062708791464" class="calibre10"/><a data-primary="testing" data-secondary="fixing bugs" data-type="indexterm" id="idm46062708790168" class="calibre10"/>It’s possible that <code class="calibre20">JoinWithCommas</code> could be called with a slice containing only a single phrase. But it doesn’t behave very well in that case, treating that one item as if it appeared at the end of a list:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0414-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">What <em class="calibre9">should</em> <code class="calibre20">JoinWithCommas</code> return in this case? If we have a list of one item, we don’t really need commas, the word <em class="calibre9">and</em>, or anything at all. We could simply return a string with that one item.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0414-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Let’s express this as a new test in <em class="calibre9">join_test.go</em>. We’ll add a new test function called <code class="calibre20">TestOneElement</code> alongside the existing <code class="calibre20">TestTwoElements</code> and <code class="calibre20">TestThreeElements</code> tests. Our new test will look just like the others, but we’ll pass a slice with just one string to <code class="calibre20">JoinWithCommas</code>, and expect a return value with that one string.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0414-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">As you might expect knowing that there’s a bug in our code, the test fails, showing that <code class="calibre20">JoinWithCommas</code> returned <code class="calibre20">", and apple"</code> rather than just <code class="calibre20">"apple"</code>.</p>
+<p class="calibre7">Updating <code class="calibre20">JoinWithCommas</code> to fix our broken test is pretty simple. We test whether the given slice contains only one string, and if so, we simply return that string.</p>
+<pre data-type="programlisting" class="calibre32">func JoinWithCommas(phrases []string) string {
+       if len(phrases) == 1 {
+              return phrases[0]
+       } else if len(phrases) == 2 {
+              return phrases[0] + " and " + phrases[1]
+       } else {
+              result := strings.Join(phrases[:len(phrases)-1], ", ")
+              result += ", and "
+              result += phrases[len(phrases)-1]
+              return result
+       }
+}</pre>
+<p class="calibre7">With our code fixed, if we rerun the test, we’ll see that everything’s passing.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0415-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">And when we use <code class="calibre20">JoinWithCommas</code> in our code, it will behave as it should.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0415-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="there are no Dumb Questions" data-type="sect1" class="preface"><div class="preface" id="there_are_no_dumb_questions_12">
+<h1 class="calibre25">there are no Dumb Questions</h1>
+<p class="calibre7"><strong class="calibre8">Q: Isn’t all this test code going to make my program bigger and slower?</strong></p>
+<p class="calibre7"><strong class="calibre8">A:</strong> Don’t worry! Just as the <code class="calibre20">go test</code> command has been set up to only work with files whose names end in <em class="calibre9"><code class="calibre41">_test.go</code></em>, the various other commands in the <code class="calibre20">go</code> tool (such as <code class="calibre20">go build</code> and <code class="calibre20">go install</code>) have been set up to <em class="calibre9">ignore</em> files whose names end in <em class="calibre9">_test.go</em>. The <code class="calibre20">go</code> tool can compile your program code into an executable file, but it will ignore your test code, even when it’s saved in the same package directory.</p>
+</div></section>
+<section data-pdf-bookmark="Code Magnets" data-type="sect1" class="preface"><div class="preface" id="code_magnets_9">
+<h1 class="calibre25">Code Magnets</h1>
+<p class="calibre7">Oops! We’ve created a <code class="calibre20">compare</code> package with a <code class="calibre20">Larger</code> function that is supposed to return the larger of two integers passed into it. But we got the comparison wrong, and <code class="calibre20">Larger</code> is returning the <em class="calibre9">smaller</em> integer instead!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0416-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">We’ve started writing tests to help diagnose the problem. Can you reconstruct the code snippets to make working tests that will produce the output shown? You’ll need to create a helper function that returns a string with the test failure message, and then add two calls to that helper function within the tests.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0416-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><img alt="image" src="assets/arrow.png" class="calibre4"/> Answers in <a data-type="xref" href="#code_magnets_solution_9" class="calibre10">“Code Magnets Solution”</a>.</p>
+</div></section>
+<section data-pdf-bookmark="Running specific sets of tests" data-type="sect1" class="preface"><div class="preface" id="running_specific_sets_of_tests">
+<h1 class="calibre25">Running specific sets of tests</h1>
+<p class="calibre7"><a data-primary="- (dash)" data-type="indexterm" id="idm46062708749656" class="calibre10"/><a data-primary="arguments, command-line" data-type="indexterm" id="idm46062708748632" class="calibre10"/><a data-primary="automated testing" data-secondary="running specific sets of tests" data-type="indexterm" id="idm46062708747752" class="calibre10"/><a data-primary="command-line arguments" data-secondary="go test command" data-type="indexterm" id="idm46062708746600" class="calibre10"/><a data-primary="dash (-)" data-type="indexterm" id="idm46062708745480" class="calibre10"/><a data-primary="flags" data-type="indexterm" id="idm46062708744648" class="calibre10"/><a data-primary="go test command" data-type="indexterm" id="idm46062708743768" class="calibre10"/><a data-primary="hyphen (-)" data-type="indexterm" id="idm46062708742936" class="calibre10"/><a data-primary="-run option (go test)" data-type="indexterm" id="idm46062708742136" class="calibre10"/><a data-primary="testing" data-secondary="running specific sets of tests" data-type="indexterm" id="idm46062708741224" class="calibre10"/><a data-primary="-v flag (go test)" data-type="indexterm" id="idm46062708740152" class="calibre10"/>Sometimes you’ll want to run only a few specific tests, rather than your whole collection. The <code class="calibre20">go test</code> command provides a couple of command-line flags that help you do this. A <strong class="calibre8">flag</strong> is an argument, usually a dash (<code class="calibre20">-</code>) followed by one or more letters, that you provide to a command-line program to change the program’s behavior.</p>
+<p class="calibre7">The first flag that’s worth remembering for the <code class="calibre20">go test</code> command is the <code class="calibre20">-v</code> flag, which stands for “verbose.” If you add it to any <code class="calibre20">go test</code> command, it will list the name and status of each test function it runs. Normally passing tests are omitted to keep the output “quiet,” but in verbose mode, <code class="calibre20">go test</code> will list even passing tests.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0417-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Once you have the name of one or more tests (either from the <code class="calibre20">go test -v</code> output or from looking them up in your test code files), you can add the <code class="calibre20">-run</code> option to limit the set of tests that are run. Following <code class="calibre20">-run</code>, you specify part or all of a function name, and only test functions whose name matches what you specify will be run.</p>
+<p class="calibre7">If we add <code class="calibre20">-run Two</code> to our <code class="calibre20">go run</code> command, only test functions with <code class="calibre20">Two</code> in their name will be matched. In our case, that means only <code class="calibre20">TestTwoElements</code> will be run. (You can use <code class="calibre20">-run</code> with or without the <code class="calibre20">-v</code> flag, but we find that adding <code class="calibre20">-v</code> helps avoid confusion about which tests are running.)</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0417-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">If we add <code class="calibre20">-run Elements</code> instead, both <code class="calibre20">TestTwoElements</code> and <code class="calibre20">TestThreeElements</code> will be run. (But not <code class="calibre20">TestOneElement</code>, because it doesn’t have an <code class="calibre20">s</code> at the end of its name.)</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0417-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Table-driven tests" data-type="sect1" class="preface"><div class="preface" id="tablehyphendriven_tests">
+<h1 class="calibre25">Table-driven tests</h1>
+<p class="calibre7"><a data-primary="automated testing" data-secondary="table-driven testing" data-type="indexterm" id="idm46062708719592" class="calibre10"/><a data-primary="table-driven testing" data-type="indexterm" id="idm46062708718104" class="calibre10"/><a data-primary="testing" data-secondary="table-driven" data-type="indexterm" id="idm46062708717240" class="calibre10"/>There’s quite a bit of duplicated code between our three test functions. Really, the only things that vary between tests are the slice we pass to <code class="calibre20">JoinWithCommas</code>, and the string we expect it to return.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0418-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Instead of maintaining separate test functions, we can build a “table” of input data and the corresponding output we expect, then use a single test function to check each entry in the table.</p>
+<p class="calibre7">There’s no standard format for the table, but one common solution is to define a new type, specifically for use in your tests, that holds the input and expected output for each test. Here’s a <code class="calibre20">testData</code> type we might use, which has a <code class="calibre20">list</code> field to hold the slice of strings we’ll pass to <code class="calibre20">JoinWithCommas</code>, and a <code class="calibre20">want</code> field to hold the corresponding string we expect it to return.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0418-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">We can define the <code class="calibre20">testData</code> type right in the <em class="calibre9">lists_test.go</em> file where it will be used.</p>
+<p class="calibre7">Our three test functions can be merged into a single <code class="calibre20">TestJoinWithCommas</code> function. At the top, we set up a <code class="calibre20">tests</code> slice, and move the values for the <code class="calibre20">list</code>  and <code class="calibre20">want</code> variables from the old <code class="calibre20">TestOneElement</code>, <code class="calibre20">TestTwoElements</code>, and <code class="calibre20">TestThreeElements</code> into <code class="calibre20">testData</code> values within the <code class="calibre20">tests</code> slice.</p>
+<p class="calibre7">We then loop through each <code class="calibre20">testData</code> value in the slice. We pass the <code class="calibre20">list</code> slice to <code class="calibre20">JoinWithCommas</code>, and store the string it returns in a <code class="calibre20">got</code> variable. If <code class="calibre20">got</code> isn’t equal to the string in the <code class="calibre20">testData</code> value’s <code class="calibre20">want</code> field, we call <code class="calibre20">Errorf</code> and use it to format a test failure message, just like we did in the <code class="calibre20">errorString</code> helper function. (And since that makes the <code class="calibre20">errorString</code> function redundant, we can delete it.)</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0419-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">This updated code is much shorter and less repetitive, but the tests in the table pass just like they did when they were separate test functions!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0419-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Fixing panicking code using a test" data-type="sect1" class="preface"><div class="preface" id="fixing_panicking_code_using_a_test">
+<h1 class="calibre25">Fixing panicking code using a test</h1>
+<p class="calibre7"><a data-primary="automated testing" data-secondary="fixing panicking code using tests" data-type="indexterm" id="idm46062708691192" class="calibre10"/><a data-primary="panicking programs and messages" data-secondary="fixing code using tests" data-type="indexterm" id="idm46062708689976" class="calibre10"/><a data-primary="testing" data-secondary="fixing panicking code using tests" data-type="indexterm" id="idm46062708688824" class="calibre10"/>The best thing about table-driven tests, though, is that it’s easy to add new tests when you need them. Suppose we weren’t sure how <code class="calibre20">JoinWithCommas</code> would behave when it’s passed an empty slice. To find out, we simply add a new <code class="calibre20">testData</code> struct in the <code class="calibre20">tests</code> slice. We’ll specify that if an empty slice is passed to <code class="calibre20">JoinWithCommas</code>, an empty string should be returned:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0420-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">It looks like we were right to be worried. If we run the test, it panics with a stack trace:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0420-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Apparently some code tried to access an index that’s out of bounds for a slice (it tried to access an element that doesn’t exist).</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0420-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Looking at the stack trace, we see the panic occurred at line 11 of the <em class="calibre9">lists.go</em> file, within the <code class="calibre20">JoinWithCommas</code> function:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0420-04.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">So the panic occurs at line 11 of the <em class="calibre9">lists.go</em> file... That’s where we access all the elements in the slice except the last, and join them together with commas. But since the <code class="calibre20">phrases</code> slice we’re passing in is empty, there <em class="calibre9">are</em> no elements to access.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0421-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">If the <code class="calibre20">phrases</code> slice is empty, we really shouldn’t be attempting to access <em class="calibre9">any</em> elements from it. There’s nothing to join, so all we have to do is return an empty string. Let’s add another clause to the <code class="calibre20">if</code> statement that returns an empty string when <code class="calibre20">len(phrases)</code> is <code class="calibre20">0</code>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0421-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">After that, if we run the tests again, everything passes, even the test that calls <code class="calibre20">JoinWithCommas</code> with an empty slice!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0421-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Maybe you can imagine further changes and improvements you’d like to make to <code class="calibre20">JoinWithCommas</code>. Go ahead! You can do so without fear of breaking anything. If you run your tests after each change, you’ll know for certain whether everything is working as it should be. (And if it’s not, you’ll have a clear indicator of what you need to fix!)</p>
+</div></section>
+<section data-pdf-bookmark="Your Go Toolbox" data-type="sect1" class="preface"><div class="preface" id="your_go_toolbox_14">
+<h1 class="calibre25">Your Go Toolbox</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0422-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><strong class="calibre8">That’s it for <a data-type="xref" href="#code_quality_assurancecolon_automated_te" class="calibre10">Chapter 14</a>! You’ve added testing to your toolbox.</strong></p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0422-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<aside data-type="sidebar" epub:type="sidebar" class="calibre30"><div class="sidebar" id="bullet_points_14">
+<h5 class="calibre31">Bullet Points</h5>
+<ul class="list_style_type_none">
+<li class="calibre18"><p class="calibre7">An automated test runs your code with a particular set of inputs, and looks for a particular result. If the code’s output matches the expected value, the test will “pass”; otherwise, it will “fail.”</p></li>
+<li class="calibre18"><p class="calibre7">The <code class="calibre20">go test</code> tool is used to run tests. It looks for files within a specified package whose names end in <em class="calibre9">_test.go</em>.</p></li>
+<li class="calibre18"><p class="calibre7">You’re not required to make your tests part of the same package as the code you’re testing, but doing so will allow you to access unexported types or functions from that package.</p></li>
+<li class="calibre18"><p class="calibre7">Tests are required to use a type from the <code class="calibre20">testing</code> package, so you’ll need to import that package at the top of each test file.</p></li>
+<li class="calibre18"><p class="calibre7">A <em class="calibre9">_test.go</em> file can contain one or more test functions, whose names begin with <code class="calibre20">Test</code>. The rest of the name can be whatever you want.</p></li>
+<li class="calibre18"><p class="calibre7">Test functions must accept a single parameter: a pointer to a <code class="calibre20">testing.T</code> value.</p></li>
+<li class="calibre18"><p class="calibre7">Your test code can make ordinary calls to the functions and methods in your package, then check  that the return values match the expected values. If they don’t, the test should fail.</p></li>
+<li class="calibre18"><p class="calibre7">You can report that a test has failed by calling methods (such as <code class="calibre20">Error</code>) on the <code class="calibre20">testing.T</code> value. Most methods accept a string with a message explaining the reason the test failed.</p></li>
+<li class="calibre18"><p class="calibre7">The <code class="calibre20">Errorf</code> method works similarly to <code class="calibre20">Error</code>, but it accepts a formatting string just like the <code class="calibre20">fmt.Printf</code> function.</p></li>
+<li class="calibre18"><p class="calibre7">Functions within a <em class="calibre9">_test.go</em> file whose names do not begin with <code class="calibre20">Test</code> are not run by <code class="calibre20">go test</code>. They can be used by tests as “helper” functions.</p></li>
+<li class="calibre18"><p class="calibre7"><strong class="calibre8">Table-driven tests</strong> are tests that process “tables” of inputs and expected outputs. They pass each set of input to the code being tested, and check that the code’s output matches the expected values.</p></li>
+</ul>
+</div></aside>
+<aside data-type="sidebar" epub:type="sidebar" class="calibre30"><div class="sidebar" id="exercise_solutions_24">
+<h5 class="calibre31"><span class="calibre"><img alt="image" src="assets/common.png" class="calibre4"/></span> Exercise Solution</h5>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0423-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></aside>
+</div></section>
+<section data-pdf-bookmark="Code Magnets Solution" data-type="sect1" class="preface"><div class="preface" id="code_magnets_solution_9">
+<h1 class="calibre25">Code Magnets Solution</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0424-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+
+</div></section>
+</div></section></body></html>

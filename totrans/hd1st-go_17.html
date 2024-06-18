@@ -1,0 +1,602 @@
+<html><head></head><body><section data-pdf-bookmark="Chapter 16. a pattern to follow: HTML Templates" data-type="chapter" epub:type="chapter" class="preface"><div class="preface" id="a_pattern_to_follow_html_templates">
+<h1 class="calibre17"><span class="calibre">Chapter 16. </span>a pattern to follow: HTML Templates</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0445-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><a data-primary="html/template package" data-type="indexterm" id="idm46062708327384" class="calibre10"/><a data-primary="html/template package" data-secondary="about" data-type="indexterm" id="idm46062708326200" class="calibre10"/><a data-primary="HTML templates" data-type="indexterm" id="idm46062708325048" class="calibre10"/><a data-primary="HTML templates" data-secondary="about" data-type="indexterm" id="idm46062708324216" class="calibre10"/><a data-primary="HTML templates" data-secondary="html/template package" data-type="indexterm" id="idm46062708323032" class="calibre10"/><a data-primary="template package" data-see="html/template package" data-type="indexterm" id="idm46062708321960" class="calibre10"/><a data-primary="templates" data-see="HTML templates" data-type="indexterm" id="idm46062708320824" class="calibre10"/><strong class="calibre8">Your web app needs to respond with HTML, not plain text.</strong> Plain text is fine for emails and social media posts. But your pages need to be formatted. They need headings and paragraphs. They need forms where your users can submit data to your app. To do any of that, you need HTML code.</p>
+<p class="calibre7">And eventually, you’ll need to insert data into that HTML code. That’s why Go offers the <code class="calibre20">html/template</code> package, a powerful way to include data in your app’s HTML responses. Templates are key to building bigger, better web apps, and in this final chapter, we’ll show you how to use them!</p>
+<section data-pdf-bookmark="A guestbook app" data-type="sect1" class="preface"><div class="preface" id="a_guestbook_app">
+<div class="calibre24" id="calibre_pb_0"/>
+</div></section>
+</div></section>
+
+<section data-pdf-bookmark="Chapter 16. a pattern to follow: HTML Templates" data-type="chapter" epub:type="chapter" class="preface">
+<div class="preface" id="a_pattern_to_follow_html_templates">
+<section data-pdf-bookmark="A guestbook app" data-type="sect1" class="preface">
+<div class="preface" id="a_guestbook_app">
+<h1 class="calibre25">A guestbook app</h1>
+<p class="calibre7">Let’s put everything we’ve learned in <a data-type="xref" href="ch15.html#responding_to_requestscolon_web_apps" class="calibre10">Chapter 15</a> to use. We’re going to build a simple guestbook app for a website. Your visitors will be able to enter messages in a form, which will be saved to a file. They’ll also be able to view a list of all the previous signatures.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0446-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">There’s a lot left to cover before we can get this app working, but don’t worry—we’ll be breaking this process down into little steps. Let’s take a look at what will be involved...</p>
+<p class="calibre7">We’ll need to set up our app and get it to respond to requests for the main guestbook page. This part won’t be too difficult; we’ve already covered everything we need to know in the previous chapter.</p>
+<p class="calibre7">Then we need to include HTML in our response. We’ll be creating a simple page using just a few HTML tags, which we’ll store in a file. Then we’ll load the HTML code in from the file and use that in our app’s response.</p>
+<p class="calibre7">We’ll need to take the signatures that our visitors have entered, and incorporate them into the HTML. We’ll show you how to do this, using the <code class="calibre20">html/template</code> package.</p>
+<p class="calibre7">Then we’ll need to create a separate page with a form for adding a signature. We can do this fairly easily using HTML.</p>
+<p class="calibre7">Lastly, when a user submits the form, we’ll need to save the form contents as a new signature. We’ll save it to a text file along with all the other submitted signatures so we can load it back in later.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0446-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Functions to handle a request and check errors" data-type="sect1" class="preface"><div class="preface" id="functions_to_handle_a_request_and_check">
+<h1 class="calibre25">Functions to handle a request and check errors</h1>
+<p class="calibre7"><a data-primary="Fatal function (log)" data-type="indexterm" id="idm46062708304904" class="calibre10"/><a data-primary="functions" data-secondary="handler" data-type="indexterm" id="idm46062708303416" class="calibre10"/><a data-primary="HandleFunc function (net/http)" data-type="indexterm" id="idm46062708302376" class="calibre10"/><a data-primary="handler functions" data-type="indexterm" id="idm46062708301544" class="calibre10"/><a data-primary="ListenAndServe function (net/http)" data-type="indexterm" id="idm46062708300712" class="calibre10"/><a data-primary="log package" data-secondary="Fatal function" data-type="indexterm" id="idm46062708299880" class="calibre10"/><a data-primary="net/http package" data-secondary="HandleFunc function" data-type="indexterm" id="idm46062708298776" class="calibre10"/><a data-primary="net/http package" data-secondary="ListenAndServe function" data-type="indexterm" id="idm46062708297672" class="calibre10"/><a data-primary="net/http package" data-secondary="Request type" data-type="indexterm" id="idm46062708296568" class="calibre10"/><a data-primary="net/http package" data-secondary="ResponseWriter interface" data-type="indexterm" id="idm46062708295464" class="calibre10"/><a data-primary="Request type (net/http)" data-type="indexterm" id="idm46062708294392" class="calibre10"/><a data-primary="ResponseWriter interface (net/http)" data-type="indexterm" id="idm46062708293560" class="calibre10"/><a data-primary="web apps" data-secondary="handling requests and checking errors" data-type="indexterm" id="idm46062708292728" class="calibre10"/>Our first task will be to display the main guestbook page. With all the practice we’ve had writing sample web apps, this shouldn’t be too difficult. In our <code class="calibre20">main</code> function, we’ll call <code class="calibre20">http.HandleFunc</code> and set up the app to call a function named <code class="calibre20">viewHandler</code> for any request with a path of <code class="calibre20">"/guestbook"</code>. Then we’ll call <code class="calibre20">http.ListenAndServe</code> to start the server.</p>
+<p class="calibre7">For now, the <code class="calibre20">viewHandler</code> function will look just like the handler functions in our previous examples. It accepts an <code class="calibre20">http.ResponseWriter</code> and a pointer to an <code class="calibre20">http.Request</code>, just like previous handlers. We’ll convert a string for the response to a <code class="calibre20">[]byte</code>, and use the <code class="calibre20">Write</code> method on the <code class="calibre20">ResponseWriter</code> to add it to the response.</p>
+<p class="calibre7">The <code class="calibre20">check</code> function is the only part of this code that’s really new. We’re going to have a lot of potential <code class="calibre20">error</code> return values in this web app, and we don’t want to repeat code to check and report them everywhere. So we’ll pass each error to our new <code class="calibre20">check</code> function. If the <code class="calibre20">error</code> is nil, <code class="calibre20">check</code> does nothing, but otherwise it logs the error and exits the program.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0447-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Calling <code class="calibre20">Write</code> on the <code class="calibre20">ResponseWriter</code> may or may not return an error, so we pass the <code class="calibre20">error</code> return value to <code class="calibre20">check</code>. Notice that we <em class="calibre9">don’t</em> pass the <code class="calibre20">error</code> return value from <code class="calibre20">http.ListenAndServe</code> to <code class="calibre20">check</code>, though. That’s because <code class="calibre20">ListenAndServe</code> always returns an error. (If there is no error, <code class="calibre20">ListenAndServe</code> never returns.) Since we know this error will never be <code class="calibre20">nil</code>, we just immediately call <code class="calibre20">log.Fatal</code> on it.</p>
+</div></section>
+<section data-pdf-bookmark="Setting up a project directory and trying the app" data-type="sect1" class="preface"><div class="preface" id="setting_up_a_project_directory_and_tryin">
+<h1 class="calibre25">Setting up a project directory and trying the app</h1>
+<p class="calibre7">We’ll be creating several files for this project, so you might want to take a moment and create a new directory to hold them all. (It doesn’t have to be within your Go workspace directory.) Save the preceding code within this directory, in a file named <em class="calibre9">guestbook.go</em>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0448-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Let’s try running it. In your terminal, change to the directory where <em class="calibre9">guestbook.go</em> is saved and run it using <strong class="calibre8"><code class="calibre40">go run</code></strong>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0448-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Then visit this URL in your browser:</p>
+<p class="calibre7"><code class="calibre20"><em class="calibre43"><a href="http://localhost:8080/guestbook" class="calibre10">http://localhost:8080/guestbook</a></em></code></p>
+<p class="calibre7">It’s the same as the URLs for our previous apps, except for the <em class="calibre9">/guestbook</em> path on the end. Your browser will make a request to the app, which will respond with our placeholder text:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0448-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Our app is now responding to requests. Our first task is complete!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0448-04.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">We’re just responding using plain text, though. Up next, we’re going to format our response using HTML.</p>
+</div></section>
+<section data-pdf-bookmark="Making a signature list in HTML" data-type="sect1" class="preface"><div class="preface" id="making_a_signature_list_in_html">
+<h1 class="calibre25">Making a signature list in HTML</h1>
+<p class="calibre7"><a data-primary="a tag (HTML)" data-type="indexterm" id="idm46062708258312" class="calibre10"/><a data-primary="div tag (HTML)" data-type="indexterm" id="idm46062708256968" class="calibre10"/><a data-primary="h1 tag (HTML)" data-type="indexterm" id="idm46062708256168" class="calibre10"/><a data-primary="HTML elements" data-type="indexterm" id="idm46062708255272" class="calibre10"/><a data-primary="p tag (HTML)" data-type="indexterm" id="idm46062708254408" class="calibre10"/>So far, we’ve just been sending snippets of text to the browser. We need actual HTML, so that we can apply formatting to the page. HTML uses tags to apply formatting to text.</p>
+<p class="calibre7">Don’t worry if you haven’t written HTML before; we’ll be covering the basics as we go!</p>
+<p class="calibre7">Save the HTML code below in the same directory as <em class="calibre9">guestbook.go</em>, in a file named <em class="calibre9">view.html</em>.</p>
+<p class="calibre7">Here are the HTML elements used in this file:</p>
+<ul class="list_style_type_none">
+<li class="calibre18"><p class="calibre7"><code class="calibre20">&lt;h1&gt;</code>: A level-one heading. Usually shown in large, bold text.</p></li>
+<li class="calibre18"><p class="calibre7"><code class="calibre20">&lt;div&gt;</code>: A division element. Not directly visible on its own, but it’s used for dividing the page into sections.</p></li>
+<li class="calibre18"><p class="calibre7"><code class="calibre20">&lt;p&gt;</code>: A paragraph of text. We’ll be treating each signature as a separate paragraph.</p></li>
+<li class="calibre18"><p class="calibre7"><code class="calibre20">&lt;a&gt;</code>: Stands for “anchor.” Creates a link.</p></li>
+</ul>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0449-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Now, let’s try viewing the HTML in a browser. Launch your favorite web browser, choose “Open File…” from the menu, and open the HTML file you just saved.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0449-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Notice how the elements on the page correspond with the HTML code. Each element has a opening tag (<code class="calibre20">&lt;h1&gt;</code>, <code class="calibre20">&lt;div&gt;</code>, <code class="calibre20">&lt;p&gt;</code>, etc.), and a corresponding closing tag (<code class="calibre20">&lt;/h1&gt;</code>, <code class="calibre20">&lt;/div&gt;</code>, <code class="calibre20">&lt;/p&gt;</code>, etc.). Any text between the opening and closing tags is used as the element’s content on the page. It’s also possible for elements to contain other elements (as the <code class="calibre20">&lt;div&gt;</code> elements on this page do).</p>
+<p class="calibre7">You can click on the link if you want, but it will only produce a “Page not found” error right now. Before we can fix that, we’ll need to figure out how to serve this HTML via our web app...</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0449-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Making our app respond with HTML" data-type="sect1" class="preface"><div class="preface" id="making_our_app_respond_with_html">
+<h1 class="calibre25">Making our app respond with HTML</h1>
+<p class="calibre7"><a data-primary="Execute method (html/template)" data-type="indexterm" id="idm46062708233576" class="calibre10"/><a data-primary="html/template package" data-secondary="Execute method" data-type="indexterm" id="idm46062708232840" class="calibre10"/><a data-primary="html/template package" data-secondary="ParseFiles function" data-type="indexterm" id="idm46062708231864" class="calibre10"/><a data-primary="html/template package" data-secondary="Template type" data-type="indexterm" id="idm46062708230760" class="calibre10"/><a data-primary="HTML templates" data-secondary="html/template package" data-type="indexterm" id="idm46062708229688" class="calibre10"/><a data-primary="ParseFiles function (html/template)" data-type="indexterm" id="idm46062708228552" class="calibre10"/><a data-primary="Template type (html/template)" data-type="indexterm" id="idm46062708227720" class="calibre10"/><a data-primary="web apps" data-secondary="responding with HTML code" data-type="indexterm" id="idm46062708226920" class="calibre10"/>Our HTML works when we load it directly into our browser from the <em class="calibre9">view.html</em> file, but we need to serve it via the app. Let’s update our <em class="calibre9">guestbook.go</em> code to respond with the HTML we’ve created.</p>
+<p class="calibre7">Go provides a package that will load the HTML in from the file <em class="calibre9">and</em> insert signatures into it for us: the <code class="calibre20">html/template</code> package. For now, we’ll just load the contents of <em class="calibre9">view.html</em> in as is; inserting signatures will be our next step.</p>
+<p class="calibre7">We’ll need to update the <code class="calibre20">import</code> statement to add the <code class="calibre20">html/template</code> package. The only other changes we’ll need to make are within the <code class="calibre20">viewHandler</code> function. We’ll call the <code class="calibre20">template.ParseFiles</code> function and pass it the name of the file we want to load: <code class="calibre20">"view.html"</code>. This will use the contents of <em class="calibre9">view.html</em> to create a <code class="calibre20">Template</code> value. <code class="calibre20">ParseFiles</code> will return a pointer to this <code class="calibre20">Template</code>, and possibly an <code class="calibre20">error</code> value, which we pass to our <code class="calibre20">check</code> function.</p>
+<p class="calibre7">To get output from the <code class="calibre20">Template</code> value, we call its <code class="calibre20">Execute</code> method with two arguments... We pass our <code class="calibre20">ResponseWriter</code> value as the place to write the output. The second value is the data we want to insert into the template, but since we’re not inserting anything right now, we just pass <code class="calibre20">nil</code>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0450-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">We’ll be learning more about the <code class="calibre20">html/template</code> package shortly, but for now let’s just see if this works. In your terminal, run <em class="calibre9">guestbook.go</em>. (Make sure you’re in your project directory when you do this, or the <code class="calibre20">ParseFiles</code> function won’t be able to find <em class="calibre9">view.html</em>.)</p>
+<p class="calibre7">In your browser, go back to the URL:</p>
+<p class="calibre7"><em class="calibre9"><a href="http://localhost:8080/guestbook" class="calibre10">http://localhost:8080/guestbook</a></em></p>
+<p class="calibre7">Instead of the “signature list goes here” placeholder, you should see the HTML from <em class="calibre9">view.html</em>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0450-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="The “text/template” package" data-type="sect1" class="preface"><div class="preface" id="the_ldquotextsoltemplaterdquo_package">
+<h1 class="calibre25">The “text/template” package</h1>
+<p class="calibre7"><a data-primary="Execute method (text/template)" data-type="indexterm" id="idm46062708204520" class="calibre10"/><a data-primary="html/template package" data-secondary="about" data-type="indexterm" id="idm46062708203496" class="calibre10"/><a data-primary="HTML templates" data-secondary="text/template package" data-type="indexterm" id="idm46062708202376" class="calibre10"/><a data-primary="New function (text/template)" data-type="indexterm" id="idm46062708201224" class="calibre10"/><a data-primary="os package" data-secondary="Stdout file descriptor" data-type="indexterm" id="idm46062708200424" class="calibre10"/><a data-primary="ParseFiles function (text/template)" data-type="indexterm" id="idm46062708199272" class="calibre10"/><a data-primary="Parse method (text/template)" data-type="indexterm" id="idm46062708198472" class="calibre10"/><a data-primary="Stdout file descriptor (os)" data-type="indexterm" id="idm46062708197640" class="calibre10"/><a data-primary="Template type (text/template)" data-type="indexterm" id="idm46062708196872" class="calibre10"/><a data-primary="text/template package" data-secondary="about" data-type="indexterm" id="idm46062708195960" class="calibre10"/><a data-primary="text/template package" data-secondary="Execute method" data-type="indexterm" id="idm46062708194840" class="calibre10"/><a data-primary="text/template package" data-secondary="New function" data-type="indexterm" id="idm46062708193768" class="calibre10"/><a data-primary="text/template package" data-secondary="ParseFiles function" data-type="indexterm" id="idm46062708192616" class="calibre10"/><a data-primary="text/template package" data-secondary="Parse method" data-type="indexterm" id="idm46062708191464" class="calibre10"/><a data-primary="text/template package" data-secondary="Template type" data-type="indexterm" id="idm46062708190344" class="calibre10"/>Our app is responding with our HTML code. That’s two tasks complete!</p>
+<p class="calibre7">Right now, though, we’re just showing a placeholder list of signatures that we hardcoded. Our next task will be to use the <code class="calibre20">html/template</code> package to insert a list of signatures into the HTML, one that will be updated when the list changes.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0451-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">The <code class="calibre20">html/template</code> package is based on the <code class="calibre20">text/template</code> package. You work with the two packages in almost exactly the same way, but <code class="calibre20">html/template</code> has some extra security features needed for working with HTML. Let’s learn how to use the <code class="calibre20">text/template</code> package first, and then later we’ll take what we’ve learned and apply it to the <code class="calibre20">html/template</code> package.</p>
+<p class="calibre7">The program below uses <code class="calibre20">text/template</code> to parse and print a template string. It prints its output to the terminal, so you won’t need your web browser to try it.</p>
+<p class="calibre7">In <code class="calibre20">main</code>, we call the <code class="calibre20">text/template</code> package’s <code class="calibre20">New</code> function, which returns a pointer to a new <code class="calibre20">Template</code> value. Then we call the <code class="calibre20">Parse</code> method on the <code class="calibre20">Template</code>, and pass it the string <code class="calibre20">"Here's my template!\n"</code>. <code class="calibre20">Parse</code> uses its string argument as the template’s text, unlike <code class="calibre20">ParseFiles</code>, which loads the template text in from files. <code class="calibre20">Parse</code> returns the template and an <code class="calibre20">error</code> value. We store the template in the <code class="calibre20">tmpl</code> variable, and pass the <code class="calibre20">error</code> to a <code class="calibre20">check</code> function (identical to the one in <em class="calibre9">guestbook.go</em>) to report any non-<code class="calibre20">nil</code> errors.</p>
+<p class="calibre7">Then we call the <code class="calibre20">Execute</code> method on the <code class="calibre20">Template</code> value in <code class="calibre20">tmpl</code>, just like we did in <em class="calibre9">guestbook.go</em>. Instead of an <code class="calibre20">http.ResponseWriter</code>, though, we pass <code class="calibre20">os.Stdout</code> as the place to write the output. This causes the <code class="calibre20">"Here's my template!\n"</code> template string to be displayed as output when the program is run.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0451-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Using the io.Writer interface with a template’s Execute method" data-type="sect1" class="preface"><div class="preface" id="using_the_iodotdotwriter_interface_with">
+<h1 class="calibre25">Using the io.Writer interface with a template’s Execute method</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0452-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><a data-primary="io package" data-secondary="Writer interface" data-type="indexterm" id="idm46062708165160" class="calibre10"/><a data-primary="net/http package" data-secondary="ResponseWriter interface" data-type="indexterm" id="idm46062708163864" class="calibre10"/><a data-primary="ResponseWriter interface (net/http)" data-type="indexterm" id="idm46062708162744" class="calibre10"/><a data-primary="Writer interface (io)" data-type="indexterm" id="idm46062708161944" class="calibre10"/>The <code class="calibre20">os.Stdout</code> value is part of the <code class="calibre20">os</code> package. <code class="calibre20">Stdout</code> stands for “standard output.” It acts like a file, but any data written to it is output to the terminal instead of being saved to disk. (Functions like <code class="calibre20">fmt.Println</code>, <code class="calibre20">fmt.Printf</code>, and so on write data to <code class="calibre20">os.Stdout</code> behind the scenes.)</p>
+<p class="calibre7">How can <code class="calibre20">http.ResponseWriter</code> and <code class="calibre20">os.Stdout</code> both be valid arguments for <code class="calibre20">Template.Execute</code>? Let’s bring up its documentation and see...</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0452-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Hmm, this says the first argument to <code class="calibre20">Execute</code> should be an <code class="calibre20">io.Writer</code>. What’s that? Let’s check the documentation for the <code class="calibre20">io</code> package:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0452-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">It looks like <code class="calibre20">io.Writer</code> is an interface! It’s satisfied by any type with a <code class="calibre20">Write</code> method that accepts a slice of <code class="calibre20">byte</code> values, and returns an <code class="calibre20">int</code> with the number of bytes written and an <code class="calibre20">error</code> value.</p>
+</div></section>
+<section data-pdf-bookmark="ResponseWriters and os.Stdout both satisfy io.Writer" data-type="sect1" class="preface"><div class="preface" id="responsewriters_and_osdotdotstdout_both">
+<h1 class="calibre25">ResponseWriters and os.Stdout both satisfy io.Writer</h1>
+<p class="calibre7"><a data-primary="net/http package" data-secondary="Write method" data-type="indexterm" id="idm46062708146408" class="calibre10"/><a data-primary="os package" data-secondary="Write method" data-type="indexterm" id="idm46062708144984" class="calibre10"/><a data-primary="Write method (net/http)" data-type="indexterm" id="idm46062708143832" class="calibre10"/><a data-primary="Write method (os)" data-type="indexterm" id="idm46062708143000" class="calibre10"/>We’ve already seen that <code class="calibre20">http.ResponseWriter</code> values have a <code class="calibre20">Write</code> method. We’ve used <code class="calibre20">Write</code> in several earlier examples:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0453-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">It turns out the <code class="calibre20">os.Stdout</code> value has a <code class="calibre20">Write</code> method, too! If you pass it a slice of <code class="calibre20">byte</code> values, that data will be written to the terminal:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0453-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">That means both <code class="calibre20">http.ResponseWriter</code> values and <code class="calibre20">os.Stdout</code> satisfy the <code class="calibre20">io.Writer</code> interface, and can be passed to a <code class="calibre20">Template</code> value’s <code class="calibre20">Execute</code> method. <code class="calibre20">Execute</code> will write out the template by calling the <code class="calibre20">Write</code> method on whatever value is passed to it.</p>
+<p class="calibre7">If you pass in an <code class="calibre20">http.ResponseWriter</code>, it means the template will be written to the HTTP response. And if you pass in <code class="calibre20">os.Stdout</code>, it means the template will be written to the output in the terminal:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0453-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Inserting data into templates using actions" data-type="sect1" class="preface"><div class="preface" id="inserting_data_into_templates_using_acti">
+<h1 class="calibre25">Inserting data into templates using actions</h1>
+<p class="calibre7"><a data-primary="{} (curly braces" data-see="curly braces {}" data-type="indexterm" id="idm46062708126296" class="calibre10"/><a data-primary="actions" data-secondary="about" data-type="indexterm" id="idm46062708124792" class="calibre10"/><a data-primary="actions" data-secondary="inserting data into templates with" data-type="indexterm" id="idm46062708123640" class="calibre10"/><a data-primary="curly braces {}" data-type="indexterm" id="idm46062708122568" class="calibre10"/><a data-primary="curly braces {}" data-secondary="actions and" data-type="indexterm" id="idm46062708121768" class="calibre10"/><a data-primary="dot operator (.)" data-secondary="about" data-type="indexterm" id="idm46062708120584" class="calibre10"/><a data-primary="dot value for templates" data-type="indexterm" id="idm46062708119512" class="calibre10"/><a data-primary="HTML templates" data-secondary="inserting data into" data-type="indexterm" id="idm46062708118680" class="calibre10"/>The second parameter to a <code class="calibre20">Template</code> value’s <code class="calibre20">Execute</code> method allows you to pass in data to insert in the template. Its type is the empty interface, meaning you can pass in a value of any type you want.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0454-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">So far, our templates haven’t provided any places to insert data, so we’ve just been passing <code class="calibre20">nil</code> for the data value:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0454-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">To insert data in a template, you add <strong class="calibre8">actions</strong> to the template text. Actions are denoted with double curly braces, <code class="calibre20">{{ }}</code>. Inside the double braces, you specify data you want to insert or an operation you want the template to perform. Whenever the template encounters an action, it will evaluate its contents, and insert the result into the template text in place of the action.</p>
+<p class="calibre7">Within an action, you can reference the data value that was passed to the <code class="calibre20">Execute</code> method with a single period, called “dot.”</p>
+<p class="calibre7">This code sets up a template with a single action. It then calls <code class="calibre20">Execute</code> on the template several times, with a different data value each time. <code class="calibre20">Execute</code> replaces the action with the data value before writing the result to <code class="calibre20">os.Stdout</code>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0454-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><a data-primary="actions" data-secondary="making parts of templates optional with" data-type="indexterm" id="idm46062708104936" class="calibre10"/><a data-primary="{{end}} action marker" data-type="indexterm" id="idm46062708103544" class="calibre10"/><a data-primary="HTML templates" data-secondary="making parts optional" data-type="indexterm" id="idm46062708102696" class="calibre10"/><a data-primary="{{if}} action" data-type="indexterm" id="idm46062708101560" class="calibre10"/><a data-primary="Parse method (text/template)" data-type="indexterm" id="idm46062708100728" class="calibre10"/><a data-primary="text/template package" data-secondary="Parse method" data-type="indexterm" id="idm46062708099896" class="calibre10"/>There are lots of other things you can do with template actions, too. Let’s set up an <code class="calibre20">executeTemplate</code> function that will let us experiment with them more easily. It will take a template string that we’ll pass to <code class="calibre20">Parse</code> to create a new template, and a data value that we’ll pass to <code class="calibre20">Execute</code> on that template. As before, each template will be written to <code class="calibre20">os.Stdout</code>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0455-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">As we mentioned, you can use a single period to refer to “dot,” the current value within the data the template is working with. Although the value of dot can change in various contexts within the template, initially it refers to the value that was passed to <code class="calibre20">Execute</code>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0455-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Making parts of a template optional with “if” actions" data-type="sect1" class="preface"><div class="preface" id="making_parts_of_a_template_optional_with">
+<h1 class="calibre25">Making parts of a template optional with “if” actions</h1>
+<p class="calibre7">A section of a template between an <code class="calibre20">{{if}}</code> action and its corresponding <code class="calibre20">{{end}}</code> marker will be included only if a condition is true. Here we execute the same template text twice, once when dot is <code class="calibre20">true</code> and once when it’s <code class="calibre20">false</code>. Thanks to the <code class="calibre20">{{if}}</code> action, the “Dot is true!” text is only included in the output when dot is <code class="calibre20">true</code>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0455-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Repeating parts of a template with “range” actions" data-type="sect1" class="preface"><div class="preface" id="repeating_parts_of_a_template_with_ldquo">
+<h1 class="calibre25">Repeating parts of a template with “range” actions</h1>
+<p class="calibre7"><a data-primary="actions" data-secondary="repeating parts of templates with" data-type="indexterm" id="idm46062708083544" class="calibre10"/><a data-primary="HTML templates" data-secondary="repeating parts of" data-type="indexterm" id="idm46062708081928" class="calibre10"/><a data-primary="{{range}} action" data-type="indexterm" id="idm46062708080824" class="calibre10"/>A section of a template between a <code class="calibre20">{{range}}</code> action and its corresponding <code class="calibre20">{{end}}</code> marker will be repeated for each value collected in an array, slice, map, or channel. Any actions within that section will also be repeated.</p>
+<p class="calibre7">Within the repeated section, the value of dot will be set to the current element from the collection, allowing you to include each element in the output or do other processing with it.</p>
+<p class="calibre7">This template includes a <code class="calibre20">{{range}}</code> action that will output each element in a slice. Before and after the loop, the value of dot will be the slice itself. But <em class="calibre9">within</em> the loop, dot refers to the current element of the slice. You’ll see this reflected in the output.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0456-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">This template works with a slice of <code class="calibre20">float64</code> values, which it will display as a list of prices.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0456-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">If the value provided to the <code class="calibre20">{{range}}</code> action is empty or <code class="calibre20">nil</code>, the loop won’t be run at all:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0456-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Inserting struct fields into a template with actions" data-type="sect1" class="preface"><div class="preface" id="inserting_struct_fields_into_a_template">
+<h1 class="calibre25">Inserting struct fields into a template with actions</h1>
+<p class="calibre7"><a data-primary="actions" data-secondary="inserting struct fields into templates with" data-type="indexterm" id="idm46062708067736" class="calibre10"/><a data-primary="HTML templates" data-secondary="executing with struct types" data-type="indexterm" id="idm46062708065944" class="calibre10"/><a data-primary="HTML templates" data-secondary="inserting struct fields into" data-type="indexterm" id="idm46062708064824" class="calibre10"/><a data-primary="{{if}} action" data-type="indexterm" id="idm46062708063752" class="calibre10"/><a data-primary="struct types" data-secondary="executing templates with" data-type="indexterm" id="idm46062708062872" class="calibre10"/><a data-primary="struct types" data-secondary="inserting fields into templates with actions" data-type="indexterm" id="idm46062708061800" class="calibre10"/>Simple types usually can’t hold the variety of information needed to fill in a template, though. It’s more common to use struct types when executing a template.</p>
+<p class="calibre7">If the value in dot is a struct, then an action with dot followed by a field name will insert that field’s value in the template. Here we create a <code class="calibre20">Part</code> struct type, then set up a template that will output a <code class="calibre20">Part</code> value’s <code class="calibre20">Name</code> and <code class="calibre20">Count</code> fields:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0457-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Finally, below we declare a <code class="calibre20">Subscriber</code> struct type and a template that prints them. The template will output the <code class="calibre20">Name</code> field regardless, but it uses an <code class="calibre20">{{if}}</code> action to output the <code class="calibre20">Rate</code> field only if the <code class="calibre20">Active</code> field is set to <code class="calibre20">true</code>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0457-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">There’s a lot more you can do with templates, and we don’t have space to cover it all here. To learn more, look up the documentation for the <code class="calibre20">text/template</code> <span class="calibre"/>package:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0457-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Reading a slice of signatures in from a file" data-type="sect1" class="preface"><div class="preface" id="reading_a_slice_of_signatures_in_from_a">
+<h1 class="calibre25">Reading a slice of signatures in from a file</h1>
+<p class="calibre7"><a data-primary="file management" data-secondary="reading slices in from files" data-type="indexterm" id="idm46062708045496" class="calibre10"/><a data-primary="File type (os)" data-type="indexterm" id="idm46062708044152" class="calibre10"/><a data-primary="IsNotExist function (os)" data-type="indexterm" id="idm46062708043304" class="calibre10"/><a data-primary="Open function (os)" data-type="indexterm" id="idm46062708042504" class="calibre10"/><a data-primary="os package" data-secondary="File type" data-type="indexterm" id="idm46062708041592" class="calibre10"/><a data-primary="os package" data-secondary="IsNotExist function" data-type="indexterm" id="idm46062708040520" class="calibre10"/><a data-primary="os package" data-secondary="Open function" data-type="indexterm" id="idm46062708039368" class="calibre10"/><a data-primary="reading text files" data-secondary="reading slices" data-type="indexterm" id="idm46062708038248" class="calibre10"/><a data-primary="slices" data-secondary="reading in from files" data-type="indexterm" id="idm46062708037096" class="calibre10"/><a data-primary="text files" data-secondary="reading slices in from" data-type="indexterm" id="idm46062708035960" class="calibre10"/>Now that we know how to insert data into a template, we’re almost ready to insert signatures into the guestbook page. But first, we’re going to need signatures that we can insert.</p>
+<p class="calibre7">In your project directory, save a few lines of text to a plain-text file named <em class="calibre9">signatures.txt</em>. These are going to serve as our “signatures” for now.</p>
+<p class="calibre7">Now we need the ability to load these signatures into our app. In <em class="calibre9">guestbook.go</em>, add a new <code class="calibre20">getStrings</code> function. This function will work a lot like the <code class="calibre20">datafile.GetStrings</code> function we wrote back in <a data-type="xref" href="ch07_split_000.html#labeling_datacolon_maps" class="calibre10">Chapter 7</a>, reading a file and appending each line to a slice of strings, which it then returns.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0458-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">But there are a couple differences. First, the new <code class="calibre20">getStrings</code> will rely on our <code class="calibre20">check</code> function to report errors rather than returning them.</p>
+<p class="calibre7">Second, if the file doesn’t exist, <code class="calibre20">getStrings</code> will just return <code class="calibre20">nil</code> in place of the slice of strings, rather than reporting an error. It does this by passing any <code class="calibre20">error</code> value it gets from <code class="calibre20">os.Open</code> to the <code class="calibre20">os.IsNotExist</code> function, which will return <code class="calibre20">true</code> if the error indicates that the file doesn’t exist.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0458-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><a data-primary="append built-in function" data-type="indexterm" id="idm46062708022408" class="calibre10"/><a data-primary="{{range}} action" data-type="indexterm" id="idm46062708021272" class="calibre10"/>We’ll also make a small change to the <code class="calibre20">viewHandler</code> function, adding a call to <code class="calibre20">getStrings</code> and a temporary <code class="calibre20">fmt.Printf</code> call to show us what was loaded from the file.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0459-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Let’s try the <code class="calibre20">getStrings</code> function out. In your terminal, change to your project directory, and run <em class="calibre9">guestbook.go</em>. Visit <em class="calibre9"><a href="http://localhost:8080/guestbook" class="calibre10">http://localhost:8080/guestbook</a></em> in your browser, so that the <code class="calibre20">viewHandler</code> function is called. It will call <code class="calibre20">getStrings</code>, which will load and return a slice with the contents of <em class="calibre9">signatures.txt</em>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0459-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="there are no Dumb Questions" data-type="sect1" class="preface"><div class="preface" id="there_are_no_dumb_questions_14">
+<h1 class="calibre25">there are no Dumb Questions</h1>
+<p class="calibre7"><strong class="calibre8">Q: What happens if the signatures.txt file doesn’t exist, and <code class="calibre40">getStrings</code> returns <code class="calibre40">nil</code>? Won’t that cause problems rendering the template?</strong></p>
+<p class="calibre7"><strong class="calibre8">A:</strong> There’s no need to worry. Just as we’ve already seen with the <code class="calibre20">append</code> function, other functions in Go are generally set up to treat <code class="calibre20">nil</code> slices and maps as if they were empty. For example, the <code class="calibre20">len</code> function simply returns <code class="calibre20">0</code> if it’s passed a <code class="calibre20">nil</code> slice:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0459-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">And template actions treat <code class="calibre20">nil</code> slices and maps as if they were empty, too. As we learned, for example, the <code class="calibre20">{{range}}</code> action simply skips outputting its contents if it’s given a <code class="calibre20">nil</code> value. So having <code class="calibre20">getStrings</code> return <code class="calibre20">nil</code> instead of a slice will be fine; if no signatures are loaded from the file, the template will just skip outputting any signatures.</p>
+</div></section>
+<section data-pdf-bookmark="A struct to hold the signatures and signature count" data-type="sect1" class="preface"><div class="preface" id="a_struct_to_hold_the_signatures_and_sign">
+<h1 class="calibre25">A struct to hold the signatures and signature count</h1>
+<p class="calibre7"><a data-primary="struct types" data-secondary="creating" data-type="indexterm" id="idm46062707999240" class="calibre10"/>Now, we could just pass this slice of signatures to our HTML template’s <code class="calibre20">Execute</code> method, and have the signatures inserted into the template. But we also want our main guestbook page to show the <em class="calibre9">number</em> of signatures we’ve received, along with the signatures themselves.</p>
+<p class="calibre7">We only get to pass one value to the template’s <code class="calibre20">Execute</code> method, though. So we’ll need to create a struct type that will hold both the total number of signatures as well as the slice with the signatures themselves.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0460-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Near the top of the <em class="calibre9">guestbook.go</em> file, add a new declaration for a new <code class="calibre20">Guestbook</code> struct type. It should have two fields: a <code class="calibre20">SignatureCount</code> field to hold the number of signatures, and a <code class="calibre20">Signatures</code> field to hold the slice with the signatures themselves.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0460-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Now we need to update <code class="calibre20">viewHandler</code> to create a new <code class="calibre20">Guestbook</code> struct and pass it to the template. First, we won’t be needing the <code class="calibre20">fmt.Printf</code> call that displays the contents of the <code class="calibre20">signatures</code> slice anymore, so remove that. (You’ll also need to remove <code class="calibre20">"fmt"</code> from the <code class="calibre20">import</code> section.) Then, create a new <code class="calibre20">Guestbook</code> value. Set its <code class="calibre20">SignatureCount</code> field to the length of the <code class="calibre20">signatures</code> slice, and set its <code class="calibre20">Signatures</code> field to the <code class="calibre20">signatures</code> slice itself. Finally, we need to actually pass the data into the template. So change the data value being passed as the second argument to the <code class="calibre20">Execute</code> method from <code class="calibre20">nil</code> to our new <code class="calibre20">Guestbook</code> value.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0460-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Updating our template to include our signatures" data-type="sect1" class="preface"><div class="preface" id="updating_our_template_to_include_our_sig">
+<h1 class="calibre25">Updating our template to include our signatures</h1>
+<p class="calibre7"><a data-primary="dot value for templates" data-type="indexterm" id="idm46062707978568" class="calibre10"/><a data-primary="{{end}} action marker" data-type="indexterm" id="idm46062707977112" class="calibre10"/><a data-primary="HTML templates" data-secondary="updating" data-type="indexterm" id="idm46062707976280" class="calibre10"/><a data-primary="{{range}} action" data-type="indexterm" id="idm46062707975176" class="calibre10"/>Now let’s update the template text in <em class="calibre9">view.html</em> to display the list of signatures.</p>
+<p class="calibre7">We’re passing the <code class="calibre20">Guestbook</code> struct into the template’s <code class="calibre20">Execute</code> method, so within the template, dot represents that <code class="calibre20">Guestbook</code> struct. In the first <code class="calibre20">div</code> element, replace the <code class="calibre20">X</code> placeholder in <code class="calibre20">X total signatures</code> with an action that inserts the <code class="calibre20">Guestbook</code>’s <code class="calibre20">SignatureCount</code> field: <code class="calibre20">{{.SignatureCount}}</code>.</p>
+<p class="calibre7">The second <code class="calibre20">div</code> element holds a series of <code class="calibre20">p</code> (paragraph) elements, one for each signature. Use a <code class="calibre20">range</code> action to loop over each signature in the <code class="calibre20">Signatures</code> slice: <code class="calibre20">{{range .Signatures}}</code>. (Don’t forget the corresponding <code class="calibre20">{{end}}</code> marker before the end of the <code class="calibre20">div</code> element.) Within the <code class="calibre20">range</code> action, include a <code class="calibre20">p</code> HTML element with an action that outputs dot nested inside it: <code class="calibre20">&lt;p&gt;{{.}}&lt;/p&gt;</code>. Remember that dot gets set to each element of a slice in turn, so this will cause a <code class="calibre20">p</code> element to be output for each signature in the slice, with its content set to that signature’s text.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0461-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Finally, we can test out our template with our data included! Restart the <em class="calibre9">guestbook.go</em> app, and visit <em class="calibre9"><a href="http://localhost:8080/guestbook" class="calibre10">http://localhost:8080/guestbook</a></em> in your browser again. The response should show your template. The total number of signatures should be at the top, and each signature should appear within its own <code class="calibre20">&lt;p&gt;</code> element!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0461-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="there are no Dumb Questions" data-type="sect1" class="preface"><div class="preface" id="there_are_no_dumb_questions_15">
+<h1 class="calibre25">there are no Dumb Questions</h1>
+<p class="calibre7"><a data-primary="escape sequences" data-type="indexterm" id="idm46062707955960" class="calibre10"/><a data-primary="html/template package" data-secondary="about" data-type="indexterm" id="idm46062707954664" class="calibre10"/><a data-primary="HTML templates" data-secondary="html/template package" data-type="indexterm" id="idm46062707953544" class="calibre10"/><a data-primary="HTML templates" data-secondary="text/template package" data-type="indexterm" id="idm46062707952392" class="calibre10"/><a data-primary="script tag (HTML)" data-type="indexterm" id="idm46062707951272" class="calibre10"/><a data-primary="text/template package" data-secondary="about" data-type="indexterm" id="idm46062707950440" class="calibre10"/><strong class="calibre8">Q: You mentioned the <code class="calibre40">html/template</code> package has some “security features.” What are they?</strong></p>
+<p class="calibre7"><strong class="calibre8">A:</strong> The <code class="calibre20">text/template</code> package inserts values into a template as is, no matter what they contain. But that means that visitors could add HTML code as a “signature,” and it would be treated as part of the page’s HTML.</p>
+<p class="calibre7">You can try this yourself. In <em class="calibre9">guestbook.go</em>, change the <code class="calibre20">html/template</code> import to <code class="calibre20">text/template</code>. (You won’t need to change any other code, because the names of all the functions in the two packages are identical.) Then, add the following as a new line in your <em class="calibre9">signatures.txt</em> file:</p>
+<p class="calibre7"><code class="calibre20">&lt;script&gt;alert("hi!");&lt;/script&gt;</code></p>
+<p class="calibre7">This is an HTML tag containing JavaScript code. If you try running the app and reload the signatures page, you’ll see an annoying alert pop up, because the <code class="calibre20">text/template</code> package included this code in the page as is.</p>
+<p class="calibre7">Now go back to <em class="calibre9">guestbook.go</em>, change the import back to <code class="calibre20">html/template</code>, and restart the app. If you reload the page, instead of an alert pop up, you’ll see text that looks just like the above script tag in the page.</p>
+<p class="calibre7">But that’s because the <code class="calibre20">html/template</code> package automatically “escaped” the HTML, replacing the characters that cause it to be treated as HTML with code that causes it to appear in the page’s text instead (where it’s harmless). Here’s what actually gets inserted into the response:</p>
+<p class="calibre7"><code class="calibre20">&amp;lt;script&amp;gt;alert(&amp;#34;hi!&amp;#34;);&amp;lt;/script&amp;gt;</code></p>
+<p class="calibre7">Inserting script tags like this is just one of many ways unscrupulous users can insert malicious code into your web pages. The <code class="calibre20">html/template</code> package makes it easy to protect against this and many other attacks!</p>
+<aside data-type="sidebar" epub:type="sidebar" class="calibre30"><div class="sidebar" id="exercise_26">
+<h5 class="calibre31"><span class="calibre"><img alt="image" src="assets/common.png" class="calibre4"/></span> Exercise</h5>
+<p class="calibre7">Below is a program that loads an HTML template in from a file, and outputs it to the terminal. Fill in the blanks in the <em class="calibre9">bill.html</em> file so that the program will run and produce the output shown.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0463-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><span class="calibre"><img alt="image" src="assets/arrow.png" class="calibre4"/></span> Answers in <a data-type="xref" href="ch16_split_001.html#exercise_solutions_26" class="calibre10">“<span class="calibre"><img alt="image" src="assets/common1.png" class="calibre4"/></span> Exercise Solution”</a>.</p>
+</div></aside>
+</div></section>
+<section data-pdf-bookmark="Letting users add data with HTML forms" data-type="sect1" class="preface"><div class="preface" id="letting_users_add_data_with_html_forms">
+<h1 class="calibre25">Letting users add data with HTML forms</h1>
+<p class="calibre7"><a data-primary="form tag (HTML)" data-type="indexterm" id="idm46062707929176" class="calibre10"/><a data-primary="HTML forms" data-secondary="users adding data with" data-type="indexterm" id="idm46062707928104" class="calibre10"/><a data-primary="input tag (HTML)" data-type="indexterm" id="idm46062707926952" class="calibre10"/><a data-primary="name attribute (input tag)" data-type="indexterm" id="idm46062707926152" class="calibre10"/><a data-primary="type attribute (input tag)" data-type="indexterm" id="idm46062707925320" class="calibre10"/><a data-primary="user input" data-secondary="via HTML forms" data-type="indexterm" id="idm46062707924552" class="calibre10"/>That’s another task complete. We’re getting close: only two tasks left to go!</p>
+<p class="calibre7">Up next, we need to allow visitors to add their own signature. We’ll need to create an HTML <em class="calibre9">form</em> where they can type a signature in. A form usually provides one or more fields that a user can enter data into, and a submit button that allows them to send the data to the server.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0464-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">In your project directory, create a file called <em class="calibre9">new.html</em> with the HTML code below. There are some tags here that we haven’t seen before:</p>
+<ul class="list_style_type_none">
+<li class="calibre18"><p class="calibre7"><strong class="calibre8"><code class="calibre40">&lt;form&gt;</code></strong>: This element encloses all the other form components.</p></li>
+<li class="calibre18"><p class="calibre7"><strong class="calibre8"><code class="calibre40">&lt;input&gt;</code> with a <code class="calibre40">type</code> attribute of <code class="calibre40">"text"</code></strong>: A text field where the user can enter a string. Its <code class="calibre20">name</code> attribute will be used to label the field’s value in the data sent to the server (kind of like a map key).</p></li>
+<li class="calibre18"><p class="calibre7"><strong class="calibre8"><code class="calibre40">&lt;input&gt;</code> with a <code class="calibre40">type</code> attribute of <code class="calibre40">"submit"</code></strong>: Creates a button that the user can click to submit the form’s data.</p></li>
+</ul>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0464-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">If we were to load this HTML in the browser, it would look like this:</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0464-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Responding with the HTML form" data-type="sect1" class="preface"><div class="preface" id="responding_with_the_html_form">
+<h1 class="calibre25">Responding with the HTML form</h1>
+<p class="calibre7"><a data-primary="functions" data-secondary="handler" data-type="indexterm" id="idm46062707906536" class="calibre10"/><a data-primary="handler functions" data-type="indexterm" id="idm46062707905560" class="calibre10"/><a data-primary="HTML forms" data-secondary="responding with" data-type="indexterm" id="idm46062707904824" class="calibre10"/><a data-primary="web apps" data-secondary="HTML forms and" data-type="indexterm" id="idm46062707903848" class="calibre10"/>We already have an “Add Your Signature” link in <em class="calibre9">view.html</em> that points to a path of <em class="calibre9">/guestbook/new</em>. Clicking on this link will take you to a new path on the same server, so it’s just like typing in this URL:</p>
+<p class="calibre7"><em class="calibre9"><a href="http://localhost:8080/guestbook/new" class="calibre10">http://localhost:8080/guestbook/new</a></em></p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0465-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">But visiting this path right now just responds with the error “404 page not found.” We’ll need to set up the app to respond with the form in <em class="calibre9">new.html</em> when users click the link.</p>
+<p class="calibre7">In <em class="calibre9">guestbook.go</em>, add a <code class="calibre20">newHandler</code> function. It will look much like the early versions of our <code class="calibre20">viewHandler</code> function. Just like <code class="calibre20">viewHandler</code>, <code class="calibre20">newHandler</code> should take an <code class="calibre20">http.ResponseWriter</code> and a pointer to an <code class="calibre20">http.Request</code> as parameters. It should call <code class="calibre20">template.ParseFiles</code> on the <em class="calibre9">new.html</em> file. And then it should call <code class="calibre20">Execute</code> on the resulting template, so that the contents of <em class="calibre9">new.html</em> get written to the HTTP response. We won’t be inserting any data into this template, so we pass <code class="calibre20">nil</code> as the data value for the call to <code class="calibre20">Execute</code>.</p>
+<p class="calibre7">Then we need to ensure that the <code class="calibre20">newHandler</code> function is called when the “Add Your Signature” link is clicked. In the <code class="calibre20">main</code> function, add another call to <code class="calibre20">http.HandleFunc</code>, and set up <code class="calibre20">newHandler</code> as the handler function for requests with a path of <em class="calibre9">/guestbook/new</em>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0465-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">If we save the above code and restart <em class="calibre9">guestbook.go</em>, then click the “Add Your Signature” link, we’ll be taken to the <em class="calibre9">/guestbook/new</em> path. The <code class="calibre20">newHandler</code> function will be called, which will load our form HTML from <em class="calibre9">new.html</em> and include it in the response.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0465-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Form submission requests" data-type="sect1" class="preface"><div class="preface" id="form_submission_requests">
+<h1 class="calibre25">Form submission requests</h1>
+<p class="calibre7"><a data-primary="forms" data-see="HTML forms" data-type="indexterm" id="idm46062707880936" class="calibre10"/><a data-primary="HTML forms" data-type="indexterm" id="idm46062707879352" class="calibre10"/><a data-primary="HTML forms" data-secondary="form submission requests" data-type="indexterm" id="idm46062707878552" class="calibre10"/>We’ve completed yet another task. Just one to go!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0466-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">When someone visits the <em class="calibre9">/guestbook/new</em> path, either by entering it directly or by clicking a link, our form for entering a signature is displayed. But if you fill in that form and click Submit, nothing useful happens.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0466-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">The browser will just make another request for the <em class="calibre9">/guestbook/new</em> path. The content of the <code class="calibre20">"signature"</code> form field will be added as an ugly-looking parameter on the end of the URL. And because our <code class="calibre20">newHandler</code> function doesn’t know how to do anything useful with the form data, it will simply be discarded.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0466-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Our app can respond to requests to display the form, but there’s no way for the form to submit its data back to the app. We’ll need to fix this before we can save visitors’ signatures.</p>
+</div></section>
+<section data-pdf-bookmark="Path and HTTP method for form submissions" data-type="sect1" class="preface"><div class="preface" id="path_and_http_method_for_form_submission">
+<h1 class="calibre25">Path and HTTP method for form submissions</h1>
+<p class="calibre7"><a data-primary="action attribute (form tag)" data-type="indexterm" id="idm46062707867320" class="calibre10"/><a data-primary="form tag (HTML)" data-type="indexterm" id="idm46062707864664" class="calibre10"/><a data-primary="GET method (HTTP)" data-type="indexterm" id="idm46062707864008" class="calibre10"/><a data-primary="HTTP methods" data-type="indexterm" id="idm46062707863128" class="calibre10"/><a data-primary="method attribute (form tag)" data-type="indexterm" id="idm46062707862296" class="calibre10"/><a data-primary="POST method (HTTP)" data-type="indexterm" id="idm46062707861496" class="calibre10"/>Submitting a form actually requires <em class="calibre9">two</em> requests to the server: one to <em class="calibre9">get</em> the form, and a second to <em class="calibre9">send</em> the user’s entries back to the server. Let’s update the form’s HTML to specify where and how this second request should be sent.</p>
+<p class="calibre7">Edit <em class="calibre9">new.html</em>, and add two new HTML attributes to the <code class="calibre20">form</code> element. The first attribute, <code class="calibre20">action</code>, will specify the path to use for the submission request. Instead of letting the path default back to <em class="calibre9">/guestbook/new</em>, we’ll specify a new path: <em class="calibre9">/guestbook/create</em>.</p>
+<p class="calibre7">We’ll also need a second attribute, named <code class="calibre20">method</code>, which should have a value of <code class="calibre20">"POST"</code>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0467-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">That <code class="calibre20">method</code> attribute requires a little explanation... HTTP defines several <em class="calibre9">methods</em> that a request can use. These aren’t the same as methods on a Go value, but the meaning is similar. GET and POST are among the most common methods:</p>
+<ul class="list_style_type_none">
+<li class="calibre18"><p class="calibre7"><strong class="calibre8">GET</strong>: Used when your browser needs to <em class="calibre9">get</em> something from the server, usually because you entered a URL or clicked a link. This could be an HTML page, an image, or some other resource.</p></li>
+<li class="calibre18"><p class="calibre7"><strong class="calibre8">POST</strong>: Used when your browser needs to <em class="calibre9">add</em> some data to the server, usually because you submitted a form with new data.</p></li>
+</ul>
+<p class="calibre7">We’re adding new data to the server: a new guestbook signature. So it seems like we should submit the data using a POST request.</p>
+<p class="calibre7">Forms are submitted using GET requests by default, though. This is why we needed to add a <code class="calibre20">method</code> attribute with a value of <code class="calibre20">"POST"</code> to the <code class="calibre20">form</code> element.</p>
+<p class="calibre7">Now, if we reload the <em class="calibre9">/guestbook/new</em> page and resubmit the form, the request will use a path of <em class="calibre9">/guestbook/create</em> instead. We’ll get a “404 page not found” error, but that’s because we haven’t set up a handler for the <em class="calibre9">/guestbook/create</em> path yet.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0467-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">We’ll also see that the form data is no longer added onto the end of the URL. This is because the form is being submitted using a POST request.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0467-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Getting values of form fields from the request" data-type="sect1" class="preface"><div class="preface" id="getting_values_of_form_fields_from_the_r">
+<h1 class="calibre25">Getting values of form fields from the request</h1>
+<p class="calibre7"><a data-primary="functions" data-secondary="handler" data-type="indexterm" id="idm46062707838024" class="calibre10"/><a data-primary="handler functions" data-type="indexterm" id="idm46062707836312" class="calibre10"/><a data-primary="HTML forms" data-secondary="getting field values from requests" data-type="indexterm" id="idm46062707835512" class="calibre10"/>Now that we’re submitting the form using a POST request, the form data is embedded in the request itself, rather than being appended to the request path as a parameter.</p>
+<p class="calibre7">Let’s address that “404 page not found” error we get when form data is submitted to the <em class="calibre9">/guestbook/create</em> path. When we do, we’ll also see how to access the form data from the POST request.</p>
+<p class="calibre7">As usual, we’ll do this by adding a request handler function. In the <code class="calibre20">main</code> function of <em class="calibre9">guestbook.go</em>, call <code class="calibre20">http.HandleFunc</code>, and assign requests with a path of <code class="calibre20">"/guestbook/create"</code> to a new <code class="calibre20">createHandler</code> function.</p>
+<p class="calibre7">Then add a definition for the <code class="calibre20">createHandler</code> function itself. It should accept an <code class="calibre20">http.ResponseWriter</code> and a pointer to an <code class="calibre20">http.Request</code>, just like the other handler functions.</p>
+<p class="calibre7">Unlike the other handler functions, though, <code class="calibre20">createHandler</code> is meant to work with form data. That data can be accessed through the <code class="calibre20">http.Request</code> pointer that gets passed to the handler function. (That’s right, after ignoring <code class="calibre20">http.Request</code> values all this time, we finally get to use one!)</p>
+<p class="calibre7">For now, let’s just take a look at the data the request contains. Call the <code class="calibre20">FormValue</code> method on the <code class="calibre20">http.Request</code>, and pass it the string <code class="calibre20">"signature"</code>. This will return a string with the value of the <code class="calibre20">"signature"</code> form field. Store it in a variable named <code class="calibre20">signature</code>.</p>
+<p class="calibre7">Let’s write the field value to the response so we can see it in the browser. Call the <code class="calibre20">Write</code> method on the <code class="calibre20">http.ResponseWriter</code>, and pass <code class="calibre20">signature</code> to it (but convert it to a slice of bytes first, of course). As always, <code class="calibre20">Write</code> will return a number of bytes written and an <code class="calibre20">error</code> value. We’ll ignore the number of bytes by assigning it to <code class="calibre20">_</code>, and call <code class="calibre20">check</code> on the <code class="calibre20">error</code>.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0468-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Let’s see if our form submissions are getting through to the <code class="calibre20">createHandler</code> function. Restart <em class="calibre9">guestbook.go</em>, visit the <em class="calibre9">/guestbook/new</em> page, and submit the form again.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0469-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">You’ll be taken to the <em class="calibre9">/guestbook/create</em> path, and instead of a “404 page not found” error, the app will respond with the value you entered in the <code class="calibre20">"signature"</code> field!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0469-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">If you want, you can click your browser’s back button to return to the <em class="calibre9">/guestbook/new</em> page, and try different submissions. Whatever you enter will be echoed to the browser.</p>
+<p class="calibre7">Setting up a handler for HTML form submissions was a big step. We’re getting close!</p>
+</div></section>
+<section data-pdf-bookmark="Saving the form data" data-type="sect1" class="preface"><div class="preface" id="saving_the_form_data">
+<h1 class="calibre25">Saving the form data</h1>
+<p class="calibre7"><a data-primary="File type (os)" data-type="indexterm" id="idm46062707806856" class="calibre10"/><a data-primary="fmt package" data-secondary="Fprintln function" data-type="indexterm" id="idm46062707805896" class="calibre10"/><a data-primary="Fprintln function (fmt)" data-type="indexterm" id="idm46062707804792" class="calibre10"/><a data-primary="HTML forms" data-secondary="saving data" data-type="indexterm" id="idm46062707803960" class="calibre10"/><a data-primary="OpenFile function (os)" data-type="indexterm" id="idm46062707802824" class="calibre10"/><a data-primary="os package" data-secondary="File type" data-type="indexterm" id="idm46062707802024" class="calibre10"/><a data-primary="os package" data-secondary="OpenFile function" data-type="indexterm" id="idm46062707800888" class="calibre10"/><a data-primary="saving form data" data-type="indexterm" id="idm46062707799816" class="calibre10"/>Our <code class="calibre20">createHandler</code> function is receiving the request with the form data, and is able to retrieve the guestbook signature from it. Now all we need to do is add that signature to our <em class="calibre9">signatures.txt</em> file. We’ll handle that within the <code class="calibre20">createHandler</code> function itself.</p>
+<p class="calibre7">First, we’ll get rid of the call to the <code class="calibre20">Write</code> method on the <code class="calibre20">ResponseWriter</code>; we only needed that to confirm we could access the signature form field.</p>
+<p class="calibre7">Now, let’s add the code below. The <code class="calibre20">os.OpenFile</code> function is called in a slightly unusual way, and the details aren’t directly relevant to writing a web app, so we won’t describe it fully here. (See <a data-type="xref" href="app01.html#understanding_osdotopenfile_opening_file" class="calibre10">Appendix A</a> if you want more info.) For now, all you need to know is that this code does three basic things:</p>
+<ol class="calibre27">
+<li class="calibre28"><p class="calibre7">It opens the <em class="calibre9">signatures.txt</em> file, creating it if it doesn’t exist.</p></li>
+<li class="calibre28"><p class="calibre7">It adds a line of text to the end of the file.</p></li>
+<li class="calibre28"><p class="calibre7">It closes the file.</p></li>
+</ol>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0470-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">The <code class="calibre20">fmt.Fprintln</code> function adds a line of text to a file. It takes the file to write to and the string to write (no need to convert to a <code class="calibre20">[]byte</code>) as arguments. Just like the <code class="calibre20">Write</code> methods we saw earlier in this chapter, <code class="calibre20">Fprintln</code> returns the number of bytes successfully written to the file (which we ignore), and any error encountered (which we pass to the <code class="calibre20">check</code> function).</p>
+<p class="calibre7">Finally, we call the <code class="calibre20">Close</code> method on the file. You might notice that we did <em class="calibre9">not</em> use the <code class="calibre20">defer</code> keyword. This is because we’re writing to the file, rather than reading from it. Calling <code class="calibre20">Close</code> on a file you’re writing to can result in errors that we need to handle, and we can’t readily do that if we use <code class="calibre20">defer</code>. So, we simply call <code class="calibre20">Close</code> as part of the regular program flow and then pass its return value to <code class="calibre20">check</code>.</p>
+<p class="calibre7">Save the previous code and restart <em class="calibre9">guestbook.go</em>. Fill in and submit the form on the <em class="calibre9">/guestbook/go</em> page.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0471-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Your browser will load the <em class="calibre9">/guestbook/create</em> path, which shows as a totally blank page now (because <code class="calibre20">createHandler</code> is no longer writing anything to the <code class="calibre20">http.ResponseWriter</code>).</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0471-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">But if you look at the contents of the <em class="calibre9">signatures.txt</em> file, you’ll see a new signature saved at the end!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0471-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">And if you visit the list of signatures at <em class="calibre9">/guestbook</em>, you’ll see the signature count has increased by one, and the new signature appears in the list!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0471-04.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="HTTP redirects" data-type="sect1" class="preface"><div class="preface" id="http_redirects">
+<h1 class="calibre25">HTTP redirects</h1>
+<p class="calibre7"><a data-primary="GET method (HTTP)" data-type="indexterm" id="idm46062707768072" class="calibre10"/><a data-primary="HTTP methods" data-type="indexterm" id="idm46062707766856" class="calibre10"/><a data-primary="net/http package" data-secondary="Redirect function" data-type="indexterm" id="idm46062707766040" class="calibre10"/><a data-primary="POST method (HTTP)" data-type="indexterm" id="idm46062707764904" class="calibre10"/><a data-primary="Redirect function (net/http)" data-type="indexterm" id="idm46062707764072" class="calibre10"/>We have our <code class="calibre20">createHandler</code> function saving new signatures. There’s just one more thing we need to take care of. When a user submits the form, their browser loads the <em class="calibre9">/guestbook/create</em> path, which shows a blank page.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0472-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">There’s nothing useful to show at the <em class="calibre9">/guestbook/create</em> path anyway; it’s just there to accept requests to add a new signature. Instead, let’s have the browser load the <em class="calibre9">/guestbook</em> path, so the user can see their new signature in the guestbook.</p>
+<p class="calibre7">At the end of the <code class="calibre20">createHandler</code> function, we’ll add a call to <code class="calibre20">http.Redirect</code>, which sends a response to the browser directing it to load a different resource than the one it requested. <code class="calibre20">Redirect</code> takes an <code class="calibre20">http.ResponseWriter</code> and a <code class="calibre20">*http.Request</code> as its first two arguments, so we’ll just give it the values from the <code class="calibre20">writer</code> and <code class="calibre20">request</code> parameters to <code class="calibre20">createHandler</code>. Then <code class="calibre20">Redirect</code> needs a string with a path to redirect the browser to; we’ll redirect to <code class="calibre20">"/guestbook"</code>.</p>
+<p class="calibre7">The last argument to <code class="calibre20">Redirect</code> needs to be a status code to give the browser. Every HTTP response needs to include a status code. Our responses so far have had their codes set automatically for us: successful responses had a code of 200 (“OK”), and requests for nonexistent pages had a code of 404 (“Not found”). We need to specify a code for <code class="calibre20">Redirect</code>, though, so we’ll use the constant <code class="calibre20">http.StatusFound</code>, which will cause the redirect response to have a status of 302 (“Found”).</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0472-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Now that we’ve added the call to <code class="calibre20">Redirect</code>, submitting the signature form should work something like this:</p>
+<ol class="calibre27">
+<li class="calibre28"><p class="calibre7">The browser submits an HTTP POST request to the <em class="calibre9">/guestbook/create</em> path.</p></li>
+<li class="calibre28"><p class="calibre7">The app responds with a redirect to <em class="calibre9">/guestbook</em>.</p></li>
+<li class="calibre28"><p class="calibre7">The browser sends a GET request for the <em class="calibre9">/guestbook</em> path.</p></li>
+</ol>
+</div></section>
+<section data-pdf-bookmark="Let’s try it all out!" data-type="sect1" class="preface"><div class="preface" id="letrsquos_try_it_all_outexcl">
+<h1 class="calibre25">Let’s try it all out!</h1>
+<p class="calibre7">Let’s see if the redirect works! Restart <em class="calibre9">guestbook.go</em>, and visit the <em class="calibre9">/guestbook/new</em> path. Fill in the form and submit it.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0473-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">The app will save the form contents to <em class="calibre9">signatures.txt</em>, then immediately redirect the browser to the <em class="calibre9">/guestbook</em> path. When the browser requests <em class="calibre9">/guestbook</em>, the app will load the updated <em class="calibre9">signatures.txt</em> file, and the user will see their new signature in the list!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0473-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">Our app is saving signatures submitted from the form and displaying them along with all the others. All our features are complete.</p>
+<p class="calibre7">It took quite a few components to make it all work, but you now have a usable web app!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0473-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Our complete app code" data-type="sect1" class="preface"><div class="preface" id="our_complete_app_code">
+<h1 class="calibre25">Our complete app code</h1>
+<p class="calibre7">The code for our app has gotten so long, we’ve only been able to look at it in bits and pieces. Let’s take one more moment to look at all the code in one place!</p>
+<p class="calibre7">The <em class="calibre9">guestbook.go</em> file makes up the bulk of the code for the app. (In an app intended for wide use, we might have split some of this code into multiple packages and source files within our Go workspace directory, and you can do that yourself if you want.) We’ve gone through and added comments documenting the <code class="calibre20">Guestbook</code> type and each of the functions.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0474-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"/>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0475-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><a data-primary="dot value for templates" data-type="indexterm" id="idm46062707728792" class="calibre10"/>The <em class="calibre9">view.html</em> file provides the HTML template for the list of signatures. Template actions provide places to insert the number of signatures, as well as the entire signature list.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0476-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">The <em class="calibre9">new.html</em> file simply holds the HTML form for new signatures. No data will be inserted into it, so no template actions are present.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0476-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7">And that’s it—a complete web app that can store user-submitted signatures and retrieve them again later!</p>
+<p class="calibre7">Writing web apps can be complex, but the <code class="calibre20">net/http</code> and <code class="calibre20">html/template</code> packages leverage the power of Go to make the whole process simpler for you!</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0476-03.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></section>
+<section data-pdf-bookmark="Your Go Toolbox" data-type="sect1" class="preface"><div class="preface" id="your_go_toolbox_16">
+<h1 class="calibre25">Your Go Toolbox</h1>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0477-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<p class="calibre7"><strong class="calibre8">That’s it for <a data-type="xref" href="ch16_split_000.html#a_pattern_to_follow_html_templates" class="calibre10">Chapter 16</a>! You’ve added templates to your toolbox.</strong></p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0477-02.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+<aside data-type="sidebar" epub:type="sidebar" class="calibre30"><div class="sidebar" id="Bullet_Points_16">
+<h5 class="calibre31">Bullet Points</h5>
+<ul class="list_style_type_none">
+<li class="calibre18"><p class="calibre7">A template string contains text that will be output verbatim. Within this text, you can insert various <strong class="calibre8">actions</strong> containing simple code that will be evaluated. Actions can be used to insert data into the template text.</p></li>
+<li class="calibre18"><p class="calibre7">A <code class="calibre20">Template</code> value’s <code class="calibre20">Execute</code> method takes a value that satisfies the <code class="calibre20">io.Writer</code> interface, and a data value that can be accessed within actions in the template.</p></li>
+<li class="calibre18"><p class="calibre7">Template actions can reference the data value passed to <code class="calibre20">Execute</code> with <code class="calibre20">{{.}}</code>, referred to as “dot.” The value of dot can change within various contexts in the template.</p></li>
+<li class="calibre18"><p class="calibre7">A section of a template between an <code class="calibre20">{{if}}</code> action and its corresponding <code class="calibre20">{{end}}</code> marker will be included only if a certain condition is true.</p></li>
+<li class="calibre18"><p class="calibre7">A section of a template between a <code class="calibre20">{{range}}</code> action and its corresponding <code class="calibre20">{{end}}</code> marker will be repeated for each value within an array, slice, map, or channel. Any actions within that section will also be repeated.</p></li>
+<li class="calibre18"><p class="calibre7">Within a <code class="calibre20">{{range}}</code> section, the value of dot will be updated to refer to the current element of the collection being processed.</p></li>
+<li class="calibre18"><p class="calibre7">If dot refers to a struct value, the value of fields in that struct can be inserted with <code class="calibre20">{{.FieldName}}</code>.</p></li>
+<li class="calibre18"><p class="calibre7">HTTP GET requests are commonly used when a browser needs to get data from the server.</p></li>
+<li class="calibre18"><p class="calibre7">HTTP POST requests are used when a browser needs to submit new data to the server.</p></li>
+<li class="calibre18"><p class="calibre7">Form data from a request can be accessed using an <code class="calibre20">http.Request</code> value’s <code class="calibre20">FormValue</code> method.</p></li>
+<li class="calibre18"><p class="calibre7">The <code class="calibre20">http.Redirect</code> function can be used to direct the browser to request a different path.</p></li>
+</ul>
+</div></aside>
+<aside data-type="sidebar" epub:type="sidebar" class="calibre30"><div class="sidebar" id="exercise_solutions_26">
+<h5 class="calibre31"><span class="calibre"><img alt="image" src="assets/common1.png" class="calibre4"/></span> Exercise Solution</h5>
+<p class="calibre7">Below is a program that loads an HTML template in from a file, and outputs it to the terminal. Fill in the blanks in the <em class="calibre9">bill.html</em> file so that the program will run and produce the output shown.</p>
+<figure class="informal"><div class="figure">
+<img alt="image" src="assets/f0478-01.png" class="calibre4"/>
+<h6 class="calibre5"/>
+</div></figure>
+</div></aside>
+</div></section>
+</div></section></body></html>

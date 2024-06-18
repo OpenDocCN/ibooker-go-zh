@@ -1,0 +1,862 @@
+<html><head></head><body>
+<div id="sbo-rt-content"><section data-pdf-bookmark="Chapter 5. JSON Recipes" data-type="chapter" epub:type="chapter"><div class="chapter" id="unique_chapter_json">
+<h1><span class="label">Chapter 5. </span>JSON Recipes</h1>
+<aside data-type="sidebar" epub:type="sidebar"><div class="sidebar" id="idm45195514082896">
+<h5>A Note for Early Release Readers</h5>
+<p>With Early Release ebooks, you get books in their earliest form—the author’s raw and unedited content as they write—so you can take advantage of these technologies long before the official release of these titles.</p>
+<p>This will be the 9th chapter of the final book.</p>
+<p>If you have comments about how we might improve the content and/or examples in this book, or if you notice missing material within this chapter, please reach out to the editor at <a href="mailto:sevans@oreilly.com">sevans@oreilly.com</a>.</p>
+</div></aside>
+<section data-pdf-bookmark="5.0 Introduction" data-type="sect1"><div class="sect1" id="idm45195514079856">
+<h1>5.0 Introduction</h1>
+<p>JSON (JavaScript Object Notation) is a lightweight data-interchange text format. It’s meant to be read by humans but also easily read by machines and is based on a subset of JavaScript. JSON was originally defined by Douglas Crockford, but is currently described by RFC 7159, as well as ECMA-404. JSON is popularly used in REST-based web services, although they don’t necessarily need to accept or return JSON data.</p>
+<p>JSON is really popular with RESTful web services but it’s also frequently used for configuration. Creating and consuming JSON is commonplace in many web applications, from getting data from a web service, to authenticating your web application through a third-party authentication service, to controlling other services.</p>
+<p>Go supports JSON in the standard library using the <code>encoding/json</code> package.</p>
+</div></section>
+<section data-pdf-bookmark="5.1 Parsing JSON data byte arrays to structs" data-type="sect1"><div class="sect1" id="idm45195514076992">
+<h1>5.1 Parsing JSON data byte arrays to structs</h1>
+<section data-pdf-bookmark="Problem" data-type="sect2"><div class="sect2" id="idm45195514075952">
+<h2>Problem</h2>
+<p>You want to read JSON data byte arrays and store it into structs.</p>
+</div></section>
+<section data-pdf-bookmark="Solution" data-type="sect2"><div class="sect2" id="idm45195514074368">
+<h2>Solution</h2>
+<p>Create structs to contain the JSON data then use <code>Unmarshal</code> in the <code>encoding/json</code> package to unmarshal the data into the structs.</p>
+</div></section>
+<section data-pdf-bookmark="Discussion" data-type="sect2"><div class="sect2" id="idm45195514071920">
+<h2>Discussion</h2>
+<p>Parsing JSON with the the <code>encoding/json</code> package is straightforward:</p>
+<ol>
+<li>
+<p>Create structs to contain the JSON data</p>
+</li>
+<li>
+<p>Unmarshal the JSON string into the structs</p>
+</li>
+</ol>
+<p>Let’s take a sample JSON file, containing data on the Star Wars character Luke Skywalker, taken from SWAPI, the Star Wars API. You can access this here directly — <a class="bare" href="https://swapi.dev/api/people/1"><em class="hyperlink">https://swapi.dev/api/people/1</em></a>. I have taken the data and stored it in a file named <code>skywalker.json</code></p>
+<pre data-code-language="json" data-type="programlisting"><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="nt">"name"</code><code class="p">:</code><code class="w"> </code><code class="s2">"Luke Skywalker"</code><code class="p">,</code><code class="w"/>
+<code class="w">	</code><code class="nt">"height"</code><code class="p">:</code><code class="w"> </code><code class="s2">"172"</code><code class="p">,</code><code class="w"/>
+<code class="w">	</code><code class="nt">"mass"</code><code class="p">:</code><code class="w"> </code><code class="s2">"77"</code><code class="p">,</code><code class="w"/>
+<code class="w">	</code><code class="nt">"hair_color"</code><code class="p">:</code><code class="w"> </code><code class="s2">"blond"</code><code class="p">,</code><code class="w"/>
+<code class="w">	</code><code class="nt">"skin_color"</code><code class="p">:</code><code class="w"> </code><code class="s2">"fair"</code><code class="p">,</code><code class="w"/>
+<code class="w">	</code><code class="nt">"eye_color"</code><code class="p">:</code><code class="w"> </code><code class="s2">"blue"</code><code class="p">,</code><code class="w"/>
+<code class="w">	</code><code class="nt">"birth_year"</code><code class="p">:</code><code class="w"> </code><code class="s2">"19BBY"</code><code class="p">,</code><code class="w"/>
+<code class="w">	</code><code class="nt">"gender"</code><code class="p">:</code><code class="w"> </code><code class="s2">"male"</code><code class="p">,</code><code class="w"/>
+<code class="w">	</code><code class="nt">"homeworld"</code><code class="p">:</code><code class="w"> </code><code class="s2">"https://swapi.dev/api/planets/1/"</code><code class="p">,</code><code class="w"/>
+<code class="w">	</code><code class="nt">"films"</code><code class="p">:</code><code class="w"> </code><code class="p">[</code><code class="w"/>
+<code class="w">		</code><code class="s2">"https://swapi.dev/api/films/1/"</code><code class="p">,</code><code class="w"/>
+<code class="w">		</code><code class="s2">"https://swapi.dev/api/films/2/"</code><code class="p">,</code><code class="w"/>
+<code class="w">		</code><code class="s2">"https://swapi.dev/api/films/3/"</code><code class="p">,</code><code class="w"/>
+<code class="w">		</code><code class="s2">"https://swapi.dev/api/films/6/"</code><code class="w"/>
+<code class="w">	</code><code class="p">],</code><code class="w"/>
+<code class="w">	</code><code class="nt">"species"</code><code class="p">:</code><code class="w"> </code><code class="p">[],</code><code class="w"/>
+<code class="w">	</code><code class="nt">"vehicles"</code><code class="p">:</code><code class="w"> </code><code class="p">[</code><code class="w"/>
+<code class="w">		</code><code class="s2">"https://swapi.dev/api/vehicles/14/"</code><code class="p">,</code><code class="w"/>
+<code class="w">		</code><code class="s2">"https://swapi.dev/api/vehicles/30/"</code><code class="w"/>
+<code class="w">	</code><code class="p">],</code><code class="w"/>
+<code class="w">	</code><code class="nt">"starships"</code><code class="p">:</code><code class="w"> </code><code class="p">[</code><code class="w"/>
+<code class="w">		</code><code class="s2">"https://swapi.dev/api/starships/12/"</code><code class="p">,</code><code class="w"/>
+<code class="w">		</code><code class="s2">"https://swapi.dev/api/starships/22/"</code><code class="w"/>
+<code class="w">	</code><code class="p">],</code><code class="w"/>
+<code class="w">	</code><code class="nt">"created"</code><code class="p">:</code><code class="w"> </code><code class="s2">"2014-12-09T13:50:51.644000Z"</code><code class="p">,</code><code class="w"/>
+<code class="w">	</code><code class="nt">"edited"</code><code class="p">:</code><code class="w"> </code><code class="s2">"2014-12-20T21:17:56.891000Z"</code><code class="p">,</code><code class="w"/>
+<code class="w">	</code><code class="nt">"url"</code><code class="p">:</code><code class="w"> </code><code class="s2">"https://swapi.dev/api/people/1/"</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>To store the data in the JSON, we can create a struct like this.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">type</code><code class="w"> </code><code class="nx">Person</code><code class="w"> </code><code class="kd">struct</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="nx">Name</code><code class="w">      </code><code class="kt">string</code><code class="w">        </code><code class="s">`json:"name"`</code><code class="w"/>
+<code class="w">	</code><code class="nx">Height</code><code class="w">    </code><code class="kt">string</code><code class="w">        </code><code class="s">`json:"height"`</code><code class="w"/>
+<code class="w">	</code><code class="nx">Mass</code><code class="w">      </code><code class="kt">string</code><code class="w">        </code><code class="s">`json:"mass"`</code><code class="w"/>
+<code class="w">	</code><code class="nx">HairColor</code><code class="w"> </code><code class="kt">string</code><code class="w">        </code><code class="s">`json:"hair_color"`</code><code class="w"/>
+<code class="w">	</code><code class="nx">SkinColor</code><code class="w"> </code><code class="kt">string</code><code class="w">        </code><code class="s">`json:"skin_color"`</code><code class="w"/>
+<code class="w">	</code><code class="nx">EyeColor</code><code class="w">  </code><code class="kt">string</code><code class="w">        </code><code class="s">`json:"eye_color"`</code><code class="w"/>
+<code class="w">	</code><code class="nx">BirthYear</code><code class="w"> </code><code class="kt">string</code><code class="w">        </code><code class="s">`json:"birth_year"`</code><code class="w"/>
+<code class="w">	</code><code class="nx">Gender</code><code class="w">    </code><code class="kt">string</code><code class="w">        </code><code class="s">`json:"gender"`</code><code class="w"/>
+<code class="w">	</code><code class="nx">Homeworld</code><code class="w"> </code><code class="kt">string</code><code class="w">        </code><code class="s">`json:"homeworld"`</code><code class="w"/>
+<code class="w">	</code><code class="nx">Films</code><code class="w">     </code><code class="p">[]</code><code class="kt">string</code><code class="w">      </code><code class="s">`json:"films"`</code><code class="w"/>
+<code class="w">	</code><code class="nx">Species</code><code class="w">   </code><code class="p">[]</code><code class="kt">string</code><code class="w">      </code><code class="s">`json:"species"`</code><code class="w"/>
+<code class="w">	</code><code class="nx">Vehicles</code><code class="w">  </code><code class="p">[]</code><code class="kt">string</code><code class="w">      </code><code class="s">`json:"vehicles"`</code><code class="w"/>
+<code class="w">	</code><code class="nx">Starships</code><code class="w"> </code><code class="p">[]</code><code class="kt">string</code><code class="w">      </code><code class="s">`json:"starships"`</code><code class="w"/>
+<code class="w">	</code><code class="nx">Created</code><code class="w">   </code><code class="nx">time</code><code class="p">.</code><code class="nx">Time</code><code class="w">     </code><code class="s">`json:"created"`</code><code class="w"/>
+<code class="w">	</code><code class="nx">Edited</code><code class="w">    </code><code class="nx">time</code><code class="p">.</code><code class="nx">Time</code><code class="w">     </code><code class="s">`json:"edited"`</code><code class="w"/>
+<code class="w">	</code><code class="nx">URL</code><code class="w">       </code><code class="kt">string</code><code class="w">        </code><code class="s">`json:"url"`</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>The string literal after the definition each field in the struct is called a <em>struct tag</em>. Go determines the mapping between the struct fields and the JSON elements using these struct tags. You don’t need them if your mapping is exactly the same. However as you can see, JSON normally uses snake case (variables with space replaced by underscoe), with lower case characters while in Go we use camel case (variables has no space but separation indicated by a single capitalized letter).</p>
+<p>As you can see from the struct, we can define string slices to store the arrays in the JSON and also use something like <code>time.Time</code> as the data type as well. In fact we can use most Go data types, and even maps (though only maps with strings as keys are supported).</p>
+<p>Unmarshalling the data into the struct is just a single function call, using <code>json.Unmarshal</code>.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">func</code><code class="w"> </code><code class="nx">unmarshal</code><code class="p">()</code><code class="w"> </code><code class="p">(</code><code class="nx">person</code><code class="w"> </code><code class="nx">Person</code><code class="p">)</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="nx">file</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">os</code><code class="p">.</code><code class="nx">Open</code><code class="p">(</code><code class="s">"skywalker.json"</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Error opening json file:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+<code class="w">	</code><code class="k">defer</code><code class="w"> </code><code class="nx">file</code><code class="p">.</code><code class="nx">Close</code><code class="p">()</code><code class="w"/>
+
+<code class="w">	</code><code class="nx">data</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">io</code><code class="p">.</code><code class="nx">ReadAll</code><code class="p">(</code><code class="nx">file</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Error reading json data:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+
+<code class="w">	</code><code class="nx">err</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="nx">json</code><code class="p">.</code><code class="nx">Unmarshal</code><code class="p">(</code><code class="nx">data</code><code class="p">,</code><code class="w"> </code><code class="o">&amp;</code><code class="nx">person</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Error unmarshalling json data:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+<code class="w">	</code><code class="k">return</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>In the code above, after reading the data from the file, we create a <code>Person</code> struct and then unmarshal the data into it using <code>json.Unmarshal</code>.</p>
+<p>The JSON data came from the Star Wars API, so let’s have a bit of fun and grab it directly from the API. We use the <code>http.Get</code> function and pass the URL in, but everything else is the same.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">func</code><code class="w"> </code><code class="nx">unmarshalAPI</code><code class="p">()</code><code class="w"> </code><code class="p">(</code><code class="nx">person</code><code class="w"> </code><code class="nx">Person</code><code class="p">)</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="nx">r</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">http</code><code class="p">.</code><code class="nx">Get</code><code class="p">(</code><code class="s">"https://swapi.dev/api/people/1"</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Cannot get from URL"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+<code class="w">	</code><code class="k">defer</code><code class="w"> </code><code class="nx">r</code><code class="p">.</code><code class="nx">Body</code><code class="p">.</code><code class="nx">Close</code><code class="p">()</code><code class="w"/>
+
+<code class="w">	</code><code class="nx">data</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">io</code><code class="p">.</code><code class="nx">ReadAll</code><code class="p">(</code><code class="nx">r</code><code class="p">.</code><code class="nx">Body</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Error reading json data:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+
+<code class="w">	</code><code class="nx">err</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="nx">json</code><code class="p">.</code><code class="nx">Unmarshal</code><code class="p">(</code><code class="nx">data</code><code class="p">,</code><code class="w"> </code><code class="o">&amp;</code><code class="nx">person</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Error unmarshalling json data:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+<code class="w">	</code><code class="k">return</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>If you print out the <code>Person</code> struct this is what we should get (the output is prettified).</p>
+<pre data-type="programlisting">json.Person{
+    Name:      "Luke Skywalker",
+    Height:    "172",
+    Mass:      "77",
+    HairColor: "blond",
+    SkinColor: "fair",
+    EyeColor:  "blue",
+    BirthYear: "19BBY",
+    Gender:    "male",
+    Homeworld: "https://swapi.dev/api/planets/1/",
+    Films:     {"https://swapi.dev/api/films/1/", "https://swapi.dev/api/films/2/",
+    "https://swapi.dev/api/films/3/", "https://swapi.dev/api/films/6/"},
+    Species:   {},
+    Vehicles:  {"https://swapi.dev/api/vehicles/14/",
+      "https://swapi.dev/api/vehicles/30/"},
+    Starships: {"https://swapi.dev/api/starships/12/",
+      "https://swapi.dev/api/starships/22/"},
+    Created:   time.Date(2014, time.December, 9, 13, 50, 51, 644000000, time.UTC),
+    Edited:    time.Date(2014, time.December, 20, 21, 17, 56, 891000000, time.UTC),
+    URL:       "https://swapi.dev/api/people/1/",
+}</pre>
+</div></section>
+</div></section>
+<section data-pdf-bookmark="5.2 Parsing unstructured JSON data" data-type="sect1"><div class="sect1" id="idm45195513502160">
+<h1>5.2 Parsing unstructured JSON data</h1>
+<section data-pdf-bookmark="Problem" data-type="sect2"><div class="sect2" id="idm45195513501184">
+<h2>Problem</h2>
+<p>You want to parse some JSON data but you don’t know the JSON data’s structure or properties in advance enough to build structs or the keys to the values are dynamic.</p>
+</div></section>
+<section data-pdf-bookmark="Solution" data-type="sect2"><div class="sect2" id="idm45195513396752">
+<h2>Solution</h2>
+<p>We use the same method as before but instead of pre-defined structs, we use a map of strings to empty interfaces to store the data.</p>
+</div></section>
+<section data-pdf-bookmark="Discussion" data-type="sect2"><div class="sect2" id="idm45195513395168">
+<h2>Discussion</h2>
+<p>The structure of the Star Wars API are quite clear. However this isn’t always the case. Sometimes we just don’t know the structure well enough to create structs and documentation is not available. Also, sometimes keys to the values can be dynamic. Take a look at this JSON.</p>
+<pre data-code-language="json" data-type="programlisting"><code class="p">{</code><code class="w"/>
+<code class="w">    </code><code class="nt">"Luke Skywalker"</code><code class="p">:</code><code class="w"> </code><code class="p">[</code><code class="w"/>
+<code class="w">        </code><code class="s2">"https://swapi.dev/api/films/1/"</code><code class="p">,</code><code class="w"/>
+<code class="w">        </code><code class="s2">"https://swapi.dev/api/films/2/"</code><code class="p">,</code><code class="w"/>
+<code class="w">        </code><code class="s2">"https://swapi.dev/api/films/3/"</code><code class="p">,</code><code class="w"/>
+<code class="w">        </code><code class="s2">"https://swapi.dev/api/films/6/"</code><code class="w"/>
+<code class="w">       </code><code class="p">],</code><code class="w"/>
+<code class="w">    </code><code class="nt">"C-3P0"</code><code class="p">:</code><code class="w"> </code><code class="p">[</code><code class="w"/>
+<code class="w">        </code><code class="s2">"https://swapi.dev/api/films/1/"</code><code class="p">,</code><code class="w"/>
+<code class="w">        </code><code class="s2">"https://swapi.dev/api/films/2/"</code><code class="p">,</code><code class="w"/>
+<code class="w">        </code><code class="s2">"https://swapi.dev/api/films/3/"</code><code class="p">,</code><code class="w"/>
+<code class="w">        </code><code class="s2">"https://swapi.dev/api/films/4/"</code><code class="p">,</code><code class="w"/>
+<code class="w">        </code><code class="s2">"https://swapi.dev/api/films/5/"</code><code class="p">,</code><code class="w"/>
+<code class="w">        </code><code class="s2">"https://swapi.dev/api/films/6/"</code><code class="w"/>
+<code class="w">       </code><code class="p">],</code><code class="w"/>
+<code class="w">    </code><code class="nt">"R2D2"</code><code class="p">:</code><code class="w"> </code><code class="p">[</code><code class="w"/>
+<code class="w">        </code><code class="s2">"https://swapi.dev/api/films/1/"</code><code class="p">,</code><code class="w"/>
+<code class="w">        </code><code class="s2">"https://swapi.dev/api/films/2/"</code><code class="p">,</code><code class="w"/>
+<code class="w">        </code><code class="s2">"https://swapi.dev/api/films/3/"</code><code class="p">,</code><code class="w"/>
+<code class="w">        </code><code class="s2">"https://swapi.dev/api/films/4/"</code><code class="p">,</code><code class="w"/>
+<code class="w">        </code><code class="s2">"https://swapi.dev/api/films/5/"</code><code class="p">,</code><code class="w"/>
+<code class="w">        </code><code class="s2">"https://swapi.dev/api/films/6/"</code><code class="w"/>
+<code class="w">       </code><code class="p">],</code><code class="w"/>
+<code class="w">    </code><code class="nt">"Darth Vader"</code><code class="p">:</code><code class="w"> </code><code class="p">[</code><code class="w"/>
+<code class="w">        </code><code class="s2">"https://swapi.dev/api/films/1/"</code><code class="p">,</code><code class="w"/>
+<code class="w">        </code><code class="s2">"https://swapi.dev/api/films/2/"</code><code class="p">,</code><code class="w"/>
+<code class="w">        </code><code class="s2">"https://swapi.dev/api/films/3/"</code><code class="p">,</code><code class="w"/>
+<code class="w">        </code><code class="s2">"https://swapi.dev/api/films/6/"</code><code class="w"/>
+<code class="w">       </code><code class="p">]</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>Obiviously from the JSON, the keys are not consistent and can change with the addition of a character. For such cases, how do we unmarshal the JSON data? Instead of predefined structs, we can use a map of strings to empty interfaces. Let’s look at the code.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">func</code><code class="w"> </code><code class="nx">unstructured</code><code class="p">()</code><code class="w"> </code><code class="p">(</code><code class="nx">output</code><code class="w"> </code><code class="kd">map</code><code class="p">[</code><code class="kt">string</code><code class="p">]</code><code class="kd">interface</code><code class="p">{})</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="nx">file</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">os</code><code class="p">.</code><code class="nx">Open</code><code class="p">(</code><code class="s">"unstructured.json"</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Error opening json file:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+<code class="w">	</code><code class="k">defer</code><code class="w"> </code><code class="nx">file</code><code class="p">.</code><code class="nx">Close</code><code class="p">()</code><code class="w"/>
+
+<code class="w">	</code><code class="nx">data</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">io</code><code class="p">.</code><code class="nx">ReadAll</code><code class="p">(</code><code class="nx">file</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Error reading json data:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+
+<code class="w">	</code><code class="nx">err</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="nx">json</code><code class="p">.</code><code class="nx">Unmarshal</code><code class="p">(</code><code class="nx">data</code><code class="p">,</code><code class="w"> </code><code class="o">&amp;</code><code class="nx">output</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Error unmarshalling json data:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+<code class="w">	</code><code class="k">return</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>Let’s take a look at the output.</p>
+<pre data-type="programlisting">map[string]interface {}{
+    "C-3P0": []interface {}{
+        "https://swapi.dev/api/films/1/",
+        "https://swapi.dev/api/films/2/",
+        "https://swapi.dev/api/films/3/",
+        "https://swapi.dev/api/films/4/",
+        "https://swapi.dev/api/films/5/",
+        "https://swapi.dev/api/films/6/",
+    },
+    "Darth Vader": []interface {}{
+        "https://swapi.dev/api/films/1/",
+        "https://swapi.dev/api/films/2/",
+        "https://swapi.dev/api/films/3/",
+        "https://swapi.dev/api/films/6/",
+    },
+    "Luke Skywalker": []interface {}{
+        "https://swapi.dev/api/films/1/",
+        "https://swapi.dev/api/films/2/",
+        "https://swapi.dev/api/films/3/",
+        "https://swapi.dev/api/films/6/",
+    },
+    "R2D2": []interface {}{
+        "https://swapi.dev/api/films/1/",
+        "https://swapi.dev/api/films/2/",
+        "https://swapi.dev/api/films/3/",
+        "https://swapi.dev/api/films/4/",
+        "https://swapi.dev/api/films/5/",
+        "https://swapi.dev/api/films/6/",
+    },
+}</pre>
+<p>Let’s try the same code on the earlier Luke Skywalker JSON data and see the output.</p>
+<pre data-type="programlisting">map[string]interface {}{
+    "birth_year": "19BBY",
+    "created":    "2014-12-09T13:50:51.644000Z",
+    "edited":     "2014-12-20T21:17:56.891000Z",
+    "eye_color":  "blue",
+    "films":      []interface {}{
+        "https://swapi.dev/api/films/1/",
+        "https://swapi.dev/api/films/2/",
+        "https://swapi.dev/api/films/3/",
+        "https://swapi.dev/api/films/6/",
+    },
+    "gender":     "male",
+    "hair_color": "blond",
+    "height":     "172",
+    "homeworld":  "https://swapi.dev/api/planets/1/",
+    "mass":       "77",
+    "name":       "Luke Skywalker",
+    "skin_color": "fair",
+    "species":    []interface {}{
+    },
+    "starships": []interface {}{
+        "https://swapi.dev/api/starships/12/",
+        "https://swapi.dev/api/starships/22/",
+    },
+    "url":      "https://swapi.dev/api/people/1/",
+    "vehicles": []interface {}{
+        "https://swapi.dev/api/vehicles/14/",
+        "https://swapi.dev/api/vehicles/30/",
+    },
+}</pre>
+<p>You might be thinking that this is much easier and simpler than trying to figure out the structs! Also it’s a lot more forgiving and flexible, why not use this instead? Actually using structs has its advantages. Using empty interfaces essentially make the data structure untyped. Structs can catch errors in the JSON where empty interfaces simply let it go.</p>
+<p>It’s a lot easier to retrieve data from structs than from a map because you know for sure what fields are available. Also you need to do type assertion in order to get the data out of an interface. For example, let’s say we want to get the films that featured Darth Vader above, so you might think you can do this.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">unstruct</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">unstructured</code><code class="p">()</code><code class="w"/>
+<code class="nx">vader</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">unstruct</code><code class="p">[</code><code class="s">"Darth Vader"</code><code class="p">]</code><code class="w"/>
+<code class="nx">first</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">vader</code><code class="p">[</code><code class="mi">0</code><code class="p">]</code><code class="w"/></pre>
+<p>You can’t — you’ll see this error instead.</p>
+<pre data-type="programlisting">invalid operation: vader[0] (type interface {} does not support indexing)</pre>
+<p>This is because the variable <code>vader</code> is an empty interface, you have to type assert it first before you do anything.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">unstruct</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">unstructured</code><code class="p">()</code><code class="w"/>
+<code class="nx">vader</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">unstruct</code><code class="p">[</code><code class="s">"Darth Vader"</code><code class="p">].([]</code><code class="kd">interface</code><code class="p">{})</code><code class="w"/>
+<code class="nx">first</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">vader</code><code class="p">[</code><code class="mi">0</code><code class="p">]</code><code class="w"/></pre>
+<p>You should normally try to use structs and only maps to empty interfaces as a last resort.</p>
+</div></section>
+</div></section>
+<section data-pdf-bookmark="5.3 Parsing JSON data streams into structs" data-type="sect1"><div class="sect1" id="idm45195512893200">
+<h1>5.3 Parsing JSON data streams into structs</h1>
+<section data-pdf-bookmark="Problem" data-type="sect2"><div class="sect2" id="idm45195512892320">
+<h2>Problem</h2>
+<p>You want to parse JSON data from a stream.</p>
+</div></section>
+<section data-pdf-bookmark="Solution" data-type="sect2"><div class="sect2" id="idm45195512847856">
+<h2>Solution</h2>
+<p>Create structs to contain the JSON data. Create a decoder using <code>NewDecoder</code> in the <code>encoding/json</code> package, then call <code>Decode</code> on the decoder to decode data into the structs.</p>
+</div></section>
+<section data-pdf-bookmark="Discussion" data-type="sect2"><div class="sect2" id="idm45195512844960">
+<h2>Discussion</h2>
+<p>Using <code>Unmarshal</code> is simple and straightforward for JSON files or API data. But what happens if the API is streaming JSON data? In that case we can no longer use <code>Unmarshal</code> because <code>Unmarshal</code> needs to read the whole file at once. Instead, the <code>encoding/json</code> package provides a <code>Decoder</code> function for us to handle the data.</p>
+<p>It might be difficult to understand, what’s the difference between JSON data and streaming JSON data so let’s take a look at the difference by comparing 2 different JSON files.</p>
+<p>In this first JSON file we have an array of 3 JSON objects (I truncated part of the data to make it easier to read).</p>
+<pre data-code-language="json" data-type="programlisting"><code class="p">[{</code><code class="w"/>
+<code class="nt">"name"</code><code class="p">:</code><code class="w"> </code><code class="s2">"Luke Skywalker"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"height"</code><code class="p">:</code><code class="w"> </code><code class="s2">"172"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"mass"</code><code class="p">:</code><code class="w"> </code><code class="s2">"77"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"hair_color"</code><code class="p">:</code><code class="w"> </code><code class="s2">"blond"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"skin_color"</code><code class="p">:</code><code class="w"> </code><code class="s2">"fair"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"eye_color"</code><code class="p">:</code><code class="w"> </code><code class="s2">"blue"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"birth_year"</code><code class="p">:</code><code class="w"> </code><code class="s2">"19BBY"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"gender"</code><code class="p">:</code><code class="w"> </code><code class="s2">"male"</code><code class="w"/>
+<code class="p">},</code><code class="w"/>
+<code class="p">{</code><code class="w"/>
+<code class="nt">"name"</code><code class="p">:</code><code class="w"> </code><code class="s2">"C-3PO"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"height"</code><code class="p">:</code><code class="w"> </code><code class="s2">"167"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"mass"</code><code class="p">:</code><code class="w"> </code><code class="s2">"75"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"hair_color"</code><code class="p">:</code><code class="w"> </code><code class="s2">"n/a"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"skin_color"</code><code class="p">:</code><code class="w"> </code><code class="s2">"gold"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"eye_color"</code><code class="p">:</code><code class="w"> </code><code class="s2">"yellow"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"birth_year"</code><code class="p">:</code><code class="w"> </code><code class="s2">"112BBY"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"gender"</code><code class="p">:</code><code class="w"> </code><code class="s2">"n/a"</code><code class="w"/>
+<code class="p">},</code><code class="w"/>
+<code class="p">{</code><code class="w"/>
+<code class="nt">"name"</code><code class="p">:</code><code class="w"> </code><code class="s2">"R2-D2"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"height"</code><code class="p">:</code><code class="w"> </code><code class="s2">"96"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"mass"</code><code class="p">:</code><code class="w"> </code><code class="s2">"32"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"hair_color"</code><code class="p">:</code><code class="w"> </code><code class="s2">"n/a"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"skin_color"</code><code class="p">:</code><code class="w"> </code><code class="s2">"white, blue"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"eye_color"</code><code class="p">:</code><code class="w"> </code><code class="s2">"red"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"birth_year"</code><code class="p">:</code><code class="w"> </code><code class="s2">"33BBY"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"gender"</code><code class="p">:</code><code class="w"> </code><code class="s2">"n/a"</code><code class="w"/>
+<code class="p">}]</code><code class="w"/></pre>
+<p>To read this, we can use <code>Unmarshal</code> by unmarshalling into an array of <code>Person</code> structs.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">func</code><code class="w"> </code><code class="nx">unmarshalStructArray</code><code class="p">()</code><code class="w"> </code><code class="p">(</code><code class="nx">people</code><code class="w"> </code><code class="p">[]</code><code class="nx">Person</code><code class="p">)</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="nx">file</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">os</code><code class="p">.</code><code class="nx">Open</code><code class="p">(</code><code class="s">"people.json"</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Error opening json file:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+<code class="w">	</code><code class="k">defer</code><code class="w"> </code><code class="nx">file</code><code class="p">.</code><code class="nx">Close</code><code class="p">()</code><code class="w"/>
+
+<code class="w">	</code><code class="nx">data</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">io</code><code class="p">.</code><code class="nx">ReadAll</code><code class="p">(</code><code class="nx">file</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Error reading json data:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+
+<code class="w">	</code><code class="nx">err</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="nx">json</code><code class="p">.</code><code class="nx">Unmarshal</code><code class="p">(</code><code class="nx">data</code><code class="p">,</code><code class="w"> </code><code class="o">&amp;</code><code class="nx">people</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Error unmarshalling json data:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+<code class="w">	</code><code class="k">return</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>This will result in an output like this.</p>
+<pre data-type="programlisting">[]json.Person{
+    {
+        Name:      "Luke Skywalker",
+        Height:    "172",
+        Mass:      "77",
+        HairColor: "blond",
+        SkinColor: "fair",
+        EyeColor:  "blue",
+        BirthYear: "19BBY",
+        Gender:    "male",
+        Homeworld: "",
+        Films:     nil,
+        Species:   nil,
+        Vehicles:  nil,
+        Starships: nil,
+        Created:   time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC),
+        Edited:    time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC),
+        URL:       "",
+    },
+    {
+        Name:      "C-3PO",
+        Height:    "167",
+        Mass:      "75",
+        HairColor: "n/a",
+        SkinColor: "gold",
+        EyeColor:  "yellow",
+        BirthYear: "112BBY",
+        Gender:    "n/a",
+        Homeworld: "",
+        Films:     nil,
+        Species:   nil,
+        Vehicles:  nil,
+        Starships: nil,
+        Created:   time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC),
+        Edited:    time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC),
+        URL:       "",
+    },
+    {
+        Name:      "R2-D2",
+        Height:    "96",
+        Mass:      "32",
+        HairColor: "n/a",
+        SkinColor: "white, blue",
+        EyeColor:  "red",
+        BirthYear: "33BBY",
+        Gender:    "n/a",
+        Homeworld: "",
+        Films:     nil,
+        Species:   nil,
+        Vehicles:  nil,
+        Starships: nil,
+        Created:   time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC),
+        Edited:    time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC),
+        URL:       "",
+    },
+}</pre>
+<p>This is an array of Person structs, which we get after unmarshalling a single JSON array. However when we get a stream of JSON objects, this is no longer possible. Let’s look at another JSON file, one that is representative of a JSON data stream.</p>
+<pre data-code-language="json" data-type="programlisting"><code class="p">{</code><code class="w"/>
+<code class="nt">"name"</code><code class="p">:</code><code class="w"> </code><code class="s2">"Luke Skywalker"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"height"</code><code class="p">:</code><code class="w"> </code><code class="s2">"172"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"mass"</code><code class="p">:</code><code class="w"> </code><code class="s2">"77"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"hair_color"</code><code class="p">:</code><code class="w"> </code><code class="s2">"blond"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"skin_color"</code><code class="p">:</code><code class="w"> </code><code class="s2">"fair"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"eye_color"</code><code class="p">:</code><code class="w"> </code><code class="s2">"blue"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"birth_year"</code><code class="p">:</code><code class="w"> </code><code class="s2">"19BBY"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"gender"</code><code class="p">:</code><code class="w"> </code><code class="s2">"male"</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+<code class="p">{</code><code class="w"/>
+<code class="nt">"name"</code><code class="p">:</code><code class="w"> </code><code class="s2">"C-3PO"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"height"</code><code class="p">:</code><code class="w"> </code><code class="s2">"167"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"mass"</code><code class="p">:</code><code class="w"> </code><code class="s2">"75"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"hair_color"</code><code class="p">:</code><code class="w"> </code><code class="s2">"n/a"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"skin_color"</code><code class="p">:</code><code class="w"> </code><code class="s2">"gold"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"eye_color"</code><code class="p">:</code><code class="w"> </code><code class="s2">"yellow"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"birth_year"</code><code class="p">:</code><code class="w"> </code><code class="s2">"112BBY"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"gender"</code><code class="p">:</code><code class="w"> </code><code class="s2">"n/a"</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+<code class="p">{</code><code class="w"/>
+<code class="nt">"name"</code><code class="p">:</code><code class="w"> </code><code class="s2">"R2-D2"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"height"</code><code class="p">:</code><code class="w"> </code><code class="s2">"96"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"mass"</code><code class="p">:</code><code class="w"> </code><code class="s2">"32"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"hair_color"</code><code class="p">:</code><code class="w"> </code><code class="s2">"n/a"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"skin_color"</code><code class="p">:</code><code class="w"> </code><code class="s2">"white, blue"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"eye_color"</code><code class="p">:</code><code class="w"> </code><code class="s2">"red"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"birth_year"</code><code class="p">:</code><code class="w"> </code><code class="s2">"33BBY"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"gender"</code><code class="p">:</code><code class="w"> </code><code class="s2">"n/a"</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>Notice that this is not a single JSON object but 3 consecutive JSON objects. This is no longer a valid JSON file but it’s something you can get when you read the <code>Body</code> of a <code>http.Response</code> struct. If you try to read this using <code>Unmarshal</code> you will get an error output.</p>
+<pre data-type="programlisting">Error unmarshalling json data: invalid character '{' after top-level value</pre>
+<p>However, you can parse it by decoding it using a <code>Decoder</code>.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">func</code><code class="w"> </code><code class="nx">decode</code><code class="p">(</code><code class="nx">p</code><code class="w"> </code><code class="kd">chan</code><code class="w"> </code><code class="nx">Person</code><code class="p">)</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="nx">file</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">os</code><code class="p">.</code><code class="nx">Open</code><code class="p">(</code><code class="s">"people_stream.json"</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Error opening json file:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+<code class="w">	</code><code class="k">defer</code><code class="w"> </code><code class="nx">file</code><code class="p">.</code><code class="nx">Close</code><code class="p">()</code><code class="w"/>
+
+<code class="w">	</code><code class="nx">decoder</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">json</code><code class="p">.</code><code class="nx">NewDecoder</code><code class="p">(</code><code class="nx">file</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">for</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="kd">var</code><code class="w"> </code><code class="nx">person</code><code class="w"> </code><code class="nx">Person</code><code class="w"/>
+<code class="w">		</code><code class="nx">err</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="nx">decoder</code><code class="p">.</code><code class="nx">Decode</code><code class="p">(</code><code class="o">&amp;</code><code class="nx">person</code><code class="p">)</code><code class="w"/>
+<code class="w">		</code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">==</code><code class="w"> </code><code class="nx">io</code><code class="p">.</code><code class="nx">EOF</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">			</code><code class="k">break</code><code class="w"/>
+<code class="w">		</code><code class="p">}</code><code class="w"/>
+<code class="w">		</code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">			</code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Error decoding json data:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="w">			</code><code class="k">break</code><code class="w"/>
+<code class="w">		</code><code class="p">}</code><code class="w"/>
+<code class="w">		</code><code class="nx">p</code><code class="w"> </code><code class="o">&lt;-</code><code class="w"> </code><code class="nx">person</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+<code class="w">	</code><code class="nb">close</code><code class="p">(</code><code class="nx">p</code><code class="p">)</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>First, we create a decoder using <code>json.NewDecoder</code> and passing it the reader, in this case it’s the file we read from. Then while we’re looping in the <code>for</code> loop, we call <code>Decode</code> on the decoder, passing it the struct we want to store the data in. If all goes well, every time it loops, a new <code>Person</code> struct is created from the data. We can use the data then. If there’s no more data in the reader, i.e. we hit <code>io.EOF</code>, we’ll break from the for loop.</p>
+<p>In the case of the code above, we pass in a channel, in which we store the <code>Person</code> struct every loop. When we’re done with reading all the JSON in the file, we’ll close the channel.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">func</code><code class="w"> </code><code class="nx">main</code><code class="p">()</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="nx">p</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nb">make</code><code class="p">(</code><code class="kd">chan</code><code class="w"> </code><code class="nx">Person</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">go</code><code class="w"> </code><code class="nx">decode</code><code class="p">(</code><code class="nx">p</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">for</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="nx">person</code><code class="p">,</code><code class="w"> </code><code class="nx">ok</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="o">&lt;-</code><code class="nx">p</code><code class="w"/>
+<code class="w">		</code><code class="k">if</code><code class="w"> </code><code class="nx">ok</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">            </code><code class="nx">fmt</code><code class="p">.</code><code class="nx">Printf</code><code class="p">(</code><code class="s">"%# v\n"</code><code class="p">,</code><code class="w"> </code><code class="nx">pretty</code><code class="p">.</code><code class="nx">Formatter</code><code class="p">(</code><code class="nx">person</code><code class="p">))</code><code class="w"/>
+<code class="w">		</code><code class="p">}</code><code class="w"> </code><code class="k">else</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">			</code><code class="k">break</code><code class="w"/>
+<code class="w">		</code><code class="p">}</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>Here’s the output from the code above.</p>
+<pre data-type="programlisting">json.Person{
+    Name:      "Luke Skywalker",
+    Height:    "172",
+    Mass:      "77",
+    HairColor: "blond",
+    SkinColor: "fair",
+    EyeColor:  "blue",
+    BirthYear: "19BBY",
+    Gender:    "male",
+    Homeworld: "",
+    Films:     nil,
+    Species:   nil,
+    Vehicles:  nil,
+    Starships: nil,
+    Created:   time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC),
+    Edited:    time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC),
+    URL:       "",
+}
+json.Person{
+    Name:      "C-3PO",
+    Height:    "167",
+    Mass:      "75",
+    HairColor: "n/a",
+    SkinColor: "gold",
+    EyeColor:  "yellow",
+    BirthYear: "112BBY",
+    Gender:    "n/a",
+    Homeworld: "",
+    Films:     nil,
+    Species:   nil,
+    Vehicles:  nil,
+    Starships: nil,
+    Created:   time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC),
+    Edited:    time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC),
+    URL:       "",
+}
+json.Person{
+    Name:      "R2-D2",
+    Height:    "96",
+    Mass:      "32",
+    HairColor: "n/a",
+    SkinColor: "white, blue",
+    EyeColor:  "red",
+    BirthYear: "33BBY",
+    Gender:    "n/a",
+    Homeworld: "",
+    Films:     nil,
+    Species:   nil,
+    Vehicles:  nil,
+    Starships: nil,
+    Created:   time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC),
+    Edited:    time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC),
+    URL:       "",
+}</pre>
+<p>You can see that there are 3 <code>Person</code> structs being printed out here, one after another, as opposed to the earlier one where it was an array of <code>Person</code> structs.</p>
+<p>A question that sometimes arises is when should we use <code>Unmarshal</code> and when should we use <code>Decode</code>?</p>
+<p><code>Unmarshal</code> is easier to use for a single JSON object but it won’t work when you have a stream of them coming in from a reader. Also, its simplicity means it’s not as flexible, you just get the whole JSON data at a go.</p>
+<p><code>Decode</code> on the other hand, works well for both single JSON object or streaming JSON data. Also, with <code>Decode</code> you can you can do stuff with the JSON at a finer level without needing to get the entire JSON data out first. This is because you can inspect the JSON as it comes in, even at a token level. However the slight drawback is that it is more verbose.</p>
+<p>In addition, <code>Decode</code> is a bit faster. Let’s do a quick benchmarking test on both.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">var</code><code class="w"> </code><code class="nx">luke</code><code class="w"> </code><code class="p">[]</code><code class="kt">byte</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="p">[]</code><code class="nb">byte</code><code class="p">(</code><code class="w"/>
+<code class="w">	</code><code class="s">`{</code>
+<code class="s">	"name": "Luke Skywalker",</code>
+<code class="s">	"height": "172",</code>
+<code class="s">	"mass": "77",</code>
+<code class="s">	"hair_color": "blond",</code>
+<code class="s">	"skin_color": "fair",</code>
+<code class="s">	"eye_color": "blue",</code>
+<code class="s">	"birth_year": "19BBY",</code>
+<code class="s">	"gender": "male"</code>
+<code class="s">}`</code><code class="p">)</code><code class="w"/>
+
+<code class="kd">func</code><code class="w"> </code><code class="nx">BenchmarkUnmarshal</code><code class="p">(</code><code class="nx">b</code><code class="w"> </code><code class="o">*</code><code class="nx">testing</code><code class="p">.</code><code class="nx">B</code><code class="p">)</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="kd">var</code><code class="w"> </code><code class="nx">person</code><code class="w"> </code><code class="nx">Person</code><code class="w"/>
+<code class="w">	</code><code class="nx">b</code><code class="p">.</code><code class="nx">ResetTimer</code><code class="p">()</code><code class="w"/>
+<code class="w">	</code><code class="k">for</code><code class="w"> </code><code class="nx">i</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="mi">0</code><code class="p">;</code><code class="w"> </code><code class="nx">i</code><code class="w"> </code><code class="p">&lt;</code><code class="w"> </code><code class="nx">b</code><code class="p">.</code><code class="nx">N</code><code class="p">;</code><code class="w"> </code><code class="nx">i</code><code class="o">++</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="nx">json</code><code class="p">.</code><code class="nx">Unmarshal</code><code class="p">(</code><code class="nx">luke</code><code class="p">,</code><code class="w"> </code><code class="o">&amp;</code><code class="nx">person</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+
+<code class="kd">func</code><code class="w"> </code><code class="nx">BenchmarkDecode</code><code class="p">(</code><code class="nx">b</code><code class="w"> </code><code class="o">*</code><code class="nx">testing</code><code class="p">.</code><code class="nx">B</code><code class="p">)</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="kd">var</code><code class="w"> </code><code class="nx">person</code><code class="w"> </code><code class="nx">Person</code><code class="w"/>
+<code class="w">	</code><code class="nx">data</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">bytes</code><code class="p">.</code><code class="nx">NewReader</code><code class="p">(</code><code class="nx">luke</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="nx">decoder</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">json</code><code class="p">.</code><code class="nx">NewDecoder</code><code class="p">(</code><code class="nx">data</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="nx">b</code><code class="p">.</code><code class="nx">ResetTimer</code><code class="p">()</code><code class="w"/>
+<code class="w">	</code><code class="k">for</code><code class="w"> </code><code class="nx">i</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="mi">0</code><code class="p">;</code><code class="w"> </code><code class="nx">i</code><code class="w"> </code><code class="p">&lt;</code><code class="w"> </code><code class="nx">b</code><code class="p">.</code><code class="nx">N</code><code class="p">;</code><code class="w"> </code><code class="nx">i</code><code class="o">++</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="nx">decoder</code><code class="p">.</code><code class="nx">Decode</code><code class="p">(</code><code class="o">&amp;</code><code class="nx">person</code><code class="p">)</code><code class="w"/>
+<code class="w">		</code><code class="nx">data</code><code class="p">.</code><code class="nx">Seek</code><code class="p">(</code><code class="mi">0</code><code class="p">,</code><code class="w"> </code><code class="mi">0</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>Here’s we’re benchmarking <code>Unmarshal</code> and <code>Decode</code> using the standard Go benchmarking tool. To make sure we’re benchmarking properly we reset the timer just before we run the iterations that test the performance of <code>Unmarshal</code> and <code>Decode</code>. We place the creation of the decoder before the benchmarking because we only need to create the decoder once, since it’s going to wrap around the reader that’s streaming data in. However because once <code>Decode</code> is called, we need to move the offset to the start for the next benchmarking loop.</p>
+<p>We run this in the command line to start the benchmarking.</p>
+<pre data-type="programlisting">$ go test -bench=. -benchmem</pre>
+<p>And this is the result.</p>
+<pre data-type="programlisting">goos: darwin
+goarch: amd64
+pkg: github.com/sausheong/gocookbook/ch10_json
+cpu: Intel(R) Core(TM) i7-7920HQ CPU @ 3.10GHz
+BenchmarkUnmarshal-8   	  437274	  2494 ns/op     272 B/op    12 allocs/op
+BenchmarkDecode-8      	  486051	  2368 ns/op      48 B/op     8 allocs/op
+PASS
+ok  	github.com/sausheong/gocookbook/ch10_json	6.242s</pre>
+<p>As you can see, <code>Decode</code> is only a bit faster, taking 2258 ns/op (nanoseconds per operation) while <code>Unmarshal</code> takes 2418 ns/op. However, <code>Decode</code> only uses 48 B/op (bytes per operation), considerably less than <code>Unmarshal</code> which uses 272 B/op.</p>
+</div></section>
+</div></section>
+<section data-pdf-bookmark="5.4 Creating JSON data byte arrays from structs" data-type="sect1"><div class="sect1" id="idm45195512843888">
+<h1>5.4 Creating JSON data byte arrays from structs</h1>
+<section data-pdf-bookmark="Problem" data-type="sect2"><div class="sect2" id="idm45195511675696">
+<h2>Problem</h2>
+<p>You want to create JSON data from a struct.</p>
+</div></section>
+<section data-pdf-bookmark="Solution" data-type="sect2"><div class="sect2" id="idm45195511674112">
+<h2>Solution</h2>
+<p>Create the structs then use the <code>json.Marshal</code> package to marshal the data into a JSON byte array.</p>
+</div></section>
+<section data-pdf-bookmark="Discussion" data-type="sect2"><div class="sect2" id="idm45195511672048">
+<h2>Discussion</h2>
+<p>Creating JSON data is essentially the reverse of parsing it:</p>
+<ol>
+<li>
+<p>Create structs that you will use to marshal data from</p>
+</li>
+<li>
+<p>Marshal the data into a JSON string using <code>json.Marshal</code> or <code>json.MarshalIndent</code></p>
+</li>
+</ol>
+<p>We will be re-using the same structs as the previous recipe for parsing JSON. We’ll also use the function used to unmarshal JSON data from the Star Wars API.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">func</code><code class="w"> </code><code class="nx">main</code><code class="p">()</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="nx">person</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">get</code><code class="p">(</code><code class="s">"https://swapi.dev/api/people/14"</code><code class="p">)</code><code class="w"/>
+
+<code class="w">	</code><code class="nx">data</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">json</code><code class="p">.</code><code class="nx">Marshal</code><code class="p">(</code><code class="o">&amp;</code><code class="nx">person</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Cannot marshal person:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+<code class="w">	</code><code class="nx">err</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="nx">os</code><code class="p">.</code><code class="nx">WriteFile</code><code class="p">(</code><code class="s">"han.json"</code><code class="p">,</code><code class="w"> </code><code class="nx">data</code><code class="p">,</code><code class="w"> </code><code class="mo">0644</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Cannot write to file"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+
+<code class="kd">func</code><code class="w"> </code><code class="nx">get</code><code class="p">(</code><code class="nx">url</code><code class="w"> </code><code class="kt">string</code><code class="p">)</code><code class="w"> </code><code class="nx">Person</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="nx">r</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">http</code><code class="p">.</code><code class="nx">Get</code><code class="p">(</code><code class="nx">url</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Cannot get from URL"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+<code class="w">	</code><code class="k">defer</code><code class="w"> </code><code class="nx">r</code><code class="p">.</code><code class="nx">Body</code><code class="p">.</code><code class="nx">Close</code><code class="p">()</code><code class="w"/>
+
+<code class="w">	</code><code class="nx">data</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">os</code><code class="p">.</code><code class="nx">ReadAll</code><code class="p">(</code><code class="nx">r</code><code class="p">.</code><code class="nx">Body</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Error reading json data:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+
+<code class="w">	</code><code class="kd">var</code><code class="w"> </code><code class="nx">person</code><code class="w"> </code><code class="nx">Person</code><code class="w"/>
+<code class="w">	</code><code class="nx">json</code><code class="p">.</code><code class="nx">Unmarshal</code><code class="p">(</code><code class="nx">data</code><code class="p">,</code><code class="w"> </code><code class="o">&amp;</code><code class="nx">person</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">return</code><code class="w"> </code><code class="nx">person</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>The <code>get</code> function returns a <code>Person</code> struct that we can use for marshalling to a file. The <code>json.Marshal</code> function takes the data in the struct and returns a byte array, <code>data</code>, containing the JSON string. If you just want it as a string, you can cast it to a string and use it. Here, we pass it on to <code>os.WriteFile</code> to create a new JSON file.</p>
+<pre data-code-language="json" data-type="programlisting"><code class="p">{</code><code class="nt">"name"</code><code class="p">:</code><code class="s2">"Han Solo"</code><code class="p">,</code><code class="nt">"height"</code><code class="p">:</code><code class="s2">"180"</code><code class="p">,</code><code class="nt">"mass"</code><code class="p">:</code><code class="s2">"80"</code><code class="p">,</code><code class="nt">"hair_color"</code><code class="p">:</code><code class="s2">"brown"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"skin_color"</code><code class="p">:</code><code class="s2">"fair"</code><code class="p">,</code><code class="nt">"eye_color"</code><code class="p">:</code><code class="s2">"brown"</code><code class="p">,</code><code class="nt">"birth_year"</code><code class="p">:</code><code class="s2">"29BBY"</code><code class="p">,</code><code class="nt">"gender"</code><code class="p">:</code><code class="s2">"male"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"homeworld"</code><code class="p">:</code><code class="s2">"https://swapi.dev/api/planets/22/"</code><code class="p">,</code><code class="nt">"films"</code><code class="p">:</code><code class="w"/>
+<code class="p">[</code><code class="s2">"https://swapi.dev/api/films/1/"</code><code class="p">,</code><code class="s2">"https://swapi.dev/api/films/2/"</code><code class="p">,</code><code class="w"/>
+<code class="s2">"https://swapi.dev/api/films/3/"</code><code class="p">],</code><code class="nt">"species"</code><code class="p">:[],</code><code class="nt">"vehicles"</code><code class="p">:[],</code><code class="nt">"starships"</code><code class="p">:</code><code class="w"/>
+<code class="p">[</code><code class="s2">"https://swapi.dev/api/starships/10/"</code><code class="p">,</code><code class="s2">"https://swapi.dev/api/starships/22/"</code><code class="p">],</code><code class="w"/>
+<code class="nt">"created"</code><code class="p">:</code><code class="s2">"2014-12-10T16:49:14.582Z"</code><code class="p">,</code><code class="nt">"edited"</code><code class="p">:</code><code class="s2">"2014-12-20T21:17:50.334Z"</code><code class="p">,</code><code class="w"/>
+<code class="nt">"url"</code><code class="p">:</code><code class="s2">"https://swapi.dev/api/people/14/"</code><code class="p">}</code><code class="w"/></pre>
+<p>This is not really very readable. If you want to a more readable version, you can use <code>json.MarshalIndent</code> instead. You need to put in two more parameters, the first is the prefix, and the second is the indent. Mostly if you want to have a clean JSON output, the prefix is just an empty string while the indent is a single space.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">data</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">json</code><code class="p">.</code><code class="nx">MarshalIndent</code><code class="p">(</code><code class="o">&amp;</code><code class="nx">person</code><code class="p">,</code><code class="w"> </code><code class="s">""</code><code class="p">,</code><code class="w"> </code><code class="s">" "</code><code class="p">)</code><code class="w"/></pre>
+<p>This will produce a more readable version.</p>
+<pre data-code-language="json" data-type="programlisting"><code class="p">{</code><code class="w"/>
+<code class="w"> </code><code class="nt">"name"</code><code class="p">:</code><code class="w"> </code><code class="s2">"Han Solo"</code><code class="p">,</code><code class="w"/>
+<code class="w"> </code><code class="nt">"height"</code><code class="p">:</code><code class="w"> </code><code class="s2">"180"</code><code class="p">,</code><code class="w"/>
+<code class="w"> </code><code class="nt">"mass"</code><code class="p">:</code><code class="w"> </code><code class="s2">"80"</code><code class="p">,</code><code class="w"/>
+<code class="w"> </code><code class="nt">"hair_color"</code><code class="p">:</code><code class="w"> </code><code class="s2">"brown"</code><code class="p">,</code><code class="w"/>
+<code class="w"> </code><code class="nt">"skin_color"</code><code class="p">:</code><code class="w"> </code><code class="s2">"fair"</code><code class="p">,</code><code class="w"/>
+<code class="w"> </code><code class="nt">"eye_color"</code><code class="p">:</code><code class="w"> </code><code class="s2">"brown"</code><code class="p">,</code><code class="w"/>
+<code class="w"> </code><code class="nt">"birth_year"</code><code class="p">:</code><code class="w"> </code><code class="s2">"29BBY"</code><code class="p">,</code><code class="w"/>
+<code class="w"> </code><code class="nt">"gender"</code><code class="p">:</code><code class="w"> </code><code class="s2">"male"</code><code class="p">,</code><code class="w"/>
+<code class="w"> </code><code class="nt">"homeworld"</code><code class="p">:</code><code class="w"> </code><code class="s2">"https://swapi.dev/api/planets/22/"</code><code class="p">,</code><code class="w"/>
+<code class="w"> </code><code class="nt">"films"</code><code class="p">:</code><code class="w"> </code><code class="p">[</code><code class="w"/>
+<code class="w">  </code><code class="s2">"https://swapi.dev/api/films/1/"</code><code class="p">,</code><code class="w"/>
+<code class="w">  </code><code class="s2">"https://swapi.dev/api/films/2/"</code><code class="p">,</code><code class="w"/>
+<code class="w">  </code><code class="s2">"https://swapi.dev/api/films/3/"</code><code class="w"/>
+<code class="w"> </code><code class="p">],</code><code class="w"/>
+<code class="w"> </code><code class="nt">"species"</code><code class="p">:</code><code class="w"> </code><code class="p">[],</code><code class="w"/>
+<code class="w"> </code><code class="nt">"vehicles"</code><code class="p">:</code><code class="w"> </code><code class="p">[],</code><code class="w"/>
+<code class="w"> </code><code class="nt">"starships"</code><code class="p">:</code><code class="w"> </code><code class="p">[</code><code class="w"/>
+<code class="w">  </code><code class="s2">"https://swapi.dev/api/starships/10/"</code><code class="p">,</code><code class="w"/>
+<code class="w">  </code><code class="s2">"https://swapi.dev/api/starships/22/"</code><code class="w"/>
+<code class="w"> </code><code class="p">],</code><code class="w"/>
+<code class="w"> </code><code class="nt">"created"</code><code class="p">:</code><code class="w"> </code><code class="s2">"2014-12-10T16:49:14.582Z"</code><code class="p">,</code><code class="w"/>
+<code class="w"> </code><code class="nt">"edited"</code><code class="p">:</code><code class="w"> </code><code class="s2">"2014-12-20T21:17:50.334Z"</code><code class="p">,</code><code class="w"/>
+<code class="w"> </code><code class="nt">"url"</code><code class="p">:</code><code class="w"> </code><code class="s2">"https://swapi.dev/api/people/14/"</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+</div></section>
+</div></section>
+<section data-pdf-bookmark="5.5 Creating JSON data streams from structs" data-type="sect1"><div class="sect1" id="idm45195511086432">
+<h1>5.5 Creating JSON data streams from structs</h1>
+<section data-pdf-bookmark="Problem" data-type="sect2"><div class="sect2" id="idm45195511085504">
+<h2>Problem</h2>
+<p>You want to create streaming JSON data from structs.</p>
+</div></section>
+<section data-pdf-bookmark="Solution" data-type="sect2"><div class="sect2" id="idm45195511018944">
+<h2>Solution</h2>
+<p>Create an encoder using <code>NewEncoder</code> in the <code>encoding/json</code> package, passing it an <code>io.Writer</code>. Then call <code>Encode</code> on the encoder to encode structs data to a stream.</p>
+</div></section>
+<section data-pdf-bookmark="Discussion" data-type="sect2"><div class="sect2" id="idm45195511015536">
+<h2>Discussion</h2>
+<p>The <code>io.Writer</code> interface has a <code>Write</code> method that writes bytes to the underlying data stream. We use <code>NewEncoder</code> to create an encoder that wraps around a writer. When we call <code>Encode</code> on the encoder, it will write the JSON struct on to the writer.</p>
+<p>To show this properly we’ll need to have some JSON structs. I’ll use the same Star Wars people API as before to create the structs.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">func</code><code class="w"> </code><code class="nx">get</code><code class="p">(</code><code class="nx">url</code><code class="w"> </code><code class="kt">string</code><code class="p">)</code><code class="w"> </code><code class="p">(</code><code class="nx">person</code><code class="w"> </code><code class="nx">Person</code><code class="p">)</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="nx">r</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">http</code><code class="p">.</code><code class="nx">Get</code><code class="p">(</code><code class="nx">r</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">http</code><code class="p">.</code><code class="nx">Get</code><code class="p">(</code><code class="s">"https://swapi.dev/api/people/"</code><code class="w"> </code><code class="o">+</code><code class="w"/>
+<code class="w">      </code><code class="nx">strconv</code><code class="p">.</code><code class="nx">Itoa</code><code class="p">(</code><code class="nx">n</code><code class="p">)))</code><code class="w"/>
+<code class="w">	</code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Cannot get from URL"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+<code class="w">	</code><code class="k">defer</code><code class="w"> </code><code class="nx">r</code><code class="p">.</code><code class="nx">Body</code><code class="p">.</code><code class="nx">Close</code><code class="p">()</code><code class="w"/>
+
+<code class="w">	</code><code class="nx">data</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">os</code><code class="p">.</code><code class="nx">ReadAll</code><code class="p">(</code><code class="nx">r</code><code class="p">.</code><code class="nx">Body</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">if</code><code class="w"> </code><code class="nx">err</code><code class="w"> </code><code class="o">!=</code><code class="w"> </code><code class="kc">nil</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="nx">log</code><code class="p">.</code><code class="nx">Println</code><code class="p">(</code><code class="s">"Error reading json data:"</code><code class="p">,</code><code class="w"> </code><code class="nx">err</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+
+<code class="w">	</code><code class="nx">json</code><code class="p">.</code><code class="nx">Unmarshal</code><code class="p">(</code><code class="nx">data</code><code class="p">,</code><code class="w"> </code><code class="o">&amp;</code><code class="nx">person</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">return</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>This <code>get</code> function will call the API and return the requested <code>Person</code> struct. We’ll need to use this <code>Person</code> struct next.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">func</code><code class="w"> </code><code class="nx">main</code><code class="p">()</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="nx">encoder</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">json</code><code class="p">.</code><code class="nx">NewEncoder</code><code class="p">(</code><code class="nx">os</code><code class="p">.</code><code class="nx">Stdout</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">for</code><code class="w"> </code><code class="nx">i</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="mi">1</code><code class="p">;</code><code class="w"> </code><code class="nx">i</code><code class="w"> </code><code class="p">&lt;</code><code class="w"> </code><code class="mi">4</code><code class="p">;</code><code class="w"> </code><code class="nx">i</code><code class="o">++</code><code class="w"> </code><code class="p">{</code><code class="w"> </code><code class="c1">// we're just retrieving 3 records</code><code class="w"/>
+<code class="w">		</code><code class="nx">person</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">get</code><code class="p">(</code><code class="nx">i</code><code class="p">)</code><code class="w"/>
+<code class="w">		</code><code class="nx">encoder</code><code class="p">.</code><code class="nx">Encode</code><code class="p">(</code><code class="nx">person</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>As you can see, we’re using <code>os.Stdout</code> as the writer. Actually <code>os.Stdout</code> is a <code>os.File</code> struct but a <code>File</code> is also a writer so that’s fine. What this does is to write the encoding to <code>os.Stdout</code> one at a time. First we create an encoder using <code>json.NewEncoder</code>, passing it <code>os.Stdout</code> as the writer. Next, as we loop we get a <code>Person</code> struct and pass that to <code>Encode</code> to write to <code>os.Stdout</code>.</p>
+<p>When you run the program, you should see something like this, but each JSON encoding will appear one by one.</p>
+<pre data-type="programlisting">{"name":"Luke Skywalker","height":"172","mass":"77","hair_color":"blond",
+"skin_color":"fair","eye_color":"blue","birth_year":"19BBY","gender":"male",
+"homeworld":"https://swapi.dev/api/planets/1/","films":
+["https://swapi.dev/api/films/1/","https://swapi.dev/api/films/2/",
+"https://swapi.dev/api/films/3/","https://swapi.dev/api/films/6/"],
+"species":[],"vehicles":["https://swapi.dev/api/vehicles/14/",
+"https://swapi.dev/api/vehicles/30/"],"starships":
+["https://swapi.dev/api/starships/12/","https://swapi.dev/api/starships/22/"],
+"created":"2014-12-09T13:50:51.644Z","edited":"2014-12-20T21:17:56.891Z",
+"url":"https://swapi.dev/api/people/1/"}
+{"name":"C-3PO","height":"167","mass":"75","hair_color":"n/a","skin_color":
+"gold","eye_color":"yellow","birth_year":"112BBY","gender":"n/a","homeworld":
+"https://swapi.dev/api/planets/1/","films":["https://swapi.dev/api/films/1/",
+"https://swapi.dev/api/films/2/","https://swapi.dev/api/films/3/",
+"https://swapi.dev/api/films/4/","https://swapi.dev/api/films/5/",
+"https://swapi.dev/api/films/6/"],"species":["https://swapi.dev/api/species/2/"],
+"vehicles":[],"starships":[],"created":"2014-12-10T15:10:51.357Z","edited":
+"2014-12-20T21:17:50.309Z","url":"https://swapi.dev/api/people/2/"}
+{"name":"R2-D2","height":"96","mass":"32","hair_color":"n/a","skin_color":
+"white, blue","eye_color":"red","birth_year":"33BBY","gender":"n/a",
+"homeworld":"https://swapi.dev/api/planets/8/","films":
+["https://swapi.dev/api/films/1/","https://swapi.dev/api/films/2/",
+"https://swapi.dev/api/films/3/","https://swapi.dev/api/films/4/",
+"https://swapi.dev/api/films/5/","https://swapi.dev/api/films/6/"],
+"species":["https://swapi.dev/api/species/2/"],"vehicles":[],"starships":[],
+"created":"2014-12-10T15:11:50.376Z","edited":"2014-12-20T21:17:50.311Z",
+"url":"https://swapi.dev/api/people/3/"}</pre>
+<p>If you are annoyed that the untidy output here and was wondering if there is an equivalent of <code>MarshalIndent</code>, yes there is. Just set up the encoder with <code>SetIndent</code> like this and you’re good to go.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">encoder</code><code class="p">.</code><code class="nx">SetIndent</code><code class="p">(</code><code class="s">""</code><code class="p">,</code><code class="w"> </code><code class="s">" "</code><code class="p">)</code><code class="w"/></pre>
+<p>If you’re wondering what’s the difference between this and <code>Marshal</code> — you can’t do the above using <code>Marshal</code>. To use <code>Marshal</code> you need to put everything into an object and marshal it all at once — you can’t stream the JSON encodings one at a time.</p>
+<p>In other words, if you have JSON structs coming in to you and you either don’t know when it will all come in, or if you want to write the JSON encodings out first, then you need to use <code>Encode</code>. You can use <code>Marshal</code> only if you have all the JSON data available to you.</p>
+<p>And of course, <code>Encode</code> is also faster than <code>Marshal</code>. Let’s look at some benchmarking again.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">var</code><code class="w"> </code><code class="nx">jsonBytes</code><code class="w"> </code><code class="p">[]</code><code class="kt">byte</code><code class="w"> </code><code class="p">=</code><code class="w"> </code><code class="p">[]</code><code class="nb">byte</code><code class="p">(</code><code class="nx">jsonString</code><code class="p">)</code><code class="w"/>
+<code class="kd">var</code><code class="w"> </code><code class="nx">person</code><code class="w"> </code><code class="nx">Person</code><code class="w"/>
+
+<code class="kd">func</code><code class="w"> </code><code class="nx">BenchmarkMarshal</code><code class="p">(</code><code class="nx">b</code><code class="w"> </code><code class="o">*</code><code class="nx">testing</code><code class="p">.</code><code class="nx">B</code><code class="p">)</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">    </code><code class="nx">json</code><code class="p">.</code><code class="nx">Unmarshal</code><code class="p">(</code><code class="nx">jsonBytes</code><code class="p">,</code><code class="w"> </code><code class="o">&amp;</code><code class="nx">person</code><code class="p">)</code><code class="w"/>
+<code class="w">    </code><code class="nx">b</code><code class="p">.</code><code class="nx">ResetTimer</code><code class="p">()</code><code class="w"/>
+<code class="w">	</code><code class="k">for</code><code class="w"> </code><code class="nx">i</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="mi">0</code><code class="p">;</code><code class="w"> </code><code class="nx">i</code><code class="w"> </code><code class="p">&lt;</code><code class="w"> </code><code class="nx">b</code><code class="p">.</code><code class="nx">N</code><code class="p">;</code><code class="w"> </code><code class="nx">i</code><code class="o">++</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="nx">data</code><code class="p">,</code><code class="w"> </code><code class="nx">_</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">json</code><code class="p">.</code><code class="nx">Marshal</code><code class="p">(</code><code class="nx">person</code><code class="p">)</code><code class="w"/>
+<code class="w">		</code><code class="nx">io</code><code class="p">.</code><code class="nx">Discard</code><code class="p">.</code><code class="nx">Write</code><code class="p">(</code><code class="nx">data</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+<code class="p">}</code><code class="w"/>
+
+<code class="kd">func</code><code class="w"> </code><code class="nx">BenchmarkEncoder</code><code class="p">(</code><code class="nx">b</code><code class="w"> </code><code class="o">*</code><code class="nx">testing</code><code class="p">.</code><code class="nx">B</code><code class="p">)</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="nx">json</code><code class="p">.</code><code class="nx">Unmarshal</code><code class="p">(</code><code class="nx">jsonBytes</code><code class="p">,</code><code class="w"> </code><code class="o">&amp;</code><code class="nx">person</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="nx">b</code><code class="p">.</code><code class="nx">ResetTimer</code><code class="p">()</code><code class="w"/>
+<code class="w">    </code><code class="nx">encoder</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="nx">json</code><code class="p">.</code><code class="nx">NewEncoder</code><code class="p">(</code><code class="nx">io</code><code class="p">.</code><code class="nx">Discard</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="k">for</code><code class="w"> </code><code class="nx">i</code><code class="w"> </code><code class="o">:=</code><code class="w"> </code><code class="mi">0</code><code class="p">;</code><code class="w"> </code><code class="nx">i</code><code class="w"> </code><code class="p">&lt;</code><code class="w"> </code><code class="nx">b</code><code class="p">.</code><code class="nx">N</code><code class="p">;</code><code class="w"> </code><code class="nx">i</code><code class="o">++</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">		</code><code class="nx">encoder</code><code class="p">.</code><code class="nx">Encode</code><code class="p">(</code><code class="nx">person</code><code class="p">)</code><code class="w"/>
+<code class="w">	</code><code class="p">}</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>We need to prepare the JSON struct before the test, so I unmarshalled the data into a <code>Person</code> struct as part of setting up before running the benchmark loop. I also used <code>io.Discard</code> as the writer instead. The <code>io.Discard</code> is a writer on which all write calls will succeed and is the most convenient to use here.</p>
+<p>To benchmark <code>Marshal</code> I marshal the <code>Person</code> struct and then write it to <code>io.Discard</code>. To benchmark <code>Encode</code>, I create an encoder that wraps around <code>io.Discard</code> and then encode the <code>Person</code> struct to it. As in the decoder benchmarking, I placed the creation of the encoder before the iterations because we only need to create it once.</p>
+<p>This is the results of the benchmark.</p>
+<pre data-type="programlisting">goos: darwin
+goarch: amd64
+pkg: github.com/sausheong/go-recipes/io/json
+cpu: Intel(R) Core(TM) i7-7920HQ CPU @ 3.10GHz
+BenchmarkMarshal-8   	 1983175     614.6 ns/op     288 B/op     2 allocs/op
+BenchmarkEncoder-8   	 2284209     500.3 ns/op     128 B/op     1 allocs/op
+PASS
+ok  	github.com/sausheong/go-recipes/io/json	3.852s</pre>
+<p>As before, <code>Encode</code> is faster, and it also uses less memory, taking up less than half, about 128 B/op as compared to <code>Marshal</code> which takes up 288 B/op.</p>
+</div></section>
+</div></section>
+<section data-pdf-bookmark="5.6 Omitting fields in structs" data-type="sect1"><div class="sect1" id="idm45195511014464">
+<h1>5.6 Omitting fields in structs</h1>
+<section data-pdf-bookmark="Problem" data-type="sect2"><div class="sect2" id="idm45195510444912">
+<h2>Problem</h2>
+<p>When marshaling JSON structs as JSON encoding, sometimes the is just no data for for some of the struct variables. We want to create JSON encoding that leaves out the variables without any data.</p>
+</div></section>
+<section data-pdf-bookmark="Solution" data-type="sect2"><div class="sect2" id="idm45195510443328">
+<h2>Solution</h2>
+<p>Use the <code>omitempty</code> tag to define struct variables can be left omitted when marshaling.</p>
+</div></section>
+<section data-pdf-bookmark="Discussion" data-type="sect2"><div class="sect2" id="idm45195510441296">
+<h2>Discussion</h2>
+<p>Let’s take a look at the <code>Person</code> struct again.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="kd">type</code><code class="w"> </code><code class="nx">Person</code><code class="w"> </code><code class="kd">struct</code><code class="w"> </code><code class="p">{</code><code class="w"/>
+<code class="w">	</code><code class="nx">Name</code><code class="w">      </code><code class="kt">string</code><code class="w">        </code><code class="s">`json:"name"`</code><code class="w"/>
+<code class="w">	</code><code class="nx">Height</code><code class="w">    </code><code class="kt">string</code><code class="w">        </code><code class="s">`json:"height"`</code><code class="w"/>
+<code class="w">	</code><code class="nx">Mass</code><code class="w">      </code><code class="kt">string</code><code class="w">        </code><code class="s">`json:"mass"`</code><code class="w"/>
+<code class="w">	</code><code class="nx">HairColor</code><code class="w"> </code><code class="kt">string</code><code class="w">        </code><code class="s">`json:"hair_color"`</code><code class="w"/>
+<code class="w">	</code><code class="nx">SkinColor</code><code class="w"> </code><code class="kt">string</code><code class="w">        </code><code class="s">`json:"skin_color"`</code><code class="w"/>
+<code class="w">	</code><code class="nx">EyeColor</code><code class="w">  </code><code class="kt">string</code><code class="w">        </code><code class="s">`json:"eye_color"`</code><code class="w"/>
+<code class="w">	</code><code class="nx">BirthYear</code><code class="w"> </code><code class="kt">string</code><code class="w">        </code><code class="s">`json:"birth_year"`</code><code class="w"/>
+<code class="w">	</code><code class="nx">Gender</code><code class="w">    </code><code class="kt">string</code><code class="w">        </code><code class="s">`json:"gender"`</code><code class="w"/>
+<code class="w">	</code><code class="nx">Homeworld</code><code class="w"> </code><code class="kt">string</code><code class="w">        </code><code class="s">`json:"homeworld"`</code><code class="w"/>
+<code class="w">	</code><code class="nx">Films</code><code class="w">     </code><code class="p">[]</code><code class="kt">string</code><code class="w">      </code><code class="s">`json:"films"`</code><code class="w"/>
+<code class="w">	</code><code class="nx">Species</code><code class="w">   </code><code class="p">[]</code><code class="kt">string</code><code class="w">      </code><code class="s">`json:"species"`</code><code class="w"/>
+<code class="w">	</code><code class="nx">Vehicles</code><code class="w">  </code><code class="p">[]</code><code class="kt">string</code><code class="w">      </code><code class="s">`json:"vehicles"`</code><code class="w"/>
+<code class="w">	</code><code class="nx">Starships</code><code class="w"> </code><code class="p">[]</code><code class="kt">string</code><code class="w">      </code><code class="s">`json:"starships"`</code><code class="w"/>
+<code class="w">	</code><code class="nx">Created</code><code class="w">   </code><code class="nx">time</code><code class="p">.</code><code class="nx">Time</code><code class="w">     </code><code class="s">`json:"created"`</code><code class="w"/>
+<code class="w">	</code><code class="nx">Edited</code><code class="w">    </code><code class="nx">time</code><code class="p">.</code><code class="nx">Time</code><code class="w">     </code><code class="s">`json:"edited"`</code><code class="w"/>
+<code class="w">	</code><code class="nx">URL</code><code class="w">       </code><code class="kt">string</code><code class="w">        </code><code class="s">`json:"url"`</code><code class="w"/>
+<code class="p">}</code><code class="w"/></pre>
+<p>You might notice that the API doesn’t specify the species when the person is a human and also many of the characters don’t have vehicles or starships tagged to them. So when we marshal the struct, it will come out as an empty array.</p>
+<pre data-type="programlisting">{
+ "name": "Owen Lars",
+ "height": "178",
+ "mass": "120",
+ "hair_color": "brown, grey",
+ "skin_color": "light",
+ "eye_color": "blue",
+ "birth_year": "52BBY",
+ "gender": "male",
+ "homeworld": "https://swapi.dev/api/planets/1/",
+ "films": [
+  "https://swapi.dev/api/films/1/",
+  "https://swapi.dev/api/films/5/",
+  "https://swapi.dev/api/films/6/"
+ ],
+ "species": [],
+ "vehicles": [],
+ "starships": [],
+ "created": "2014-12-10T15:52:14.024Z",
+ "edited": "2014-12-20T21:17:50.317Z",
+ "url": "https://swapi.dev/api/people/6/"
+}</pre>
+<p>If you don’t want to show the species, vehicles or starships, you can use the <code>omitempty</code> tag on the JSON struct tags.</p>
+<pre data-code-language="go" data-type="programlisting"><code class="nx">Species</code><code class="w">   </code><code class="p">[]</code><code class="kt">string</code><code class="w">      </code><code class="s">`json:"species,omitempty"`</code><code class="w"/>
+<code class="nx">Vehicles</code><code class="w">  </code><code class="p">[]</code><code class="kt">string</code><code class="w">      </code><code class="s">`json:"vehicles,omitempty"`</code><code class="w"/>
+<code class="nx">Starships</code><code class="w"> </code><code class="p">[]</code><code class="kt">string</code><code class="w">      </code><code class="s">`json:"starships,omitempty"`</code><code class="w"/></pre>
+<p>When you run the same code again, you will no longer these them in the output.</p>
+<pre data-type="programlisting">{
+ "name": "Owen Lars",
+ "height": "178",
+ "mass": "120",
+ "hair_color": "brown, grey",
+ "skin_color": "light",
+ "eye_color": "blue",
+ "birth_year": "52BBY",
+ "gender": "male",
+ "homeworld": "https://swapi.dev/api/planets/1/",
+ "films": [
+  "https://swapi.dev/api/films/1/",
+  "https://swapi.dev/api/films/5/",
+  "https://swapi.dev/api/films/6/"
+ ],
+ "created": "2014-12-10T15:52:14.024Z",
+ "edited": "2014-12-20T21:17:50.317Z",
+ "url": "https://swapi.dev/api/people/6/"
+}</pre>
+<p>Why would you want to do this at all? In this API height and mass are strings. However if they are integers, and you don’t know their height or mass, the default values would be 0. In this case these values are wrong, and also sometimes they might be correct as well (say for example, a the Jedi Force ghost would have neither height nor mass) but you can’t tell which is which. In this case, not showing it at all is the better option.</p>
+</div></section>
+</div></section>
+</div></section></div></body></html>
