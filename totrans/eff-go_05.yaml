@@ -1,0 +1,3385 @@
+- en: Chapter 5\. How Go Uses Memory Resource
+  id: totrans-0
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 第五章：Go如何使用内存资源
+- en: In [Chapter 4](ch04.html#ch-hardware), we started looking under the hood of
+    the modern computer. We discussed the efficiency aspects of using the CPU resource.
+    Efficient execution of instructions in the CPU is important, but the sole purpose
+    of performing those instructions is to modify the data. Unfortunately, the path
+    of changing data is not always trivial. For example, in [Chapter 4](ch04.html#ch-hardware)
+    we learned that in the von Neumann architecture (presented in [Figure 4-1](ch04.html#img-uma)),
+    we experience the CPU and memory wall problem when accessing data from the main
+    memory (RAM).
+  id: totrans-1
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在[第四章](ch04.html#ch-hardware)中，我们开始深入了解现代计算机的内部运作。我们讨论了使用CPU资源的效率方面。CPU中指令的高效执行很重要，但执行这些指令的唯一目的是修改数据。不幸的是，数据变更的路径并不总是简单的。例如，在冯·诺依曼体系结构中（见[图 4-1](ch04.html#img-uma)），当从主内存（RAM）访问数据时，我们会遇到CPU和内存墙问题。
+- en: The industry invented numerous technologies and optimization layers to overcome
+    challenges like that, including memory safety and ensuring large memory capacities.
+    As a result of those inventions, accessing eight bytes from RAM to the CPU register
+    might be represented as a simple `MOVQ <destination register> <address XYZ>` instruction.
+    However, the actual process done by the CPU to get that information from the physical
+    chip storing those bytes is very complex. We discussed mechanisms like the hierarchical
+    cache system, but there is much more.
+  id: totrans-2
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 工业界发明了许多技术和优化层来克服这样的挑战，包括内存安全性和确保大内存容量。由于这些发明，从RAM访问八字节到CPU寄存器可能被表示为简单的`MOVQ
+    <目标寄存器> <地址 XYZ>`指令。然而，CPU从存储这些字节的物理芯片获取信息的实际过程非常复杂。我们讨论了像分层缓存系统这样的机制，但实际上远不止这些。
+- en: In some ways, those mechanisms are abstracted from programmers as much as possible.
+    So, for example, when we define a variable in Go code, we don’t need to think
+    about how much memory has to be reserved, where, and in how many L-caches it has
+    to fit. This is great for development speed, but sometimes it might surprise us
+    when we need to process a lot of data. In those cases, we need to revive our [mechanical
+    sympathy](https://oreil.ly/Co2IM) toward memory resource, optimizing TFBO flow
+    ([“Efficiency-Aware Development Flow”](ch03.html#ch-conq-eff-flow)), and good
+    tooling.
+  id: totrans-3
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从某些方面来说，这些机制尽可能地从程序员那里抽象出来。因此，例如，当我们在Go代码中定义一个变量时，我们无需考虑需要预留多少内存，以及它需要适应多少个L缓存。这对开发速度来说是很好的，但有时当我们需要处理大量数据时可能会让我们感到意外。在这些情况下，我们需要重新审视我们对内存资源的[机械同情](https://oreil.ly/Co2IM)，优化TFBO流程（[“效率感知开发流程”](ch03.html#ch-conq-eff-flow)），以及良好的工具支持。
+- en: 'This chapter will focus on understanding the RAM resource. We will start by
+    exploring overall memory relevance. Then we will set the context in [“Do We Have
+    a Memory Problem?”](#ch-hw-memory). Next, we will explain the patterns and consequences
+    of each element involved in the memory access from bottom to top. The data journey
+    for memory starts in [“Physical Memory”](#ch-hw-memory-ph), the hardware memory
+    chips. Then we will move to operating system (OS) memory management techniques
+    that allow managing limited physical memory space in multiprocess systems: [“Virtual
+    Memory”](#ch-hw-memory-vt) and [“OS Memory Mapping”](#ch-hw-memory-mmap-os), with
+    a more detailed explanation of the [“mmap Syscall”](#ch-hw-memory-mmap).'
+  id: totrans-4
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 本章将重点讨论理解RAM资源。我们将从整体上探索内存的相关性。然后，我们将在[“我们是否有内存问题？”](#ch-hw-memory)中设定语境。接下来，我们将解释与内存访问相关的每个元素的模式和后果，从下到上。内存的数据旅程始于[“物理内存”](#ch-hw-memory-ph)，硬件内存芯片。然后我们将转向操作系统（OS）内存管理技术，允许在多进程系统中管理有限的物理内存空间：[“虚拟内存”](#ch-hw-memory-vt)和[“OS内存映射”](#ch-hw-memory-mmap-os)，更详细地解释[“mmap系统调用”](#ch-hw-memory-mmap)。
+- en: With the lower layers of memory access explained, we can move to the key knowledge
+    for Go programmers looking to optimize memory efficiency—the explanation of [“Go
+    Memory Management”](#ch-hw-go-mem). This includes the necessary elements like
+    memory layout, what [“Values, Pointers, and Memory Blocks”](#ch-hw-allocations)
+    mean, and the basics of the [“Go Allocator”](#ch-hw-allocator) with its measurable
+    consequences. Finally, we will explore [“Garbage Collection”](#ch-hw-garbage).
+  id: totrans-5
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当解释了内存访问的较低层之后，我们可以转向对于希望优化内存效率的Go程序员至关重要的关键知识 —— 解释[“Go内存管理”](#ch-hw-go-mem)。这包括必要的元素，例如内存布局，[“值、指针和内存块”](#ch-hw-allocations)的含义，以及带来可衡量后果的[“Go分配器”](#ch-hw-allocator)的基础知识。最后，我们将探索[“垃圾回收”](#ch-hw-garbage)。
+- en: We will go into many details about memory in this chapter, but the key aim is
+    to build an instinct toward the patterns and behavior of Go programs when it comes
+    to memory usage. For example, what problems can occur while accessing memory?
+    How do we measure memory usage? What does it mean to allocate memory? How can
+    we release it? We will explore answers to those questions in this chapter. But
+    let’s start this chapter by clarifying why RAM is relevant to our program execution.
+    What makes it so important?
+  id: totrans-6
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将在本章中详细讨论存储器的许多细节，但关键目标是建立Go程序在处理存储器使用时的模式和行为的直觉。例如，在访问存储器时可能会出现哪些问题？我们如何测量存储器使用量？分配存储器意味着什么？我们如何释放存储器？我们将在本章中探索这些问题的答案。但让我们首先澄清为什么RAM对于我们的程序执行至关重要。它究竟有多重要？
+- en: Memory Relevance
+  id: totrans-7
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 内存的重要性
+- en: 'All Linux programs require more resources than just the CPU to perform their
+    programmed functionalities. For example, let’s take a web server like [NGINX](https://oreil.ly/7F0cZ)
+    (written in C) or [Caddy](https://oreil.ly/MpHMZ) (written in Go). Those programs
+    allow serving static content from disk or proxy HTTP requests, among other functionalities.
+    They use the CPU to execute written code. However, a web server like this also
+    interacts with other resources, for example:'
+  id: totrans-8
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 所有Linux程序执行它们编程功能所需的资源不仅仅是CPU。例如，让我们以像[Caddy](https://oreil.ly/MpHMZ)（用Go语言编写）或[NGINX](https://oreil.ly/7F0cZ)（用C语言编写）这样的Web服务器为例。这些程序允许从磁盘提供静态内容或代理HTTP请求等功能。它们使用CPU执行编写的代码。但是，像这样的Web服务器还与其他资源进行交互，例如：
+- en: With RAM to cache basic HTTP responses
+  id: totrans-9
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用RAM缓存基本的HTTP响应
+- en: With a disk to load configuration, static content, or write log lines for observability
+    needs
+  id: totrans-10
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用磁盘加载配置、静态内容或写入日志行以满足可观察性需求
+- en: With a network to serve HTTP requests from remote clients
+  id: totrans-11
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 使用网络为远程客户端提供HTTP请求服务
+- en: As a result, the CPU resource is only one part of the equation. This is the
+    same for most programs—they are created to save, read, manage, operate, and transform
+    data from different mediums.
+  id: totrans-12
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，CPU资源只是方程式的一部分。对于大多数程序而言，它们被创建用于保存、读取、管理、操作和转换来自不同介质的数据。
+- en: One would argue that the “memory” resource, often called RAM,^([1](ch05.html#idm45606834619920))
+    sits at the core of those interactions. The RAM is the backbone of the computer
+    because every external piece of data (bytes from disk, network, or another device)
+    has to be buffered in memory to be accessible to the CPU. So, for example, the
+    first thing the OS does to start a new process is load part of the program’s machine
+    code and initial data to memory for the CPU to execute it.
+  id: totrans-13
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有人会争论，“内存”资源，通常称为RAM，^([1](ch05.html#idm45606834619920))处于这些交互的核心。RAM是计算机的支柱，因为每个外部数据（来自磁盘、网络或其他设备的字节）必须在内存中缓冲，以便CPU访问。因此，例如，操作系统启动新进程的第一步是将程序的部分机器代码和初始数据加载到内存中，以便CPU执行。
+- en: 'Unfortunately, we must be aware of three main caveats when using memory in
+    our programs:'
+  id: totrans-14
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 遗憾的是，在我们的程序中使用存储器时，我们必须注意三个主要的警告：
+- en: RAM access is significantly slower than CPU operational speed.
+  id: totrans-15
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: RAM访问速度远远慢于CPU操作速度。
+- en: There is always a finite amount of RAM in our machines (typically from a few
+    GB to hundreds of GB per machine), which forces us to care about space efficiency.^([2](ch05.html#idm45606834615344))
+  id: totrans-16
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 我们的机器中始终存在有限数量的RAM（通常每台机器从几GB到数百GB不等），这迫使我们关注空间效率。^([2](ch05.html#idm45606834615344))
+- en: Unless [the persistent type of memory](https://oreil.ly/uaPiN) will be commoditized
+    with RAM-like speeds, pricing, and robustness, our main memory is strictly volatile.
+    When the computer power goes down, all information is completely lost.^([3](ch05.html#idm45606834611488))
+  id: totrans-17
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 除非[持久类型的存储器](https://oreil.ly/uaPiN)能够以类似RAM的速度、价格和健壮性进行商品化，否则我们的主存储器是严格易失性的。当计算机断电时，所有信息完全丢失。^([3](ch05.html#idm45606834611488))
+- en: The ephemeral characteristics of memory and its finite size are why we are forced
+    to add an auxiliary, persistent I/O resource to our computer, i.e., a disk. These
+    days we have relatively fast solid state drive (SSD) disks (yet still around 10x
+    slower than RAM) with a limited lifetime (~five years). On the other hand, we
+    have a slower and cheaper hard disk drive (HDD). While cheaper than RAM, the disk
+    resource is also a scarce resource.
+  id: totrans-18
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 存储器的短暂特性和有限大小，是我们被迫向计算机添加一个辅助的持久I/O资源的原因，即磁盘。如今，我们有相对较快的固态硬盘（SSD），但速度仍然比RAM慢约10倍，寿命有限（约五年）。另一方面，我们有速度较慢和价格较便宜的硬盘驱动器（HDD）。尽管比RAM便宜，磁盘资源也是一种稀缺资源。
+- en: Last but not least, for scalability and reliability reasons, our computers rely
+    on data from remote locations. Industry invented different networks and protocols
+    that allow us to communicate with remote software (e.g., databases) or even remote
+    hardware (via iSCSI or NFS protocols). We typically abstract this type of I/O
+    as a network resource usage. Unfortunately, the network is one of the most challenging
+    resources to work with because of its unpredictable nature, limited bandwidth,
+    and bigger latencies.
+  id: totrans-19
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 最后但同样重要的是，出于可伸缩性和可靠性的原因，我们的计算机依赖于来自远程位置的数据。行业发明了不同的网络和协议，允许我们与远程软件（例如数据库）甚至远程硬件（通过
+    iSCSI 或 NFS 协议）进行通信。我们通常将这类 I/O 抽象为网络资源的使用。不幸的是，由于其不可预测的特性、有限的带宽和更大的延迟，网络是最具挑战性的资源之一。
+- en: While using any of those resources, we use it through the memory resource. As
+    a result, it is essential to understand its mechanics. There are many things a
+    programmer can do to impact the application’s memory usage. But unfortunately,
+    without proper education, our implementations tend to be prone to inefficiencies
+    and unnecessary waste of computer resources or execution time. This problem is
+    amplified by the vast amount of data our programs have to process these days.
+    This is why we often say that efficient programming is all about the data.
+  id: totrans-20
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在使用这些资源的同时，我们通过内存资源进行操作。因此，了解其工作原理至关重要。程序员可以做很多事情来影响应用程序的内存使用。但不幸的是，在没有适当教育的情况下，我们的实现往往容易出现效率低下和计算资源或执行时间浪费的情况。这个问题在当今程序需要处理大量数据时尤为突出。这就是为什么我们经常说高效编程关键在于数据。
+- en: Memory Inefficiency Is Usually the Most Common Problem in Go Programs
+  id: totrans-21
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Go 程序中内存效率问题通常是最常见的问题。
+- en: Go is a garbage collected language, which allows Go to be an extremely productive
+    language. However, the garbage collector (GC) sacrifices some visibility and control
+    over memory management (more on that in [“Garbage Collection”](#ch-hw-garbage)).
+  id: totrans-22
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Go 是一种具有垃圾回收的语言，这使得 Go 成为一种非常高效的语言。然而，垃圾收集器（GC）牺牲了对内存管理的一些可见性和控制（详见《垃圾回收》）。
+- en: But even when we forget about GC overhead, for cases where we need to process
+    a significant amount of data or are under some resource constraints, we have to
+    take more care with how our program uses memory. Therefore, I recommend reading
+    this chapter with extra care since most first-level optimizations are usually
+    around memory resources.
+  id: totrans-23
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 即使我们忽略了 GC 的开销，对于需要处理大量数据或处于某些资源约束下的情况，我们必须更加谨慎地处理程序如何使用内存。因此，我建议阅读本章时额外小心，因为大多数一级优化通常围绕内存资源展开。
+- en: When should we start the memory optimization process? A few common symptoms
+    might reveal that we might have a memory efficiency issue.
+  id: totrans-24
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们何时应开始内存优化过程？几种常见的症状可能表明我们可能存在内存效率问题。
+- en: Do We Have a Memory Problem?
+  id: totrans-25
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 我们是否有内存问题？
+- en: 'It’s useful to understand how Go uses the computer’s main memory and its efficiency
+    consequences, but we must also follow the pragmatic approach. As with any optimizations,
+    we should refrain from optimizing memory until we know there is a problem. We
+    can define a set of situations that should trigger our interest in Go memory usage
+    and potential optimizations in this area:'
+  id: totrans-26
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 了解 Go 如何使用计算机的主内存及其效率后果非常有用，但我们也必须遵循务实的方法。与任何优化一样，我们应该在确认存在问题之前避免优化内存。我们可以定义一组情况，这些情况应引起我们对
+    Go 内存使用和潜在优化的兴趣：
+- en: Our physical computer, virtual machine, container, or process crashed because
+    of an out-of-memory (OOM) signal, or our process is about to hit that memory limit.^([4](ch05.html#idm45606834596960))
+  id: totrans-27
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 我们的物理计算机、虚拟机、容器或进程由于内存不足（OOM）信号而崩溃，或者我们的进程即将达到内存限制。^([4](ch05.html#idm45606834596960))
+- en: 'Our Go program is executing slower than usual, while the memory usage is higher
+    than average. Spoiler: our system might be under memory pressure causing trashing
+    or swapping, as explained in [“OS Memory Mapping”](#ch-hw-memory-mmap-os).'
+  id: totrans-28
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 我们的 Go 程序执行速度比平常慢，同时内存使用高于平均水平。剧透：我们的系统可能因为内存压力而导致抖动或交换，如《操作系统内存映射》中所解释的那样。
+- en: 'Our Go program is executing slower than usual, with high spikes of CPU utilization.
+    Spoiler: allocation or releasing memory slows our programs if an excessive number
+    of short-lived objects is created.'
+  id: totrans-29
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 我们的 Go 程序执行速度比平常慢，同时 CPU 利用率高涨。剧透：如果创建了过多的短生命周期对象，则分配或释放内存会减慢我们的程序。
+- en: If you encounter any of those situations, it might be time to debug and optimize
+    the memory usage of your Go program. As I will teach you in [“Complexity Analysis”](ch07.html#ch-hw-complexity),
+    if you know what you are looking for, a set of early warning signals can indicate
+    huge memory problems that could be avoided easily. Moreover, building such a proactive
+    instinct can make you a valuable team asset!
+  id: totrans-30
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果您遇到这些情况中的任何一种，那么可能是时候调试和优化您的 Go 程序的内存使用了。正如我将在 [“复杂度分析”](ch07.html#ch-hw-complexity)
+    中教授您的，如果您知道自己在寻找什么，一组早期警告信号可以指示可能轻松避免的严重内存问题。此外，建立这种积极的直觉可能使您成为一个有价值的团队资产！
+- en: But we can’t build anything without good foundations. As with the CPU resource,
+    you won’t be able to apply optimizations without actually understanding them!
+    We have to understand the reasons behind those optimizations. For example, [Example 4-1](ch04.html#code-sum)
+    allocates 30.5 MB of memory for 1 million integers in the input. But what does
+    it mean? Where was that space reserved? Does it mean we used exactly 30.5 MB of
+    physical memory, or more? Was this memory released at some point? This chapter
+    aims to give you awareness, allowing you to answer all of these questions. We
+    will learn why memory is often the issue and what we can do about it.
+  id: totrans-31
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 但是，没有良好的基础我们无法建设任何东西。就像 CPU 资源一样，如果不真正理解优化，您将无法应用它们！我们必须了解这些优化背后的原因。例如，[示例 4-1](ch04.html#code-sum)
+    在输入中为 100 万个整数分配了 30.5 MB 的内存。但这意味着什么？空间是在哪里保留的？这意味着我们确切地使用了 30.5 MB 的物理内存，还是更多？这些内存是否曾经被释放过？本章旨在使您意识到这些问题，让您能够回答所有这些问题。我们将了解为什么内存通常是问题所在，以及我们可以采取什么措施。
+- en: Let’s start with the basics of memory management from the point of view of hardware
+    (HW), operating system (OS), and the Go runtime. Let’s start with essential details
+    about physical memory directly impacting our program execution. On top of that,
+    this knowledge might help you better understand the specifications and documentation
+    of modern physical memory!
+  id: totrans-32
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们从硬件（HW）、操作系统（OS）和 Go 运行时的内存管理基础知识开始讲起。让我们从直接影响我们程序执行的物理内存的基本细节开始讲起。这些知识可能有助于您更好地理解现代物理内存的规格和文档！
+- en: Physical Memory
+  id: totrans-33
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 物理内存
+- en: 'We store information digitally in the form of bits, the basic computer storage
+    unit. A bit can have one of two values, 0 or 1\. With enough bits, we can represent
+    any information: integer, floating value, letters, messages, sounds, images, videos,
+    programs, [metaverses](https://oreil.ly/il8Tz), etc.'
+  id: totrans-34
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们以比特的形式数字化地存储信息，这是计算机的基本存储单位。比特可以有两个值之一，0 或 1。有了足够的比特，我们可以表示任何信息：整数、浮点值、字母、消息、声音、图像、视频、程序、[元宇宙](https://oreil.ly/il8Tz)等。
+- en: The main physical memory that we use when we execute our programs (RAM) is based
+    on dynamic random-access memory ([DRAM](https://oreil.ly/hbo59)). These chips
+    are soldered into modules, often referred to as RAM “sticks.” When connected to
+    the motherboard, these chips allow us to store and read data bits as long as the
+    DRAM is continuously powered.
+  id: totrans-35
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们在执行程序时使用的主要物理内存（RAM）基于动态随机存取存储器（[DRAM](https://oreil.ly/hbo59)）。这些芯片焊接在模块中，通常称为
+    RAM “条”。当连接到主板时，这些芯片允许我们在 DRAM 持续供电的情况下存储和读取数据位。
+- en: DRAM contains billions of memory cells (as many cells as the number of bits
+    DRAM can store). Each memory cell comprises one access transistor acting as a
+    switch and one storage capacitor. The transistor guards the access to the capacitor,
+    which is charged to the store 1 or drained to keep the 0 value. This allows each
+    memory cell to store a single bit of information. This architecture is much simpler
+    and cheaper to produce and use than Static RAM (SRAM), which is generally faster
+    and used for smaller types of memory like registers and hierarchical caches in
+    the CPU.
+  id: totrans-36
+  prefs: []
+  type: TYPE_NORMAL
+  zh: DRAM 包含数十亿个存储单元（与 DRAM 可存储的比特数相同）。每个存储单元包括一个作为开关的访问晶体管和一个存储电容器。晶体管保护对电容器的访问，电容器被充电以存储
+    1 或被放电以保持 0 值。这使得每个存储单元能够存储单个比特信息。与通常更快速且用于 CPU 中的较小类型内存（如寄存器和层次缓存中的静态 RAM（SRAM）相比，这种架构更简单且更便宜。
+- en: At the time of this writing, the most popular memory used for RAM is the simpler,
+    synchronous (clock) version in the DRAM family—[SDRAM](https://oreil.ly/07efG).
+    Particularly, the fifth generation of SDRAM called DDR4.
+  id: totrans-37
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 到目前为止，用于 RAM 的最流行的存储器是 DRAM 家族中较为简单的同步（时钟）版本——[SDRAM](https://oreil.ly/07efG)，特别是第五代
+    SDRAM 称为 DDR4。
+- en: Eight bits form a “byte.” That number came from the fact that in the past, the
+    smallest number of bits that could hold a text character was eight.^([5](ch05.html#idm45606834576192))
+    The industry standardized a “byte” as the smallest meaningful unit of information.
+  id: totrans-38
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 八位形成一个“字节”。这个数字来自于过去，最小的能够保存文本字符的位数是八位^([5](ch05.html#idm45606834576192))。行业将“字节”作为最小的有意义的信息单元进行了标准化。
+- en: As a result, most hardware is byte addressable. This means that, from a software
+    programmer’s point of view, there are instructions to access data through individual
+    bytes. If you want to access a single bit, you need to access the whole byte and
+    use [bitmasks](https://oreil.ly/pFoxI) to get or write the bit you want.
+  id: totrans-39
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 结果，大多数硬件都是按字节寻址的。这意味着，从软件程序员的角度来看，有指令可以通过单个字节访问数据。如果你想访问一个单个位，你需要访问整个字节，并使用[位掩码](https://oreil.ly/pFoxI)来获取或写入你想要的位。
+- en: The byte addressability makes developer life easier when working with data from
+    different mediums like memory, disk, network, etc. Unfortunately, that creates
+    a certain illusion that the data is always accessible with byte granularity. Don’t
+    let that mislead you. More often than not, the underlying hardware has to transfer
+    a much larger chunk of data to give you the desired byte.
+  id: totrans-40
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 字节寻址使开发人员在处理来自不同媒介的数据（如内存、磁盘、网络等）时的工作更加容易。然而，这产生了一种错误的印象，即数据总是以字节粒度访问。不要让这一点误导你。通常情况下，底层硬件必须传输一个更大的数据块，才能给你所需的字节。
+- en: For example, in [“Hierachical Cache System”](ch04.html#ch-hw-lcache), we learned
+    that CPU registers are typically 64 bits (8 bytes), and the cache line is even
+    bigger (64 bytes). Yet we have CPU instructions that can copy a single byte from
+    memory to the CPU register. However, an experienced developer will notice that
+    to copy that single byte, in many cases, the CPU will fetch not 1 byte but at
+    least a complete cache line (64 bytes) from physical memory.
+  id: totrans-41
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 例如，在[“分层缓存系统”](ch04.html#ch-hw-lcache)中，我们了解到CPU寄存器通常是64位（8字节），而缓存行甚至更大（64字节）。然而，我们有CPU指令可以将一个字节从内存复制到CPU寄存器。然而，一位经验丰富的开发人员会注意到，为了复制那个单个字节，在许多情况下，CPU将从物理内存中提取不止1个字节，而至少是一个完整的缓存行（64字节）。
+- en: From a high-level point of view, physical memory (RAM) can also be seen as byte
+    addressable, as presented in [Figure 5-1](#img-physical-addr).
+  id: totrans-42
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从高级的角度来看，物理内存（RAM）也可以被看作是按字节寻址的，如[图5-1](#img-physical-addr)所示。
+- en: Memory space can be seen as a contiguous set of one-byte slots with a unique
+    address. Each address is a number from zero to the total memory capacity in the
+    system in bytes. For this reason, 32-bit systems that use only 32-bit integers
+    for memory addresses typically could not handle RAM with more capacity than 4
+    GB—the largest number we can represent with 32 bits is <math alttext="2 Superscript
+    32"><msup><mn>2</mn> <mn>32</mn></msup></math> . This limitation was removed with
+    the introduction of the 64-bit operating systems that use 64-bit (8-byte)^([6](ch05.html#idm45606834567216))
+    integers for memory addressing.
+  id: totrans-43
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 内存空间可以被看作是连续的一组具有唯一地址的字节插槽。每个地址是从零到系统中总内存容量以字节为单位的最大数。正因为如此，使用仅32位整数进行内存地址编址的32位系统通常无法处理超过4
+    GB的RAM - 我们可以表示的最大数是<math alttext="2 Superscript 32"><msup><mn>2</mn> <mn>32</mn></msup></math>。这项限制在引入64位操作系统时消除了，这些操作系统使用64位（8字节）^([6](ch05.html#idm45606834567216))整数进行内存编址。
+- en: '![efgo 0501](assets/efgo_0501.png)'
+  id: totrans-44
+  prefs: []
+  type: TYPE_IMG
+  zh: '![efgo 0501](assets/efgo_0501.png)'
+- en: Figure 5-1\. Physical memory addresses space
+  id: totrans-45
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+  zh: 图5-1。物理内存地址空间
+- en: We discussed in [“CPU and Memory Wall Problem”](ch04.html#ch-hw-mem-wall) that
+    memory access is not that fast compared to, for example, CPU speed. But there
+    is more. Addressability, in theory, should allow fast, random access to bytes
+    from the main memory. After all, this is why that main memory is called “random-access
+    memory.” Unfortunately, if we look at our napkin math in [Appendix A](app01.html#appendix-napkin-math),
+    sequential memory access can be 10 times (or more) faster than random access!
+  id: totrans-46
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们在[“CPU和内存墙问题”](ch04.html#ch-hw-mem-wall)中讨论过，与例如CPU速度相比，内存访问速度并不快。但还有更多的事情。按字节寻址理论上应该允许快速、随机地访问主内存中的字节。毕竟，这就是为什么主内存被称为“随机存取存储器”的原因。不幸的是，如果我们查看附录[A](app01.html#appendix-napkin-math)中的便签数学，我们发现顺序内存访问可能比随机访问快10倍（或更多！）
+- en: 'But there is more—we don’t expect any improvements in this area in the future.
+    Within the last few decades, we only improved the speed (bandwidth) of the sequential
+    read. We did not improve random access latency at all! The lack of improvement
+    on the latency side is not a mistake. It is a strategic choice—the internal designs
+    of the modern RAM modules have to work against various requirements and limitations,
+    for example:'
+  id: totrans-47
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 但事实并非如此——我们不期望未来在这一领域有任何改进。在过去几十年中，我们只改善了顺序读取的速度（带宽），而完全没有改进随机访问的延迟！在延迟方面的缺乏改进并非错误，而是战略选择——现代
+    RAM 模块的内部设计必须应对各种需求和限制，例如：
+- en: Capacity
+  id: totrans-48
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 容量
+- en: There is a strong demand for bigger capacities of RAM, e.g., to compute more
+    data or run more realistic games.
+  id: totrans-49
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于更大容量的 RAM 存储有着强烈需求，例如计算更多数据或运行更逼真的游戏。
+- en: Bandwidth and latency
+  id: totrans-50
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 带宽和延迟
+- en: We want to wait less time to access memory while writing or reading large chunks
+    of data since memory access is the major slowdown for CPU operations.
+  id: totrans-51
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们希望在写入或读取大块数据时，能等待更少的时间来访问内存，因为内存访问是 CPU 操作的主要减速因素。
+- en: Voltage
+  id: totrans-52
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 电压
+- en: There is a demand for a lower voltage requirement for each memory chip, which
+    would allow for running more of them while maintaining low power consumption and
+    manageable thermal characteristics (more time on battery for our laptops and smartphones!).
+  id: totrans-53
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 每个内存芯片都有更低的电压需求的需求，这将允许在保持低功耗和可管理的热特性的同时运行更多内存芯片（我们的笔记本电脑和智能手机可以更长时间待机！）。
+- en: Cost
+  id: totrans-54
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 成本
+- en: RAM is a fundamental piece of the computer required in large quantities; thus,
+    production and usage costs must be kept low.
+  id: totrans-55
+  prefs: []
+  type: TYPE_NORMAL
+  zh: RAM 是计算机中必须大量使用的基本组件；因此，生产和使用成本必须保持低廉。
+- en: Slower random access has many implications for the layers of many managers we
+    will learn about in this chapter. For example, this is why the CPU with L-caches
+    fetches and caches bigger chunks of memory up front, even if only one byte is
+    needed for computation.
+  id: totrans-56
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 随机访问速度较慢对我们将在本章学习的许多管理器层有许多影响。例如，这就是为什么 CPU 带有 L1 缓存会预取和缓存更大的内存块，即使只需一个字节来进行计算。
+- en: 'Let’s summarize a few things worth remembering about modern generations of
+    hardware for RAM like DDR4 SDRAM:'
+  id: totrans-57
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们总结一下关于像 DDR4 SDRAM 这样的现代 RAM 硬件几个值得记住的事情：
+- en: Random access of the memory is relatively slow, and generally, there aren’t
+    many good ideas to improve that soon. If anything, lower power consumption, larger
+    capacity, and bandwidth only increase that delay.
+  id: totrans-58
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 内存的随机访问相对较慢，通常情况下，很难有很多好的方法来尽快改进。如果有的话，更低的功耗、更大的容量和带宽只会增加这种延迟。
+- en: Industry is improving overall memory bandwidth by allowing us to transfer bigger
+    chunks of adjacent (sequential) memory. This means that efforts to align Go data
+    structures and knowing how they are stored in memory matter—ensuring we can access
+    them faster.
+  id: totrans-59
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 通过允许我们传输更大的相邻（顺序）内存块，行业正在提高整体内存带宽。这意味着对齐 Go 数据结构并了解它们在内存中的存储方式至关重要，确保我们能更快地访问它们。
+- en: Whether sequentially or randomly, our programs never directly access physical
+    memory—the OS manages the RAM space. This is great for developers, as we don’t
+    need to understand low-level memory access details. But there are more important
+    reasons why there has to be an OS between our programs and hardware. So let’s
+    discuss why and what it means for our Go programs.
+  id: totrans-60
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 无论是顺序还是随机访问，我们的程序从不直接访问物理内存——操作系统管理 RAM 空间。这对开发人员来说是个好消息，因为我们不需要理解低级内存访问细节。但为何在我们的程序和硬件之间必须有操作系统，还有更重要的原因。因此，让我们讨论一下这对我们的
+    Go 程序意味着什么。
+- en: OS Memory Management
+  id: totrans-61
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 操作系统内存管理
+- en: 'What are the operating system’s goals for memory management? Hiding complexities
+    of physical memory access is only one thing. The other, more important, goal is
+    to allow using the same physical memory simultaneously and securely across thousands
+    of processes and their OS threads.^([7](ch05.html#idm45606834540672)) The problem
+    of multiprocess execution on common memory space is nontrivial for multiple reasons:'
+  id: totrans-62
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 操作系统在内存管理方面的目标是什么？隐藏物理内存访问的复杂性只是其中一部分。另一个更重要的目标是允许同时安全地在成千上万的进程和它们的操作系统线程之间使用同一物理内存。^([7](ch05.html#idm45606834540672))
+    在共享内存空间上进行多进程执行的问题由于多种原因非常复杂：
+- en: Dedicated memory space for each process
+  id: totrans-63
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 每个进程专用的内存空间
+- en: Programs are compiled assuming nearly full and continuous access to the RAM.
+    As a result, the OS must track which slots from the physical memory from our address
+    space (shown in [Figure 5-1](#img-physical-addr)) belong to which process. Then
+    we need to find a way to coordinate those “reservations” to the processes so only
+    allocated addresses are accessed.
+  id: totrans-64
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 程序被编译时假定几乎完全和连续地访问RAM。因此，操作系统必须跟踪我们地址空间中物理内存的哪些插槽（如[图 5-1](#img-physical-addr)所示）属于哪个进程。然后我们需要找到一种协调这些“预留”的方法，以便只能访问已分配的地址。
+- en: Avoiding external fragmentation
+  id: totrans-65
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 避免外部碎片化
+- en: Having thousands of processes with dynamic memory usage poses a great risk of
+    waste in memory due to inefficient packing. We call this problem [the external
+    fragmentation of memory](https://oreil.ly/lBfRq).
+  id: totrans-66
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 数以千计的进程具有动态内存使用，由于不良的内存分配而导致内存的巨大浪费，这构成了巨大的风险。我们称之为[内存的外部碎片化问题](https://oreil.ly/lBfRq)。
+- en: Memory isolation
+  id: totrans-67
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 内存隔离
+- en: We have to ensure that no process touches the physical memory address reserved
+    for other processes running on the same machine (e.g., operating system processes!).
+    This is because any accidental write or read from outside of process memory (out-of-bounds
+    memory access) can crash other processes, malform data on persistent mediums (e.g.,
+    disk), or crash the whole machine (e.g., if you corrupt the memory used by the
+    OS).
+  id: totrans-68
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们必须确保没有进程触碰到为其他在同一台机器上运行的进程保留的物理内存地址（例如操作系统进程！）。这是因为任何意外的写入或读取超出进程内存（越界内存访问）都可能导致其他进程崩溃，破坏持久性介质上的数据（例如磁盘），或者使整台机器崩溃（例如如果损坏了操作系统使用的内存）。
+- en: Memory safety
+  id: totrans-69
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 内存安全
+- en: Operating systems are usually multiuser systems, which means processes can have
+    different permissions to different resources (e.g., files on disk or other process
+    memory space). This is why the mentioned out-of-bounds memory accesses have serious
+    security risks.^([8](ch05.html#idm45606834529664)) Imagine a malicious process
+    with no permissions reading credentials from other process memory, or causing
+    a Denial-of-Service (DoS) attack.^([9](ch05.html#idm45606834527872)) This is especially
+    important for virtualized environments, where a single memory unit can be shared
+    across different operating systems and even more users.
+  id: totrans-70
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 操作系统通常是多用户系统，这意味着进程对不同资源（例如磁盘上的文件或其他进程的内存空间）有不同的权限。这就是为什么提到的越界内存访问会带来严重的安全风险。^([8](ch05.html#idm45606834529664))
+    想象一下，一个恶意进程没有权限读取其他进程内存中的凭据，或者导致拒绝服务（DoS）攻击。^([9](ch05.html#idm45606834527872))
+    这对于虚拟化环境尤为重要，因为单个内存单元可以跨多个操作系统和更多用户共享。
+- en: Efficient memory usage
+  id: totrans-71
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 高效的内存使用
+- en: Programs never use all the memory they asked for at the same time. For example,
+    instruction code and statically allocated data (e.g., constant variables) can
+    be as large as dozens of megabytes. But for single-threaded applications, a maximum
+    of a few kilobytes of data is used in a given second. Instructions for error handling
+    are rarely used. Arrays are often oversized for worst-case scenarios.
+  id: totrans-72
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 程序从不同时使用它们请求的所有内存。例如，指令代码和静态分配的数据（例如常量变量）可能会有数十兆字节大。但对于单线程应用程序，在给定的秒钟内使用的数据最多只有几千字节。错误处理的指令很少被使用。数组通常被超大化以应对最坏情况。
+- en: 'To solve all those challenges, modern OS manages memory using three fundamental
+    mechanisms we will learn about in this section: paged virtual memory, memory mapping,
+    and hardware address translation. Let’s start by explaining virtual memory.'
+  id: totrans-73
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要解决所有这些挑战，现代操作系统使用三种基本机制来管理内存，我们将在本节中学习：分页虚拟内存、内存映射和硬件地址转换。让我们从解释虚拟内存开始。
+- en: Virtual Memory
+  id: totrans-74
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 虚拟内存
+- en: The key idea behind [virtual memory](https://oreil.ly/RBiCV) is that every process
+    is given its own logical, simplified view of the RAM. As a result, programming
+    language designers and developers can effectively manage process memory space
+    as if they had an entire memory space for themselves. Even more, with virtual
+    memory, the process can use a full range of addresses from 0 to <math alttext="2
+    Superscript 64 Baseline minus 1"><mrow><msup><mn>2</mn> <mn>64</mn></msup> <mo>-</mo>
+    <mn>1</mn></mrow></math> for its data, even if the physical memory has, for example,
+    the capacity to accommodate only <math alttext="2 Superscript 35"><msup><mn>2</mn>
+    <mn>35</mn></msup></math> addresses (32 GB of memory). This frees the process
+    from coordinating the memory among other processes, bin packing challenges, and
+    other important tasks (e.g., physical memory defragmentation, security, limits,
+    and swap). Instead, all of these complex and error-prone memory management tasks
+    can be delegated to the kernel (a core part of the Linux operating system).
+  id: totrans-75
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[虚拟内存](https://oreil.ly/RBiCV)背后的关键思想是，每个进程都被赋予了自己的逻辑上简化的 RAM 视图。因此，编程语言设计师和开发人员可以有效地管理进程的内存空间，就好像他们拥有整个内存空间一样。更重要的是，使用虚拟内存，进程可以使用从
+    0 到 <math alttext="2 Superscript 64 Baseline minus 1"><mrow><msup><mn>2</mn> <mn>64</mn></msup>
+    <mo>-</mo> <mn>1</mn></mrow></math> 的完整地址范围进行数据访问，即使物理内存只能容纳例如 <math alttext="2
+    Superscript 35"><msup><mn>2</mn> <mn>35</mn></msup></math> 地址（32 GB 的内存）。这使得进程从协调内存与其他进程、二进制装箱挑战和其他重要任务（例如物理内存碎片整理、安全性、限制和交换）中解放出来。相反，所有这些复杂且容易出错的内存管理任务都可以委托给内核（Linux
+    操作系统的核心部分）。'
+- en: There are a few ways of implementing virtual memory, but the most popular technique
+    is called *paging*.^([10](ch05.html#idm45606834509584)) The OS divides physical
+    and virtual memory into fixed-size chunks of memory. The virtual memory chunks
+    are called [*pages*](https://oreil.ly/JTWoU), whereas physical memory chunks are
+    called *frames*. Both pages and frames can be then individually managed. The default
+    page size is usually 4 KB,^([11](ch05.html#idm45606834504144)) but it can be changed
+    to larger page sizes with respect to specific CPU capabilities.^([12](ch05.html#idm45606834502960))
+    It is also possible to use 4 KB pages for normal workloads and dedicated (sometimes
+    transparent to processes!) [huge pages](https://oreil.ly/7KuGx) from 2 MB to 1
+    GB.
+  id: totrans-76
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有几种实现虚拟内存的方式，但最流行的技术是称为 *分页* 的技术。^([10](ch05.html#idm45606834509584)) 操作系统将物理和虚拟内存划分为固定大小的内存块。虚拟内存块称为
+    [*页面*](https://oreil.ly/JTWoU)，而物理内存块称为 *帧*。页面和帧都可以单独管理。默认页面大小通常为 4 KB，^([11](ch05.html#idm45606834504144))但可以根据特定
+    CPU 的能力更改为更大的页面大小。^([12](ch05.html#idm45606834502960)) 也可以在正常工作负载中使用 4 KB 页面，并使用（有时对进程透明！）专用的
+    [大页面](https://oreil.ly/7KuGx) 从 2 MB 到 1 GB。
+- en: The Importance of Page Size
+  id: totrans-77
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 页面大小的重要性
+- en: The 4 KB number was chosen in the 1980s, and many say that it’s time to bump
+    this number up, given modern hardware and cheaper RAM (in terms of dollars per
+    byte).
+  id: totrans-78
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 选择 4 KB 数字是在 1980 年代进行的，许多人认为，考虑到现代硬件和更便宜的 RAM（以每字节美元计算），现在是时候提高这个数字了。
+- en: Yet the choice of page size is a game of trade-offs. Larger pages inevitably
+    waste more memory space,^([13](ch05.html#idm45606834497952)) which is often referred
+    to as [the internal memory fragmentation](https://oreil.ly/PnOuT). On the other
+    hand, keeping a 4 KB page size or making it smaller makes memory access slower
+    and memory management more expensive, eventually blocking the ability to use larger
+    RAM modules in our computers.
+  id: totrans-79
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，页面大小的选择是一种权衡游戏。更大的页面不可避免地会浪费更多的内存空间，^([13](ch05.html#idm45606834497952))这通常被称为[内部内存碎片化](https://oreil.ly/PnOuT)。另一方面，保持
+    4 KB 的页面大小或者将其设置得更小会使内存访问变慢，并且内存管理变得更加昂贵，最终可能会阻止我们计算机中使用更大的 RAM 模块的能力。
+- en: The OS can dynamically map pages in virtual memory to specific physical memory
+    frames (or other mediums like chunks of disk space), mostly transparently to the
+    processes. The mapping, state, permissions, and additional metadata of the page
+    are stored in the page entry in the many hierarchical page tables maintained by
+    the OS.^([14](ch05.html#idm45606834494864))
+  id: totrans-80
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 操作系统可以动态地将虚拟内存中的页面映射到特定的物理内存帧（或其他介质，比如磁盘空间的块），对于进程来说这通常是透明的。页面的映射、状态、权限和其他元数据存储在操作系统维护的众多层次的页表中的页面条目中。^([14](ch05.html#idm45606834494864))
+- en: To achieve an easy-to-use and dynamic virtual memory, we need to have a versatile
+    address translation mechanism. The problem is that only the OS knows about the
+    current memory space mapping between virtual and physical space (or lack of it).
+    Our running program’s process only knows about virtual memory addresses, so all
+    CPU instructions in machine code use virtual addresses. Our programs will be even
+    slower if we try to consult the OS for every memory access to translate each address,
+    so the industry figured out dedicated hardware support for translating memory
+    pages.
+  id: totrans-81
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了实现易于使用和动态虚拟内存，我们需要一个多功能的地址转换机制。问题在于，只有操作系统知道当前虚拟和物理空间之间（或缺乏之间）的内存映射。我们运行的程序进程只知道虚拟内存地址，因此机器代码中的所有
+    CPU 指令都使用虚拟地址。如果我们尝试在每次内存访问时向 OS 查询以转换每个地址，程序将变得更慢，因此行业为转换内存页面找到了专门的硬件支持。
+- en: From the 1980s, almost every CPU architecture started to include the Memory
+    Management Unit (MMU) used for every memory access. MMU translates each memory
+    address referenced by CPU instructions to a physical address based on the OS page
+    table entries. To avoid accessing RAM to search for the relevant page tables,
+    engineers added the Translation Lookaside Buffer (TLB). TLB is a small cache that
+    can cache a few thousand page table entries (typically 4 KB of entries). The overall
+    flow looks like [Figure 5-2](#img-mem-vm-mmu).
+  id: totrans-82
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 自 1980 年代以来，几乎每种 CPU 架构都开始包括用于每个内存访问的内存管理单元（MMU）。MMU 根据操作系统页表条目将 CPU 指令引用的每个内存地址转换为物理地址。为了避免访问
+    RAM 来搜索相关页面表，工程师们增加了翻译后备缓冲器（TLB）。TLB 是一个小缓存，可以缓存几千个页面表条目（通常是 4 KB 条目）。整体流程看起来像[图 5-2](#img-mem-vm-mmu)所示。
+- en: '![efgo 0502](assets/efgo_0502.png)'
+  id: totrans-83
+  prefs: []
+  type: TYPE_IMG
+  zh: '![efgo 0502](assets/efgo_0502.png)'
+- en: Figure 5-2\. Address translation mechanism done by MMU and TLB in CPU. OS has
+    to inject the relevant page tables so MMU knows what virtual addresses correspond
+    to physical addresses.
+  id: totrans-84
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+  zh: 图 5-2\. CPU 中由 MMU 和 TLB 完成的地址转换机制。操作系统必须注入相关页面表，以便 MMU 知道虚拟地址对应的物理地址。
+- en: TLB is very fast, but it has limited capacity. If MMU cannot find the accessed
+    virtual address in the TLB, we have a TLB miss. This means that either the CPU
+    (hardware TLB management) or OS (software-managed TLB) has to walk through page
+    tables in RAM, which causes significant latency (around one hundred CPU clock
+    cycles)!
+  id: totrans-85
+  prefs: []
+  type: TYPE_NORMAL
+  zh: TLB 非常快速，但容量有限。如果 MMU 在 TLB 中找不到访问的虚拟地址，就会发生 TLB 未命中。这意味着 CPU（硬件 TLB 管理）或操作系统（软件管理的
+    TLB）必须遍历 RAM 中的页面表，这会导致显著的延迟（约一百个 CPU 时钟周期）！
+- en: It is essential to mention that not every “allocated” virtual memory page will
+    have a reserved physical memory page behind it. In fact, most of the virtual memory
+    is not backed up by RAM at all. As a result, we can almost always see large amounts
+    of virtual memory used by the process (called `VSS` or `VSZ` in various Linux
+    tools like `ps`). Still, the actual physical memory (often called `RSS` or `RES`
+    from “resident memory”) reserved for this process might be tiny. There are often
+    cases where a single process allocates more virtual memory than is available to
+    the whole machine! See an example situation like this on my machine in [Figure 5-3](#img-mem-vss).
+  id: totrans-86
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 需要指出的是，并非每个“已分配”的虚拟内存页面都有相应的保留物理内存页面。事实上，大多数虚拟内存根本没有被 RAM 支持。因此，我们几乎总是可以看到进程使用了大量虚拟内存（在诸如
+    `ps` 这样的 Linux 工具中称为 `VSS` 或 `VSZ`）。但是，为该进程保留的实际物理内存（通常称为 `RSS` 或 `RES`，即“常驻内存”）可能非常小。经常会出现单个进程分配的虚拟内存超过整台机器可用的情况！在我的机器上可以看到类似的情况，详见[图 5-3](#img-mem-vss)。
+- en: '![efgo 0503](assets/efgo_0503.png)'
+  id: totrans-87
+  prefs: []
+  type: TYPE_IMG
+  zh: '![efgo 0503](assets/efgo_0503.png)'
+- en: Figure 5-3\. First few lines of `htop` output, showing the current usage of
+    a few Chrome browser processes, sorted by virtual memory size
+  id: totrans-88
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+  zh: 图 5-3\. `htop` 输出的前几行，显示了几个 Chrome 浏览器进程当前的使用情况，按虚拟内存大小排序。
+- en: As we can see in [Figure 5-3](#img-mem-vss), my machine has 32 GB of physical
+    memory, with 16.2 GB currently used. Yet we see Chrome processes using 45.7 GB
+    of virtual memory each! However, if you look at the `RES` column, it has only
+    507 MB resident, with 126 MB of it shared with other processes. So how this is
+    possible? How can the process think that it has 45.7 GB of RAM available, given
+    the machine has only 32 GB and the system actually allocated just a few hundred
+    MBs in RAM?
+  id: totrans-89
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如我们在[图 5-3](#img-mem-vss)中可以看到的那样，我的机器有 32 GB 物理内存，当前使用了 16.2 GB。然而，我们看到 Chrome
+    进程每个使用了 45.7 GB 的虚拟内存！但是，如果看 `RES` 列，仅有 507 MB 常驻内存，其中 126 MB 与其他进程共享。这是如何可能的？进程如何认为自己有
+    45.7 GB 可用的 RAM，考虑到机器只有 32 GB，并且系统实际上只分配了几百 MB 的 RAM？
+- en: We can call such a situation a [memory overcommitment](https://oreil.ly/wbZGf),
+    and it exists because of the very same reasons [airlines often overbook seats
+    for their flights](https://oreil.ly/El9iy). On average, many travelers cancel
+    their trips at the last minute or do not show up for their flight. As a result,
+    to maximize the plane’s used capacity, it is more profitable for airlines to sell
+    more tickets than seats in the airplane and handle the rare “out of seats” situations
+    “gracefully” (e.g., by moving the unlucky customer to another flight). This means
+    that the true “allocation” of seats happens when travelers actually “access” them
+    during the flight onboarding process.
+  id: totrans-90
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以将这种情况称为[内存过度承诺](https://oreil.ly/wbZGf)，它存在的原因与[航空公司经常超售航班座位](https://oreil.ly/El9iy)相同。平均而言，许多旅客在最后一刻取消行程或者不出现登机。因此，为了最大化飞机的使用率，航空公司更有利可图地出售比飞机座位多的机票，并在“座位不足”的情况下“优雅地”处理（例如将不幸的乘客转移到另一趟航班）。这意味着真正的座位“分配”发生在旅客在登机过程中实际“访问”座位时。
+- en: The OS performs the same overcommitment strategy by default^([15](ch05.html#idm45606834472688))
+    for processes trying to allocate physical memory. The physical memory is only
+    allocated when our program accesses it, not when it “creates” a big object, for
+    example, `make([]byte, 1024)` (you will see a practical example of this in [“Go
+    Allocator”](#ch-hw-allocator)).
+  id: totrans-91
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 操作系统默认采用相同的过度承诺策略^([15](ch05.html#idm45606834472688))，用于试图分配物理内存的进程。只有当我们的程序访问物理内存时，才分配物理内存，而不是在“创建”大对象时，例如`make([]byte,
+    1024)`（你将在[“Go分配器”](#ch-hw-allocator)中看到实际例子）。
+- en: Overcommitment is implemented with the pages and memory mapping techniques.
+    Typically, memory mapping refers to a low-level memory management capability offered
+    with the [`mmap`](https://oreil.ly/m5n7A) system call on Linux (and the similar
+    `MapViewOfFile` function in Windows).
+  id: totrans-92
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 过度承诺通过页面和内存映射技术实现。通常，内存映射指的是Linux上提供的低级内存管理能力，通过[`mmap`](https://oreil.ly/m5n7A)系统调用（在Windows上是类似的`MapViewOfFile`函数）。
+- en: Developers Can Utilize mmap Explicitly in Programs for Specific Use Cases
+  id: totrans-93
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 开发者可以在特定用例中显式地利用`mmap`。
+- en: The `mmap` call is used extensively in almost every database software, e.g.,
+    in [MySQL](https://oreil.ly/o8a5o) and [PostgreSQL](https://oreil.ly/scByc) as
+    well as those written in Go, like [Prometheus](https://oreil.ly/2Sa3P), [Thanos](https://oreil.ly/tFBUf),
+    and [M3db](https://oreil.ly/Jg3wb) projects. The `mmap` (among other memory allocation
+    techniques) is also what Go runtime and other programming languages use under
+    the hood to allocate memory from OS, e.g., for the heap (discussed in [“Go Memory
+    Management”](#ch-hw-go-mem)).
+  id: totrans-94
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`mmap`调用广泛用于几乎所有数据库软件，例如[MySQL](https://oreil.ly/o8a5o)和[PostgreSQL](https://oreil.ly/scByc)，以及使用Go编写的项目，如[Prometheus](https://oreil.ly/2Sa3P)、[Thanos](https://oreil.ly/tFBUf)和[M3db](https://oreil.ly/Jg3wb)。`mmap`（以及其他内存分配技术）也是Go运行时和其他编程语言在底层使用的内存分配机制，例如堆内存（在[“Go内存管理”](#ch-hw-go-mem)中讨论）。'
+- en: Using explicit `mmap` for most Go applications is not recommended. Instead,
+    we should stick to the Go runtime’s standard allocation mechanisms, which we will
+    learn in [“Go Memory Management”](#ch-hw-go-mem). As our [“Efficiency-Aware Development
+    Flow”](ch03.html#ch-conq-eff-flow) said, only if we see indications through benchmarking
+    that this is not enough, might we consider moving to more advanced methods like
+    `mmap`. This is why `mmap` is not even on my [Chapter 11](ch11.html#ch-opt2) list!
+  id: totrans-95
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对大多数Go应用程序而言，不建议显式使用`mmap`。相反，我们应该坚持使用Go运行时的标准分配机制，我们将在[“Go内存管理”](#ch-hw-go-mem)中学习。正如我们的[“高效开发流程”](ch03.html#ch-conq-eff-flow)所述，只有通过基准测试显示这已经不够时，我们才考虑转向更高级的方法，如`mmap`。这也是为什么`mmap`甚至不在我的[第11章](ch11.html#ch-opt2)列表中！
+- en: However, there is a reason why I explain `mmap` at the start of our journey
+    with the memory resource. Even if we don’t use it explicitly, the OS uses the
+    same memory mapping mechanism to manage all allocated pages in our system. The
+    data structures we use in our Go programs are indirectly saved to certain virtual
+    memory pages, which are then `mmap`-like managed by the OS or Go runtime. As a
+    result, understanding the explicit `mmap` syscall will conveniently explain the
+    on-demand paging and mapping techniques Linux OS uses to manage virtual memory.
+  id: totrans-96
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，在我们开始讨论内存资源时，我解释`mmap`的原因有其合理性。即使我们不显式使用它，操作系统也使用相同的内存映射机制来管理系统中所有分配的页面。我们在Go程序中使用的数据结构间接保存到某些虚拟内存页面中，然后由操作系统或Go运行时类似于`mmap`管理。因此，理解显式的`mmap`系统调用将方便地解释Linux操作系统用来管理虚拟内存的按需分页和映射技术。
+- en: Let’s focus on the Linux `mmap` syscall next.
+  id: totrans-97
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们接下来专注于 Linux `mmap` 系统调用。
+- en: mmap Syscall
+  id: totrans-98
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: mmap 系统调用
+- en: To learn about OS memory mapping patterns, let’s discuss the [`mmap`](https://oreil.ly/m5n7A)
+    syscall. [Example 5-1](#code-mmap) shows a simplified abstraction, using `mmap`
+    OS syscall, that allows allocating a byte slice in our process virtual memory
+    without Go memory management coordination.
+  id: totrans-99
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要了解操作系统的内存映射模式，让我们讨论一下 [`mmap`](https://oreil.ly/m5n7A) 系统调用。[示例 5-1](#code-mmap)
+    展示了一个简化的抽象，使用 `mmap` 操作系统调用，在我们的进程虚拟内存中分配一个字节切片，而不需要 Go 内存管理的协调。
+- en: Example 5-1\. The adapted snippet of Linux-specific [Prometheus `mmap` abstraction](https://oreil.ly/KJ4dD)
+    that allows creating and maintaining read-only memory-mapped byte arrays
+  id: totrans-100
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+  zh: 示例 5-1\. 适配的 Linux 特定 [Prometheus `mmap` 抽象](https://oreil.ly/KJ4dD)，允许创建和维护只读内存映射的字节数组
+- en: '[PRE0]'
+  id: totrans-101
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE0]'
+- en: '[![1](assets/1.png)](#co_how_go_uses_memory_resource_CO1-1)'
+  id: totrans-102
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_how_go_uses_memory_resource_CO1-1)'
+- en: '`OpenFileBacked` creates explicit memory mapped backed up by the file from
+    the provided path.'
+  id: totrans-103
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`OpenFileBacked` 创建了一个由提供的路径中的文件支持的显式内存映射。'
+- en: '[![2](assets/2.png)](#co_how_go_uses_memory_resource_CO1-2)'
+  id: totrans-104
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_how_go_uses_memory_resource_CO1-2)'
+- en: '`unix.Mmap` is a Unix-specific Go helper that uses the `mmap` syscall to create
+    a direct mapping between bytes from the file on disk (between 0 and the `size`
+    address) and virtual memory allocated by the returned `[]byte` array in the `b`
+    variable. We also pass the read-only flag (`PROT_READ`) and shared flag (`MAP_SHARED`).^([16](ch05.html#idm45606834159392))
+    We can also skip the passing file descriptor, and pass 0 as the first argument
+    and `MAP_ANON` as the last argument to create anonymous mapping (more on that
+    later).^([17](ch05.html#idm45606834158000))'
+  id: totrans-105
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`unix.Mmap` 是一个 Unix 特定的 Go 助手，使用 `mmap` 系统调用来在返回的 `[]byte` 数组中创建文件在磁盘上的直接映射（在
+    0 到 `size` 地址之间）。我们还传递了只读标志 (`PROT_READ`) 和共享标志 (`MAP_SHARED`)。^([16](ch05.html#idm45606834159392))
+    我们还可以跳过传递文件描述符，并将 0 作为第一个参数传递，并将 `MAP_ANON` 作为最后一个参数，以创建匿名映射（稍后详述）。^([17](ch05.html#idm45606834158000))'
+- en: '[![3](assets/3.png)](#co_how_go_uses_memory_resource_CO1-3)'
+  id: totrans-106
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_how_go_uses_memory_resource_CO1-3)'
+- en: We use the [`merrors`](https://oreil.ly/lnrJM) package to ensure the we capture
+    both errors if `Close` also returns an error.
+  id: totrans-107
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们使用 [`merrors`](https://oreil.ly/lnrJM) 包确保如果 `Close` 也返回错误，我们捕获了两个错误。
+- en: '[![4](assets/4.png)](#co_how_go_uses_memory_resource_CO1-4)'
+  id: totrans-108
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[![4](assets/4.png)](#co_how_go_uses_memory_resource_CO1-4)'
+- en: '`unix.Munmap` is one of the few ways to remove mapping and de-allocate `mmap`-ed
+    bytes from virtual memory.'
+  id: totrans-109
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`unix.Munmap` 是从虚拟内存中删除映射并释放 `mmap` 映射的字节的少数几种方法之一。'
+- en: The returned byte slice from the open-ed `MemoryMap.Bytes` structure can be
+    read as a regular byte slice acquired in typical ways, e.g., `make([]byte, size)`.
+    However, since we marked this memory-mapped location as read-only (`unix.PROT_READ`),
+    writing to such a slice will cause the OS to terminate the Go process with the
+    `SIGSEGV` reason.^([18](ch05.html#idm45606834147584)) Furthermore, a segmentation
+    fault will also happen if we read from this slice after doing `Close` (`Unmap`)
+    on it.
+  id: totrans-110
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从打开的 `MemoryMap.Bytes` 结构返回的字节切片可以像通过典型方式获得的普通字节切片一样读取，例如 `make([]byte, size)`。然而，由于我们将这个内存映射位置标记为只读
+    (`unix.PROT_READ`)，因此在对这样一个切片进行写入时，操作系统将会用 `SIGSEGV` 原因终止 Go 进程。^([18](ch05.html#idm45606834147584))
+    此外，如果我们在对其进行 `Close` (`Unmap`) 后读取这个切片，也会发生分段错误。
+- en: At first glance, the `mmap`-ed byte array looks like a regular byte slice with
+    extra steps and constraints. So what’s unique about it? It’s best to explain that
+    using an example! Imagine that we want to buffer a 600 MB file in the `[]byte`
+    slice so we can quickly access a couple of bytes on demand from random offsets
+    of that file. The 600 MB might sound excessive, but such a requirement is commonly
+    seen in databases or caches where reading from a disk on demand might be too slow.
+  id: totrans-111
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 乍一看，`mmap` 映射的字节数组看起来像是一个普通的字节切片，但额外增加了一些步骤和限制。那么它有什么独特之处呢？最好用一个例子来解释！想象一下，我们想要在
+    `[]byte` 切片中缓冲一个 600 MB 的文件，这样我们就可以根据需要从该文件的任意偏移量快速访问几个字节。可能听起来 600 MB 太多了，但在数据库或缓存中，这样的需求是很常见的，因为从磁盘按需读取可能太慢。
+- en: The naive solution without an explicit `mmap` could look like [Example 5-2](#code-naive-read-usage).
+    Every few instructions, we will look at what the OS memory statistics told us
+    about the allocated pages on physical RAM.
+  id: totrans-112
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 没有显式 `mmap` 的天真解决方案可能看起来像是 [示例 5-2](#code-naive-read-usage)。每隔几条指令，我们将查看操作系统内存统计告诉我们关于物理
+    RAM 上分配页面的情况。
+- en: Example 5-2\. Buffering 600 MB from a file to access three bytes from three
+    different locations
+  id: totrans-113
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+  zh: 示例 5-2\. 缓冲来自文件的 600 MB，以便从文件的三个不同位置访问三个字节
+- en: '[PRE1]'
+  id: totrans-114
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE1]'
+- en: '[![1](assets/1.png)](#co_how_go_uses_memory_resource_CO2-1)'
+  id: totrans-115
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_how_go_uses_memory_resource_CO2-1)'
+- en: We open the 600+ MB file. At this point, if you ran the `ls -l /proc/$PID/fd`
+    (where `$PID` is the process ID of this executed program) command on a Linux machine,
+    you would see file descriptors telling you that this process has used these files.
+    One of the descriptors is a symbolic link to our `test686mbfile.out` file we just
+    opened. The process will hold that file descriptor until the file is closed.
+  id: totrans-116
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们打开了 600+ MB 的文件。此时，如果你在 Linux 机器上运行了 `ls -l /proc/$PID/fd` 命令（其中 `$PID` 是此执行程序的进程
+    ID），你会看到文件描述符告诉你该进程已使用了这些文件。其中一个描述符是指向我们刚刚打开的 `test686mbfile.out` 文件的符号链接。该进程将会持有该文件描述符直到文件关闭。
+- en: '[![2](assets/2.png)](#co_how_go_uses_memory_resource_CO2-2)'
+  id: totrans-117
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_how_go_uses_memory_resource_CO2-2)'
+- en: We read 600 MB into a pre-allocated `[]byte` slice. After the `f.Read` method
+    execution, the RSS of the process shows 621 MB.^([19](ch05.html#idm45606833899392))
+    This means that we need over 600 MB of free physical RAM to run this program.
+    The virtual memory size (VSZ) increased too, hitting 1.3 GB.
+  id: totrans-118
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将 600 MB 读入预先分配的 `[]byte` 切片中。在 `f.Read` 方法执行后，进程的 RSS 显示为 621 MB。^([19](ch05.html#idm45606833899392))
+    这意味着我们需要超过 600 MB 的空闲物理 RAM 来运行此程序。虚拟内存大小（VSZ）也增加了，达到了 1.3 GB。
+- en: '[![3](assets/3.png)](#co_how_go_uses_memory_resource_CO2-3)'
+  id: totrans-119
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_how_go_uses_memory_resource_CO2-3)'
+- en: No matter what bytes we access from our buffer, our program will not allocate
+    any more bytes on RSS for our buffer (however, it might need extra bytes for the
+    `Println` logic).
+  id: totrans-120
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 无论我们从缓冲区访问哪些字节，我们的程序都不会为缓冲区在 RSS 上分配任何额外的字节（然而，对于 `Println` 的逻辑可能需要额外的字节）。
+- en: Generally, [Example 5-2](#code-naive-read-usage) proves that without an explicit
+    `mmap`, we would need to reserve at least 600 MB of memory (~150,000 pages) on
+    physical RAM from the very beginning. We also keep all of them reserved for our
+    process until it is collected by the garbage collection process.
+  id: totrans-121
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通常，[示例 5-2](#code-naive-read-usage) 证明了，如果没有显式的 `mmap`，我们需要从一开始就为我们的进程至少保留 600
+    MB 内存（约 150,000 页）在物理 RAM 中。我们需要保留它们直到垃圾收集进程将其回收。
+- en: What would the same functionality look like with the explicit `mmap`? Let’s
+    do something similar in [Example 5-3](#code-mmap-usage) using the [Example 5-1](#code-mmap)
+    abstraction.
+  id: totrans-122
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果使用显式的 `mmap`，相同的功能会是什么样子呢？让我们在 [示例 5-3](#code-mmap-usage) 中使用 [示例 5-1](#code-mmap)
+    的抽象，做类似的事情。
+- en: Example 5-3\. Memory mapping 600 MB from file to access three bytes from three
+    different locations, using [Example 5-1](#code-mmap)
+  id: totrans-123
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+  zh: 示例 5-3\. 内存映射 600 MB 的文件以访问来自三个不同位置的三个字节，使用 [示例 5-1](#code-mmap)
+- en: '[PRE2]'
+  id: totrans-124
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE2]'
+- en: '[![1](assets/1.png)](#co_how_go_uses_memory_resource_CO3-1)'
+  id: totrans-125
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_how_go_uses_memory_resource_CO3-1)'
+- en: We open our test file and memory map 600 MB of its content into the `[]byte`
+    slice. At this point, similar to [Example 5-2](#code-naive-read-usage), we see
+    a related file descriptor for our `test686mbfile.out` file in the *fd* directory.
+    More importantly, however, if you executed the `ls -l /proc/$PID>/map_files` (again,
+    `$PID` is the process ID) command, you would also have another symbolic link to
+    the `test686mbfile.out` file we just referenced. This represents a file-backed
+    memory map.
+  id: totrans-126
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们打开测试文件并将其内容的 600 MB 内存映射到 `[]byte` 切片中。此时，类似于 [示例 5-2](#code-naive-read-usage)，我们在
+    *fd* 目录中看到了与我们的 `test686mbfile.out` 文件相关的文件描述符。然而更重要的是，如果你执行了 `ls -l /proc/$PID>/map_files`
+    命令（这里再次提醒，`$PID` 是进程 ID），你会看到另一个符号链接指向我们刚刚提到的 `test686mbfile.out` 文件。这表示一个文件支持的内存映射。
+- en: '[![2](assets/2.png)](#co_how_go_uses_memory_resource_CO3-2)'
+  id: totrans-127
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_how_go_uses_memory_resource_CO3-2)'
+- en: After this statement, we have the byte buffer `b` with the file content. However,
+    if we check the memory statistics for this process, the OS did not allocate any
+    page in physical memory for our slice elements.^([20](ch05.html#idm45606833705184))
+    So the total RSS is as small as 1.6 MB, despite having 600 MB of content accessible
+    in `b`! The VSZ, on the other hand, is around 1.3 GB, which indicates the OS is
+    telling the Go program that it can access this space.
+  id: totrans-128
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在这个语句之后，我们得到了包含文件内容的字节缓冲区 `b`。然而，如果我们检查此进程的内存统计信息，操作系统并没有为切片元素在物理内存中分配任何页面。^([20](ch05.html#idm45606833705184))
+    因此，尽管 `b` 中有 600 MB 的内容可访问，总的 RSS 仅为 1.6 MB！与此相反，VSZ 大约为 1.3 GB，这表明操作系统告知 Go 程序它可以访问这个空间。
+- en: '[![3](assets/3.png)](#co_how_go_uses_memory_resource_CO3-3)'
+  id: totrans-129
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_how_go_uses_memory_resource_CO3-3)'
+- en: After accessing a single byte from our slice, we see an increase in RSS, around
+    48–70 KB worth of RAM pages for this mapping. This means that the OS only allocated
+    a few (10 or so) pages on RAM when our code wanted to access a single, concrete
+    byte from `b`.
+  id: totrans-130
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 从我们的切片中访问单个字节后，我们看到RSS增加，大约增加了48–70 KB的RAM页面。这意味着当我们的代码想要从`b`中访问单个具体字节时，操作系统仅分配了几个（大约10个）页面在RAM中。
+- en: '[![4](assets/4.png)](#co_how_go_uses_memory_resource_CO3-4)'
+  id: totrans-131
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[![4](assets/4.png)](#co_how_go_uses_memory_resource_CO3-4)'
+- en: Accessing a different byte far away from already allocated pages triggers the
+    allocation of extra pages. RSS reading would show 100–128 KB.
+  id: totrans-132
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 访问远离已分配页面的不同字节将触发额外页面的分配。RSS读数将显示100–128 KB。
+- en: '[![5](assets/5.png)](#co_how_go_uses_memory_resource_CO3-5)'
+  id: totrans-133
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[![5](assets/5.png)](#co_how_go_uses_memory_resource_CO3-5)'
+- en: If we access a single byte 4,000 bytes away from the previous read, OS does
+    not allocate any additional pages. This might be for a few reasons.^([21](ch05.html#idm45606833635152))
+    For instance, when our program read the file’s contents at offset 100,000, the
+    OS already allocated a 4 KB page with the byte we accessed here. Thus RSS reading
+    would still show 100–128 KB.
+  id: totrans-134
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们访问前一个读取的4,000字节之外的单个字节，操作系统不会分配任何额外的页面。这可能有几个原因。^（[21](ch05.html#idm45606833635152)）例如，当我们的程序在偏移量100,000处读取文件内容时，操作系统已经为这里访问的字节分配了一个4
+    KB页面。因此，RSS读数仍然显示100–128 KB。
+- en: '[![6](assets/6.png)](#co_how_go_uses_memory_resource_CO3-6)'
+  id: totrans-135
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[![6](assets/6.png)](#co_how_go_uses_memory_resource_CO3-6)'
+- en: If we remove the memory mapping, all our related pages will eventually be unmapped
+    from RAM. This means our process total RSS number should be smaller.^([22](ch05.html#idm45606833630880))
+  id: totrans-136
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们移除内存映射，所有相关页面最终将从RAM中取消映射。这意味着我们的进程总RSS数应该更小。^（[22](ch05.html#idm45606833630880)）
+- en: An Underrated Way to Learn More About Your Process and OS Resource Behavior
+  id: totrans-137
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 了解更多关于您的进程和操作系统资源行为的低估方法
+- en: Linux provides amazing statistics and debugging information for the current
+    process or thread state. Everything is accessible as special files inside */proc/`<PID>`*.
+    The ability to debug each detailed statistic (e.g., every little memory mapping
+    status) and configuration was eye-opening for me. Learn more about what you can
+    do by reading the [proc](https://oreil.ly/jxBig) (process pseudofilesystem) documentation.
+  id: totrans-138
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Linux为当前进程或线程状态提供了令人惊叹的统计和调试信息。所有信息都作为特殊文件存在于`/proc/`\<PID>`*`内。能够调试每个详细的统计数据（例如每个小内存映射状态）和配置对我来说是一个启发。通过阅读[proc](https://oreil.ly/jxBig)（进程伪文件系统）文档，了解更多你可以做的事情。
+- en: I recommend getting familiar with the Linux pseudofilesystem or the tools using
+    it if you plan to work more on low-level Linux software.
+  id: totrans-139
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果您计划更多地在低级Linux软件上工作，我建议您熟悉Linux伪文件系统或使用它的工具。
+- en: 'One of the main behaviors highlighted when we used explicit `mmap` in [Example 5-3](#code-mmap-usage)
+    is called on-demand paging. When the process asks the OS for any virtual memory
+    using `mmap`, the OS will not allocate any page on RAM, no matter how large. Instead,
+    the OS will only give the process the virtual address range. Further along, when
+    the CPU performs the first instruction that accesses memory from that virtual
+    address range (e.g., our `fmt.Println("Reading the 5000th byte," b[5000])` in
+    [Example 5-3](#code-mmap-usage)), the MMU will generate a page fault. Page fault
+    is a hardware interrupt that is handled by the OS kernel. The OS can then respond
+    in various ways:'
+  id: totrans-140
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当我们在[示例 5-3](#code-mmap-usage)中使用显式`mmap`时突出显示的一个主要行为是按需分页。当进程使用`mmap`请求任何虚拟内存时，操作系统不会在RAM上分配任何页面，无论多大。相反，操作系统只会为进程提供虚拟地址范围。稍后，当CPU执行从该虚拟地址范围中访问内存的第一条指令时（例如我们在[示例
+    5-3](#code-mmap-usage)中的`fmt.Println("Reading the 5000th byte," b[5000])`），MMU将生成页面错误。页面错误是由操作系统内核处理的硬件中断。然后，操作系统可以以各种方式响应：
+- en: Allocate more RAM frames
+  id: totrans-141
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 分配更多的RAM页面
+- en: If we have free frames (physical memory pages) in RAM, the OS can mark some
+    of them as used and map them to the process that triggered the page fault. This
+    is the only moment when the OS actually “allocates” RAM (and increases the `RSS`
+    metric).
+  id: totrans-142
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们在RAM中有空闲页面（物理内存页面），操作系统可以将其中一些标记为已使用并映射到触发页面错误的进程。这是操作系统实际上“分配”RAM（并增加`RSS`度量）的唯一时刻。
+- en: De-allocate unused RAM frames and reuse them
+  id: totrans-143
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 释放未使用的RAM页面并重复使用它们
+- en: If no free frame exists (high memory usage on the machine), the OS can remove
+    a couple of frames that belong to file-backed mappings for any process as long
+    as the frames are not currently accessed. As a result, many pages can be unmapped
+    from physical frames before OS has to resort to more brutal methods. Still, this
+    will potentially cause other processes to generate another page fault. If this
+    situation happens very often, our whole OS with all processes will be seriously
+    slowed down (memory trashing situation).
+  id: totrans-144
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果没有空闲帧存在（机器上的高内存使用），操作系统可以删除属于任何进程的文件支持映射的几个帧，只要这些帧当前未被访问。结果，操作系统在不得不采取更残酷方法之前，可以取消物理帧中的许多页面映射。然而，这可能会导致其他进程生成另一个页面故障。如果这种情况经常发生，整个操作系统和所有进程都将严重减速（内存抖动情况）。
+- en: Triggering out-of-memory (OOM) situation
+  id: totrans-145
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 触发内存不足（OOM）情况
+- en: 'If the situation worsens and all unused file-backed memory-mapped pages are
+    freed, and we still have no free pages, the OS is essentially out of memory. Handling
+    that situation can be configured in the OS, but generally, there are three options:'
+  id: totrans-146
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果情况恶化，并且所有未使用的文件支持内存映射页面被释放，并且我们仍然没有空闲页面，操作系统实际上是内存不足的。可以在操作系统中配置处理该情况，但一般有三个选择：
+- en: The OS can start unmapping pages from physical memory for memory mappings backed
+    by anonymous files. To avoid data loss, a swap disk partition can be configured
+    (the `swapon --show` command will show you the existence and usage of swap partitions
+    in your Linux system). This disk space is then used to back up virtual memory
+    pages from the anonymous file memory map. As you can imagine, this can cause a
+    similar (if not worse) memory trashing situation and overall system slowdown.^([23](ch05.html#idm45606833609392))
+  id: totrans-147
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 操作系统可以开始取消映射物理内存中由匿名文件支持的内存映射页面。为了避免数据丢失，可以配置一个交换磁盘分区（`swapon --show` 命令将显示您的Linux系统中交换分区的存在和使用情况）。然后，这些磁盘空间用于备份匿名文件内存映射中的虚拟内存页面。正如你可以想象的那样，这可能会导致类似（如果不是更严重的话）的内存抖动情况和整体系统减速。^([23](ch05.html#idm45606833609392))
+- en: A second option for the OS is to simply reboot the system, generally known as
+    [the system-level OOM crash](https://oreil.ly/BboW0).
+  id: totrans-148
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 操作系统的第二个选项是简单地重新启动系统，通常称为[系统级OOM崩溃](https://oreil.ly/BboW0)。
+- en: The last option is to recover from the OOM situation by immediately terminating
+    a few lower-priority processes (e.g., from the user space). This is typically
+    done by the OS sending the [`SIGKILL` signal](https://oreil.ly/SLWOv). The detection
+    of what processes to kill varies,^([24](ch05.html#idm45606833605136)) but if we
+    want more determinisms, the system administrator can configure specific memory
+    limits per process or group of processes using, for example, [`cgroups`](https://oreil.ly/E72wh)^([25](ch05.html#idm45606833602304))
+    or [`ulimit`](https://oreil.ly/fF12F).
+  id: totrans-149
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 最后一个选项是通过立即终止几个优先级较低的进程（例如，来自用户空间的进程）从OOM情况中恢复。通常是通过操作系统发送[`SIGKILL`信号](https://oreil.ly/SLWOv)来完成的。杀死进程的检测因系统而异，^([24](ch05.html#idm45606833605136))但如果我们想要更多的确定性，系统管理员可以使用例如[`cgroups`](https://oreil.ly/E72wh)^([25](ch05.html#idm45606833602304))或[`ulimit`](https://oreil.ly/fF12F)来配置每个进程或进程组的特定内存限制。
+- en: On top of the on-demand paging strategy, it’s worth mentioning that the OS never
+    releases any frame pages from RAM at the moment of process termination or when
+    it explicitly releases some virtual memory. Only virtual mapping is updated at
+    that point. Instead, physical memory is mainly reclaimed lazily (on demand) with
+    the help of [a page frame reclaiming algorithm (PFRA)](https://oreil.ly/ruKUM)
+    that we won’t discuss in this book.
+  id: totrans-150
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 除了按需分页策略外，值得一提的是，操作系统在进程终止时或显式释放某些虚拟内存时从未立即释放任何RAM帧页面。在那一点上只更新虚拟映射。而物理内存主要通过懒惰方式（按需）与帮助[页面帧回收算法（PFRA）](https://oreil.ly/ruKUM)重新获取。这本书不会讨论这个。
+- en: Generally, the `mmap` syscall might seem complex to use and understand. Yet,
+    it explains what it means when our program allocates some RAM by asking the OS.
+    Let’s now compose what we learned into the big picture of how the OS manages the
+    RAM and talk about the consequences we developers might observe when dealing with
+    a memory resource.
+  id: totrans-151
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一般来说，`mmap`系统调用可能看起来复杂且难以理解。然而，它解释了当我们的程序通过请求操作系统分配一些RAM时意味着什么。现在让我们将我们学到的东西组合成操作系统如何管理RAM的大局，并讨论我们开发者在处理内存资源时可能观察到的后果。
+- en: OS Memory Mapping
+  id: totrans-152
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 操作系统内存映射
+- en: The explicit memory mapping presented in [Example 5-3](#code-mmap-usage) is
+    just one example of the possible OS memory mapping techniques. Besides, rare file-backed
+    mapping and advanced off-heap solutions, there is almost no need to explicitly
+    use such `mmap` syscalls in our Go programs. However, to manage virtual memory
+    efficiently, the OS is transparently using the same technique of page memory mapping
+    for nearly all the RAM! The example memory mappings situation is presented in
+    [Figure 5-4](#img-mem-vm), which pulls into one graphic a few common page mapping
+    situations we could have in our machine.
+  id: totrans-153
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在 [Example 5-3](#code-mmap-usage) 中呈现的显式内存映射只是可能的操作系统内存映射技术的一个例子。除了稀有的基于文件的映射和高级的非堆解决方案之外，在我们的
+    Go 程序中几乎没有必要显式使用这样的 `mmap` 系统调用。然而，为了有效管理虚拟内存，操作系统对几乎所有的 RAM 都透明地使用相同的页面内存映射技术！我们机器上的示例内存映射情况显示在
+    [Figure 5-4](#img-mem-vm) 中，将几种常见的页面映射情况汇总为一个图形。
+- en: '![efgo 0504](assets/efgo_0504.png)'
+  id: totrans-154
+  prefs: []
+  type: TYPE_IMG
+  zh: '![efgo 0504](assets/efgo_0504.png)'
+- en: Figure 5-4\. Example MMU translation of a few memory pages from the virtual
+    memory of two processes
+  id: totrans-155
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+  zh: 图 5-4\. 两个进程虚拟内存中几个内存页的示例 MMU 转换
+- en: 'The situation in [Figure 5-4](#img-mem-vm) might look complicated, but we have
+    already discussed some of those cases. Let’s enumerate them from the perspective
+    of Process 1 or 2:'
+  id: totrans-156
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[Figure 5-4](#img-mem-vm) 中的情况可能看起来复杂，但我们已经讨论过其中的一些情况。让我们从进程 1 或 2 的角度列举它们：'
+- en: Page `A`
+  id: totrans-157
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 页 `A`
+- en: Represents the simplest case of *anonymous file mapping* that has already mapped
+    the frame on RAM. So, for example, if Process 1 writes or reads a byte from an
+    address between `0x2000` and `0x2FFF` in its virtual space, the MMU will translate
+    the address to RAM physical address `0x9000`, plus the required offset. As a result,
+    the CPU will be able to fetch or write it as a cache line to its L-caches and
+    desired register.
+  id: totrans-158
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 代表了已经在 RAM 上映射了帧的*匿名文件映射*的最简单情况。例如，如果进程 1 在其虚拟空间中的地址 `0x2000` 到 `0x2FFF` 之间写入或读取一个字节，MMU
+    将把地址转换为 RAM 的物理地址 `0x9000`，加上所需的偏移量。因此，CPU 将能够将其作为缓存行提取或写入到其 L-cache 和所需的寄存器中。
+- en: Page `B`
+  id: totrans-159
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 页 `B`
+- en: Represents a *file-based memory page* mapped to a physical frame like we created
+    in [Example 5-3](#code-mmap-usage). This frame is also shared with another process
+    since there is no need to keep two copies of the same data as both mappings map
+    to the same file on a disk. This is only allowed if the mapping is not set as
+    `MAP_PRIVATE`.
+  id: totrans-160
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 表示一个*基于文件的内存页*映射到物理帧，就像我们在 [Example 5-3](#code-mmap-usage) 中创建的那样。由于两个映射都将到磁盘上的同一文件，因此该帧也与另一个进程共享。只有在映射未设置为
+    `MAP_PRIVATE` 时才允许这样做。
+- en: Page `C`
+  id: totrans-161
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 页 `C`
+- en: This is an anonymous file mapping that wasn’t yet accessed. For example, if
+    Process 1 writes a byte to an address between `0x0` and `0xFFF`, a page fault
+    hardware interrupt is generated by the CPU, and the OS will need to find a free
+    frame.
+  id: totrans-162
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是一个尚未访问的匿名文件映射。例如，如果进程 1 向地址 `0x0` 到 `0xFFF` 之间的地址写入一个字节，CPU 会生成一个页面故障硬件中断，操作系统将需要找到一个空闲的帧。
+- en: Page `D`
+  id: totrans-163
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 页 `D`
+- en: This is an anonymous page like `C`, but some data was already written on it.
+    Yet the OS seems to have `swap` enabled and unmaps it from RAM because this page
+    was not used for a long time by Process 2, or the system is under memory pressure.
+    The OS backed the data to swap files in the swap partition to avoid data loss.
+    Process 2 accessing any byte from a virtual address between `0x1000` and `0x1FFF`
+    would result in a page fault, which will tell the OS to find a free frame on RAM
+    and read page `D` content from the swap file. Only then can data be available
+    to Process 2\. Note that such swap logic for anonymous pages is disabled by default
+    on most operating systems.
+  id: totrans-164
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是像 `C` 一样的匿名页，但已经写入了一些数据。然而，操作系统似乎启用了交换并将其从 RAM 中取消映射，因为该页面长时间未被进程 2 使用，或者系统内存压力。操作系统将数据备份到交换分区中的交换文件中，以避免数据丢失。进程
+    2 访问虚拟地址 `0x1000` 到 `0x1FFF` 之间的任何字节都会导致页面错误，这将告诉操作系统在 RAM 中找到一个空闲的帧，并从交换文件中读取页面
+    `D` 的内容。只有这样，数据才能对进程 2 可用。请注意，大多数操作系统默认禁用匿名页的这种交换逻辑。
+- en: 'You should now have a clearer view of OS memory management basics and virtual
+    memory patterns. So let’s now go through a list of important consequences those
+    pose on Go (and any other programming language):'
+  id: totrans-165
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 现在，您应该对操作系统的内存管理基础知识和虚拟内存模式有了更清晰的了解。因此，让我们现在来列出这些对 Go（以及任何其他编程语言）的重要影响的列表：
+- en: Practically speaking, observing the size of virtual memory is never useful.
+  id: totrans-166
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 实际上，观察虚拟内存的大小从来都不是有用的。
+- en: On-demand paging is why we always see larger virtual memory usage (represented
+    by virtual set size, or VSS) than resident memory usage (RSS) for a process (e.g.,
+    the browser memory usage in [Figure 5-3](#img-mem-vss)). While the process thinks
+    that all pages it sees on the virtual address space are in RAM, most of them might
+    be currently unmapped and stored on disk (mapped file or swap partition). In most
+    cases, you [can ignore](https://oreil.ly/u9l5k) the VSS metric when assessing
+    the amount of memory your Go program uses.
+  id: totrans-167
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 按需分页是为什么我们总是看到更大的虚拟内存使用量（由虚拟集大小或 VSS 表示）比进程的常驻内存使用量（RSS）（例如，在[图 5-3](#img-mem-vss)中的浏览器内存使用情况）。虽然进程认为它在虚拟地址空间上看到的所有页面都在
+    RAM 中，但它们中的大多数可能当前未映射并存储在磁盘上（映射文件或交换分区）。在大多数情况下，评估您的 Go 程序使用的内存量时，可以忽略 VSS 指标。
+- en: It is impossible to tell precisely how much memory a process (or system) has
+    used in a given time.
+  id: totrans-168
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 精确地说出在给定时间内一个进程（或系统）使用了多少内存是不可能的。
+- en: What metric can we use if the VSS metric does not help assess process memory
+    usage? For Go developers interested in the memory efficiency of their programs,
+    knowing the current and past memory usage is essential information. It tells how
+    efficient our code is and if our optimizations work as expected.
+  id: totrans-169
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果 VSS 指标无法帮助评估进程内存使用情况，我们可以使用什么度量标准？对于关注程序内存效率的 Go 开发者，了解当前和过去的内存使用情况是必要信息。它告诉我们我们的代码有多有效，以及我们的优化是否按预期工作。
+- en: Unfortunately, because of the on-demand paging and memory mapping behavior we
+    learned in this section, this is currently very hard—we can only roughly estimate.
+    We will discuss the best available metrics in [“Memory Usage”](ch06.html#ch-obs-mem-usage),
+    but don’t be surprised if the RSS metric shows a few kilobytes or even megabytes
+    more or less than you expected.
+  id: totrans-170
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 不幸的是，由于我们在本节学到的按需分页和内存映射行为，这目前非常困难——我们只能粗略估计。我们将在[“内存使用”](ch06.html#ch-obs-mem-usage)中讨论最佳可用的度量标准，但如果
+    RSS 指标显示比预期多或少几千字节甚至兆字节，也不要感到意外。
+- en: OS memory usage expands to all available RAM.
+  id: totrans-171
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 操作系统的内存使用扩展到所有可用的 RAM。
+- en: Due to lazy release and page caches, even if our Go process released all memory,
+    sometimes the RSS will still look very high if there’s generally low memory pressure
+    on the system. This means that there’s enough physical RAM to satisfy the rest
+    of the processes, so the OS doesn’t bother to release our pages. This is often
+    why the RSS metric is not very reliable, as discussed in [“Memory Usage”](ch06.html#ch-obs-mem-usage).
+  id: totrans-172
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于延迟释放和页面缓存，即使我们的 Go 进程释放了所有内存，如果系统上一般的内存压力很低，有时 RSS 看起来仍然非常高。这意味着有足够的物理 RAM
+    来满足其余进程，因此操作系统不会释放我们的页面。这通常是为什么 RSS 指标不是非常可靠的原因，正如在[“内存使用”](ch06.html#ch-obs-mem-usage)中讨论的那样。
+- en: Tail latency of our Go program memory access is much slower than just physical
+    DRAM access latency.
+  id: totrans-173
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们的 Go 程序内存访问的尾延迟比单纯的物理 DRAM 访问延迟要慢得多。
+- en: There is a high price to pay for using OS with virtual memory. In the worst
+    cases, already slow memory access caused by DRAM design (mentioned in [“Physical
+    Memory”](#ch-hw-memory-ph)) is even slower. If we stack up things that can happen,
+    like TLB miss, page fault, looking for a free page, or on-demand memory loading
+    from disk, we have extreme latency, which can waste thousands of CPU cycles. The
+    OS does as much as possible to ensure those bad cases rarely happen, so the amortized
+    (average) access latency is as low as possible.
+  id: totrans-174
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用带有虚拟内存的操作系统的代价很高。在最坏的情况下，已经由 DRAM 设计引起的缓慢内存访问会更加缓慢（在[“物理内存”](#ch-hw-memory-ph)中提到）。如果我们堆叠可能发生的事情，如
+    TLB 未命中、页面错误、寻找空闲页面或从磁盘加载按需内存，我们将面临极高的延迟，这会浪费数千个 CPU 周期。操作系统尽可能确保这些糟糕情况很少发生，因此摊销（平均）访问延迟尽可能低。
+- en: As Go developers, we have some control to reduce the risk of those extra latencies
+    happening more often. For example, we can use less memory in our programs or prefer
+    sequential memory access (more on that later).
+  id: totrans-175
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 作为 Go 开发者，我们可以通过一些控制措施来减少额外延迟发生的风险。例如，我们可以在程序中使用更少的内存或者优先顺序内存访问（稍后详述）。
+- en: High usage of RAM might cause slow program execution.
+  id: totrans-176
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 高 RAM 使用可能导致程序执行缓慢。
+- en: When our system executes many processes that want to access large quantities
+    of pages close to RAM capacity, memory access latencies and OS cleanup routines
+    can take most of the CPU cycles. Furthermore, as we discussed, things like memory
+    trashing, constant memory swaps, and page reclaim mechanisms will slow the whole
+    system. As a result, if your program latency is high, it is not necessarily doing
+    too much work on the CPU or executing slow operations (e.g., I/O), it might just
+    use a lot of the memory!
+  id: totrans-177
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当我们的系统执行许多进程想要访问接近 RAM 容量的大量页面时，内存访问延迟和操作系统的清理例程可能会占用大部分 CPU 周期。此外，正如我们讨论的那样，诸如内存崩溃、常量内存交换和页面回收机制将减慢整个系统。因此，如果您的程序延迟高，不一定是
+    CPU 执行了太多工作或执行了慢操作（例如 I/O），可能只是使用了大量内存！
+- en: Hopefully, you understand the impact of OS memory management on how we should
+    think about the memory resource. As in [“Physical Memory”](#ch-hw-memory-ph),
+    I only explained the basics of memory management. This is because the kernel algorithms
+    evolve, and different OSes manage memory differently. The information I provided
+    should give you a rough understanding of the standard techniques and their consequences.
+    Such a foundation should also give you a kick-start toward learning more from
+    materials like [*Understanding the Linux Kernel*](https://oreil.ly/Wr1nY) by Daniel
+    P. Bovet and Marco Cesati (O’Reilly) or [LWN.net](https://lwn.net).
+  id: totrans-178
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 希望您能理解操作系统内存管理对我们如何考虑内存资源的影响。就像在 [“物理内存”](#ch-hw-memory-ph) 中所述，我只解释了内存管理的基础知识。这是因为内核算法在演变，不同的操作系统管理内存方式也不同。我提供的信息应该给您一个大致了解标准技术及其后果的基础。这样的基础还应该让您从像
+    Daniel P. Bovet 和 Marco Cesati 的 [*理解 Linux 内核*](https://oreil.ly/Wr1nY)（O'Reilly）或
+    [LWN.net](https://lwn.net) 等材料中更深入地学习。
+- en: With that knowledge, let’s discuss how Go has chosen to leverage the memory
+    functionalities the OS and hardware offer. It should help us find the right optimizations
+    to try in our TFBO flow if we have to focus on the memory efficiency of our Go
+    program.
+  id: totrans-179
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有了这些知识，让我们讨论一下 Go 如何选择利用操作系统和硬件提供的内存功能。这应该有助于我们找到在我们的 TFBO 流程中专注于 Go 程序内存效率的正确优化方法。
+- en: Go Memory Management
+  id: totrans-180
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Go 内存管理
+- en: The programming language task here is to ensure that developers who write programs
+    can create variables, abstractions, and operations that use memory safely, efficiently,
+    and (ideally) without fuss! So let’s dig into how the Go language enables that.
+  id: totrans-181
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里编程语言的任务是确保编写程序的开发人员可以安全、高效地（理想情况下）使用内存创建变量、抽象和操作！因此，让我们深入了解 Go 语言如何实现这一点。
+- en: Go uses a relatively standard internal process memory management pattern that
+    other languages (e.g., C/C++) share, with some unique elements. As we learned
+    in [“Operating System Scheduler”](ch04.html#ch-hw-os-scheduler), when a new process
+    starts, the operating system creates various metadata about the process, including
+    a new dedicated virtual address space. The OS also creates initial memory mappings
+    for a few starting segments based on information stored in the program binary.
+    Once the process starts, it uses `mmap` or [`brk/sbrk`](https://oreil.ly/31emh)^([26](ch05.html#idm45606833533232))
+    to dynamically allocate more pages on virtual memory when needed. An example organization
+    of the virtual memory in Go is presented in [Figure 5-5](#img-mem-layout).
+  id: totrans-182
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Go 使用一种相对标准的内部进程内存管理模式，与其他语言（例如 C/C++）共享，但也有一些独特的元素。正如我们在 [“操作系统调度程序”](ch04.html#ch-hw-os-scheduler)
+    中学到的，当一个新进程启动时，操作系统会创建关于该进程的各种元数据，包括一个新的专用虚拟地址空间。操作系统还会根据程序二进制文件中存储的信息，为一些起始段创建初始内存映射。一旦进程启动，它会使用
+    `mmap` 或 [`brk/sbrk`](https://oreil.ly/31emh)^([26](ch05.html#idm45606833533232))
+    在需要时动态分配更多的虚拟内存页面。Go 中虚拟内存的一个示例组织如 [图 5-5](#img-mem-layout) 所示。
+- en: '![efgo 0505](assets/efgo_0505.png)'
+  id: totrans-183
+  prefs: []
+  type: TYPE_IMG
+  zh: '![efgo 0505](assets/efgo_0505.png)'
+- en: Figure 5-5\. Memory layout of an executed Go program in virtual address space
+  id: totrans-184
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+  zh: 图 5-5\. 执行的 Go 程序在虚拟地址空间中的内存布局
+- en: 'We can enumerate a couple of common sections:'
+  id: totrans-185
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们可以列举几个常见的部分：
+- en: '`.text`, `.data`, and shared libraries'
+  id: totrans-186
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`.text`、`.data` 和共享库'
+- en: Program code and all global data like global variables are automatically memory
+    mapped by the OS when the process starts (whether it takes 1 MB or 100 GB of virtual
+    memory). This data is read-only, backed up by the binary file. Additionally, only
+    a small contiguous part of the program is executed at a time by the CPU so that
+    the OS can keep a minimal amount of pages with code and data in the physical memory.
+    Those pages are also heavily shared (more processes are started using the same
+    binary, plus some dynamically linked shared libraries).
+  id: totrans-187
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 程序代码和所有全局数据，如全局变量，在进程启动时由操作系统自动内存映射（不管它需要1 MB还是100 GB的虚拟内存）。这些数据是只读的，由二进制文件支持。此外，CPU每次只执行程序的一个小连续部分，以便操作系统可以在物理内存中保留少量代码和数据页。这些页也经常共享（多个进程使用相同的二进制文件，以及一些动态链接的共享库）。
+- en: Block starting symbol (`.bss`)
+  id: totrans-188
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 块起始符号（`.bss`）
+- en: When OS starts a process, it also allocates anonymous pages for uninitialized
+    data (`.bss)`. The amount of space used by `.bss` is known in advance—for example,
+    the `http` package defines the [`DefaultTransport`](https://oreil.ly/7m0Wv) global
+    variable. While we don’t know the value of this variable, we know it will be a
+    pointer, so we need to prepare eight bytes of memory for it. This type of memory
+    allocation is called static allocation. This space is allocated once, backed by
+    anonymous pages, and is never freed (from virtual memory at least; if swapping
+    is enabled, it can be unmapped from RAM).
+  id: totrans-189
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当操作系统启动一个进程时，它还会为未初始化数据（`.bss`）分配匿名页。`.bss`使用的空间是事先已知的，例如，`http`包定义了[`DefaultTransport`](https://oreil.ly/7m0Wv)全局变量。虽然我们不知道这个变量的值，但我们知道它将是一个指针，因此我们需要为它准备八个字节的内存。这种内存分配称为静态分配。这个空间只分配一次，由匿名页支持，并且从虚拟内存中永远不会释放（至少不会释放；如果启用了交换，它可以从RAM中取消映射）。
+- en: Heap
+  id: totrans-190
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 堆
+- en: 'The first (and probably the most important) dynamic segment in [Figure 5-5](#img-mem-layout)
+    is the memory reserved for dynamic allocations, typically called the *heap* (do
+    not confuse it with the [data structure](https://oreil.ly/740nv) with the same
+    name). Dynamic allocations are required for program data (e.g., variables) that
+    have to be available outside a single function scope. As a result, such allocations
+    are unknown in advance and must be stored in memory for an unpredictable time.
+    When the process starts, the OS prepares the initial number of anonymous pages
+    for the heap. After that, the OS gives the process some control over that space.
+    It can then increase or decrease its size using the `sbrk` syscall or by preparing
+    or removing extra virtual memory using the `mmap` and `unmmap` syscalls. It’s
+    up to the process to organize and manage the heap in the best possible way, and
+    different languages do that differently:'
+  id: totrans-191
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 图5-5中第一个（也可能是最重要的）动态段是为动态分配保留的内存，通常称为*堆*（不要与具有相同名称的[数据结构](https://oreil.ly/740nv)混淆）。动态分配用于需要在单个函数作用域之外可用的程序数据（例如变量）。因此，这些分配是事先未知的，并且必须存储在内存中，时间不确定。进程启动时，操作系统为堆准备了初始数量的匿名页。之后，操作系统允许进程对该空间有一定程度的控制。它可以通过`sbrk`系统调用增加或减少其大小，或者通过准备或删除额外的虚拟内存使用`mmap`和`unmmap`系统调用。进程负责以最佳方式组织和管理堆，不同的语言以不同方式实现这一点：
+- en: C forces the programmer to manually allocate and free memory for variables (using
+    `malloc` and `free` functions).
+  id: totrans-192
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: C强制程序员手动为变量分配和释放内存（使用`malloc`和`free`函数）。
+- en: C++ adds smart pointers like [`std::unique_ptr`](https://oreil.ly/QS9zj) and
+    [`std::shared_ptr`](https://oreil.ly/QbQqQ), which offer simple counting mechanisms
+    to track the object lifecycle (reference counting).^([27](ch05.html#idm45606833508688))
+  id: totrans-193
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: C++添加了智能指针，如[`std::unique_ptr`](https://oreil.ly/QS9zj)和[`std::shared_ptr`](https://oreil.ly/QbQqQ)，它们提供了简单的计数机制来跟踪对象的生命周期（引用计数）。^([27](ch05.html#idm45606833508688))
+- en: Rust has a powerful [memory ownership mechanism](https://oreil.ly/MajFo), but
+    it makes programming much more difficult for nonmemory critical code areas.^([28](ch05.html#idm45606833506480))
+  id: totrans-194
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Rust拥有强大的[内存所有权机制](https://oreil.ly/MajFo)，但对于非内存关键代码区域来说，这使得编程变得更加困难。^([28](ch05.html#idm45606833506480))
+- en: Finally, languages like Python, C#, Java, and others implement advanced heap
+    allocators and garbage collector mechanisms. Garbage collectors periodically check
+    if any memory is unused and can be released.
+  id: totrans-195
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 最后，像Python、C#、Java和其他语言实现了先进的堆分配器和垃圾收集机制。垃圾收集器定期检查是否有未使用的内存可以释放。
+- en: In this sense, Go is closer to Java with memory management than C. Go implicitly
+    (transparently to the programmer) allocates memory that requires dynamic allocation
+    on the heap. For that purpose, Go has its unique components (implemented in Go
+    and Assembly); see [“Go Allocator”](#ch-hw-allocator) and [“Garbage Collection”](#ch-hw-garbage).
+  id: totrans-196
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 在这方面，Go 在内存管理上更接近于 Java 而不是 C。Go 隐式地（对程序员透明地）分配需要在堆上进行动态分配的内存。出于这个目的，Go 有其独特的组件（用
+    Go 和汇编语言实现）；参见[“Go Allocator”](#ch-hw-allocator)和[“Garbage Collection”](#ch-hw-garbage)。
+- en: Most of the Time, It’s Enough to Optimize the Heap Usage
+  id: totrans-197
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 大多数情况下，优化堆使用量就足够了
+- en: Heap is the memory that usually stores the largest amounts of data in physical
+    memory pages. It is so significant that it’s enough to look at the heap size to
+    assess the Go process memory usage in most cases. On top of that, the overhead
+    of heap management with runtime garbage collection is significant too. Both make
+    the heap our first choice to analyze when optimizing memory use.
+  id: totrans-198
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 堆是内存中通常存储大量数据的区域。查看堆大小通常足以评估大多数情况下 Go 进程的内存使用情况。此外，堆管理带来的运行时垃圾收集开销也是相当可观的。这两者使得堆在优化内存使用时成为我们的首选分析对象。
+- en: Manual process mappings
+  id: totrans-199
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 手动过程映射
+- en: Both Go runtime and the developer writing Go code can manually allocate additional
+    memory-mapped regions (e.g., using our [Example 5-1](#code-mmap) abstraction).
+    Of course, it’s up to the process what kind of memory mapping to use (private
+    or shared, read or write, anonymous or file backed), but all of them have a dedicated
+    space in the process’s virtual memory, presented in [Figure 5-5](#img-mem-layout).
+  id: totrans-200
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Go 运行时和编写 Go 代码的开发人员都可以手动分配额外的内存映射区域（例如使用我们的[示例 5-1](#code-mmap)抽象）。当然，进程可以决定使用什么类型的内存映射（私有或共享、读取或写入、匿名或文件支持），但它们都在进程的虚拟内存中有一个专用空间，如[图
+    5-5](#img-mem-layout)所示。
+- en: Stack
+  id: totrans-201
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 栈
+- en: The last section of the Go memory layout is reserved for function stacks. The
+    stack is a simple yet fast structure allowing accessing values in last in, first
+    out (LIFO) order. Programming languages use them to store all the elements (e.g.,
+    variables) that can use automatic allocation. As opposed to dynamic allocations
+    fulfilled by the heap, automatic allocations work well for local data like local
+    variables, function input, or return arguments. Allocations of those elements
+    can be “automatic” because the compiler can deduce their lifespan before the program
+    starts.
+  id: totrans-202
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Go 内存布局的最后一部分是为函数栈保留的。栈是一种简单而快速的结构，允许按后进先出（LIFO）顺序访问值。编程语言使用它们来存储所有可以使用自动分配的元素（例如变量）。与堆完成的动态分配相反，自动分配对于像局部变量、函数输入或返回参数这样的本地数据非常有效。这些元素的分配可以是“自动的”，因为编译器可以在程序开始之前推断出它们的生命周期。
+- en: Some programming languages might have a single stack or a stack per thread.
+    Go is a bit unique here. As we learned in [“Go Runtime Scheduler”](ch04.html#ch-hw-concurrency),
+    the Go execution flow is designed around goroutines. Thus Go maintains a single
+    dynamically sized stack per Go routine. This might even mean [hundreds of thousands
+    of stacks](https://oreil.ly/zrqhj). Whenever the goroutine invokes another function,
+    we can push its local variables and arguments to stack in a stack frame. We can
+    pop those elements (de-allocate the stack frame) from the stack when we leave
+    the function. If stack structures require more space than what’s reserved in virtual
+    memory, Go will ask the OS for more memory attributed to the stack segment, e.g.,
+    via the `mmap` syscall.
+  id: totrans-203
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有些编程语言可能只有一个栈或者每个线程有一个栈。Go 在这方面有些独特。正如我们在[“Go Runtime Scheduler”](ch04.html#ch-hw-concurrency)中学到的，Go
+    的执行流程是围绕着 goroutine 设计的。因此，Go 每个 goroutine 维护一个单一的动态大小的栈。这甚至可能意味着[成千上万个栈](https://oreil.ly/zrqhj)。每当
+    goroutine 调用另一个函数时，我们可以将其局部变量和参数推入栈中的栈帧。当我们离开函数时，我们可以从栈中弹出这些元素（释放栈帧）。如果栈结构需要比虚拟内存中预留的空间更多的空间，Go
+    将通过`mmap`系统调用向操作系统请求更多的内存，用于栈段。
+- en: Stacks are incredibly fast as there is no extra overhead to figure out when
+    memory used by certain elements must be removed (no usage tracking). Thus ideally,
+    we write our algorithms so that they allocate primarily on the stack instead of
+    the heap. Unfortunately, this is impossible in many cases due to stack limitations
+    (we can’t allocate too-large objects) or when the variable has to live longer
+    than the function’s scope. Therefore, the compiler decides which data can be allocated
+    automatically (on the stack) and which must be allocated dynamically (on the heap).
+    This process is called escape analysis, which you saw in [Example 4-3](ch04.html#code-comp-sum).
+  id: totrans-204
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于栈非常快速，不需要额外的开销来确定何时删除由某些元素使用的内存（无使用跟踪）。因此，理想情况下，我们编写算法时应主要在栈上分配，而不是堆上。不幸的是，在许多情况下，由于栈的限制（无法分配过大的对象）或变量必须存在比函数作用域更长的时间，因此编译器将自动决定哪些数据可以自动分配（在栈上），哪些必须动态分配（在堆上）。这个过程称为逃逸分析，您可以在[示例
+    4-3](ch04.html#code-comp-sum)中看到。
+- en: 'All the mechanisms discussed (except manual mappings) are helping Go developers.
+    We don’t need to care where and how we should allocate memory for our variables.
+    That is a huge win—for example, when we want to make some HTTP calls, we simply
+    create an HTTP client using a standard library, e.g., with the `client := http.Cli⁠ent{}`
+    code statement. As a result of Go’s memory design, we can immediately start using
+    `client`, focusing on our code’s functionality, readability, and reliability.
+    In particular:'
+  id: totrans-205
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 所讨论的所有机制（除了手动映射）都有助于Go开发人员。我们不需要关心变量的内存分配位置和方式。这是一个巨大的优势——例如，当我们想要进行一些HTTP调用时，我们只需使用标准库创建一个HTTP客户端，例如，使用`client
+    := http.Cli⁠ent{}`代码语句。由于Go的内存设计，我们可以立即开始使用`client`，专注于我们代码的功能性、可读性和可靠性。
+- en: We don’t need to ensure that the OS has a free virtual memory page to hold the
+    `client` variable. Likewise, we don’t need to find a valid segment and virtual
+    address for it. Both will be done automatically by the compiler (if the variable
+    can be stored on the stack) or runtime allocator (dynamic allocation on the heap).
+  id: totrans-206
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 当我们不需要确保操作系统有空闲的虚拟内存页来容纳`client`变量时，我们也不需要为其找到有效的段和虚拟地址。如果变量可以存储在堆栈上，则编译器将自动执行这两者操作；如果是动态分配在堆上，则运行时分配器将自动完成。
+- en: We don’t need to remember to release memory kept by the `client` variable when
+    we stop using it. Instead, suppose the `client` would go beyond code reach (nothing
+    references it). In that case, the data in Go will be released—immediately when
+    stored on the stack or in the next garbage collection execution cycle if stored
+    on the heap (more on that in [“Garbage Collection”](#ch-hw-garbage)).
+  id: totrans-207
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 当我们停止使用`client`变量时，我们不需要记住释放内存。相反，假设`client`超出代码范围（没有引用它），那么在Go语言中，数据将被释放——如果存储在堆栈上，则立即释放；如果存储在堆上，则在下一次垃圾收集执行周期中释放（更多详情请参见[“垃圾回收”](#ch-hw-garbage)）。
+- en: Such automation is much less error-prone to potential memory leaks (“I forgot
+    to release memory for `client`”) or dangling pointers (“I released memory for
+    `client`, but actually some code still uses it”).
+  id: totrans-208
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+  zh: 这种自动化大大减少了潜在的内存泄漏（“我忘记释放`client`的内存”）或悬空指针（“我释放了`client`的内存，但实际上某些代码仍在使用它”）的风险。
+- en: Generally, we don’t need to care what segment is used for our objects for everyday
+    use of the Go language.
+  id: totrans-209
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通常情况下，我们不需要关心Go语言对象的存储段。
+- en: How do I know whether a variable is allocated on the heap or the stack? From
+    a correctness standpoint, you don’t need to know. Each variable in Go exists as
+    long as there are references to it. The storage location chosen by the implementation
+    is irrelevant to the semantics of the language.
+  id: totrans-210
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+  zh: 我如何知道变量是在堆上还是栈上分配的？从正确性的角度来看，您无需知道。在Go中，每个变量存在的时间取决于是否有对它的引用。实现选择的存储位置与语言语义无关。
+- en: ''
+  id: totrans-211
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: The storage location does have an effect on writing efficient programs.
+  id: totrans-212
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+  zh: 存储位置确实会影响编写高效程序。
+- en: ''
+  id: totrans-213
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: 'The Go Team, [“Go: Frequently Asked Questions (FAQ)”](https://oreil.ly/UUGgI)'
+  id: totrans-214
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+  zh: Go团队，《Go：常见问题解答（FAQ）》
+- en: However, since allocations are so effortless, there is a risk of not noticing
+    the memory waste.
+  id: totrans-215
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 但是，由于分配如此轻松，存在未注意到内存浪费的风险。
+- en: Transparent Allocations Mean There Is a Risk of Overdoing Them
+  id: totrans-216
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 透明分配意味着存在过度使用的风险
+- en: 'Allocations are implicit in Go, making coding much easier, but there are trade-offs.
+    One is around memory efficiency: if we don’t see explicit memory allocations and
+    releases, it’s easier to miss apparent high memory usage in our code.'
+  id: totrans-217
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在Go中，分配是隐式的，这使得编码更加简单，但也有折衷之处。其中一个是内存效率：如果我们看不到显式的内存分配和释放，很容易忽略代码中明显的高内存使用情况。
+- en: It’s similar to going shopping with cash versus a credit card. You will likely
+    overspend with a credit card than with cash since you don’t see that money flowing.
+    With a credit card, money spent is almost transparent to us—it is the same with
+    allocations in Go.
+  id: totrans-218
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这类似于用现金还是信用卡购物。使用信用卡可能会超支，因为看不到钱的流动。使用信用卡时，我们花的钱对我们来说几乎是透明的——在Go中的分配也是如此。
+- en: To sum up, Go is a very productive language because, when programming, we don’t
+    need to worry about where and how the data held by our variables and abstractions
+    is stored. Yet sometimes when our measurements indicate efficiency problems, it’s
+    useful to have a basic awareness of the parts of our program that might allocate
+    some memory, how this occurs, and how the memory is released. So let’s uncover
+    that.
+  id: totrans-219
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 总之，Go是一种非常高效的语言，因为在编程时，我们不需要担心变量和抽象数据存储的位置和方式。然而，有时当我们的测量指示效率问题时，了解我们的程序中可能分配一些内存的部分，以及如何发生和释放内存，还是很有用的。所以让我们揭开这一点。
+- en: Values, Pointers, and Memory Blocks
+  id: totrans-220
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 值、指针和内存块
+- en: 'Let’s get this straight before we start—you don’t need to know what type of
+    statements trigger memory allocation, where (on a stack or heap), and how much
+    memory was allocated. But, as you will learn in Chapters [7](ch07.html#ch-observability2)
+    and [9](ch09.html#ch-observability3), many robust tools can tell us all that accurately
+    and quickly. In most cases, we can find what code line and roughly how much was
+    allocated within seconds. Thus, there is generally a common theme: we should not
+    guess that information (since humans tend to guess wrong) because there are tools
+    for that.'
+  id: totrans-221
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们开始之前，让我们搞清楚一件事——你不需要知道什么类型的语句会触发内存分配，以及分配发生在哪里（堆栈或堆），以及分配了多少内存。但是，正如你将在第[7](ch07.html#ch-observability2)章和第[9](ch09.html#ch-observability3)章中学到的，许多强大的工具可以快速而准确地告诉我们所有这些信息。在大多数情况下，我们可以在几秒钟内找到哪些代码行分配了多少内存。因此，通常有一个共同的主题：我们不应该去猜测这些信息（因为人类倾向于猜错），因为有工具可以提供这些信息。
+- en: This is generally true, but there is no harm in building some basic allocation
+    awareness. On the contrary, it might make us more effective while using those
+    tools to analyze memory usage. The aim is to build a healthy instinct for what
+    pieces of code can potentially allocate the suspicious amount of memory and where
+    we need to be careful.
+  id: totrans-222
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通常如此，但建立一些基本的分配意识并无妨。相反，这可能使我们在使用这些工具分析内存使用时更加有效。目标是建立对哪些代码片段可能分配大量内存的健康直觉，以及我们需要小心的地方。
+- en: Many books try to teach this by listing examples of common statements that allocate.
+    This is great, but it’s a bit like giving someone [a fish instead of a fishing
+    rod](https://oreil.ly/utQIG). So again, it’s helpful, but only for “common” statements.
+    Ideally, I want you to understand the underlying rules for why something allocates.
+  id: totrans-223
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 许多书籍试图通过列出常见的分配语句的例子来教授这一点。这很好，但有点像给某人[一条鱼而不是钓鱼竿](https://oreil.ly/utQIG)。因此，这很有帮助，但仅适用于“常见”的语句。理想情况下，我希望你理解背后的规则，了解为什么某些东西会分配内存。
+- en: Let’s dive into how we reference objects in Go to start noticing that allocation
+    more quickly. Our code can perform certain operations on objects stored in some
+    memory. Therefore, we must link those objects to operations, and we typically
+    do that via variables. We describe those variables using Go’s type system to make
+    it even easier for the compiler and developers.
+  id: totrans-224
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们深入了解在Go中如何引用对象，以便更快地注意到那些分配。我们的代码可以对存储在某些内存中的对象执行某些操作。因此，我们必须通过变量将这些对象与操作关联起来，通常使用Go的类型系统来描述这些变量，以便编译器和开发人员更容易理解。
+- en: However, Go is [value oriented](https://oreil.ly/lgy2S) rather than reference
+    oriented (like many [managed runtime](https://oreil.ly/ben85) languages). This
+    means that Go variables never reference objects. Instead, the variables always
+    store the whole *value* of the object. There is no exception to this rule!
+  id: totrans-225
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 然而，Go是[面向值](https://oreil.ly/lgy2S)而不是引用（与许多[托管运行时](https://oreil.ly/ben85)语言相反）。这意味着Go变量从不引用对象。相反，变量始终存储对象的整个*值*。对此规则没有例外！
+- en: To understand this better, the memory representation of three variables is shown
+    in [Figure 5-6](#img-mem-blocks).
+  id: totrans-226
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 要更好地理解这一点，[图5-6](#img-mem-blocks)展示了三个变量的内存表示。
+- en: '![efgo 0506](assets/efgo_0506.png)'
+  id: totrans-227
+  prefs: []
+  type: TYPE_IMG
+  zh: '![efgo 0506](assets/efgo_0506.png)'
+- en: Figure 5-6\. Representation of three variables allocated on the process’s virtual
+    memory
+  id: totrans-228
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+  zh: 图 5-6\. 进程虚拟内存上分配的三个变量的表示
+- en: Think About Variables as Boxes Holding Values
+  id: totrans-229
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 将变量视为持有值的盒子
+- en: Whenever the compiler sees a definition of the `var` variable or function arguments
+    (including parameters) in the invocation scope, it allocates a contiguous “memory
+    block” for a box. The box is big enough to contain the whole value of the given
+    type. For example, `var var1 int` and `var var2 int` will need a box for eight
+    bytes.^([29](ch05.html#idm45606833447648))
+  id: totrans-230
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 每当编译器在调用作用域中看到 `var` 变量或函数参数的定义（包括参数），它就为盒子分配一个连续的“内存块”。该盒子足够大，可以容纳给定类型的整个值。例如，`var
+    var1 int` 和 `var var2 int` 需要一个八字节的盒子。^([29](ch05.html#idm45606833447648))
+- en: Thanks to our available space in “boxes,” we can copy some values. In [Figure 5-6](#img-mem-blocks),
+    we can copy an integer `1` to `var1`. Now, Go does not have reference variables,
+    so even if we assign the `var1` value to another box named `var2`, this is yet
+    another box with unique space. We can confirm that by printing `&var1` and `&var2`.
+    It should print `0xA040` and `0xA038`, respectively. As a result, a simple assignment
+    is always a copy, which adds latency proportional to the value’s size.
+  id: totrans-231
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 由于我们在“盒子”中有可用空间，我们可以复制一些值。在[图 5-6](#img-mem-blocks)中，我们可以复制一个整数 `1` 到 `var1`。现在，Go
+    没有引用变量，所以即使我们将 `var1` 的值分配给另一个名为 `var2` 的盒子，这仍然是另一个具有唯一空间的盒子。我们可以通过打印 `&var1`
+    和 `&var2` 来确认。它应该分别打印 `0xA040` 和 `0xA038`。因此，简单赋值始终是一种复制，它增加了与值大小成比例的延迟。
+- en: Unlike C++, each variable defined in a Go program occupies a unique memory location.
+    It is not possible to create a Go program where two variables share the same storage
+    location in memory. It is possible to create two variables whose contents point
+    to the same storage location, but that is not the same thing.
+  id: totrans-232
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+  zh: 与 C++ 不同，Go 程序中每个变量的定义占据唯一的内存位置。不可能创建一个 Go 程序，其中两个变量共享同一内存存储位置。可以创建两个内容指向同一存储位置的变量，但这并不相同。
+- en: ''
+  id: totrans-233
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: Dave Cheney, [“There Is No Pass-By-Reference in Go”](https://oreil.ly/iPu5w)
+  id: totrans-234
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+  zh: Dave Cheney，《“Go 中没有传引用”》
+- en: The `var3` box is a pointer to the integer type. A “pointer” variable is a box
+    that stores the value representing the memory address. The type of memory address
+    is just `uintptr` or `unsafe.Pointer`, so simply a 64-bit unsigned integer that
+    allows pointing to another value in memory. As a result, any pointer variable
+    needs a box for eight bytes.
+  id: totrans-235
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`var3` 盒子是指向整数类型的指针。一个“指针”变量是一个存储表示内存地址的值的盒子。内存地址的类型只是 `uintptr` 或 `unsafe.Pointer`，因此只是一个允许指向内存中另一个值的
+    64 位无符号整数。因此，任何指针变量都需要一个八字节的盒子。'
+- en: The pointer can also be `nil` (Go’s NULL value), a special value indicating
+    that the pointer does not point to anything. In [Figure 5-6](#img-mem-blocks),
+    we can see that the `var3` box contains a value too—a memory address of the `var1`
+    box.
+  id: totrans-236
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 指针也可以是`nil`（Go的 NULL 值），表示指针不指向任何东西。在[图 5-6](#img-mem-blocks)中，我们可以看到`var3`盒子也包含一个值—`var1`盒子的内存地址。
+- en: This is also consistent with more complex types. For example, both `var var4`
+    and `var var5` require boxes for only 24 bytes. This is because the `slice` struct
+    value has three integers.
+  id: totrans-237
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这也与更复杂的类型一致。例如，`var var4` 和 `var var5` 都只需要为 24 字节的盒子。这是因为`slice` 结构体值有三个整数。
+- en: Memory Structure for Go Slice
+  id: totrans-238
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Go 切片的内存结构
+- en: Slice allows easy dynamic behavior of the underlying array of a given type.
+    A slice data structure requires a memory block that can hold `length`, `capacity`,
+    and `pointer` to the desired array.^([30](ch05.html#idm45606833426272))
+  id: totrans-239
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Slice 允许轻松动态操作给定类型的基础数组。切片数据结构需要一个可以容纳`长度`、`容量`和指向所需数组的`指针`的内存块。^([30](ch05.html#idm45606833426272))
+- en: Generally, the slice is just a more complex struct. You can think about a struct
+    as a cabinet—it is full of drawers (struct fields) that are simply boxes that
+    share a memory block with other drawers in the same cabinet. So, for example,
+    the `slice` type has three drawers. One of them is of pointer type.
+  id: totrans-240
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 通常，切片只是一个更复杂的结构体。你可以将结构体看作是一个文件柜—它充满了抽屉（结构体字段），这些抽屉只是简单地与同一文件柜中的其他抽屉共享内存块。因此，例如，`slice`
+    类型有三个抽屉，其中一个是指针类型。
+- en: 'There are two special behaviors of `slice` and a few other special types:'
+  id: totrans-241
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`slice` 和其他几种特殊类型有两种特殊行为：'
+- en: You can use the [`make`](https://oreil.ly/Mlx6Q) built-in function that only
+    works for `map`, `chan`, and `slice` types. It returns the type’s value^([31](ch05.html#idm45606833418784))
+    and allocates underlying structures, like an array for slices, a buffer for channels,
+    and a hashmap for maps.
+  id: totrans-242
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 您可以使用内置函数[`make`](https://oreil.ly/Mlx6Q)，它仅适用于`map`、`chan`和`slice`类型。它返回类型的值^([31](ch05.html#idm45606833418784))并分配底层结构，例如为切片分配数组，为通道分配缓冲区和为映射分配哈希表。
+- en: We can put `nil` into boxes of types, like `func`, `map`, `chan`, or `slice`,
+    although they are not strictly pointers, e.g., `[]byte(nil)`.
+  id: totrans-243
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 我们可以将`nil`放入类型的盒子中，例如`func`、`map`、`chan`或`slice`，尽管它们严格来说不是指针，例如`[]byte(nil)`。
+- en: One drawer of the `var4` and `var5` cabinets is a type of pointer that holds
+    the memory address. Thanks to `make([]byte, 5000)` in `var5`, it points to another
+    memory block containing a 5,000-element byte array.
+  id: totrans-244
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`var4`和`var5`柜子的一个抽屉是一种指针类型，它保存了内存地址。由于在`var5`中的`make([]byte, 5000)`，它指向另一个内存块，其中包含一个5000元素的字节数组。'
+- en: Structure Padding
+  id: totrans-245
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 结构填充
+- en: The slice structure with three 64-bit fields requires a 24-byte long memory
+    block. But the memory block size for a structure type is not always the sum of
+    the size of its fields!
+  id: totrans-246
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 三个64位字段的切片结构需要一个24字节长的内存块。但是结构类型的内存块大小并不总是其字段大小的总和！
+- en: Smart compilers like in Go might attempt to align type sizes to the typical
+    cache lines or the OS or internal Go allocator page sizes. For this reason, Go
+    compilers sometimes add padding between fields.^([32](ch05.html#idm45606833407008))
+  id: totrans-247
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 像Go中的智能编译器一样，可能会尝试将类型大小对齐到典型的缓存行或操作系统或内部Go分配器页面大小。因此，Go编译器有时会在字段之间添加填充^([32](ch05.html#idm45606833407008))。
+- en: 'To reinforce that knowledge, let’s ask a common question when designing a new
+    function or method: should my arguments be pointers of values? Of course, the
+    first thing we should answer is obviously, if we want the caller to see the modifications
+    of that value. But there is an efficiency aspect as well. Let’s discuss the difference
+    in [Example 5-4](#code-copy-ptr), assuming we don’t need to see modifications
+    of those arguments from outside.'
+  id: totrans-248
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 为了加强这一知识，让我们在设计新函数或方法时提出一个常见问题：我的参数应该是指针还是值？当然，我们首先要回答的显然是，如果我们希望调用者看到该值的修改。但效率也是一个方面。让我们讨论一下[示例 5-4](#code-copy-ptr)的差异，假设我们不需要从外部看到这些参数的修改。
+- en: Example 5-4\. Different arguments highlight the differences using values, pointers,
+    and special types like `slice`
+  id: totrans-249
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+  zh: 示例 5-4\. 使用值、指针以及像`slice`这样的特殊类型，不同的参数突出显示了它们的差异。
+- en: '[PRE3]'
+  id: totrans-250
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE3]'
+- en: '[![1](assets/1.png)](#co_how_go_uses_memory_resource_CO4-1)'
+  id: totrans-251
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_how_go_uses_memory_resource_CO4-1)'
+- en: 'Function arguments are like any newly declared variable: boxes. So for `arg1`,
+    it will create an eight-byte box (most likely allocate it on the stack) and copy
+    the passed integer during the `myFunction` invocation. For `arg2`, it will create
+    a similar eight-byte box that will copy the pointer instead.'
+  id: totrans-252
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 函数参数就像任何新声明的变量一样：盒子。因此，对于`arg1`，它将创建一个八字节的盒子（很可能将其分配在堆栈上）并在调用`myFunction`时复制传递的整数。对于`arg2`，它将创建一个类似的八字节盒子，它将复制指针而不是整数。
+- en: For such simple types, avoiding the pointer makes more sense if you don’t need
+    to modify the value. You use the same amount of memory and the same copying overhead.
+    The only difference is that the value pointed to by `arg2` has to live on the
+    heap, which is more expensive and, in many cases, can be avoided.
+  id: totrans-253
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于这样简单的类型，如果不需要修改值，则避免使用指针更有意义。您使用相同量的内存和相同的复制开销。唯一的区别是`arg2`指向的值必须存在于堆上，这更昂贵，并且在许多情况下可以避免。
+- en: '[![2](assets/2.png)](#co_how_go_uses_memory_resource_CO4-2)'
+  id: totrans-254
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_how_go_uses_memory_resource_CO4-2)'
+- en: The rule is the same for custom `struct` arguments, but the size and copying
+    overhead might matter more. For example, `arg3` is of `biggie` `struct`, which
+    is of extraordinary size. Because of the static array with 100 million elements,
+    the type requires a ~100 MB memory block.
+  id: totrans-255
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于自定义的`struct`参数，规则是相同的，但是大小和复制开销可能更重要。例如，`arg3`是一个巨大的`biggie`结构，它具有非凡的大小。由于具有1亿个元素的静态数组，该类型需要一个约100
+    MB的内存块。
+- en: For bigger types like this, we should consider using a pointer when passing
+    through functions. This is because every `myFunction` invocation will allocate
+    100 MB on the heap for the `arg3` box (it’s too large to be on the stack)! On
+    top of that, it will spend CPU time copying large objects between boxes. So, `arg4`
+    will allocate eight bytes on the stack (and copy only that) and point to memory
+    on the heap with the `biggie` object, which can be reused across function calls.
+  id: totrans-256
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 对于像这样的大型类型，在通过函数传递时应考虑使用指针。这是因为每次调用 `myFunction` 都会为 `arg3` 框在堆上分配 100 MB（它太大了，无法放在栈上）！此外，它还会花费
+    CPU 时间在框之间复制大对象。因此，`arg4` 将在栈上分配八字节（仅复制那部分）并指向堆上的 `biggie` 对象，这个对象可以在函数调用之间重复使用。
+- en: Note that despite `biggie` being copied in `arg3`, the copy is *shallow*, i.e.,
+    `arg3.other` will share a memory with the previous box!
+  id: totrans-257
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 请注意，尽管 `biggie` 在 `arg3` 中被复制，但复制是*浅层*的，即 `arg3.other` 将与前一个框共享内存！
+- en: '[![3](assets/3.png)](#co_how_go_uses_memory_resource_CO4-3)'
+  id: totrans-258
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_how_go_uses_memory_resource_CO4-3)'
+- en: The `slice` type behaves like the `biggie` type. We must remember the [underlying
+    `struct` type of the slice](https://oreil.ly/Tla4w).
+  id: totrans-259
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`slice` 类型的行为类似于 `biggie` 类型。我们必须记住切片的底层`struct`类型（参见 [切片的底层`struct`类型](https://oreil.ly/Tla4w)）。'
+- en: As a result, `arg5` will allocate a 24-byte box and copy three integers. In
+    contrast, `arg6` will allocate an eight-byte box and copy only one integer (pointer).
+    From the efficiency point of view, it does not matter. It only matters if we want
+    to expose modifications of the underlying array (both `arg5` and `arg6` allow
+    that) or if we want to also expose changes to the `pointer`, `len`, and `cap`
+    fields as `arg6` allows.
+  id: totrans-260
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 因此，`arg5` 将分配一个 24 字节的框并复制三个整数。相比之下，`arg6` 将分配一个八字节的框并只复制一个整数（指针）。从效率的角度来看，这并不重要。只有在我们希望公开对底层数组的修改（`arg5`
+    和 `arg6` 都允许）或者在我们希望公开对 `pointer`、`len` 和 `cap` 字段的修改时，才重要。
+- en: '[![4](assets/4.png)](#co_how_go_uses_memory_resource_CO4-4)'
+  id: totrans-261
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[![4](assets/4.png)](#co_how_go_uses_memory_resource_CO4-4)'
+- en: Special types like `chan`, `map`, and `func()` can be treated similarly to pointers.
+    They share memory through the heap, and the only cost is to allocate and copy
+    the pointer value into `arg7`, `arg8`, or `arg9` boxes.
+  id: totrans-262
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`chan`、`map` 和 `func()` 等特殊类型可以类似于指针进行处理。它们通过堆共享内存，唯一的成本是将指针值分配并复制到 `arg7`、`arg8`
+    或 `arg9` 框中。'
+- en: 'The same decision flow can be applied to decide about pointer versus value
+    types for:'
+  id: totrans-263
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 相同的决策流程可以应用于决定指针与值类型的选择：
+- en: Return arguments
+  id: totrans-264
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 返回参数
+- en: The `struct` fields
+  id: totrans-265
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`struct` 字段'
+- en: Elements of map, slice, or channels
+  id: totrans-266
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: map、slice 或 channels 的元素
+- en: The method receiver (e.g., `func (receiver) Method()`)
+  id: totrans-267
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 方法接收器（例如 `func (receiver) Method()`）
+- en: 'Hopefully, the preceding information will give you an understanding of which
+    Go code statements allocate memory and roughly how much. Generally:'
+  id: totrans-268
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 希望前面的信息能让您了解哪些 Go 代码语句会分配内存以及大致分配了多少内存。一般来说：
+- en: Every variable declaration (including function arguments, return arguments,
+    and method receiver) allocates the whole type or just a pointer to it.
+  id: totrans-269
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 每个变量声明（包括函数参数、返回参数和方法接收器）都会分配整个类型或者只是指向它的指针。
+- en: '`make` allocates special types and their underlying (pointed) structures.'
+  id: totrans-270
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`make` 会分配特殊类型及其底层（指向的）结构。'
+- en: '`new(<type>)` is the same as `&<type>`, so it allocates a pointer box and the
+    type on the heap in the separate memory block.'
+  id: totrans-271
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: '`new(<type>)` 等同于 `&<type>`，因此它会在单独的内存块中为类型分配指针框和堆中的类型。'
+- en: 'Most program memory allocations are only known in runtime; thus, dynamic allocation
+    (in a heap) is needed. Therefore, when we optimize memory in Go programs, 99%
+    of the time we just focus on the heap. Go comes with two important runtime components:
+    Allocator and GC, responsible for heap management. Those components are nontrivial
+    pieces of software that often introduce certain waste in terms of extra CPU cycles
+    by the program runtime and some memory waste. Given its nondeterministic and nonimmediate
+    memory release nature, it’s worth discussing this in detail. Let’s do that in
+    the next two sections.'
+  id: totrans-272
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 大多数程序内存分配只有在运行时才能知道；因此，需要动态分配（在堆上）。因此，当我们优化 Go 程序的内存时，99% 的情况下我们只关注堆。Go 自带两个重要的运行时组件：分配器和垃圾收集器（GC），负责堆管理。这些组件是程序运行时引入的非平凡软件部分，通常会通过程序运行时引入某些浪费的
+    CPU 循环和一些内存浪费。鉴于其非确定性和非立即释放内存的特性，详细讨论这一点是值得的。让我们在接下来的两个部分中详细讨论这个问题。
+- en: Go Allocator
+  id: totrans-273
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: Go 分配器
+- en: It’s far from easy to manage the heap, as it poses similar challenges as the
+    OS has toward physical memory. For example, the Go program runs multiple goroutines,
+    and each wants a few (dynamically sized!) segments of the heap memory for a different
+    amount of time.
+  id: totrans-274
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 管理堆远非易事，因为它对物理内存的挑战与操作系统面对的相似。例如，Go 程序运行多个 goroutine，并且每个 goroutine 对堆内存的需求大小不同且动态变化。
+- en: The Go Allocator is a piece of internal runtime Go code maintained by the Go
+    team. As the name suggests, it can dynamically (in runtime) allocate the memory
+    blocks required to operate on objects. In addition, it is optimized to avoid locking
+    and fragmentation, and to mitigate slow syscalls to the OS.
+  id: totrans-275
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Go 分配器是由 Go 团队维护的一块内部运行时 Go 代码。顾名思义，它可以动态（在运行时）分配操作对象所需的内存块。此外，它经过优化，以避免锁定和碎片化，并减少向操作系统的慢系统调用。
+- en: During compilation, the Go compiler performs a complex stack escape analysis
+    to detect if the memory for objects can be automatically allocated (mentioned
+    in [Example 4-3](ch04.html#code-comp-sum)). If yes, it adds appropriate CPU instructions
+    that store related memory blocks in the stack segment of the memory layout. However,
+    in most cases the compiler can’t avoid putting most of our memory on the heap.
+    In these cases, it generates different CPU instructions invoking the Go Allocator
+    code.
+  id: totrans-276
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在编译过程中，Go 编译器执行复杂的栈逃逸分析，以检测是否可以自动分配对象的内存（见 [Example 4-3](ch04.html#code-comp-sum)）。如果可以，它会添加适当的
+    CPU 指令，将相关的内存块存储在内存布局的堆栈段中。然而，在大多数情况下，编译器无法避免将大部分内存放在堆上。在这些情况下，它会生成不同的 CPU 指令来调用
+    Go 分配器代码。
+- en: The Go Allocator is responsible for [bin packing](https://oreil.ly/l27Jv) the
+    memory blocks in the virtual memory space. It also asks for more space from the
+    OS if needed using `mmap` with private, anonymous pages, which are initialized
+    by zero.^([33](ch05.html#idm45606833200480)) As we learned in [“OS Memory Mapping”](#ch-hw-memory-mmap-os),
+    those pages are also allocated on the physical RAM only when accessed.
+  id: totrans-277
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Go 分配器负责在虚拟内存空间中进行[内存块装箱](https://oreil.ly/l27Jv)。如果需要，它会使用 `mmap` 请求更多空间来自操作系统，使用私有的匿名页面，并且这些页面被初始化为零。^([33](ch05.html#idm45606833200480))
+    正如我们在 [“操作系统内存映射”](#ch-hw-memory-mmap-os) 中学到的，这些页面只有在访问时才会在物理 RAM 上分配。
+- en: 'Generally, the Go developer can live without learning details about Go Allocator
+    internals. However, it’s enough to remember that:'
+  id: totrans-278
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一般来说，Go 开发者可以不了解 Go 分配器的内部细节。但是，记住以下几点是足够的：
+- en: It is based on a custom Google `C++` `malloc` implementation called [TCMalloc](https://oreil.ly/AZ5S7).
+  id: totrans-279
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 它基于名为 [TCMalloc](https://oreil.ly/AZ5S7) 的自定义 Google `C++` `malloc` 实现。
+- en: It is OS virtual memory page aware, but it operates with 8 KB pages.
+  id: totrans-280
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 它了解操作系统虚拟内存页，但是操作的是 8 KB 的页面。
+- en: It mitigates fragmentation by allocating memory blocks to certain spans that
+    hold one or multiple 8 KB pages. Each span is created for class memory block sizes.
+    For example, in Go 1.18, there are 67 different [size classes](https://oreil.ly/tMlnv)
+    (size buckets), the largest being 32 KB.
+  id: totrans-281
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 它通过将内存块分配给包含一个或多个 8 KB 页面的特定 span 来缓解碎片化问题。每个 span 都为类内存块大小创建。例如，在 Go 1.18 中，有
+    67 个不同的 [大小类](https://oreil.ly/tMlnv)（大小桶），最大的是 32 KB。
+- en: Memory blocks for objects that do not contain a pointer are marked with the
+    `noscan` type, making it easier to track nested objects in the garbage collection
+    phase.
+  id: totrans-282
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 不包含指针的对象的内存块标记为 `noscan` 类型，这样可以更轻松地在垃圾收集阶段跟踪嵌套对象。
+- en: Objects with over 32 KB memory block (e.g., 600 MB byte array) are treated specially
+    (allocated directly without span).
+  id: totrans-283
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 对象的内存块超过 32 KB（例如，600 MB 的字节数组）会被特殊处理（直接分配，而非使用 span）。
+- en: If runtime needs more virtual space from OS for the heap, it allocates a bigger
+    chunk of memory at once (at least 1 MB), which amortizes the latency of the syscall.
+  id: totrans-284
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如果运行时需要更多来自操作系统的虚拟空间用于堆，它会一次性分配更大的内存块（至少 1 MB），从而分摊系统调用的延迟。
+- en: All of the preceding points are constantly changing, with the open source community
+    and Go team adding various small optimizations and features.
+  id: totrans-285
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 所有上述内容都在不断变化，开源社区和 Go 团队不断添加各种小优化和功能。
+- en: They say one code snippet is worth a thousand words, so let’s visualize and
+    explain some of these allocation characteristics caused by a mix of Go, OS, and
+    hardware using an example. [Example 5-5](#code-mem-alloc-slice) shows the same
+    functionality as [Example 5-3](#code-mmap-usage), but instead of explicit `mmap`,
+    we will rely on Go memory management and no underlying file.
+  id: totrans-286
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 他们说，一段代码片段胜过千言万语，因此让我们通过一个例子来可视化并解释由Go、操作系统和硬件混合造成的一些分配特性。[示例 5-5](#code-mem-alloc-slice)
+    展示了与[示例 5-3](#code-mmap-usage) 相同的功能，但不使用显式的`mmap`，而是依赖于Go的内存管理，且没有底层文件。
+- en: Example 5-5\. Allocation of a large `[]byte` slice followed by different access
+    patterns
+  id: totrans-287
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+  zh: 示例5-5。分配一个大的`[]byte`切片，然后使用不同的访问模式
+- en: '[PRE4]'
+  id: totrans-288
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE4]'
+- en: '[![1](assets/1.png)](#co_how_go_uses_memory_resource_CO5-1)'
+  id: totrans-289
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_how_go_uses_memory_resource_CO5-1)'
+- en: The `b` variable is declared as a `[]byte` slice. The following `make` statement
+    is tasked to create a byte array with 600 MB of data (~600 million elements in
+    the array). This memory block is allocated on the heap.^([34](ch05.html#idm45606833118576))
+  id: totrans-290
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 变量`b`声明为`[]byte`切片。以下的`make`语句用于创建一个包含600 MB数据的字节数组（大约6亿个元素）。这个内存块被分配在堆上。^([34](ch05.html#idm45606833118576))
+- en: 'If we would analyze this situation closely, the Go Allocator seemed to create
+    three contiguous anonymous mappings for that slice with different (virtual) memory
+    sizes: 2 MB, 598 MB, and 4 MB. (The total size is usually bigger than the requested
+    600 MB because of the Go Allocator internal bucketed algorithm.) Let’s summarize
+    the interesting statistics:'
+  id: totrans-291
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 如果我们仔细分析这种情况，可以看到Go分配器似乎为该切片创建了三个连续的匿名映射，虚拟内存大小分别为2 MB、598 MB和4 MB。（总大小通常比请求的600
+    MB要大，这是因为Go分配器内部采用分桶算法。）让我们总结一下这些有趣的统计数据：
+- en: 'The RSS for three memory mappings used by our slice: 548 KB, 0 KB, and 120
+    KB (much lower than VSS numbers).'
+  id: totrans-292
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 我们切片使用的三个内存映射的RSS分别为548 KB、0 KB和120 KB（远低于虚拟内存大小）。
+- en: Total RSS of the whole process shows 21 MB. Profiling shows that most of this
+    comes from outside the heap.
+  id: totrans-293
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 整个进程的总RSS显示为21 MB。分析显示大部分来自堆外。
+- en: Go reports 600.15 MB of the heap size (despite RSS being significantly lower).
+  id: totrans-294
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Go报告堆大小为600.15 MB（尽管RSS明显较低）。
+- en: '[![2](assets/2.png)](#co_how_go_uses_memory_resource_CO5-2)'
+  id: totrans-295
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_how_go_uses_memory_resource_CO5-2)'
+- en: 'Only after we start accessing the slice elements (either by writing or reading)
+    will the OS start reserving actual physical memory surrounding those elements.
+    Our statistics:'
+  id: totrans-296
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 只有在我们开始访问切片元素（无论是写入还是读取）后，操作系统才会开始保留围绕这些元素的实际物理内存。我们的统计数据：
+- en: 'The RSS for three memory mappings: 556 KB, (still) 0 KB, and 180 KB (only a
+    few KB more than before accessing).'
+  id: totrans-297
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 三个内存映射的RSS分别为：556 KB、（仍然）0 KB和180 KB（比访问前稍多几KB）。
+- en: Total RSS still shows 21 MB.
+  id: totrans-298
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 总RSS仍显示为21 MB。
+- en: Go reports 600.16 MB of the heap size (actually a few KB more, probably due
+    to background goroutines).
+  id: totrans-299
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Go报告堆大小为600.16 MB（实际上稍多几KB，可能是由于后台goroutine的原因）。
+- en: '[![3](assets/3.png)](#co_how_go_uses_memory_resource_CO5-3)'
+  id: totrans-300
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_how_go_uses_memory_resource_CO5-3)'
+- en: 'After we loop over all elements to access it, we will see that the OS mapped
+    on demand all pages for our `b` slice in physical memory. Our statistics prove
+    this:'
+  id: totrans-301
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 当我们循环访问所有元素后，我们将看到操作系统按需为我们的`b`切片映射了所有页面到物理内存。我们的统计数据证明了这一点：
+- en: 'The RSS for three memory mappings: 1.5 MB, (fully mapped) 598 MB, and 1.2 MB.'
+  id: totrans-302
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 三个内存映射的RSS分别为：1.5 MB（完全映射）、598 MB和1.2 MB。
+- en: Total RSS of the whole process shows 621.7 MB (finally, same as heap size).
+  id: totrans-303
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 整个进程的总RSS显示为621.7 MB（最终与堆大小相同）。
+- en: Go reports the same 600.16 MB of the heap size.
+  id: totrans-304
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Go报告堆大小为600.16 MB。
+- en: This example might feel similar to Examples [5-2](#code-naive-read-usage) and
+    [5-3](#code-mmap-usage), but it’s a bit different. Notice that in [Example 5-5](#code-mem-alloc-slice),
+    there is no (explicit) file involved that could store some data if the page is
+    not mapped. We also utilize the Go Allocator to organize and manage different
+    anonymous page mappings most efficiently, whereas in [Example 5-3](#code-mmap-usage),
+    the Go Allocator is unaware of that memory usage.
+  id: totrans-305
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个例子可能与示例[5-2](#code-naive-read-usage)和[5-3](#code-mmap-usage)相似，但也有所不同。请注意，在[示例 5-5](#code-mem-alloc-slice)
+    中，并没有（显式）涉及可以在页面未映射时存储数据的文件。我们还利用Go分配器来高效组织和管理不同的匿名页面映射，而在[示例 5-3](#code-mmap-usage)
+    中，Go分配器并不知道该内存使用情况。
+- en: Internal Go Runtime Knowledge Versus OS Knowledge
+  id: totrans-306
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: Go运行时内部知识与操作系统知识
+- en: The Go Allocator tracks certain information we can collect through different
+    observability mechanisms discussed in [Chapter 6](ch06.html#ch-observability).
+  id: totrans-307
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Go分配器通过我们可以通过不同的可观察性机制收集的某些信息进行跟踪，如在[第6章](ch06.html#ch-observability)中讨论的。
+- en: Be mindful when using those. In the preceding example, we saw that the heap
+    size tracked by the Go Allocator was significantly larger than the actual amount
+    of memory used on physical RAM (RSS)!^([35](ch05.html#idm45606833047648)) Similarly,
+    the memory used by explicit `mmap`, as in [Example 5-3](#code-mmap-usage), is
+    not reflected in any Go runtime metrics. This is why it’s good to rely on more
+    than one metric on our TFBO journey, as discussed in [“Memory Usage”](ch06.html#ch-obs-mem-usage).
+  id: totrans-308
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 使用这些时要小心。在前面的例子中，我们看到由Go分配器跟踪的堆大小明显大于物理RAM上实际使用的内存（RSS）！^([35](ch05.html#idm45606833047648))
+    同样，例如明确的`mmap`使用，如[示例 5-3](#code-mmap-usage)，在任何Go运行时指标中都没有反映出来。这就是为什么在我们的TFBO之旅中，如在[“内存使用”](ch06.html#ch-obs-mem-usage)中讨论的那样，依赖于不止一个指标是好的。
+- en: The behavior of Go heap management backed up by on-demand paging tends to be
+    indeterministic and fuzzy. We cannot control it directly either. For instance,
+    if you tried to reproduce [Example 5-5](#code-mem-alloc-slice) on your machine,
+    you would most likely observe slightly different mappings, more or less different
+    RSS numbers (with a tolerance of few MBs), and different heap sizes. It all depends
+    on the Go version you build a program with, the kernel version, the RAM capacity
+    and model, and the load on your system. This poses important challenges to the
+    assessment step of our TFBO process, which we will discuss in [“Reliability of
+    Experiments”](ch07.html#ch-obs-rel).
+  id: totrans-309
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Go堆管理的行为支持按需分页，往往是不确定和模糊的。我们也不能直接控制它。例如，如果你在你的机器上尝试重现[示例 5-5](#code-mem-alloc-slice)，你很可能会观察到略有不同的映射，更多或更少不同的RSS数字（具有几MB的容差），以及不同的堆大小。这一切都取决于你使用的Go版本，内核版本，RAM容量和型号，以及系统负载。这对我们TFBO过程的评估步骤提出了重要挑战，我们将在[“实验的可靠性”](ch07.html#ch-obs-rel)中讨论。
+- en: Don’t Be Bothered by a Small Memory Increase
+  id: totrans-310
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 不要因为内存增加了一点而感到困扰
+- en: Don’t try to understand where every hundred bytes or kilobytes of your process
+    RSS memory came from. In most cases, it is impossible to tell or control at that
+    low level. Heap management overhead, speculative page allocations by both the
+    OS and the Go Allocator, dynamic OS mapping behavior, and eventual memory collection
+    (we will learn about that in the next section) make things indeterministic on
+    such a “micro” kilobyte level.
+  id: totrans-311
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 不要试图理解你的进程RSS内存的每一百字节或千字节来自哪里。在大多数情况下，无法在那么低的层次上告知或控制。堆管理开销，由操作系统和Go分配器进行的推测性页面分配，动态的操作系统映射行为，以及最终的内存收集（我们将在下一节中了解）使得在这种“微观”的千字节级别上的事情变得不确定。
+- en: Even if you spot some pattern in one environment, it will be different in others
+    unless we talk about bigger numbers like hundreds of megabytes or more!
+  id: totrans-312
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 即使你在一个环境中发现了某种模式，在其他环境中也会有所不同，除非我们谈论的是数百兆字节或更多的大数字！
+- en: The lesson here is that we have to adjust our mindsets. There will always be
+    a few unknowns. What matters is to understand bigger unknowns that contribute
+    the most to the potentially too-high memory usage situation. Together with this
+    allocator awareness, you will learn how to do that in Chapters [6](ch06.html#ch-observability)
+    and [9](ch09.html#ch-observability3).
+  id: totrans-313
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这里的教训是我们必须调整我们的思维方式。总会有一些未知数。重要的是理解对可能导致内存使用过高的最大贡献的更大未知数。结合这种分配器意识，你将在第[6章](ch06.html#ch-observability)和第[9章](ch09.html#ch-observability3)学习如何做到这一点。
+- en: So far, we have discussed how to efficiently reserve memory for our memory blocks
+    through the Go Allocator and how to access it. However, we can’t just reserve
+    more memory indefinitely if there is no logic for removing the memory blocks our
+    code doesn’t need anymore. That’s why it’s critical to understand the second part
+    of heap management responsible for releasing unused objects from the heap—garbage
+    collection. Let’s explore that in the next section.
+  id: totrans-314
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 到目前为止，我们已经讨论了如何通过Go分配器有效地为我们的内存块预留内存，并且如何访问它。然而，如果没有逻辑来释放我们的代码不再需要的内存块，我们就不能无限制地预留更多内存。这就是为什么理解堆管理的第二部分——垃圾收集，负责从堆中释放未使用的对象，至关重要。让我们在下一节中探讨这个问题。
+- en: Garbage Collection
+  id: totrans-315
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+  zh: 垃圾收集
+- en: You pay for memory allocation more than once. The first is obviously when you
+    allocate it. But you also pay every time the garbage collection runs.
+  id: totrans-316
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+  zh: 你付出的内存分配成本不止一次。第一次显然是当你分配它时。但每次垃圾收集运行时你都要付出。
+- en: ''
+  id: totrans-317
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: Damian Gryski, [“go-perfbook”](https://oreil.ly/yg1LK)
+  id: totrans-318
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+  zh: Damian Gryski，[“go-perfbook”](https://oreil.ly/yg1LK)
+- en: 'The second part of heap management is similar to vacuuming your house. It is
+    related to a process that removes the proverbial garbage—unused objects from the
+    program’s heap. Generally speaking, the garbage collector (GC) is an additional
+    background routine that executes “collection” at certain moments. The cadence
+    of collections is critical:'
+  id: totrans-319
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 堆管理的第二部分类似于吸尘您的房子。它涉及到从程序的堆中移除寓意的垃圾 - 未使用的对象的过程。一般来说，垃圾收集器 (GC) 是一个额外的后台例程，在特定时刻执行
+    “收集”。收集的节奏至关重要：
+- en: If the GC runs less often, we risk allocating a significant amount of new RAM
+    space without the ability to reuse the memory pages currently allocated by garbage
+    (unused objects).
+  id: totrans-320
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如果 GC 运行不够频繁，我们就有可能分配大量新的 RAM 空间，而无法重新使用当前由垃圾（未使用对象）分配的内存页面。
+- en: If the GC runs too often, we risk spending most of the program time and CPU
+    on GC work instead of moving our functionality forward. As we will learn later,
+    the GC is relatively fast but can directly or indirectly impact the execution
+    of other goroutines in the system, especially if we have many objects in a heap
+    (if we allocate a lot).
+  id: totrans-321
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 如果 GC 运行过于频繁，我们就有可能花费大部分程序时间和 CPU 资源在 GC 工作上，而不是推进我们的功能。我们将在后面学到，GC 虽然相对快速，但它可能会直接或间接地影响系统中其他
+    goroutine 的执行，尤其是如果堆中有许多对象（如果我们分配了很多内存）。
+- en: 'The interval of the GC runs is not based on time. Instead, two configuration
+    variables (working independently) define the pace: `GOGC` and, from Go 1.19, `GOMEMLIMIT`.
+    To learn more about them, read [an official detailed guide about GC tuning](https://oreil.ly/f2F6H).
+    For this book, let’s explain both very briefly:'
+  id: totrans-322
+  prefs: []
+  type: TYPE_NORMAL
+  zh: GC 运行的间隔不是基于时间的。相反，两个配置变量（独立工作）定义了节奏：`GOGC` 和从 Go 1.19 开始的 `GOMEMLIMIT`。要了解更多信息，请阅读
+    [有关 GC 调优的官方详细指南](https://oreil.ly/f2F6H)。对于本书，让我们简要解释一下：
+- en: The `GOGC` option represents the “GC percentage.”
+  id: totrans-323
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`GOGC` 选项代表 “GC 百分比”。'
+- en: '`GOGC` is enabled by default with a 100 value. It means that the next GC collection
+    will be done when the heap size expands to 100% of the size it has at the end
+    of the last GC cycle. GC’s pacing algorithm estimates when that goal will be reached
+    based on current heap growth. It can also be set programmatically with the [`debug.SetGCPercent`
+    function](https://oreil.ly/7khRe).'
+  id: totrans-324
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`GOGC` 默认启用，值为 100。这意味着下一个 GC 收集将在堆大小扩展到上一个 GC 周期结束时的大小的 100% 时进行。GC 的节奏算法根据当前堆的增长估计何时可以达到该目标。也可以使用
+    [`debug.SetGCPercent` 函数](https://oreil.ly/7khRe) 进行程序设置。'
+- en: The `GOMEMLIMIT` option controls the soft memory limit.
+  id: totrans-325
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`GOMEMLIMIT` 选项控制软内存限制。'
+- en: The `GOMEMLIMIT` option was introduced in Go 1.19\. It is disabled by default
+    (set to `math.MaxInt64`), and offers running GC more often when we are close (or
+    above) the set memory limit. It can be used with `GOGC=off` (disabled) or together
+    with `GOGC`. This option can also be set programmatically with the [`debug.Set​Me⁠moryLimit`
+    function](https://oreil.ly/etDUv).
+  id: totrans-326
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '`GOMEMLIMIT` 选项在 Go 1.19 中引入。默认情况下禁用（设置为 `math.MaxInt64`），在接近（或超过）设置的内存限制时可以更频繁地运行
+    GC。它可以与 `GOGC=off`（禁用）一起使用，也可以使用 [`debug.SetMemoryLimit` 函数](https://oreil.ly/etDUv)
+    进行程序设置。'
+- en: GOMEMLIMIT Does Not Prevent Your Program from Allocating More than the Set Value!
+  id: totrans-327
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: GOMEMLIMIT 不会阻止您的程序分配超过设置值的内存！
+- en: The GC’s soft memory limit configuration is called “soft” for a reason. It tells
+    the GC how much memory overhead space there is for the GC “laziness” to save the
+    CPU.
+  id: totrans-328
+  prefs: []
+  type: TYPE_NORMAL
+  zh: GC 的软内存限制配置之所以被称为 “软”，是有原因的。它告诉 GC 有多少内存超额空间可以用于 GC 的 “懒惰”，以节省 CPU 时间。
+- en: However, when your program allocates and uses more memory than the desired limit,
+    with the `GOMEMLIMIT` option set, it will only make things worse. This is because
+    the GC will run nearly continuously, taking up 25% of the precious CPU time from
+    other functionalities.
+  id: totrans-329
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 但是，当您的程序分配并使用超过所需限制的内存时，如果设置了 `GOMEMLIMIT` 选项，情况只会变得更糟。这是因为 GC 几乎会持续运行，占用其他功能宝贵的
+    25% CPU 时间。
+- en: We still have to optimize the memory efficiency of our programs!
+  id: totrans-330
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们仍然需要优化程序的内存效率！
+- en: Manual trigger.
+  id: totrans-331
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 手动触发。
+- en: Programmers can also trigger another GC collection on demand by invoking [`runtime.GC()`](https://oreil.ly/znoCL).
+    It is mostly used in testing or benchmarking code, as it can block the entire
+    program. Other pacing configurations like `GOGC` and `GOMEMLIMIT` might run in
+    between.
+  id: totrans-332
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 程序员也可以通过调用 [`runtime.GC()`](https://oreil.ly/znoCL) 来手动触发另一次 GC 收集。这在测试或基准测试代码中经常使用，因为它可以阻塞整个程序。其他像
+    `GOGC` 和 `GOMEMLIMIT` 的节奏配置可能会在其中运行。
+- en: 'The Go GC implementation can be described as [the concurrent, nongenerational,
+    tricolor mark and sweep collector](https://oreil.ly/vvOgl) implementation. Whether
+    invoked by the programmer or by the runtime-based `GOGC` or `GOMEMLIMIT` option,
+    the `runtime.GC()` implementation comprises a few phases. The first one is a mark
+    phase that has to:'
+  id: totrans-333
+  prefs: []
+  type: TYPE_NORMAL
+  zh: Go的GC实现可以描述为[并发、非代数、三色标记和扫描收集器](https://oreil.ly/vvOgl)的实现。无论是由程序员还是由基于运行时的`GOGC`或`GOMEMLIMIT`选项调用，`runtime.GC()`实现都包括几个阶段。第一个阶段是标记阶段，必须要：
+- en: Perform a “stop the world” (STW) event to inject an essential [write barrier](https://oreil.ly/Sl9PI)
+    (a lock on writing data) into all goroutines. Even though STW is relatively fast
+    (10–30 microseconds on average), it is pretty impactful—it suspends the execution
+    of all goroutines in our process for that time.
+  id: totrans-334
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 执行“停止世界”（STW）事件，向所有goroutine注入一个关键的[写入屏障](https://oreil.ly/Sl9PI)（对写入数据的锁）。尽管STW相对较快（平均10至30微秒），但影响相当大——它会暂停进程中所有goroutine的执行。
+- en: Try to use 25% of the CPU capacity given to the process to concurrently mark
+    all objects in the heap that are still in use.
+  id: totrans-335
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 尝试使用进程分配的CPU容量的25%来并发标记堆中仍在使用的所有对象。
+- en: Terminate marking by removing the write barrier from the goroutines. This requires
+    another STW event.
+  id: totrans-336
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+  zh: 通过从goroutine中移除写入屏障来终止标记。这需要另一个STW事件。
+- en: 'After the mark phase, the GC function is generally complete. As interesting
+    as it sounds, the GC doesn’t release any memory! Instead, the sweeping phase releases
+    objects that were not marked as in use. It is done lazily: every time a goroutine
+    wants to allocate memory through the Go Allocator, it must perform a sweeping
+    work first, then allocate. This is counted as an `allocation` latency, even though
+    it is technically a garbage collection functionality—worth noting!'
+  id: totrans-337
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在标记阶段之后，GC功能通常完成。尽管听起来很有趣，GC并不释放任何内存！相反，清扫阶段会释放未标记为使用中的对象。这是懒惰完成的：每次goroutine要通过Go分配器分配内存时，必须先执行清扫工作，然后再分配。尽管技术上是垃圾收集功能，但这被计算为`分配`延迟值得注意！
+- en: Generally speaking, the Go Allocator and GC compose a sophisticated implementation
+    of bucketed [object pooling](https://oreil.ly/r1K18), where each pool of slots
+    of different sizes are prepared for incoming allocations. When an allocation is
+    not needed anymore, it is eventually released. The memory space for this allocation
+    is not immediately released to the OS since it can be assigned to another incoming
+    allocation soon (this is similar to the pooling pattern using `sync.Pool` we will
+    discuss in [“Memory Reuse and Pooling”](ch11.html#ch-basic-pool)). When the number
+    of free buckets is big enough, Go releases memory to the OS. But even then, it
+    does not necessarily mean that runtime deletes mapped regions straight away. For
+    example, on Linux, Go runtime typically “releases” memory through the [`madvise`
+    syscall](https://oreil.ly/pxXum) with the `MADV_DONTNEED` argument by default.^([36](ch05.html#idm45606832989440))
+    This is because our mapped region might be needed again pretty soon, so it’s faster
+    to keep them just in case and ask the OS to take them back only if other processes
+    require this physical memory.
+  id: totrans-338
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 一般来说，Go分配器和GC构成了复杂的桶式[对象池](https://oreil.ly/r1K18)的实现，其中每个不同大小的槽池都为即将到来的分配做好准备。当一个分配不再需要时，它最终会被释放。这种分配的内存空间不会立即释放给操作系统，因为它可能很快被分配给另一个即将到来的分配（这类似于使用`sync.Pool`进行池化模式的讨论，我们将在[“内存重用和池化”](ch11.html#ch-basic-pool)中讨论）。当自由桶的数量足够大时，Go会释放内存给操作系统。但即便如此，也不一定意味着运行时立即删除映射区域。例如，在Linux上，Go运行时通常通过默认情况下的[`madvise`系统调用](https://oreil.ly/pxXum)，使用`MADV_DONTNEED`参数“释放”内存。^([36](ch05.html#idm45606832989440))
+    这是因为我们的映射区域可能很快再次被需要，因此保留它们以防万一并要求操作系统只有在其他进程需要这些物理内存时才将它们收回，这样更快。
+- en: Note that, when applied to shared mappings, `MADV_DONTNEED` might not lead to
+    immediate freeing of the pages in the range. The kernel is free to delay freeing
+    the pages until an appropriate moment. The resident set size (RSS) of the calling
+    process will be immediately reduced, however.
+  id: totrans-339
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+  zh: 注意，当应用于共享映射时，`MADV_DONTNEED`可能不会立即释放范围内的页面。内核可以延迟释放页面直到合适的时机。但是，调用进程的驻留集大小（RSS）将立即减少。
+- en: ''
+  id: totrans-340
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: Linux Community, ["`madvise(2)`, Linux Manual Page”](https://oreil.ly/JDuS7)
+  id: totrans-341
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+  zh: Linux社区, ["`madvise(2)`，Linux手册页面"](https://oreil.ly/JDuS7)
+- en: With the theory behind the GC algorithm, it will be easier for us to understand
+    in [Example 5-6](#code-mem-dealloc-slice) what happens if we try to clean the
+    memory used for the large, 600 MB byte slice we created in [Example 5-5](#code-mem-alloc-slice).
+  id: totrans-342
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 有了 GC 算法背后的理论，我们可以更容易地理解在 [示例 5-6](#code-mem-dealloc-slice) 中，如果我们试图清理在 [示例
+    5-5](#code-mem-alloc-slice) 中创建的大型 600 MB 字节切片使用的内存时会发生什么。
+- en: Example 5-6\. Memory release (de-allocation) of large slice created in [Example 5-5](#code-mem-alloc-slice)
+  id: totrans-343
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+  zh: 示例 5-6\. 大型切片在 [示例 5-5](#code-mem-alloc-slice) 中创建后的内存释放（解分配）
+- en: '[PRE5]'
+  id: totrans-344
+  prefs: []
+  type: TYPE_PRE
+  zh: '[PRE5]'
+- en: '[![1](assets/1.png)](#co_how_go_uses_memory_resource_CO6-1)'
+  id: totrans-345
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_how_go_uses_memory_resource_CO6-1)'
+- en: 'As we discussed in [Example 5-5](#code-mem-alloc-slice), the statistics after
+    allocating a large slice and accessing all elements might look as follows:'
+  id: totrans-346
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 正如我们在 [示例 5-5](#code-mem-alloc-slice) 中讨论的，分配大型切片并访问所有元素后的统计数据可能如下所示：
+- en: 'Slice is allocated in three memory mappings with the corresponding virtual
+    memory size (VSS) numbers: 2 MB, 598 MB, and 4 MB.'
+  id: totrans-347
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 切片在三个内存映射中分配，对应的虚拟内存大小（VSS）分别为：2 MB、598 MB 和 4 MB。
+- en: 'The RSS for three memory mappings: 1.5 MB, 598 MB, and 1.2 MB.'
+  id: totrans-348
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 三个内存映射的 RSS 分别为：1.5 MB、598 MB 和 1.2 MB。
+- en: Total RSS of the whole process shows 621.7 MB.
+  id: totrans-349
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 整个进程的总 RSS 显示为 621.7 MB。
+- en: Go reports 600.16 MB of the heap size.
+  id: totrans-350
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Go 报告堆大小为 600.16 MB。
+- en: '[![2](assets/2.png)](#co_how_go_uses_memory_resource_CO6-2)'
+  id: totrans-351
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_how_go_uses_memory_resource_CO6-2)'
+- en: After the last statement where data from `b` is accessed, even before `b = nil`,
+    the `Mark` phase of GC would consider `b` as a “garbage” to clean. Yet, the GC
+    has its own pace; thus, immediately after this statement, no memory will be released—memory
+    statistics will be the same.
+  id: totrans-352
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在访问 `b` 中的数据后，即使在 `b = nil` 之前，GC 的 `Mark` 阶段也会将 `b` 视为“垃圾”来清理。然而，GC 有自己的节奏；因此，即使在此语句之后，内存不会立即释放，内存统计数据仍将保持不变。
+- en: '[![3](assets/3.png)](#co_how_go_uses_memory_resource_CO6-3)'
+  id: totrans-353
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_how_go_uses_memory_resource_CO6-3)'
+- en: In typical cases when you no longer use the `b` value and the function scope
+    ends, or you will replace `b` content with a pointer to a different object, there
+    is no need for an explicit `b = nil` statement. The GC will know that the array
+    pointed to by `b` is garbage. Yet sometimes, especially on long-living functions
+    (e.g., a goroutine that performs background job items delivered by the Go channel),
+    it is useful to set the variable to `nil` to make sure the next GC run will mark
+    it for cleaning earlier.
+  id: totrans-354
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在典型情况下，当您不再使用 `b` 值并且函数范围结束时，或者您将 `b` 内容替换为指向不同对象的指针时，不需要显式的 `b = nil` 语句。GC
+    将知道 `b` 指向的数组是垃圾。然而，有时在长期运行的函数中（例如，通过 Go 通道传递的后台作业的 goroutine），将变量设置为 `nil` 会更有用，以确保下一次
+    GC 运行会更早地将其标记为待清理状态。
+- en: '[![4](assets/4.png)](#co_how_go_uses_memory_resource_CO6-4)'
+  id: totrans-355
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[![4](assets/4.png)](#co_how_go_uses_memory_resource_CO6-4)'
+- en: 'In our tests, let’s invoke the GC manually to see what happens. After this
+    statement, the statistics will look as follows:'
+  id: totrans-356
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在我们的测试中，让我们手动调用 GC 来查看发生了什么。在这个语句之后，统计数据将如下所示：
+- en: All three memory mappings still exist, with the same VSS values. This proves
+    what we mentioned about the Go Allocator only advising on memory mappings, not
+    removing those straightaway!
+  id: totrans-357
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 所有三个内存映射仍然存在，并且具有相同的 VSS 值。这证明了我们关于 Go 分配器仅建议内存映射，而不会立即删除它们的说法！
+- en: 'The RSS for three memory mappings: 1.5 MB, 0 (RSS released), and 60 KB.'
+  id: totrans-358
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 三个内存映射的 RSS 分别为：1.5 MB、0（已释放的 RSS）和 60 KB。
+- en: Total RSS of the whole process shows 21 MB (back to the initial number).
+  id: totrans-359
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 整个进程的总 RSS 显示为 21 MB（回到最初的数字）。
+- en: Go reports 159 KB of the heap size.
+  id: totrans-360
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Go 报告堆大小为 159 KB。
+- en: '[![5](assets/5.png)](#co_how_go_uses_memory_resource_CO6-5)'
+  id: totrans-361
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '[![5](assets/5.png)](#co_how_go_uses_memory_resource_CO6-5)'
+- en: Let’s allocate another twice smaller slice. The following memory statistics
+    prove the theory that Go will try to reuse previous memory mappings!
+  id: totrans-362
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 让我们再分配一个两倍小的切片。以下的内存统计数据证明了 Go 将尝试重用先前的内存映射的理论！
+- en: Same three memory mappings still exist, with the same VSS values.
+  id: totrans-363
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 同样的三个内存映射仍然存在，并且具有相同的 VSS 值。
+- en: 'The RSS for three memory mappings: 1.5 MB, 300 MB, and 60 KB.'
+  id: totrans-364
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 三个内存映射的 RSS 分别为：1.5 MB、300 MB 和 60 KB。
+- en: Total RSS of the whole process shows 321 MB.
+  id: totrans-365
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: 整个进程的总 RSS 显示为 321 MB。
+- en: Go reports 300.1 KB of the heap size.
+  id: totrans-366
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+  zh: Go 报告堆大小为 300.1 KB。
+- en: As we mentioned earlier, the beauty of GC is that it simplifies programmer life
+    thanks to carefree allocations, memory safety, and solid efficiency for most applications.
+    Unfortunately, it also makes our life a bit harder when our program violates our
+    efficiency expectations, and the reason is not what you might think. The main
+    problem with the Go Allocator and GC pair is that they hide the root cause of
+    our memory efficiency problems—in almost all cases, our code allocates too much
+    memory!
+  id: totrans-367
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Think of a garbage collector like a Roomba: Just because you have one does
+    not mean you tell your children not to drop arbitrary pieces of garbage onto the
+    floor.'
+  id: totrans-368
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: ''
+  id: totrans-369
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: Halvar Flake, [Twitter](https://oreil.ly/ukXDV)
+  id: totrans-370
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: 'Let’s explore the potential symptoms we might notice in Go when we are not
+    careful with the number and type of the allocations:'
+  id: totrans-371
+  prefs: []
+  type: TYPE_NORMAL
+- en: CPU overhead
+  id: totrans-372
+  prefs: []
+  type: TYPE_NORMAL
+- en: First and foremost, the GC must go through all the objects stored on the heap
+    to tell which ones are in use. This can use a significant portion of the CPU resource,
+    especially if there are many objects in heap.^([37](ch05.html#idm45606832784288))
+  id: totrans-373
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is especially visible if the objects stored on the heap are rich in pointer
+    types, which forces the GC to traverse them to check if they don’t point to an
+    object that was not yet marked as “in use.” Given the limited CPU resources in
+    our computers, the more work we have to do for the GC, the less work we can perform
+    toward the core program functionality, which translates to higher program latency.
+  id: totrans-374
+  prefs: []
+  type: TYPE_NORMAL
+- en: In platforms with garbage collection, memory pressure naturally translates into
+    increased CPU consumption.
+  id: totrans-375
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: ''
+  id: totrans-376
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: Google Teams, [*Site Reliability Engineering*](https://oreil.ly/PhZaD)
+  id: totrans-377
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: Additional increase in program latency
+  id: totrans-378
+  prefs: []
+  type: TYPE_NORMAL
+- en: CPU time spent on GC is one thing, but there is more. First, the STW event performed
+    twice slows down all goroutines. This is because the GC must stop all goroutines
+    and inject (and then remove) a write barrier. It also prevents some goroutines
+    that have to store some data in memory from doing any further work for the moment
+    of GC marking.
+  id: totrans-379
+  prefs: []
+  type: TYPE_NORMAL
+- en: There is also a second, often missed effect. The GC collection runs are destructive
+    to the hierarchical cache system efficiency.
+  id: totrans-380
+  prefs: []
+  type: TYPE_NORMAL
+- en: For your program to be fast, you want everything you’re doing to be in the cache.
+    ... There are technical and physical reasons in the silicon why allocating memory,
+    throwing it away and GC cleaning that for you, is going to not only slow your
+    program down, because GC is doing its work, but it slows the rest of your program
+    down, because it kicked everything out of [the CPU] cache.
+  id: totrans-381
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: ''
+  id: totrans-382
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: Bryan Boreham, [“Make Your Go Go Faster!”](https://oreil.ly/cDw6c)
+  id: totrans-383
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: Memory overhead
+  id: totrans-384
+  prefs: []
+  type: TYPE_NORMAL
+- en: Since Go 1.19, there has been a way to set a soft memory limit for the GC. This
+    still means that we have to often implement on our side checks against unbounded
+    allocations (e.g., rejecting reading too-large HTTP body requests), but at least
+    the GC is more prompt if you need to avoid that overhead.
+  id: totrans-385
+  prefs: []
+  type: TYPE_NORMAL
+- en: Still, the collection phase is eventual. This means we might be unable to release
+    some memory blocks before new allocations come in. Changing the `GOGC` option
+    to run GC less often only amplifies the problem but might be a good trade-off
+    if you optimize for the CPU resource and have spare RAM on your machines.
+  id: totrans-386
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 尽管如此，收集阶段是最终的。这意味着我们在新的分配到来之前可能无法释放一些内存块。将`GOGC`选项更改为较少运行GC只会加剧问题，但如果你优化CPU资源并且在机器上有剩余RAM的话，这可能是一个很好的折衷方案。
+- en: Additionally, in extreme cases, our program might even leak memory if [the GC
+    is not fast enough to deal with all new allocations](https://oreil.ly/4giW6)!
+  id: totrans-387
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 此外，在极端情况下，如果[垃圾回收速度不足以处理所有新的分配](https://oreil.ly/4giW6)，我们的程序甚至可能会泄露内存！
+- en: The GC can sometimes have surprising effects on our program efficiency. Hopefully,
+    after this section, you will be able to notice when you are affected. You will
+    also be able to notice the GC bottlenecks with the observability tools explained
+    in [Chapter 9](ch09.html#ch-observability3).
+  id: totrans-388
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 垃圾回收器有时会对我们程序的效率产生意想不到的影响。希望在本节之后，你能够注意到何时受到影响。你还可以通过第9章中解释的可观察性工具来发现垃圾回收的瓶颈，如[第9章](ch09.html#ch-observability3)所述。
+- en: The Solution to Most Memory Efficiency Issues
+  id: totrans-389
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 大多数内存效率问题的解决方案
+- en: Produce less garbage!
+  id: totrans-390
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 产生更少的垃圾！
+- en: It’s easy to overallocate memory in Go. This is why the best way to solve GC
+    bottleneck or other memory efficiency issues is to allocate less. I will introduce
+    [“The Three Rs Optimization Method”](ch11.html#ch-hw-rrr), which goes through
+    different optimizations that help with those efficiency problems.
+  id: totrans-391
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 在Go中很容易过度分配内存。这就是为什么解决垃圾回收瓶颈或其他内存效率问题的最佳方法是减少分配。我将介绍[“三R优化方法”](ch11.html#ch-hw-rrr)，它通过不同的优化帮助解决这些效率问题。
+- en: Summary
+  id: totrans-392
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+  zh: 总结
+- en: It was a long chapter, but you made it! Unfortunately, memory resource is one
+    of the hardest to explain and master. Probably that’s why there are so many opportunities
+    to reduce the size or number of our Go program’s allocations.
+  id: totrans-393
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这是一章长篇大论，但你做到了！遗憾的是，内存资源是最难解释和掌握的之一。或许这就是为什么有这么多机会来减少我们Go程序分配的大小或数量。
+- en: You learned the long, multilayer path between our code that needs to allocate
+    bits on memory and bits landing on the DRAM chip. You learned about many memory
+    trade-offs, behaviors, and consequences on the OS level. Finally, you now know
+    how Go uses those mechanisms and why memory allocations in Go are so transparent.
+  id: totrans-394
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 你了解了我们的代码需要在内存中分配比特和这些比特最终落到DRAM芯片之间的漫长多层路径。你了解了许多内存折衷、行为以及在操作系统层面的后果。最后，你现在知道Go如何使用这些机制，以及为什么Go中的内存分配如此透明。
+- en: Perhaps you can already figure out the root causes of why [Example 4-1](ch04.html#code-sum)
+    was using 30.5 MB of the heap for every single operation when the input file was
+    3 MB large. In [“Optimizing Memory Usage”](ch10.html#ch-opt-mem-example), I will
+    propose the algorithm and code improvements to [Example 4-1](ch04.html#code-sum)
+    that allow it to use memory in numbers that are a fraction of the input file size,
+    while also improving the latency.
+  id: totrans-395
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 或许你已经可以找出为什么[示例4-1](ch04.html#code-sum)在输入文件为3MB时每次操作都使用30.5MB堆的根本原因了。在[“优化内存使用”](ch10.html#ch-opt-mem-example)中，我将提出算法和代码改进来减少[示例4-1](ch04.html#code-sum)使用的内存量，同时提高延迟。
+- en: It is important to note that this space is evolving. Go compiler, Go garbage
+    collector, and Go Allocator are constantly being improved, changed, and scaled
+    for the needs of Go users. Yet most of the incoming changes will likely be only
+    iterations of what we have now in Go.
+  id: totrans-396
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 这个领域正在不断发展，这点很重要。Go 编译器、Go 垃圾回收器和Go 分配器都在不断改进、变化和扩展，以满足Go用户的需求。然而，大多数即将到来的变更可能仅仅是我们现在在Go中已有内容的迭代。
+- en: 'Ahead of us are Chapters [6](ch06.html#ch-observability) and [7](ch07.html#ch-observability2),
+    which I consider two of the most crucial chapters in the book. I have already
+    mentioned many tools I used to explain the main concepts in past chapters: metrics,
+    benchmarking, and profiling. It’s time to learn them in detail!'
+  id: totrans-397
+  prefs: []
+  type: TYPE_NORMAL
+  zh: 我们将要介绍的第6章和第7章是本书中我认为最关键的两章。我已经在之前的章节中提到了许多工具，用来解释主要概念：度量、基准测试和性能分析。现在是详细学习它们的时候了！
+- en: ^([1](ch05.html#idm45606834619920-marker)) In this book when I say “memory,”
+    I mean RAM and vice versa. Other mediums offer “memorizing” data in computer architecture
+    (e.g., L-caches), but we tend to treat RAM as the “main” memory resource.
+  id: totrans-398
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([1](ch05.html#idm45606834619920-marker)) 在本书中，当我说“内存”时，我指的是RAM，反之亦然。其他媒介在计算机体系结构中提供了将数据“记忆”的方法（例如L缓存），但我们倾向于将RAM视为“主”内存资源。
+- en: ^([2](ch05.html#idm45606834615344-marker)) Not only because of physical limitations
+    like not enough chip pins, space, and energy for transistors, but also because
+    managing large memory poses huge overhead as we will learn in [“OS Memory Management”](#ch-hw-memory-os).
+  id: totrans-399
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([2](ch05.html#idm45606834615344-marker)) 不仅因为物理限制，如芯片引脚不足、空间不足和为晶体管提供能量不足，而且因为管理大内存会带来巨大的开销，正如我们将在[“操作系统内存管理”](#ch-hw-memory-os)中学到的那样。
+- en: ^([3](ch05.html#idm45606834611488-marker)) In some way, RAM volatility can sometimes
+    be treated as a feature, not a bug! Have you ever wondered why restarting a computer
+    or process often fixes your problem? The memory volatility forces programmers
+    to implement robust initialization techniques that rebuild the state from backup
+    mediums, enhancing reliability and mitigating potential program bugs. In extreme
+    cases, [crash-only software](https://oreil.ly/DAbDs) with the restart is the primary
+    way of failure handling.
+  id: totrans-400
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([3](ch05.html#idm45606834611488-marker)) 在某种程度上，RAM的易失性有时可以被视为一种特性，而不是缺陷！你是否曾想过为什么重新启动计算机或进程通常可以解决问题？内存的易失性迫使程序员实施强大的初始化技术，从备份介质重建状态，提高可靠性并减少潜在的程序错误。在极端情况下，[仅崩溃软件](https://oreil.ly/DAbDs)与重启是主要的故障处理方式。
+- en: ^([4](ch05.html#idm45606834596960-marker)) We can resolve that problem by simply
+    adding more memory to the system or switching to the server (or virtual machine)
+    with more memory resource. That might be a solid solution if we are willing to
+    pay additionally if it’s not a memory leak and if such a resource can be increased
+    (e.g., the cloud has virtual machines with more memory). Yet I suggest investigating
+    your program memory usage, especially if you continuously have to expand the system
+    memory. Then there might be easy wins, thanks to trivially wasted space we could
+    optimize.
+  id: totrans-401
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([4](ch05.html#idm45606834596960-marker)) 我们可以通过简单地增加系统内存或切换到具有更多内存资源的服务器（或虚拟机）来解决这个问题。如果不是内存泄漏并且可以增加这样的资源（例如，云中有更多内存的虚拟机），这可能是一个可靠的解决方案。但我建议调查您的程序内存使用情况，特别是如果您不断需要扩展系统内存。那么，由于可以优化的微不足道的浪费空间，可能存在简单的优势。
+- en: ^([5](ch05.html#idm45606834576192-marker)) Nowadays, popular encodings like
+    UTF-8 can dynamically use from one up to four bytes of memory per single character.
+  id: totrans-402
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([5](ch05.html#idm45606834576192-marker)) 如今，像UTF-8这样的流行编码可以动态地使用从一个到四个字节的内存来表示单个字符。
+- en: ^([6](ch05.html#idm45606834567216-marker)) By just doubling the “pointer” size,
+    we moved the limit to how many elements we can address to extreme sizes. We could
+    even estimate that 64-bit is enough to [address all grains of sand from all beaches
+    on Earth](https://oreil.ly/By1J3)!
+  id: totrans-403
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([6](ch05.html#idm45606834567216-marker)) 通过简单地将“指针”大小加倍，我们将可以扩展可以寻址的元素数量到极限。我们甚至可以估计64位足以[寻址地球上所有沙滩上的所有沙粒](https://oreil.ly/By1J3)!
+- en: ^([7](ch05.html#idm45606834540672-marker)) I introduced the *process* and *thread*
+    terms in [“Operating System Scheduler”](ch04.html#ch-hw-os-scheduler).
+  id: totrans-404
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([7](ch05.html#idm45606834540672-marker)) 我在[“操作系统调度器”](ch04.html#ch-hw-os-scheduler)中介绍了“进程”和“线程”术语。
+- en: ^([8](ch05.html#idm45606834529664-marker)) Many Common Vulnerabilities and Exposures
+    (CVE) issues exist due to various bugs that allow [out-of-bounds memory access](https://oreil.ly/iSbqk).
+  id: totrans-405
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([8](ch05.html#idm45606834529664-marker)) 由于各种bug导致的许多常见漏洞和暴露（CVE）问题存在，允许[越界访问内存](https://oreil.ly/iSbqk)。
+- en: ^([9](ch05.html#idm45606834527872-marker)) It might be less intuitive, but the
+    malicious process can perform a DoS if access to another process memory is not
+    restricted. For example, by setting counters to incorrect values or breaking loop
+    invariants, the victim program might error out or exhaust machine resources.
+  id: totrans-406
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([9](ch05.html#idm45606834527872-marker)) 这可能不太直观，但恶意进程如果无法限制对另一个进程内存的访问，就可能执行拒绝服务攻击（DoS）。例如，通过将计数器设置为不正确的值或破坏循环不变量，受害程序可能会出错或耗尽机器资源。
+- en: ^([10](ch05.html#idm45606834509584-marker)) In the past, [segmentation](https://oreil.ly/8BFmb)
+    was used to implement virtual memory. This has proven to have less versatility,
+    especially the inability to move this space around for defragmentation (better
+    packing of memory). Still, even with paging, segmentation is applied to virtual
+    memory by the process itself (with underlying paging). Plus, the kernel sometimes
+    still uses nonpaged segmentation for its part of critical kernel memory.
+  id: totrans-407
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([10](ch05.html#idm45606834509584-marker)) 在过去，[分段](https://oreil.ly/8BFmb)被用于实现虚拟内存。这被证明缺乏灵活性，特别是不能移动这个空间以进行碎片整理（更好地打包内存）。即使使用页面方式，分段也由进程本身（以底层页面为基础）应用于虚拟内存。此外，内核有时仍然使用非分页分段来管理其关键内核内存部分。
+- en: ^([11](ch05.html#idm45606834504144-marker)) You can check the current page size
+    on the Linux system using the `getconf PAGESIZE` command.
+  id: totrans-408
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([11](ch05.html#idm45606834504144-marker)) 您可以使用 `getconf PAGESIZE` 命令在 Linux
+    系统上检查当前页面大小。
+- en: ^([12](ch05.html#idm45606834502960-marker)) For example, typically, Intel CPUs
+    are capable of hardware-supported [4 KB, 2 MB, or 1 GB pages](https://oreil.ly/mxlry).
+  id: totrans-409
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([12](ch05.html#idm45606834502960-marker)) 例如，通常情况下，Intel CPU 支持硬件支持的 [4 KB,
+    2 MB 或 1 GB 页](https://oreil.ly/mxlry)。
+- en: ^([13](ch05.html#idm45606834497952-marker)) Even naive and conservative calculations
+    indicate around [24% of total memory is wasted for 2 MB pages](https://oreil.ly/iklRd).
+  id: totrans-410
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([13](ch05.html#idm45606834497952-marker)) 即使是天真和保守的计算，也表明大约 [24% 的总内存用于浪费了
+    2 MB 的页面](https://oreil.ly/iklRd)。
+- en: ^([14](ch05.html#idm45606834494864-marker)) We won’t discuss the implementation
+    of page tables since it’s pretty complex and not something Go developers have
+    to worry about. Yet this topic is quite interesting as the trivial implementation
+    of paging would have a massive overhead in memory usage (what’s the point of memory
+    management that would take the majority of memory space it manages?). You can
+    learn more [here](https://oreil.ly/jU9Is).
+  id: totrans-411
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([14](ch05.html#idm45606834494864-marker)) 我们不会讨论页表的实现，因为这相当复杂，不是 Go 开发者需要担心的事情。然而，这个主题非常有趣，因为分页的简单实现会导致内存使用的巨大开销（如果内存管理占用大部分内存空间，那么内存管理的意义何在？）。您可以在
+    [这里](https://oreil.ly/jU9Is) 了解更多信息。
+- en: ^([15](ch05.html#idm45606834472688-marker)) There is also an option to [disable
+    an overcommitment mechanism](https://oreil.ly/h82uS) on Linux. When disabled,
+    the virtual memory size (VSS) is not allowed to be bigger than the physical memory
+    used by the process (RSS). You might want to do this so the process will have
+    generally faster memory accesses, but the waste of memory is enormous. As a result,
+    I have never seen such an option used in practice.
+  id: totrans-412
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([15](ch05.html#idm45606834472688-marker)) 还有一个选项可以在 Linux 上 [禁用过度承诺机制](https://oreil.ly/h82uS)。当禁用时，虚拟内存大小（VSS）不允许大于进程使用的物理内存（RSS）。您可能希望这样做以便进程通常具有更快的内存访问，但浪费的内存是巨大的。因此，我从未见过这样的选项在实践中使用。
+- en: ^([16](ch05.html#idm45606834159392-marker)) `MAP_SHARED` means that any other
+    process can reuse the same physical memory page if it accesses the same file.
+    This is harmless if the mapped file does not change over time, but it has more
+    complex nuances for mapping modifiable content.
+  id: totrans-413
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([16](ch05.html#idm45606834159392-marker)) `MAP_SHARED` 意味着如果其他进程访问相同的文件，它们可以重用相同的物理内存页面。如果映射文件随时间不变化，这是无害的，但对于映射可修改内容有更复杂的细微差别。
+- en: ^([17](ch05.html#idm45606834158000-marker)) A full list of options can be found
+    in the [`mmap` documentation](https://oreil.ly/m5n7A).
+  id: totrans-414
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([17](ch05.html#idm45606834158000-marker)) 可以在 [`mmap` 文档](https://oreil.ly/m5n7A)
+    中找到所有选项的完整列表。
+- en: ^([18](ch05.html#idm45606834147584-marker)) `SIGSEV` means a segmentation fault.
+    This tells us that the process wants to access an invalid memory address.
+  id: totrans-415
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([18](ch05.html#idm45606834147584-marker)) `SIGSEV` 表示分段错误。这告诉我们进程试图访问一个无效的内存地址。
+- en: ^([19](ch05.html#idm45606833899392-marker)) On Linux, you can find this information
+    by doing `ps -ax --format=pid,rss,vsz | grep $PID`, where `$PID` is process ID.
+  id: totrans-416
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([19](ch05.html#idm45606833899392-marker)) 在 Linux 上，您可以通过执行 `ps -ax --format=pid,rss,vsz
+    | grep $PID` 来找到这些信息，其中 `$PID` 是进程 ID。
+- en: ^([20](ch05.html#idm45606833705184-marker)) How do I know? We can have exact
+    statistics for each memory mapping process we use on Linux thanks to the `/proc/*<PID>*/smaps`
+    file.
+  id: totrans-417
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([20](ch05.html#idm45606833705184-marker)) 我怎么知道？我们可以通过 `/proc/*<PID>*/smaps`
+    文件在 Linux 上为每个内存映射进程获取精确的统计信息。
+- en: ^([21](ch05.html#idm45606833635152-marker)) There are many reasons why accessing
+    nearby bytes might not need allocating more pages on RAM in the memory-mapped
+    situation. For example, the cache hierarchy (discussed in [“Hierachical Cache
+    System”](ch04.html#ch-hw-lcache)), the OS, and compiler deciding to pull more
+    at once, or such a page being already a shared or private page because of previous
+    accesses.
+  id: totrans-418
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([21](ch05.html#idm45606833635152-marker)) 有许多原因说明为什么在内存映射的情况下访问附近的字节可能不需要在
+    RAM 上分配更多页面。例如，缓存层次结构（在 [“层次化缓存系统”](ch04.html#ch-hw-lcache) 中讨论）、操作系统和编译器决定一次性拉取更多内容，或者这样的页面已经是由于先前访问而共享或私有页面。
+- en: ^([22](ch05.html#idm45606833630880-marker)) Note that physical frames for this
+    file can still be allocated on physical memory by the OS (just not accounted for
+    our process). This is called `page cache` and can be useful if any process tries
+    to memorize the same file. Page cache is stored as best effort in the memory that
+    would otherwise not be used. It can be released when the system is under high
+    memory pressure or manually by the administrator, e.g., with `sysctl -w vm.drop_caches=1`.
+  id: totrans-419
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([22](ch05.html#idm45606833630880-marker)) 请注意，操作系统仍然可以为该文件分配物理页框，但不会计入我们的进程中。这被称为
+    `页缓存`，如果任何进程尝试记忆同一文件，它可能会在系统面临高内存压力时或由管理员手动释放，例如通过 `sysctl -w vm.drop_caches=1`。
+- en: ^([23](ch05.html#idm45606833609392-marker)) Swapping is usually turned off by
+    default on most machines.
+  id: totrans-420
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([23](ch05.html#idm45606833609392-marker)) 大多数计算机通常默认关闭交换。
+- en: ^([24](ch05.html#idm45606833605136-marker)) [“Teaching the OOM killer”](https://oreil.ly/AFDh0)
+    explains some problems in choosing what process to kill first. The lesson here
+    is that the global OOM killer is often hard to [predict](https://oreil.ly/4rPzk).
+  id: totrans-421
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([24](ch05.html#idm45606833605136-marker)) [“教授 OOM 杀手”](https://oreil.ly/AFDh0)
+    解释了在选择要首先终止的进程时遇到的一些问题。这里的教训是全局 OOM 杀手通常难以 [预测](https://oreil.ly/4rPzk)。
+- en: ^([25](ch05.html#idm45606833602304-marker)) Exact implementation of memory controller
+    can be found [here](https://oreil.ly/Ken3G).
+  id: totrans-422
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([25](ch05.html#idm45606833602304-marker)) 可以在 [这里](https://oreil.ly/Ken3G)
+    找到内存控制器的精确实现。
+- en: ^([26](ch05.html#idm45606833533232-marker)) Remember, whatever type or amount
+    of virtual memory the OS is giving to the process, it uses the memory mapping
+    technique. `sbrk` allows simpler resizing of the virtual memory section typically
+    covered by the heap. However, it behaves like any other `mmap` using anonymous
+    pages.
+  id: totrans-423
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([26](ch05.html#idm45606833533232-marker)) 请记住，无论操作系统为进程提供什么类型或数量的虚拟内存，它都使用内存映射技术。
+    `sbrk` 允许更简单地调整通常由堆覆盖的虚拟内存部分的大小。但是，它像任何其他使用匿名页面的 `mmap` 一样工作。
+- en: ^([27](ch05.html#idm45606833508688-marker)) Of course no one blocks anyone from
+    implementing external garbage collection on top of those mechanisms in C and C++.
+  id: totrans-424
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([27](ch05.html#idm45606833508688-marker)) 当然，没有人阻止在 C 和 C++ 中使用这些机制之上实现外部垃圾回收。
+- en: ^([28](ch05.html#idm45606833506480-marker)) It’s hard that the ownership model
+    in Rust requires the programmer to be hyperaware of every memory allocation and
+    what part owns it. Despite that, I am a huge fan of the Rust ownership model if
+    we could scope this memory management only to a certain part of our code. I believe
+    it would be beneficial to bring some ownership pattern to Go, where a small amount
+    of code could use that, whereas the rest would use GC. Wish list for someday?
+    :)
+  id: totrans-425
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([28](ch05.html#idm45606833506480-marker)) Rust 中的所有权模型要求程序员对每个内存分配及其拥有部分都要非常警觉。尽管如此，如果我们能够将这种内存管理范围仅限于代码的某一部分，我仍然是
+    Rust 所有权模型的铁杆粉丝。我相信，将某种所有权模式引入 Go 会是有益的，其中少量代码可以使用该模式，而其余代码则使用垃圾回收。期待有朝一日能实现这一愿景？
+    :)
+- en: ^([29](ch05.html#idm45606833447648-marker)) You can reveal the box size with
+    the [`unsafe.Sizeof`](https://oreil.ly/QtpSf) function.
+  id: totrans-426
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([29](ch05.html#idm45606833447648-marker)) 您可以使用 [`unsafe.Sizeof`](https://oreil.ly/QtpSf)
+    函数来显示盒子的大小。
+- en: ^([30](ch05.html#idm45606833426272-marker)) See the handy [`reflect.SliceHeader`](https://oreil.ly/9unR4)
+    struct that represents a slice.
+  id: totrans-427
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([30](ch05.html#idm45606833426272-marker)) 请查看便捷的 [`reflect.SliceHeader`](https://oreil.ly/9unR4)
+    结构，它表示一个切片。
+- en: ^([31](ch05.html#idm45606833418784-marker)) Technically speaking, the type `map`
+    variable is a pointer to the hashmap. However, to avoid always typing `*map`,
+    the Go team decided to [hide that detail](https://oreil.ly/mfwDa).
+  id: totrans-428
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([31](ch05.html#idm45606833418784-marker)) 从技术上讲，类型 `map` 的变量是指向 hashmap 的指针。然而，为了避免总是键入
+    `*map`，Go 团队决定 [隐藏该细节](https://oreil.ly/mfwDa)。
+- en: ^([32](ch05.html#idm45606833407008-marker)) We won’t cover [struct padding](https://oreil.ly/1gx5O)
+    in this edition. There is also an amazing utility that helps you to notice the
+    waste [introduced by struct misalignment](https://oreil.ly/WtYFZ).
+  id: totrans-429
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([32](ch05.html#idm45606833407008-marker)) 我们不会在本版本中讨论 [结构体填充](https://oreil.ly/1gx5O)。还有一个很棒的工具可以帮助您注意
+    [由结构体对齐引入的浪费](https://oreil.ly/WtYFZ)。
+- en: ^([33](ch05.html#idm45606833200480-marker)) This is one of the reasons why in
+    Go, every new structure has defined zero value or nil at the start, instead of
+    random value.
+  id: totrans-430
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([33](ch05.html#idm45606833200480-marker)) 这也是为什么在 Go 中，每个新结构体开始时都有定义好的零值或
+    nil，而不是随机值的原因之一。
+- en: '^([34](ch05.html#idm45606833118576-marker)) We know that because `go build
+    -gcflags="-m=1" slice.go` outputs the `./slice.go:11:11: make([]byte, size) escapes
+    to heap` line.'
+  id: totrans-431
+  prefs: []
+  type: TYPE_NORMAL
+  zh: '^([34](ch05.html#idm45606833118576-marker)) 我们知道这一点是因为`go build -gcflags="-m=1"
+    slice.go`输出了`./slice.go:11:11: make([]byte, size) escapes to heap`这一行。'
+- en: ^([35](ch05.html#idm45606833047648-marker)) This behavior was often leveraged
+    by more advanced memory ballasting, which generally is less needed after Go 1.19
+    introduced the memory soft limit discussed in [“Garbage Collection”](#ch-hw-garbage).
+  id: totrans-432
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([35](ch05.html#idm45606833047648-marker)) 这种行为经常被更高级的内存装载所利用，但在Go 1.19引入讨论中的内存软限制后通常不再需要。详细内容请参见[“垃圾回收”](#ch-hw-garbage)。
+- en: ^([36](ch05.html#idm45606832989440-marker)) It’s also possible to change Go
+    memory release strategy by changing the `GODEBUG` [environment variable](https://oreil.ly/ynNXr).
+    For example, we can set `GODEBUG=madvdontneed=0`, so `MADV_FREE` will be used
+    instead to notify the OS about unneeded memory space. The difference between `MADV_DONTNEED`
+    and `MADV_FREE` is precisely around the point mentioned in the Linux Community
+    quote. For `MADV_FREE`, memory release is even faster for Go programs, but the
+    resident set size (RSS) metric of the calling process might not be immediately
+    reduced until the OS reclaims that space. This has proven to cause a massive problem
+    on some systems (e.g., lightly virtualized systems like Kubernetes) that rely
+    on RSS to manage the processes. This happened in 2019 when Go defaulted to `MADV_FREE`
+    for a couple of versions. More on that is explained in my [blog post](https://oreil.ly/UYXJy).
+  id: totrans-433
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([36](ch05.html#idm45606832989440-marker)) 通过更改`GODEBUG` [环境变量](https://oreil.ly/ynNXr)，我们还可以改变Go的内存释放策略。例如，我们可以设置`GODEBUG=madvdontneed=0`，这样就会改用`MADV_FREE`来通知操作系统关于不需要的内存空间。`MADV_DONTNEED`和`MADV_FREE`之间的区别恰好在Linux社区引用中提到的点上。对于`MADV_FREE`，对于Go程序，内存释放甚至更快，但是调用进程的常驻集大小（RSS）指标在操作系统回收该空间之前可能不会立即减少。这在一些系统上（例如轻虚拟化系统如Kubernetes）已被证明引发了严重问题，因为它们依赖RSS来管理进程。这种情况发生在2019年，当Go默认为`MADV_FREE`几个版本。更多相关信息在我的[博客文章](https://oreil.ly/UYXJy)中有详细解释。
+- en: ^([37](ch05.html#idm45606832784288-marker)) To be strict, Go [ensures that a
+    maximum of 25% of the total CPU assigned for the process is used for the GC](https://oreil.ly/9rtOs).
+    This is, however, not a silver-bullet solution. By reducing the maximum CPU time
+    used, we simply use the same amount, just over longer periods.
+  id: totrans-434
+  prefs: []
+  type: TYPE_NORMAL
+  zh: ^([37](ch05.html#idm45606832784288-marker)) 严格来说，Go [确保分配给进程的总CPU的最大25%用于GC](https://oreil.ly/9rtOs)。然而，这并不是万能解决方案。通过减少最大CPU使用时间，我们只是在较长时间段内使用相同的量。
