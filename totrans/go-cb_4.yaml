@@ -392,6 +392,8 @@
   id: totrans-63
   prefs: []
   type: TYPE_NORMAL
+  zh: 这是一个 Person 结构体的数组，在我们解码单个 JSON 数组后得到的结果。但是，当我们得到一系列 JSON 对象的数据流时，这就不再可能了。让我们看看另一个
+    JSON 文件，这个文件代表了一个 JSON 数据流。
 - en: '[PRE15]'
   id: totrans-64
   prefs: []
@@ -404,6 +406,8 @@
   id: totrans-65
   prefs: []
   type: TYPE_NORMAL
+  zh: 请注意，这不是单个 JSON 对象，而是连续的 3 个 JSON 对象。这不再是一个有效的 JSON 文件，而是在读取 `http.Response`
+    结构体的 `Body` 时可能得到的内容。如果尝试使用 `Unmarshal` 读取这些内容，将会得到一个错误输出。
 - en: '[PRE16]'
   id: totrans-66
   prefs: []
@@ -413,6 +417,7 @@
   id: totrans-67
   prefs: []
   type: TYPE_NORMAL
+  zh: 然而，你可以通过使用 `Decoder` 来解析它。
 - en: '[PRE17]'
   id: totrans-68
   prefs: []
@@ -427,12 +432,15 @@
   id: totrans-69
   prefs: []
   type: TYPE_NORMAL
+  zh: 首先，我们使用 `json.NewDecoder` 创建一个解码器，并将文件作为读取器传递给它。然后在 `for` 循环中，我们在解码器上调用 `Decode`，将要存储数据的结构体传递给它。如果一切顺利，每次循环时，都会从数据中创建一个新的
+    `Person` 结构体。然后我们可以使用这些数据。如果读取器中没有更多数据了，即我们遇到了 `io.EOF`，我们将从 `for` 循环中退出。
 - en: In the case of the code above, we pass in a channel, in which we store the `Person`
     struct every loop. When we’re done with reading all the JSON in the file, we’ll
     close the channel.
   id: totrans-70
   prefs: []
   type: TYPE_NORMAL
+  zh: 在上述代码中，我们传入一个通道，在其中每个循环中存储 `Person` 结构体。当我们完成读取文件中的所有 JSON 数据后，我们将关闭该通道。
 - en: '[PRE18]'
   id: totrans-71
   prefs: []
@@ -442,6 +450,7 @@
   id: totrans-72
   prefs: []
   type: TYPE_NORMAL
+  zh: 这是上述代码的输出。
 - en: '[PRE19]'
   id: totrans-73
   prefs: []
@@ -452,17 +461,21 @@
   id: totrans-74
   prefs: []
   type: TYPE_NORMAL
+  zh: 此处可以看到，这里连续打印了 3 个 `Person` 结构体，一个接一个地输出，与之前的数组形式不同。
 - en: A question that sometimes arises is when should we use `Unmarshal` and when
     should we use `Decode`?
   id: totrans-75
   prefs: []
   type: TYPE_NORMAL
+  zh: 有时候会出现的一个问题是，什么时候应该使用 `Unmarshal`，什么时候应该使用 `Decode`？
 - en: '`Unmarshal` is easier to use for a single JSON object but it won’t work when
     you have a stream of them coming in from a reader. Also, its simplicity means
     it’s not as flexible, you just get the whole JSON data at a go.'
   id: totrans-76
   prefs: []
   type: TYPE_NORMAL
+  zh: '`Unmarshal` 更适合用于单个 JSON 对象，但当你从读取器中获得一系列 JSON 对象时，它将无法正常工作。此外，它的简单性意味着它不太灵活，你只能一次性获取整个
+    JSON 数据。'
 - en: '`Decode` on the other hand, works well for both single JSON object or streaming
     JSON data. Also, with `Decode` you can you can do stuff with the JSON at a finer
     level without needing to get the entire JSON data out first. This is because you
@@ -471,11 +484,14 @@
   id: totrans-77
   prefs: []
   type: TYPE_NORMAL
+  zh: '`Decode` 另一方面，适用于单个 JSON 对象或流式 JSON 数据。此外，使用 `Decode`，你可以在不需要先完整获取 JSON 数据的情况下，在更细的层次上操作
+    JSON 数据。这是因为你可以在其传入时检查 JSON，甚至在标记级别上。然而，稍微的缺点是它更冗长。'
 - en: In addition, `Decode` is a bit faster. Let’s do a quick benchmarking test on
     both.
   id: totrans-78
   prefs: []
   type: TYPE_NORMAL
+  zh: 此外，`Decode` 速度稍快。让我们对两者进行快速基准测试。
 - en: '[PRE20]'
   id: totrans-79
   prefs: []
@@ -491,10 +507,14 @@
   id: totrans-80
   prefs: []
   type: TYPE_NORMAL
+  zh: 这里我们使用标准的 Go 基准测试工具来对 `Unmarshal` 和 `Decode` 进行基准测试。为了确保我们进行了正确的基准测试，我们在运行测试
+    `Unmarshal` 和 `Decode` 性能的迭代之前重置计时器。我们在基准测试之前创建解码器，因为我们只需要创建一次解码器，它将包装在流式数据输入的读取器周围。但是因为一旦调用
+    `Decode`，我们需要将偏移量移动到下一次基准测试循环的起始位置。
 - en: We run this in the command line to start the benchmarking.
   id: totrans-81
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们在命令行中运行此命令来启动基准测试。
 - en: '[PRE21]'
   id: totrans-82
   prefs: []
@@ -504,6 +524,7 @@
   id: totrans-83
   prefs: []
   type: TYPE_NORMAL
+  zh: 这就是结果。
 - en: '[PRE22]'
   id: totrans-84
   prefs: []
