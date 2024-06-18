@@ -2450,76 +2450,92 @@
   id: totrans-306
   prefs: []
   type: TYPE_NORMAL
+  zh: 展示了`labeler`的CPU时间分布的示例CPU配置文件显示在[图 9-11](#img-obs-prof-cpu)中。考虑到由于较低的采样率而产生的不准确性，函数粒度视图可能会得出更好的结论。
 - en: '![efgo 0911](assets/efgo_0911.png)'
   id: totrans-307
   prefs: []
   type: TYPE_IMG
+  zh: '![efgo 0911](assets/efgo_0911.png)'
 - en: Figure 9-11\. The Flame Graph view for the 30-second CPU profile from the `labeler`
     `Sum` code from [Example 4-1](ch04.html#code-sum) at `functions` granularity
   id: totrans-308
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 9-11\. 来自[示例 4-1](ch04.html#code-sum)中`labeler` `Sum`代码的30秒CPU配置文件的火焰图视图，以`functions`粒度显示。
 - en: 'The CPU profile comes with two value types:'
   id: totrans-309
   prefs: []
   type: TYPE_NORMAL
+  zh: CPU配置文件包含两种值类型：
 - en: Samples
   id: totrans-310
   prefs: []
   type: TYPE_NORMAL
+  zh: 样本
 - en: The sample value indicates the number of samples observed at the location.
   id: totrans-311
   prefs: []
   type: TYPE_NORMAL
+  zh: 样本值指示在该位置观察到的样本数量。
 - en: CPU
   id: totrans-312
   prefs: []
   type: TYPE_NORMAL
+  zh: CPU
 - en: Each sample value represents the CPU time.
   id: totrans-313
   prefs: []
   type: TYPE_NORMAL
+  zh: 每个样本值代表CPU时间。
 - en: 'From [Figure 9-11](#img-obs-prof-cpu), we can see what we have to focus on
     if we want to optimize CPU time or latency caused by the amount of work by our
     `labeler` Go program. From the Flame Graph view, we can outline five major parts:'
   id: totrans-314
   prefs: []
   type: TYPE_NORMAL
+  zh: 从[图 9-11](#img-obs-prof-cpu)，我们可以看到，如果我们想要优化`labeler` Go程序的CPU时间或延迟，我们需要专注于什么。从火焰图视图中，我们可以概述五个主要部分：
 - en: '`io.Copy`'
   id: totrans-315
   prefs: []
   type: TYPE_NORMAL
+  zh: '`io.Copy`'
 - en: This function used by the code responsible for copying the file from local object
     storage takes 22.6% of CPU time. Perhaps we could utilize local caching to save
     that CPU time.
   id: totrans-316
   prefs: []
   type: TYPE_NORMAL
+  zh: 由负责从本地对象存储复制文件的代码使用的此函数占据了22.6%的CPU时间。也许我们可以利用本地缓存来节省这部分CPU时间。
 - en: '`bytes.Split`'
   id: totrans-317
   prefs: []
   type: TYPE_NORMAL
+  zh: '`bytes.Split`'
 - en: This splits lines in [Example 4-1](ch04.html#code-sum) and takes 19.69%, so
     this function might be checked if there is any way we can split it into lines
     with less work.
   id: totrans-318
   prefs: []
   type: TYPE_NORMAL
+  zh: 这在[示例 4-1](ch04.html#code-sum)中拆分行占据了19.69%，因此可能需要检查这个函数是否有办法将其拆分为工作量较小的行。
 - en: '`gcBgMarkWorker`'
   id: totrans-319
   prefs: []
   type: TYPE_NORMAL
+  zh: '`gcBgMarkWorker`'
 - en: This function takes 15.6%, which indicates there was a large number of objects
     alive on the heap. Currently, the GC takes some portion of CPU time for garbage
     collection.
   id: totrans-320
   prefs: []
   type: TYPE_NORMAL
+  zh: 此函数占据了15.6%，这表明堆上有大量存活对象。目前，垃圾回收占用了一部分CPU时间。
 - en: '`runtime.slicebytetostring`'
   id: totrans-321
   prefs: []
   type: TYPE_NORMAL
+  zh: '`runtime.slicebytetostring`'
 - en: It indicates a nontrivial amount of CPU time (13.4%) is spent converting bytes
     to string. Thanks to the Source view, I could track it to `num, err := ⁠strconv.Par⁠seInt(string(line),
     10, 64)` line. This reveals a straightforward optimization of trying to come up
@@ -2527,26 +2543,32 @@
   id: totrans-322
   prefs: []
   type: TYPE_NORMAL
+  zh: 它表明非常重要的CPU时间（13.4%）用于将字节转换为字符串。通过源代码视图，我能够追踪到`num, err := ⁠strconv.Par⁠seInt(string(line),
+    10, 64)`行。这揭示了一种直接从字节片段解析整数的简单优化方法。
 - en: '`strconv.ParseInt`'
   id: totrans-323
   prefs: []
   type: TYPE_NORMAL
+  zh: '`strconv.ParseInt`'
 - en: 'This function uses 12.4% of CPU. We might want to check if there is any unnecessary
     work or checks we could remove by writing our parsing function (spoiler: there
     is).'
   id: totrans-324
   prefs: []
   type: TYPE_NORMAL
+  zh: 此函数使用了12.4%的CPU。我们可能希望检查是否可以通过编写我们自己的解析函数来消除任何不必要的工作或检查（提示：可以）。
 - en: Turns out, such a CPU profile is valuable even if it is not entirely accurate.
     We will try the mentioned optimizations in [“Optimizing Latency”](ch10.html#ch-opt-latency-example).
   id: totrans-325
   prefs: []
   type: TYPE_NORMAL
+  zh: 结果表明，即使不完全准确，这样的CPU配置文件也是有价值的。我们将在[“优化延迟”](ch10.html#ch-opt-latency-example)中尝试上述优化方法。
 - en: Off-CPU Time
   id: totrans-326
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 脱CPU时间
 - en: It is often forgotten, but the typical goroutines mostly wait for work instead
     of executing on the CPU. This is why when looking to optimize the latency of our
     program’s functionality, we can’t just look at CPU time.^([23](ch09.html#idm45606824186560))
@@ -2556,15 +2578,19 @@
   id: totrans-327
   prefs: []
   type: TYPE_NORMAL
+  zh: 通常被忽视的是，大多数典型的goroutine大多数时间都在等待工作而不是在CPU上执行。这就是为什么在寻求优化程序功能延迟时，我们不能只看CPU时间的原因。^([23](ch09.html#idm45606824186560))
+    对于所有程序，尤其是I/O密集型程序，您的进程可能会花费大量时间在睡眠或等待上。具体来说，我们可以定义组成整个程序执行的四个类别，这些类别在[图 9-12](#img-obs-prof-walltime)中展示。
 - en: '![efgo 0912](assets/efgo_0912.png)'
   id: totrans-328
   prefs: []
   type: TYPE_IMG
+  zh: '![efgo 0912](assets/efgo_0912.png)'
 - en: Figure 9-12\. The process execution time composition^([24](ch09.html#idm45606824182112))
   id: totrans-329
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 9-12\. 进程执行时间组成^([24](ch09.html#idm45606824182112))
 - en: 'The first observation is that the total execution time is longer than the wall
     time, so real time elapsed when executing this program. It’s not because computers
     can slow time somehow; it’s because all Go programs are multithreaded (or even
@@ -3221,18 +3247,22 @@
   id: totrans-409
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([2](ch09.html#idm45606826043392-marker)) [红鲱鱼](https://oreil.ly/5AKbS)是意外的行为，结果证明对我们调查的总体主题并不构成问题。例如，在调查我们请求的较高延迟时，看到应用程序中的调试日志“开始处理请求”，却几个小时内没有看到“完成请求”，可能令人担忧。通常事实证明我们期望的“完成”日志消息未被实现，或者我们在日志系统中遗漏了它。事物经常会误导我们；这就是为什么在我们需要快速找到问题时，应该保持清洁和明确，避免可观察性和程序流程误导我们。
 - en: ^([3](ch09.html#idm45606826040352-marker)) Usually, tracing does not provide
     a full stack trace, just the most important functionalities. This is to limit
     overhead and cost of tracing.
   id: totrans-410
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([3](ch09.html#idm45606826040352-marker)) 通常，跟踪不提供完整的堆栈跟踪，只提供最重要的功能。这是为了限制跟踪的开销和成本。
 - en: ^([4](ch09.html#idm45606826031328-marker)) Or methods, but that is treated in
     Go in the same way. Especially in this chapter, I will use the term *function*
     very often, and I mean both Go functions and methods.
   id: totrans-411
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([4](ch09.html#idm45606826031328-marker)) 或方法，但在 Go 中处理方式相同。特别是在本章中，我会经常使用术语*函数*，指的是
+    Go 函数和方法。
 - en: ^([5](ch09.html#idm45606826005440-marker)) Such a profiler was already proposed
     in the Go community to be included in the standard library. However, for now,
     [the idea was rejected](https://oreil.ly/YZoiR) by the Go team as you can, in
@@ -3241,6 +3271,7 @@
   id: totrans-412
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([5](ch09.html#idm45606826005440-marker)) Go 社区已经建议在标准库中包含这样的分析工具。然而，目前 [该想法被拒绝](https://oreil.ly/YZoiR)了，因为理论上您可以通过关注`os.Open`的分配来跟踪打开的文件。
 - en: ^([6](ch09.html#idm45606826001264-marker)) With `pprof.Profile`, we can only
     track objects. We cannot profile advanced things like past object creation, I/O
     usage, etc. We also can’t customize what is in the resulted `pprof` file, like
@@ -3250,27 +3281,35 @@
   id: totrans-413
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([6](ch09.html#idm45606826001264-marker)) 使用`pprof.Profile`，我们只能跟踪对象。我们无法对像过去对象创建、I/O
+    使用等高级事物进行分析。我们也不能定制生成的`pprof`文件中的内容，如额外的标签、自定义抽样、其他值类型等。这样的自定义分析需要更多的代码，但由于像[`github.com/google/pprof/profile`](https://oreil.ly/DgeqN)这样的
+    Go 包，实现起来仍然相对容易。
 - en: ^([7](ch09.html#idm45606825325680-marker)) The `:8080` is shorthand for `0.0.0.0:8080`,
     so listening on all network interfaces of your machine.
   id: totrans-414
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([7](ch09.html#idm45606825325680-marker)) `:8080` 是`0.0.0.0:8080`的简写，因此监听您计算机上所有网络接口。
 - en: ^([8](ch09.html#idm45606825324096-marker)) To run this command or generate graphs,
     you need to install the [`graphviz` tool](http://www.graphviz.org) on your machine.
   id: totrans-415
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([8](ch09.html#idm45606825324096-marker)) 要运行此命令或生成图形，您需要在计算机上安装[`graphviz`工具](http://www.graphviz.org)。
 - en: ^([9](ch09.html#idm45606825431504-marker)) This guide is for the web interface
     from Go 1.19\. There are no hints that it will change, but the `pprof` tool may
     be enhanced or updated in subsequent versions of Go.
   id: totrans-416
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([9](ch09.html#idm45606825431504-marker)) 此指南适用于来自 Go 1.19 的 web 界面。目前没有迹象表明它会改变，但`pprof`工具可能会在后续的
+    Go 版本中进行增强或更新。
 - en: ^([10](ch09.html#idm45606825248624-marker)) You can also hover over each menu
     item, and after three seconds a short help pop-up will appear.
   id: totrans-417
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([10](ch09.html#idm45606825248624-marker)) 您还可以将鼠标悬停在每个菜单项上，三秒后会显示一个简短的帮助弹出窗口。
 - en: ^([11](ch09.html#idm45606824757280-marker)) From the perspective of the profiling,
     the direct (Flat) contribution is decided by instrumentation implementation. Our
     custom code in [Example 9-1](#code-pprof-fd) treats the `fd.Open` function as
@@ -3280,6 +3319,9 @@
   id: totrans-418
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([11](ch09.html#idm45606824757280-marker)) 从性能分析的角度来看，直接（Flat）的贡献由工具实现来决定。我们在[示例
+    9-1](#code-pprof-fd)中的自定义代码将`fd.Open`函数视为文件描述符打开的时刻。不同的性能分析实现可能会以不同的方式定义“使用”的时刻（分配时刻、CPU
+    时间使用、等待锁打开等）。
 - en: ^([12](ch09.html#idm45606824674864-marker)) The REFINE hidden option keeps the
     line solid.
   id: totrans-419
