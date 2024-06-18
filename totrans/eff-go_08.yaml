@@ -1,19 +1,25 @@
 - en: Chapter 8\. Benchmarking
+  id: totrans-0
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 第8章\. 基准测试
 - en: Hopefully, your Go IDE is ready and warmed up for some action! It’s time to
     stress our Go code to find its efficiency characteristics on the micro and macro
     levels mentioned in [Chapter 7](ch07.html#ch-observability2).
+  id: totrans-1
   prefs: []
   type: TYPE_NORMAL
+  zh: 希望你的Go IDE已准备好并热身待命！现在是时候对我们的Go代码进行压力测试，以了解在[第7章](ch07.html#ch-observability2)中提到的微观和宏观水平上的效率特征。
 - en: In this chapter, we will start with [“Microbenchmarks”](#ch-obs-micro), where
     we will go through the basics of microbenchmarking and introduce Go native benchmarking.
     Next, I will explain how to interpret the output with tools like `benchstat`.
     Then I will go through the microbenchmark aspects and tricks that I learned that
     are incredibly useful for the practical use of microbenchmarks.
+  id: totrans-2
   prefs: []
   type: TYPE_NORMAL
+  zh: 在本章中，我们将从[“微基准”](#ch-obs-micro)开始，介绍微基准的基础知识，并介绍Go本地基准测试。接下来，我将解释如何使用`benchstat`等工具解释输出。然后，我将讨论我学到的微基准方面和技巧，这些对微基准的实际使用非常有用。
 - en: In the second half of this chapter, we’ll go through [“Macrobenchmarks”](#ch-obs-macro),
     which is rarely in the scope of programming books due to its size and complexity.
     In my opinion, macrobenchmarking is as critical to Go development as microbenchmarking,
@@ -21,16 +27,22 @@
     of testing. Next, in [“Go e2e Framework”](#ch-obs-macro-example) we will go through
     a complete example of a macro test written fully in Go using containers. We will
     discuss results and common observability in the process.
+  id: totrans-3
   prefs: []
   type: TYPE_NORMAL
+  zh: 在本章的后半部分，我们将介绍[“宏基准”](#ch-obs-macro)，由于其大小和复杂性，宏基准很少在编程书籍中讨论。在我看来，宏基准与微基准一样关键，因此每个关心效率的开发人员都应该能够使用这种测试级别。接下来，在[“Go端到端框架”](#ch-obs-macro-example)中，我们将通过使用容器完全编写的宏测试的完整示例进行介绍。我们将讨论结果和过程中的常见可观察性。
 - en: Without further ado, let’s jump into the most agile way of assessing the efficiency
     of smaller parts of the code, namely microbenchmarking.
+  id: totrans-4
   prefs: []
   type: TYPE_NORMAL
+  zh: 不再多言，让我们直接进入评估代码较小部分效率的最敏捷方式，即微基准测试。
 - en: Microbenchmarks
+  id: totrans-5
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 微基准
 - en: 'A benchmark can be called a microbenchmark if it’s focused on a single, isolated
     functionality on a small piece of code running in a single process. You can think
     of microbenchmarks as a tool for efficiency assessment of optimizations made for
@@ -38,85 +50,119 @@
     Design Levels”](ch03.html#ch-conq-opt-levels)). Anything more complex might be
     challenging to benchmark on the micro level. By more complex, I mean, for example,
     trying to benchmark:'
+  id: totrans-6
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果基准测试专注于单个、孤立功能的单一代码片段，并且在单个进程中运行的小段代码，那么可以称之为微基准测试。您可以将微基准测试视为用于评估为单个组件或算法级别进行的优化效率的工具（在[“优化设计级别”](ch03.html#ch-conq-opt-levels)中讨论）。任何更复杂的东西可能会在微观水平上进行基准测试时面临挑战。我指的更复杂的是，例如尝试对以下内容进行基准测试可能会有挑战性：
 - en: Multiple functionalities at once.
+  id: totrans-7
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 同时进行多个功能。
 - en: Long-running functionalities (over 5–10 seconds long).
+  id: totrans-8
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 长时间运行的功能（超过5至10秒）。
 - en: Bigger multistructure components.
+  id: totrans-9
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 更大的多结构组件。
 - en: Multiprocess functionalities. Multigoroutine functionalities are acceptable
     if they don’t spin too many goroutines (e.g., over one hundred) during our tests.
+  id: totrans-10
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 多进程功能。如果在我们的测试过程中不会旋转太多的goroutine（例如超过一百个），则接受多goroutine功能。
 - en: Functionalities that require more resources to run than a moderate development
     machine (e.g., allocating 40 GB of memory to compute an answer or prepare a test
     dataset).
+  id: totrans-11
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 需要比中等开发机器更多资源才能运行的功能（例如，分配40GB内存来计算答案或准备测试数据集）。
 - en: If your code violates any of those elements, you might consider splitting it
     into smaller microbenchmarks or consider using macrobenchmarks on ones with different
     frameworks (see [“Macrobenchmarks”](#ch-obs-macro)).
+  id: totrans-12
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果您的代码违反了这些要素之一，您可能需要将其拆分为更小的微基准，或者考虑使用不同框架的宏基准（参见[“宏基准”](#ch-obs-macro)）。
 - en: Keep Microbenchmarks Micro
+  id: totrans-13
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 保持微基准微小
 - en: The more we are benchmarking at once on a micro level, the more time it takes
     to implement and perform such benchmarks. This results in cascading consequences—we
     try to make benchmarks more reusable and spend even more time building more abstractions
     over them. Ultimately, we try to make them stable and harder to change.
+  id: totrans-14
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们在微观水平上一次进行基准测试的越多，实施和执行这类基准测试就需要越多的时间。这导致了连锁后果——我们尝试使基准测试更可重用，并花费更多时间在其上构建更多的抽象。最终，我们试图使它们更稳定并且更难更改。
 - en: This is a problem because microbenchmarks were designed for agility. We change
     code often, so we want benchmarks to be updated quickly and not get in our way.
     So you write them quickly, keep them simple, and change them.
+  id: totrans-15
   prefs: []
   type: TYPE_NORMAL
+  zh: 这是一个问题，因为微基准是为了敏捷性而设计的。我们经常更改代码，因此我们希望能够快速更新基准而不受阻碍。因此，您可以快速编写它们，保持简单，并进行更改。
 - en: On top of that, Go benchmarks do not have (and should not have!) sophisticated
     observability, which is another reason to keep them small.
+  id: totrans-16
   prefs: []
   type: TYPE_NORMAL
+  zh: 此外，Go 基准测试不具备（也不应具备！）复杂的可观测性，这也是保持其简洁的另一个原因。
 - en: 'The benchmark definition means that it’s very rare for the microbenchmark to
     validate if your program matches the high-level user RAER for certain functionality,
     e.g., “The p95 of this API should be under one minute.” In other words, it is
     usually not well suited to answer questions requiring absolute data. Therefore,
     while writing microbenchmarks, we should instead focus on answers that relate
     to a certain baseline or pattern, for example:'
+  id: totrans-17
   prefs: []
   type: TYPE_NORMAL
+  zh: 基准定义意味着对微基准进行验证，以确认您的程序是否符合某些功能的高级用户**RAER**，例如，“此 API 的 p95 应低于一分钟。” 换句话说，通常不适合回答需要绝对数据的问题。因此，在编写微基准时，我们应该专注于与某个基线或模式相关的答案，例如：
 - en: Learning about runtime complexity
+  id: totrans-18
   prefs: []
   type: TYPE_NORMAL
+  zh: 学习关于运行时复杂度
 - en: Microbenchmarks are a fantastic way to learn more about the Go function or method
     efficiency behavior over certain dimensions. For example, how is latency impacted
     by different shares and sizes of the input and test data? Do allocations grow
     in an unbounded way with the size of input? What are the constant factors and
     the overhead of the algorithm you chose?
+  id: totrans-19
   prefs: []
   type: TYPE_NORMAL
+  zh: 微基准是了解 Go 函数或方法在某些维度上效率行为的绝佳方法。例如，输入和测试数据的不同份额和大小如何影响延迟？分配是否随着输入大小的增加而无限增长？您选择的算法的常数因子和开销是多少？
 - en: Thanks to the quick feedback loop, it’s easy to manually play with test inputs
     and see what your function efficiency looks like for various test data and cases.
+  id: totrans-20
   prefs: []
   type: TYPE_NORMAL
+  zh: 由于快速反馈循环，轻松地手动调整测试输入并查看您的函数在各种测试数据和情况下的效率是很容易的。
 - en: A/B testing
+  id: totrans-21
   prefs: []
   type: TYPE_NORMAL
+  zh: A/B 测试
 - en: A/B tests are defined by performing the same test on version A of your program
     and then on version B, which is different (ideally) only by one thing (e.g., you
     reused one slice). They can tell us the relative impact of our changes.
+  id: totrans-22
   prefs: []
   type: TYPE_NORMAL
+  zh: A/B 测试是通过在程序版本 A 上执行相同测试，然后在版本 B 上执行不同（理想情况下）仅有一个事物（例如，您重用了一个片）。它们可以告诉我们我们更改的相对影响。
 - en: Microbenchmarks are a great way to assess if a new change of the code, configuration,
     or hardware can potentially affect the efficiency. For example, suppose we know
     that the absolute latency of some requests is two minutes, and we know that 60%
@@ -125,8 +171,12 @@
     and after. As long as our test data is reliable, if after optimization, our microbenchmark
     shows our optimization makes our code 20% faster, the full system will also be
     18% faster.
+  id: totrans-23
   prefs: []
   type: TYPE_NORMAL
+  zh: 微基准是评估代码、配置或硬件的新更改是否可能影响效率的好方法。例如，假设我们知道某些请求的绝对延迟为两分钟，并且我们知道其中 60% 的延迟是由我们开发的某个
+    Go 函数引起的。在这种情况下，我们可以尝试优化此函数，并在之前和之后进行微基准。只要我们的测试数据可靠，如果优化后，我们的微基准显示我们的优化使我们的代码快了
+    20%，整个系统也将快 18%。
 - en: Sometimes the absolute numbers on microbenchmarking for latency might matter
     less. For example, it doesn’t tell us much if our microbenchmark shows 900 ms
     per operation on our machine. On a different laptop, it might show 500 ms. What
@@ -135,8 +185,11 @@
     A and B is higher or lower. As we learned in [“Reproducing Production”](ch07.html#ch-obs-rel-repro),
     there are high chances that this relation is then reproducible in any other environment
     where you will benchmark those versions.
+  id: totrans-24
   prefs: []
   type: TYPE_NORMAL
+  zh: 有时，延迟微基准的绝对数值可能并不重要。例如，如果我们的微基准在我们的机器上显示每个操作 900 毫秒，那么在另一台笔记本电脑上，它可能显示 500 毫秒。重要的是，在同一台机器上，尽可能少地更改环境并在一次又一次的基准测试之后，版本
+    A 和 B 之间的延迟更高或更低。正如我们在[“重现生产”](ch07.html#ch-obs-rel-repro)中学到的那样，这种关系在您将在那些版本上进行基准测试的任何其他环境中可能是可重现的。
 - en: The best way to implement and run microbenchmarks in Go is through its native
     benchmarking framework built into the `go test` tool. It is battle tested, integrated
     into testing flows, has native support for profiling, and you can see many benchmark
@@ -144,81 +197,120 @@
     framework with [Example 6-3](ch06.html#code-latency-go-bench), and we saw some
     preprocessed results in [Example 7-2](ch07.html#code-sum-bench2) outputs, but
     it’s now time to dive into details!
+  id: totrans-25
   prefs: []
   type: TYPE_NORMAL
+  zh: 在 Go 中实现和运行微基准测试的最佳方法是通过其内置于 `go test` 工具中的本地基准测试框架。它经过实战考验，集成到测试流程中，具有原生支持性能分析的能力，您可以在
+    Go 社区中看到许多基准测试的示例。我已经在 [Example 6-3](ch06.html#code-latency-go-bench) 中提到了围绕 Go
+    基准测试框架的基础知识，我们在 [Example 7-2](ch07.html#code-sum-bench2) 的输出中看到了一些预处理的结果，但现在是深入细节的时候了！
 - en: Go Benchmarks
+  id: totrans-26
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: Go 基准测试
 - en: 'Creating [microbenchmarks in Go](https://oreil.ly/0h0y0) starts by creating
     a particular function with a specific signature. Go tooling is not very picky—a
     function has to satisfy three elements to be considered a benchmark:'
+  id: totrans-27
   prefs: []
   type: TYPE_NORMAL
+  zh: 创建 [Go 中的微基准测试](https://oreil.ly/0h0y0) 首先要创建一个具有特定签名的特定函数。Go 工具并不挑剔——一个函数必须满足三个要素才能被视为基准测试：
 - en: The file where the function is created must end with the *_test.go* suffix.^([1](ch08.html#idm45606829538272))
+  id: totrans-28
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 创建函数的文件必须以 *_test.go* 后缀结尾。^([1](ch08.html#idm45606829538272))
 - en: The function name must start with the case-sensitive `Benchmark` prefix, e.g.,
     `BenchmarkSum`.
+  id: totrans-29
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 函数名必须以区分大小写的 `Benchmark` 前缀开头，例如 `BenchmarkSum`。
 - en: The function must have exactly one function argument of the type `*testing.B`.
+  id: totrans-30
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 函数必须有一个 `*testing.B` 类型的函数参数。
 - en: In [“Complexity Analysis”](ch07.html#ch-hw-complexity), we discussed the space
     complexity of the [Example 4-1](ch04.html#code-sum) code. In [Chapter 10](ch10.html#ch-opt),
     I will show you how to optimize this code with a few different requirements. I
     wouldn’t be able to optimize those successfully without Go benchmarks. I used
     them to obtain estimated numbers for the number of allocations and latency. Let’s
     now see how that benchmarking process looks.
+  id: totrans-31
   prefs: []
   type: TYPE_NORMAL
+  zh: 在 [“复杂度分析”](ch07.html#ch-hw-complexity) 中，我们讨论了 [Example 4-1](ch04.html#code-sum)
+    代码的空间复杂度。在 [第 10 章](ch10.html#ch-opt) 中，我将向您展示如何优化这段代码以满足几个不同的需求。如果没有 Go 基准测试，我将无法成功地进行这些优化。我用它们来获取分配数量和延迟的估计数据。现在让我们看看基准测试的具体过程。
 - en: The Go Benchmark Naming Convention
+  id: totrans-32
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: Go 基准测试命名约定
 - en: 'I try to follow the consistent naming pattern^([2](ch08.html#idm45606829527136))
     for the `<NAME>` part on all types of functions in the Go testing framework, like
     benchmarks (`Benchmark<NAME>`), tests (`Test<NAME>`), fuzzing tests (`Fuzz<NAME>`),
     and examples (`Example<NAME>`). The idea is simple:'
+  id: totrans-33
   prefs: []
   type: TYPE_NORMAL
+  zh: 我尝试在 Go 测试框架中的所有函数类型（如基准测试 (`Benchmark<NAME>`)，测试 (`Test<NAME>`)，模糊测试 (`Fuzz<NAME>`)，和示例
+    (`Example<NAME>`)) 的 `<NAME>` 部分上遵循一致的命名模式。这个想法很简单：
 - en: Calling a test `BenchmarkSum` means it tests the `Sum` function efficiency.
     `BenchmarkSum_withDuplicates` means the same, but the suffix (notice it starts
     with a lowercase letter) tells us a certain condition we test in.
+  id: totrans-34
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 将一个测试命名为 `BenchmarkSum` 表示测试 `Sum` 函数的效率。`BenchmarkSum_withDuplicates` 表示相同的测试，但后缀（注意它以小写字母开头）告诉我们我们在测试的某些条件。
 - en: '`BenchmarkCalculator_Sum` means it tests a method `Sum` from the `Calculator`
     struct. As above, we can add a suffix if we have more tests for the same method
     to distinguish between cases, e.g., `BenchmarkCalculator_Sum_withDuplicates`.'
+  id: totrans-35
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '`BenchmarkCalculator_Sum` 表示对 `Calculator` 结构体中的 `Sum` 方法进行测试。如上所述，如果我们对同一方法有更多的测试，可以添加后缀以区分不同情况，例如
+    `BenchmarkCalculator_Sum_withDuplicates`。'
 - en: Additionally, you can put an input size as yet another suffix e.g., `BenchmarkCalculator_Sum_10M`.
+  id: totrans-36
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 此外，您可以添加输入大小作为另一个后缀，例如 `BenchmarkCalculator_Sum_10M`。
 - en: Given that `Sum` in [Example 4-1](ch04.html#code-sum) is a single-purpose short
     function, one good microbenchmark should suffice to tell its efficiency. So I
     created a new function in the *sum_test.go* file with the name `BenchmarkSum`.
     However, before I did anything else, I added the raw template of the small boilerplate
     required for most benchmarks, as presented in [Example 8-1](#code-sum-go-bench-simple).
+  id: totrans-37
   prefs: []
   type: TYPE_NORMAL
+  zh: 鉴于 [Example 4-1](ch04.html#code-sum) 中的 `Sum` 是一个专用的简短函数，一个好的微基准测试就足以说明其效率。因此，我在
+    *sum_test.go* 文件中创建了一个名为 `BenchmarkSum` 的新函数。但在做任何其他操作之前，我添加了所需的大多数基准测试的原始模板，正如
+    [Example 8-1](#code-sum-go-bench-simple) 中所示。
 - en: Example 8-1\. Core Go benchmark elements
+  id: totrans-38
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 8-1\. Go 基准测试的核心元素
 - en: '[PRE0]'
+  id: totrans-39
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE0]'
 - en: '[![1](assets/1.png)](#co_benchmarking_CO1-1)'
+  id: totrans-40
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_benchmarking_CO1-1)'
 - en: Optional [method](https://oreil.ly/ootGE) that tells the Go benchmark to provide
     the number of allocations and the total amount of allocated memory. It’s equivalent
     to setting the `-benchmem` flag when running the test. While it might, in theory,
@@ -227,21 +319,29 @@
     Often, it’s useful to see a number of allocations even if you expect the job to
     be only CPU sensitive. As mentioned in [“Memory Relevance”](ch05.html#ch-hw-mem),
     some allocations can be surprising!
+  id: totrans-41
   prefs: []
   type: TYPE_NORMAL
+  zh: 选择性[方法](https://oreil.ly/ootGE)，告诉Go基准测试提供分配的数量和分配的总量。这等同于在运行测试时设置`-benchmem`标志。虽然在理论上它可能会为测量的延迟增加微小的开销，但仅在非常快的函数中才能看到。实际上，我很少需要移除分配追踪，所以我总是保持开启。通常情况下，即使您期望任务只对CPU敏感，查看分配数量也是有用的。正如在[“内存相关性”](ch05.html#ch-hw-mem)中提到的，某些分配可能会令人惊讶！
 - en: '[![2](assets/2.png)](#co_benchmarking_CO1-2)'
+  id: totrans-42
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_benchmarking_CO1-2)'
 - en: In most cases, we don’t want to benchmark the resources required to initialize
     the test data, structure, or mocked dependencies. To do this “outside” of the
     latency clock and allocation tracking, [reset the timer](https://oreil.ly/5et2N)
     right before the actual benchmark. If we don’t have any initialization, we can
     remove it.
+  id: totrans-43
   prefs: []
   type: TYPE_NORMAL
+  zh: 在大多数情况下，我们不希望基准测试初始化测试数据、结构或模拟的依赖所需的资源。要在“外部”时钟延迟和分配跟踪之外执行此操作，请在实际基准测试之前[重置计时器](https://oreil.ly/5et2N)。如果我们没有任何初始化，我们可以将其删除。
 - en: '[![3](assets/3.png)](#co_benchmarking_CO1-3)'
+  id: totrans-44
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_benchmarking_CO1-3)'
 - en: This exact `for` loop sequence with `b.N` is a mandatory element of any Go benchmark.
     Never change it or remove it! Similarly, never use `i` from the loop for your
     function. It can be confusing at the start, but to run your benchmark, `go test`
@@ -251,8 +351,12 @@
     1 m only to assess a single iteration duration. Based on that, it will try to
     find the smallest `b.N` that will make the whole `BenchmarkSum` execute at least
     1 second.^([3](ch08.html#idm45606829392480))
+  id: totrans-45
   prefs: []
   type: TYPE_NORMAL
+  zh: 这个精确的`for`循环序列与`b.N`是任何Go基准测试的强制元素。永远不要更改它或删除它！类似地，永远不要在您的函数中使用循环中的`i`。这可能会在开始时令人困惑，但要运行您的基准测试，`go
+    test`可能会多次运行`BenchmarkSum`以找到合适的`b.N`，具体取决于我们如何运行它。默认情况下，`go test`将尝试至少运行这个基准测试1秒钟。这意味着它将使用`b.N`等于1
+    m来执行我们的基准测试一次，仅评估单次迭代持续时间。基于此，它将尝试找到使整个`BenchmarkSum`至少执行1秒钟的最小`b.N`。
 - en: The `Sum` function I wanted to benchmark takes one argument—the filename containing
     a list of the integers to sum. As we discussed in [“Complexity Analysis”](ch07.html#ch-hw-complexity),
     the algorithm used in [Example 4-1](ch04.html#code-sum) depends on the number
@@ -262,24 +366,32 @@
     result, the choice of input will significantly change the efficiency results.
     But how do we find the correct test input for our benchmark? Unfortunately, there
     is no single answer.
+  id: totrans-46
   prefs: []
   type: TYPE_NORMAL
+  zh: 我想要进行基准测试的`Sum`函数接受一个参数——包含要求和的整数列表的文件名。正如我们在[“复杂性分析”](ch07.html#ch-hw-complexity)中讨论的那样，[示例 4-1](ch04.html#code-sum)中使用的算法取决于文件中整数的数量。在这种情况下，空间和时间复杂度是`O(N)`，其中`N`是整数的数量。这意味着`Sum`与单个整数相比，将比包含数千个整数的`Sum`更快并且分配更少的内存。因此，输入选择将显着改变效率结果。但是我们如何找到适合基准测试的正确测试输入呢？不幸的是，这并没有单一答案。
 - en: The Choice of Test Data and Conditions for Our Benchmarks
+  id: totrans-47
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 我们基准测试的测试数据和条件选择
 - en: Generally, we want the smallest possible (thus quickest and cheapest to use!)
     dataset, which will give us enough knowledge and confidence in our program efficiency
     characteristic patterns. On the other hand, it should be big enough to trigger
     potential limits and bottlenecks that users might experience. As we mentioned
     in [“Reproducing Production”](ch07.html#ch-obs-rel-repro), the test data should
     simulate the production workload as much as possible. We aim for “typicality.”
+  id: totrans-48
   prefs: []
   type: TYPE_NORMAL
+  zh: 通常，我们希望使用尽可能小（因此速度最快且成本最低！）的数据集，这将为我们提供足够的知识和对程序效率特征模式的信心。另一方面，它应该足够大，以触发用户可能遇到的潜在限制和瓶颈。正如我们在[“复制生产”](ch07.html#ch-obs-rel-repro)中提到的，测试数据应尽可能模拟生产工作负载。我们追求“典型性”。
 - en: However, if our functionality has a massive problem for specific input, we should
     also include that in our benchmarks!
+  id: totrans-49
   prefs: []
   type: TYPE_NORMAL
+  zh: 但是，如果我们的功能在特定输入时存在严重问题，我们也应该在基准测试中包含这些内容！
 - en: To make things more difficult, we are additionally constrained with the data
     size for microbenchmarks. Typically, we want to ensure those benchmarks can run
     at maximum within a matter of minutes and in our development environments for
@@ -287,8 +399,10 @@
     are ways to find some efficiency pattern of your program, run benchmarks with
     a couple of times smaller dataset than the potential production dataset, and extrapolate
     the possible results.
+  id: totrans-50
   prefs: []
   type: TYPE_NORMAL
+  zh: 为了使事情变得更加困难，我们还受到微基准测试数据大小的限制。通常情况下，我们希望确保这些基准测试能够在几分钟内以最大效率运行，并在我们的开发环境中获得最佳的敏捷性和最短的反馈循环。值得欣慰的是，有方法可以找到程序的某些效率模式，使用比潜在生产数据集小几倍的数据集运行基准测试，并推断可能的结果。
 - en: For example, on my machine it takes [Example 4-1](ch04.html#code-sum) about
     78.4 ms to sum 2 million integers. If I benchmark with 1 million integers, it
     takes 30.5 ms. Given these two numbers, we could assume with some confidence^([4](ch08.html#idm45606829378320))
@@ -296,8 +410,11 @@
     integer.^([5](ch08.html#idm45606829377392)) If our RAER specifies, for example,
     that we have to sum 2 billion integers under 30 seconds, we can assume our implementation
     is too slow as 29 ns * 2 billion is around 58 seconds.
+  id: totrans-51
   prefs: []
   type: TYPE_NORMAL
+  zh: 例如，在我的机器上，[Example 4-1](ch04.html#code-sum)大约需要78.4毫秒来求和200万个整数。如果我用100万个整数进行基准测试，需要30.5毫秒。根据这两个数字，我们可以有一定的信心^([4](ch08.html#idm45606829378320))，认为我们的算法平均需要大约29纳秒来求和一个整数。^([5](ch08.html#idm45606829377392))如果我们的需求分析和需求规范（RAER）指定，例如，我们必须在30秒内对20亿个整数求和，我们可以假设我们的实现速度太慢，因为29纳秒
+    * 20亿大约是58秒。
 - en: For those reasons, I decided to stick with 2 million integers for the [Example 4-1](ch04.html#code-sum)
     benchmark. It is a big enough number to show some bottlenecks and efficiency patterns
     but small enough to keep our program relatively quick (on my machine, it can perform
@@ -306,100 +423,145 @@
     created a file called *test.2M.txt* with 2 million integers. With the test data
     and [Example 8-1](#code-sum-go-bench-simple), I added the functionality I want
     to test, as presented in [Example 8-2](#code-sum-go-bench).
+  id: totrans-52
   prefs: []
   type: TYPE_NORMAL
+  zh: 出于这些原因，我决定在[Example 4-1](ch04.html#code-sum)的基准测试中坚持使用200万个整数。这是一个足够大的数字，可以展示一些瓶颈和效率模式，但又足够小，可以保持我们的程序相对快速（在我的机器上，它可以在1秒内执行大约14次操作。）^([6](ch08.html#idm45606829374944))目前，我创建了一个*testdata*目录（在编译中排除），并手动创建了一个名为*test.2M.txt*的文件，其中包含200万个整数。使用测试数据和[Example 8-1](#code-sum-go-bench-simple)，我添加了要测试的功能，如[Example 8-2](#code-sum-go-bench)所示。
 - en: Example 8-2\. Simplest Go benchmark for assessing efficiency of the `Sum` function
+  id: totrans-53
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: Example 8-2\. 用于评估`Sum`函数效率的最简单的 Go 基准测试
 - en: '[PRE1]'
+  id: totrans-54
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE1]'
 - en: To run this benchmark, we can use the `go test` command, which is available
     when we [install Go](https://oreil.ly/dQ57t) on our machine. `go test` allows
     us to run all specified tests, fuzzing tests, or benchmarks. For benchmarks, `go
     test` has many options that allow us to control how it will execute our benchmark
     and what artifacts it will produce after a run. Let’s go through example options,
     presented in [Example 8-3](#code-sum-go-bench-run).
+  id: totrans-55
   prefs: []
   type: TYPE_NORMAL
+  zh: 要运行这个基准测试，我们可以使用`go test`命令，在我们的机器上[安装 Go](https://oreil.ly/dQ57t)之后就可以使用了。`go
+    test`允许我们运行所有指定的测试、模糊测试或基准测试。对于基准测试，`go test`有许多选项，允许我们控制它如何执行我们的基准测试，并在运行后生成什么样的结果。让我们通过示例选项，展示在[Example 8-3](#code-sum-go-bench-run)中。
 - en: Example 8-3\. Example commands we can use to run [Example 8-2](#code-sum-go-bench)
+  id: totrans-56
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: Example 8-3\. 我们可以使用的示例命令来运行[Example 8-2](#code-sum-go-bench)
 - en: '[PRE2]'
+  id: totrans-57
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE2]'
 - en: '[![1](assets/1.png)](#co_benchmarking_CO2-1)'
+  id: totrans-58
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_benchmarking_CO2-1)'
 - en: This command executes a single benchmark function with the explicit name `BenchmarkSum`.
     You can use the [RE2 regex language](https://oreil.ly/KDIL9) to filter the tests
     you want to run. Notice the `-run` flag that strictly matches no functional test.
     This is to make sure no unit test will be run, allowing us to focus on the benchmark.
     Empty `-run` flags mean that all unit tests will be executed.
+  id: totrans-59
   prefs: []
   type: TYPE_NORMAL
+  zh: 此命令执行一个具有显式名称`BenchmarkSum`的单个基准测试函数。您可以使用[RE2正则语言](https://oreil.ly/KDIL9)来过滤您想要运行的测试。请注意`-run`标志严格匹配没有功能测试。这是为了确保不运行任何单元测试，从而可以专注于基准测试。空的`-run`标志意味着将执行所有单元测试。
 - en: '[![2](assets/2.png)](#co_benchmarking_CO2-2)'
+  id: totrans-60
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_benchmarking_CO2-2)'
 - en: With `-benchtime`, we can control how long or how many iterations (functional
     operations) our benchmark should execute. In this example, we choose to have as
     many iterations as can fit in a 10-second interval.^([7](ch08.html#idm45606829214608))
+  id: totrans-61
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用`-benchtime`，我们可以控制我们的基准测试应执行多长时间或多少次迭代（功能操作）。在本例中，我们选择尽可能多的迭代次数来适应10秒的时间间隔。^([7](ch08.html#idm45606829214608))
 - en: '[![3](assets/3.png)](#co_benchmarking_CO2-3)'
+  id: totrans-62
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_benchmarking_CO2-3)'
 - en: We can choose to set `-benchtime` to the exact amount of iterations. This is
     used less often because, as a microbenchmark user, you want to focus on a quick
     feedback loop. When iterations are specified, we don’t know when the test will
     end and if we need to wait 10 seconds or 2 hours. This is why it’s often preferred
     to limit the benchmark time, and if we see too few iterations, increase the number
     in `-benchtime` a little, or change the benchmark implementation or test data.
+  id: totrans-63
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们可以选择将`-benchtime`设置为确切的迭代次数。这种做法较少见，因为作为微基准测试用户，您希望专注于快速反馈循环。当指定迭代次数时，我们无法知道测试何时结束，以及是否需要等待10秒或2小时。这就是为什么通常更喜欢限制基准测试时间的原因，如果迭代次数太少，则可以稍微增加`-benchtime`中的数字，或者更改基准实现或测试数据。
 - en: '[![4](assets/4.png)](#co_benchmarking_CO2-4)'
+  id: totrans-64
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![4](assets/4.png)](#co_benchmarking_CO2-4)'
 - en: We can also repeat the benchmark cycle with the `-count` flag. Doing so is very
     useful, as it allows us to calculate the variance between runs (with tools explained
     in [“Understanding the Results”](#ch-obs-micro-res)).
+  id: totrans-65
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们还可以使用`-count`标志重复基准测试周期。这样做非常有用，因为它允许我们计算运行之间的方差（使用[“理解结果”](#ch-obs-micro-res)中解释的工具）。
 - en: The full list of options is pretty long, and you can list them anytime using
     [`go help testflag`](https://oreil.ly/F2wTM).
+  id: totrans-66
   prefs: []
   type: TYPE_NORMAL
+  zh: 选项的完整列表非常长，您可以随时使用[`go help testflag`](https://oreil.ly/F2wTM)列出它们。
 - en: Running Go Benchmarks Through IDE
+  id: totrans-67
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 通过IDE运行Go基准测试
 - en: Almost all modern IDEs allow us to simply click on the Go benchmark function
     and execute it from the IDE. So feel free to do it. Just set up the correct options,
     or at least be aware of what options are there by default!
+  id: totrans-68
   prefs: []
   type: TYPE_NORMAL
+  zh: 几乎所有现代IDE都允许我们简单点击Go基准测试功能，并从IDE中执行它。因此，请随意操作。只需设置正确的选项，或者至少了解默认的选项有哪些！
 - en: I use the IDE to trigger initial, one-second benchmark runs, but I prefer good
     old CLI commands for more complex cases. They are easy to use and it’s easy to
     share the test run configuration with others. In the end, use what you feel the
     most comfortable with!
+  id: totrans-69
   prefs: []
   type: TYPE_NORMAL
+  zh: 我使用IDE触发初始的一秒钟基准测试运行，但对于更复杂的情况，我更喜欢使用传统的CLI命令。它们易于使用，并且很容易与他人分享测试运行配置。最后，使用您感觉最舒适的工具！
 - en: For my `Sum` benchmark, I created a helpful one-liner with all the options I
     need, presented in [Example 8-4](#code-sum-go-bench-all).
+  id: totrans-70
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于我的`Sum`基准测试，我创建了一个有用的单行命令，其中包含我需要的所有选项，见[示例 8-4](#code-sum-go-bench-all)。
 - en: Example 8-4\. One-line shell command to benchmark [Example 4-1](ch04.html#code-sum)
+  id: totrans-71
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 8-4\. 用于基准测试的单行shell命令，见[示例 4-1](ch04.html#code-sum)
 - en: '[PRE3]'
+  id: totrans-72
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE3]'
 - en: '[![1](assets/1.png)](#co_benchmarking_CO3-1)'
+  id: totrans-73
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_benchmarking_CO3-1)'
 - en: It is very tempting to write complex scripts or frameworks to save the result
     in the correct place, create automation that compares results for your use, etc.
     In many cases, that is a trap because Go benchmarks are typically ephemeral and
@@ -408,11 +570,15 @@
     When I benchmark a new code version with optimizations, I can manually adjust
     the `ver` variable to different values like `v2`, `v3`, or `v2-with-streaming`
     for later comparisons.
+  id: totrans-74
   prefs: []
   type: TYPE_NORMAL
+  zh: 编写复杂脚本或框架来将结果保存在正确位置、创建比较结果的自动化等是非常诱人的。在许多情况下，这是一个陷阱，因为Go基准测试通常是短暂且易于运行的。尽管如此，我决定添加少量的bash脚本来确保我的基准测试产生的工件具有我稍后可以引用的相同名称。当我使用优化的新代码版本进行基准测试时，我可以手动调整`ver`变量的不同值，如`v2`、`v3`或`v2-with-streaming`，以便进行后续比较。
 - en: '[![2](assets/2.png)](#co_benchmarking_CO3-2)'
+  id: totrans-75
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_benchmarking_CO3-2)'
 - en: Sometimes if we aim to optimize latency via concurrent code, as in [“Optimizing
     Latency Using Concurrency”](ch10.html#ch-opt-latency-concurrency-example), it
     is important to control the number of CPU cores the benchmarks were allowed to
@@ -420,21 +586,32 @@
     setting. As we mentioned in [“Performance Nondeterminism”](ch07.html#ch-obs-rel-unkn),
     the choice of the exact value highly depends on what the production environment
     looks like and how many CPUs your development machine has.^([8](ch08.html#idm45606829011072))
+  id: totrans-76
   prefs: []
   type: TYPE_NORMAL
+  zh: 有时，如果我们通过并发代码来优化延迟，就像在 [“使用并发优化延迟”](ch10.html#ch-opt-latency-concurrency-example)
+    中那样，重要的是控制允许基准测试使用的 CPU 核心数量。这可以通过 `-cpu` 标志来实现。它设置了正确的 `GOMAXPROCS` 设置。正如我们在
+    [“性能非确定性”](ch07.html#ch-obs-rel-unkn) 中提到的，确切值的选择高度依赖于生产环境的外观以及开发机器有多少个 CPU。
 - en: '[![3](assets/3.png)](#co_benchmarking_CO3-3)'
+  id: totrans-77
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_benchmarking_CO3-3)'
 - en: There is no point in optimizing latency if our optimization allocates an extreme
     amount of memory which, as we learned in [“Memory Relevance”](ch05.html#ch-hw-mem),
     might be our first enemy. In my experience, the memory allocations cause more
     problems than CPU usage, so I always try to pay attention to allocations with
     `-benchmem`.
+  id: totrans-78
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果我们的优化在分配极大量的内存时没有优点，那么优化延迟就没有意义，就像我们在 [“内存相关性”](ch05.html#ch-hw-mem) 中学到的那样。根据我的经验，内存分配比
+    CPU 使用造成的问题更多，因此我始终试图注意使用 `-benchmem`。
 - en: '[![4](assets/4.png)](#co_benchmarking_CO3-4)'
+  id: totrans-79
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![4](assets/4.png)](#co_benchmarking_CO3-4)'
 - en: If you run your microbenchmark and see results you are not happy with, your
     first question is probably what caused that slowdown or high memory usage. This
     is why the Go benchmark has built-in support for profiling, explained in [Chapter 9](ch09.html#ch-observability3).
@@ -445,150 +622,222 @@
     measurements. However, it’s usually safe to leave them turned on unless you measure
     ultra-low latency operations (tens of nanoseconds). Especially the `-cpuprofile`
     option adds some allocations and latency in the background.
+  id: totrans-80
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果您运行微基准测试并看到您不满意的结果，您的第一个问题可能是什么导致了减速或高内存使用。这就是为什么 Go 基准测试内置支持分析的原因，详见 [第 9
+    章](ch09.html#ch-observability3)。我比较懒，通常保持这些选项默认开启，类似于 `-benchtime`。因此，我总是可以深入分析性能分析文件，找到引起可疑资源使用的代码行。与
+    `-benchtime` 和 `ReportAllocs` 类似，默认情况下关闭它们，因为它们会轻微增加延迟测量。然而，通常可以安全地将它们保持打开，除非您在测量超低延迟操作（数十纳秒）时。尤其是
+    `-cpuprofile` 选项在后台会增加一些分配和延迟。
 - en: '[![5](assets/5.png)](#co_benchmarking_CO3-5)'
+  id: totrans-81
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![5](assets/5.png)](#co_benchmarking_CO3-5)'
 - en: By default, `go test` prints results to standard output. However, to reliably
     compare and not get lost in what results correspond to what runs, I recommend
     saving them in temporary files. I recommend using `tee` to write both to file
     and standard output, so you can follow the progress of the benchmark.
+  id: totrans-82
   prefs: []
   type: TYPE_NORMAL
+  zh: 默认情况下，`go test` 将结果打印到标准输出。但是，为了可靠地进行比较，不至于在结果与运行时迷失方向，我建议将它们保存在临时文件中。我建议使用
+    `tee` 同时写入文件和标准输出，这样您可以跟踪基准测试的进展。
 - en: 'With the benchmark implementation, input file, and execution command, it’s
     time to perform our benchmark. I executed [Example 8-4](#code-sum-go-bench-all)
     in the directory of the test file on my machine, and after 32 seconds, it finished.
     It created three files: *v1.cpu.pprof*, *v1.mem.pprof*, and *v1.txt*. In this
     chapter, we are most interested in the last file, so you can learn how to read
     and understand the Go benchmark output. Let’s do that in the next section.'
+  id: totrans-83
   prefs: []
   type: TYPE_NORMAL
+  zh: 有了基准实现、输入文件和执行命令，现在是执行我们的基准测试的时候了。我在我的机器上的测试文件目录中执行了 [示例 8-4](#code-sum-go-bench-all)，32
+    秒后完成。它创建了三个文件：*v1.cpu.pprof*、*v1.mem.pprof* 和 *v1.txt*。在本章中，我们对最后一个文件最感兴趣，因此您可以了解如何读取和理解
+    Go 基准测试输出。我们将在下一节中进行。
 - en: Understanding the Results
+  id: totrans-84
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 理解结果
 - en: After each run, the `go test` benchmark prints the result in a consistent format.^([9](ch08.html#idm45606828985008))
     [Example 8-5](#code-sum-go-bench-out) presents the output runs executed with [Example 8-4](#code-sum-go-bench-all)
     on the code presented in [Example 4-1](ch04.html#code-sum).
+  id: totrans-85
   prefs: []
   type: TYPE_NORMAL
+  zh: 每次运行后，`go test`基准测试以一致的格式打印结果。^([9](ch08.html#idm45606828985008)) [示例 8-5](#code-sum-go-bench-out)
+    展示了在 [示例 8-4](#code-sum-go-bench-all) 上执行的输出运行，用于 [示例 4-1](ch04.html#code-sum)
+    中呈现的代码。
 - en: Example 8-5\. The output of the *v1.txt* file produced by the [Example 8-4](#code-sum-go-bench-all)
     command
+  id: totrans-86
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 8-5。由[示例 8-4](#code-sum-go-bench-all)命令产生的*v1.txt*文件的输出
 - en: '[PRE4]'
+  id: totrans-87
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE4]'
 - en: '[![1](assets/1.png)](#co_benchmarking_CO4-1)'
+  id: totrans-88
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_benchmarking_CO4-1)'
 - en: Every benchmark run captures some basic information about the environment like
     architecture, operating system type, the package we run the benchmark in, and
     the CPU on the machine. Unfortunately, as we discussed in [“Reliability of Experiments”](ch07.html#ch-obs-rel),
     there are many more elements that could be worth capturing^([10](ch08.html#idm45606828962032))
     that can impact the benchmark.
+  id: totrans-89
   prefs: []
   type: TYPE_NORMAL
+  zh: 每次基准运行都会捕获有关环境的基本信息，如架构、操作系统类型、我们运行基准的包以及机器上的CPU。不幸的是，正如我们在[“实验的可靠性”](ch07.html#ch-obs-rel)中讨论的那样，还有许多其他可能值得捕获的元素^([10](ch08.html#idm45606828962032))，这些元素可能会影响基准。
 - en: '[![2](assets/2.png)](#co_benchmarking_CO4-2)'
+  id: totrans-90
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_benchmarking_CO4-2)'
 - en: 'Every row represents a single run (i.e., if you ran the benchmark with `-count=1`,
     you would have just a single line). The line consists of three or more columns.
     The number depends on the benchmark configuration, but the order is consistent.
     From the left, we have:'
+  id: totrans-91
   prefs: []
   type: TYPE_NORMAL
+  zh: 每一行代表一个单独的运行（即使你使用`-count=1`运行基准，也只会有一行）。每行包含三列或更多列，具体数量取决于基准的配置，但顺序是一致的。从左到右，我们有：
 - en: Name of the benchmark with the suffix representing the number of CPUs available
     (in theory^([11](ch08.html#idm45606828942480))) for this benchmark. This tells
     us what we can expect for concurrent implementations.
+  id: totrans-92
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 带有表示可用CPU数量的后缀的基准名称（理论上^([11](ch08.html#idm45606828942480))）。这告诉我们可以期待并发实现。
 - en: Number of iterations in this benchmark run. Pay attention to this number; if
     it’s too low, the numbers in the other columns might not reflect reality.
+  id: totrans-93
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 此基准运行的迭代次数。请注意这个数字；如果太低，其他列中的数字可能不反映实际情况。
 - en: Nanoseconds per operation resulting from `-benchtime` divided by a number of
     runs.
+  id: totrans-94
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '`-benchtime`除以运行次数得到的每个操作的纳秒数。'
 - en: Allocated bytes per operation on the heap. As you learned in [Chapter 5](ch05.html#ch-hardware2),
     remember that this does not tell us how much memory is allocated in any other
     segments, like manual mappings, caches, and stack! This column is present only
     if the `-benchmem` flag was set (or `ReportAllocs`).
+  id: totrans-95
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 每个操作在堆上分配的字节数。正如您在[第5章](ch05.html#ch-hardware2)中学到的，请记住，这并不告诉我们在其他段（如手动映射、缓存和堆栈）中分配了多少内存！只有在设置了`-benchmem`标志（或`ReportAllocs`）时才会出现此列。
 - en: Number of allocations per operation on the heap (also only present with the
     `-benchmem` flag set).
+  id: totrans-96
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 每个操作在堆上的分配次数（仅在设置了`-benchmem`标志时出现）。
 - en: Optionally, you can report your own metrics per operation using the `b.ReportMetric`
     method. See this [example](https://oreil.ly/IuwYl). This will appear as further
     columns and can be aggregated similarly with the tooling explained later.
+  id: totrans-97
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 可选地，您可以使用`b.ReportMetric`方法报告每个操作的自定义指标。参见此[示例](https://oreil.ly/IuwYl)。这将显示为进一步的列，并可以类似地与后面解释的工具进行聚合。
 - en: If you run [Example 8-4](#code-sum-go-bench-all) and you see no output for a
     long time, it might mean that the first run of your microbenchmark is taking that
     long. If your `-benchtime` is time based, the `go test` quickly checks how long
     it takes to run a single iteration to find the estimated number of iterations.
+  id: totrans-98
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果你运行[示例 8-4](#code-sum-go-bench-all)并且很长时间看不到输出，可能意味着你的微基准的第一次运行需要这么长时间。如果你的`-benchtime`是基于时间的，`go
+    test`会快速检查运行单次迭代所需的时间，以找到估计的迭代次数。
 - en: If it takes too much time, unless you want to run 30+ minute tests, you might
     need to optimize the benchmark setup, reduce the data size, or split the microbenchmark
     into smaller functionality. Otherwise, you won’t achieve hundreds or dozens of
     required iterations.
+  id: totrans-99
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果花费太多时间，除非您想运行30分钟以上的测试，否则可能需要优化基准设置，减少数据量，或将微基准拆分为更小的功能。否则，您将无法实现所需的数百或数十次迭代。
 - en: If you see the initial output (`goos`, `goarch`, `pkg`, and benchmark name),
     a single iteration run has completed, and a proper benchmark has started.
+  id: totrans-100
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果你看到初始输出（`goos`、`goarch`、`pkg`和基准名称），表示单次迭代运行已完成，并且适当的基准测试已经开始。
 - en: The results presented in [Example 8-5](#code-sum-go-bench-out) can be read directly,
     but there are some challenges. First of all, the numbers are in the base unit—it’s
     not obvious at first glance to see if we allocate 600 MB, 60 MB, or 6 MB. It’s
     the same if we translate our latency to seconds. Secondly, we have five measurements,
     so which one do we choose? Finally, how do we compare a second microbenchmark
     result done for the code with the optimization?
+  id: totrans-101
   prefs: []
   type: TYPE_NORMAL
+  zh: '[示例 8-5](#code-sum-go-bench-out) 中呈现的结果可以直接阅读，但存在一些挑战。首先，数字是基本单位的—一开始看不出我们是否分配了600
+    MB、60 MB 还是 6 MB。如果我们将我们的延迟转换为秒也是一样。其次，我们有五个测量结果，那么我们选择哪一个？最后，我们如何比较第二个微基准结果与进行优化的代码？'
 - en: Fortunately, the Go community created another CLI tool, [`benchstat`](https://oreil.ly/PWSN4),
     that performs further processing and statistical analysis of one or multiple benchmark
     results for easier assessment. As a result, it has become the most popular solution
     for presenting and interpreting Go microbenchmark results in recent years.
+  id: totrans-102
   prefs: []
   type: TYPE_NORMAL
+  zh: 幸运的是，Go 社区创建了另一个 CLI 工具 [`benchstat`](https://oreil.ly/PWSN4)，它可以执行更多处理和统计分析，以便更轻松地评估一个或多个基准测试结果。因此，它已经成为最受欢迎的解决方案，用于近年来呈现和解释
+    Go 微基准测试结果。
 - en: You can install `benchstat` using the standard `go install` tooling, for example,
     `go install golang.org/x/perf/cmd/benchstat@latest`. Once completed, it will be
     present in your $GOBIN or *$GOPATH/bin* directory. You can then use it to present
     the results we got in [Example 8-5](#code-sum-go-bench-out); see the example usage
     in [Example 8-6](#code-sum-go-bench-benchstat).
+  id: totrans-103
   prefs: []
   type: TYPE_NORMAL
+  zh: 您可以使用标准的 `go install` 工具安装 `benchstat`，例如，`go install golang.org/x/perf/cmd/benchstat@latest`。安装完成后，它将存在于您的
+    $GOBIN 或 *$GOPATH/bin* 目录中。然后您可以使用它来呈现我们在 [示例 8-5](#code-sum-go-bench-out) 中得到的结果；请参阅
+    [示例 8-6](#code-sum-go-bench-benchstat) 中的示例用法。
 - en: Example 8-6\. Running `benchstat` on the results presented in [Example 8-5](#code-sum-go-bench-out)
+  id: totrans-104
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 8-6\. 在 [示例 8-5](#code-sum-go-bench-out) 中呈现的结果上运行 `benchstat`
 - en: '[PRE5]'
+  id: totrans-105
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE5]'
 - en: '[![1](assets/1.png)](#co_benchmarking_CO5-1)'
+  id: totrans-106
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_benchmarking_CO5-1)'
 - en: We can run `benchstat` with the *v1.txt* containing [Example 8-5](#code-sum-go-bench-out).
     The `benchstat` can parse the format of the `go test` tooling from one or multiple
     benchmarks performed once or multiple times on the same code version.
+  id: totrans-107
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们可以使用包含 [示例 8-5](#code-sum-go-bench-out) 的 *v1.txt* 运行 `benchstat`。`benchstat`
+    可以解析 `go test` 工具的格式，从同一代码版本上执行一次或多次基准测试。
 - en: '[![2](assets/2.png)](#co_benchmarking_CO5-2)'
+  id: totrans-108
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_benchmarking_CO5-2)'
 - en: For each benchmark, `benchstat` calculates the mean (average) of all runs and
     `±` the variance across runs (1% in this case). This is why it’s essential to
     run `go test` benchmarks multiple times (e.g., with the `-count` flag); otherwise,
@@ -596,8 +845,12 @@
     tests allows us to assess the repeatability of the result, as we discussed in
     [“Performance Nondeterminism”](ch07.html#ch-obs-rel-unkn). Run `benchstat --help`
     to see more options.
+  id: totrans-109
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于每个基准测试，`benchstat` 计算所有运行的平均值，并且`±`跨运行的方差（在这种情况下为1%）。这就是为什么多次运行 `go test`
+    基准测试非常重要（例如，使用 `-count` 标志）；否则，仅进行一次运行，方差将显示一个误导性的 0%。运行更多测试允许我们评估结果的重复性，正如我们在
+    [“性能不确定性”](ch07.html#ch-obs-rel-unkn) 中讨论的那样。运行 `benchstat --help` 查看更多选项。
 - en: Once we have confidence in our test run, we can call it baseline results. We
     typically want to assess the efficiency of our code with the new optimization
     by comparing it with our baseline. For example, in [Chapter 10](ch10.html#ch-opt)
@@ -607,30 +860,49 @@
     Then I ran the benchmark implemented in [Example 8-2](#code-sum-go-bench) using
     exactly the same command shown in [Example 8-4](#code-sum-go-bench-all), just
     changing `ver=v1` to `ver=v2` to produce *v2.txt* and *v2.cpu.pprof* and *v2.mem.pprof*.
+  id: totrans-110
   prefs: []
   type: TYPE_NORMAL
+  zh: 一旦我们对测试运行有信心，我们可以称之为基准结果。我们通常希望通过与我们的基线比较来评估代码的效率，使用新的优化。例如，在 [第10章](ch10.html#ch-opt)
+    中，我们将优化 `Sum` 函数，其中一个优化版本将快两倍。我通过将可见的 `Sum` 函数更改为 [示例 4-1](ch04.html#code-sum)
+    中的 `ConcurrentSum3`（代码在 [示例 10-12](ch10.html#code-sum-concurrent3) 中呈现）来找到这一点。然后我运行了在
+    [示例 8-2](#code-sum-go-bench) 中实现的基准测试，使用与 [示例 8-4](#code-sum-go-bench-all) 中显示的完全相同的命令，只是将
+    `ver=v1` 更改为 `ver=v2` 以生成 *v2.txt* 和 *v2.cpu.pprof* 和 *v2.mem.pprof*。
 - en: 'The `benchstat` helped us calculate variance and provided human-readable units.
     But there is another helpful feature: comparing results from different benchmark
     runs. For example, [Example 8-7](#code-sum-go-bench-benchstat2) shows how I checked
     the difference between the naive and improved concurrent implementation.'
+  id: totrans-111
   prefs: []
   type: TYPE_NORMAL
+  zh: '`benchstat` 帮助我们计算方差并提供人类可读的单位。但还有另一个有用的功能：比较不同基准运行的结果。例如，[示例 8-7](#code-sum-go-bench-benchstat2)
+    显示了我如何检查朴素和改进并发实现之间的差异。'
 - en: Example 8-7\. Running `benchstat` to compare results from v1.txt and v2.txt
+  id: totrans-112
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 8-7\. 运行 `benchstat` 比较 v1.txt 和 v2.txt 的结果
 - en: '[PRE6]'
+  id: totrans-113
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE6]'
 - en: '[![1](assets/1.png)](#co_benchmarking_CO6-1)'
+  id: totrans-114
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_benchmarking_CO6-1)'
 - en: Running `benchstat` with two files enables comparison mode.
+  id: totrans-115
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用两个文件运行 `benchstat` 可以启用比较模式。
 - en: '[![2](assets/2.png)](#co_benchmarking_CO6-2)'
+  id: totrans-116
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_benchmarking_CO6-2)'
 - en: In comparison mode, `benchstat` provides a delta column showing the delta between
     two means in a percentage or `~` if the significance test fails. The significance
     test is defaulted to the [Mann-Whitney U test](https://oreil.ly/ESCAz) and can
@@ -640,17 +912,26 @@
     information on top of the variance (after `±`) if the results can be safely compared.
     The `n=5+5` represents the sample sizes in both results (both benchmark runs were
     done with `-count=5`).
+  id: totrans-117
   prefs: []
   type: TYPE_NORMAL
+  zh: 在比较模式下，`benchstat` 提供了一个增量列，显示两个平均值之间的增量，以百分比显示，如果显著性测试失败则显示 `~`。默认显著性测试是 [曼-惠特尼U检验](https://oreil.ly/ESCAz)，可以使用
+    `-delta-test=none` 禁用该测试。显著性测试是一种额外的统计分析，计算 [p值](https://oreil.ly/6K0zl)，默认情况下应小于
+    `0.05`（可通过 `-alpha` 进行配置）。它在方差之上（在 `±` 之后）为我们提供额外信息，用于安全比较结果。`n=5+5` 表示两个结果的样本量（两次基准运行均使用
+    `-count=5` 进行）。
 - en: Thanks to `benchstat` and Go benchmarks, we can tell with some confidence that
     our concurrent implementation is around 50% faster and does not impact allocations.
+  id: totrans-118
   prefs: []
   type: TYPE_NORMAL
+  zh: 多亏了 `benchstat` 和 Go 基准测试，我们可以相对自信地说，我们的并发实现速度约快了50%，并且不会影响分配。
 - en: Careful readers might notice that the allocation size failed the significance
     test of `benchstat` (`p` is higher than 0.05). I could improve that by running
     benchmarks with a higher `-count` (e.g., 8 or 10).
+  id: totrans-119
   prefs: []
   type: TYPE_NORMAL
+  zh: 细心的读者可能会注意到，分配大小未通过 `benchstat` 的显著性测试（`p` 大于 0.05）。我可以通过使用更高的 `-count` 运行基准测试来改善这一点（例如，8或10次）。
 - en: I left this significance test failing on purpose to show you that there are
     cases when you can apply common reasoning. Both results indicate large 60.8 MB
     allocations with minimal variance. We can clearly say that both implementations
@@ -658,97 +939,142 @@
     KB more or less? Probably not, so we can skip the `benchstat` significance test
     that verifies if we can trust the delta. No need to spend more time here than
     needed!
+  id: totrans-120
   prefs: []
   type: TYPE_NORMAL
+  zh: 我特意让这个显著性测试失败，以向您展示有时可以应用常见的推理。两个结果都表明分配了大约60.8 MB，方差极小。我们可以明确地说，这两种实现使用了类似的内存量。我们是否在乎一个实现使用少了几KB还是多了几KB？可能不会，所以我们可以跳过
+    `benchstat` 的显著性测试，验证我们是否可以信任增量。没必要在这里花费更多时间！
 - en: 'Analyzing microbenchmarks might be confusing initially, but hopefully, the
     presented flow using `benchstat` taught you how to assess efficiencies of different
     implementations without having a degree in data science! Generally, while using
     `benchstat`, remember to:'
+  id: totrans-121
   prefs: []
   type: TYPE_NORMAL
+  zh: 分析微基准测试可能会在初期时让人感到困惑，但希望使用 `benchstat` 提供的流程教会您如何评估不同实现的效率，而无需拥有数据科学学位！总体而言，在使用
+    `benchstat` 时，请记住：
 - en: Run more tests than one (`-count`) to be able to spot the noise.
+  id: totrans-122
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 运行多于一次的测试（`-count`）以便识别噪音。
 - en: Check that the variance number after `±` is not higher than 3–5%. Be especially
     vigilant in variance for smaller numbers.
+  id: totrans-123
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 检查 `±` 后的方差数字是否不高于3–5%。特别注意小数值的方差。
 - en: To rely on an accurate delta across results with higher variance, check the
     significance test (p-value).
+  id: totrans-124
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 若要依赖于具有较高方差的结果之间的准确增量，请检查显著性测试（p值）。
 - en: With this in mind, let’s go through a few common advanced tricks that you might
     find very useful in your day-to-day work with Go benchmarks!
+  id: totrans-125
   prefs: []
   type: TYPE_NORMAL
+  zh: 考虑到这一点，让我们来看看在您日常使用 Go 基准测试工作中可能非常有用的一些常见高级技巧！
 - en: Tips and Tricks for Microbenchmarking
+  id: totrans-126
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 微基准测试的技巧与窍门
 - en: The best practices for microbenchmarking are often learned from your own mistakes
     and rarely shared with others. Let’s break that up by mentioning some of the common
     aspects of Go microbenchmarks that are worth being aware of.
+  id: totrans-127
   prefs: []
   type: TYPE_NORMAL
+  zh: 微基准测试的最佳实践通常来自于您自己的错误，并且很少与他人分享。让我们通过提到一些值得注意的 Go 微基准测试的常见方面来打破这种局面。
 - en: Too-High Variance
+  id: totrans-128
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 方差过大
 - en: As we learned in [“Performance Nondeterminism”](ch07.html#ch-obs-rel-unkn),
     knowing the variance of our tests is critical. If the difference between microbenchmarks
     is more than, let’s say, 5%, it indicates potential noise, and we might not be
     able to rely on those results entirely.
+  id: totrans-129
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如我们在[“性能非确定性”](ch07.html#ch-obs-rel-unkn)中学到的，了解我们测试的方差是至关重要的。如果微基准之间的差异超过，比如说，5%，这表明可能存在潜在的噪音，我们可能不能完全依赖这些结果。
 - en: I had this case when preparing [“Optimizing Latency Using Concurrency”](ch10.html#ch-opt-latency-concurrency-example).
     When benchmarking, my results had way too large a variance as the `benchstat`
     result suggested. The results from that run are presented in [Example 8-8](#code-sum-go-bench-benchstat-unr).
+  id: totrans-130
   prefs: []
   type: TYPE_NORMAL
+  zh: 在准备[“使用并发优化延迟”](ch10.html#ch-opt-latency-concurrency-example)时，我遇到了这种情况。在进行基准测试时，我的结果具有过大的方差，正如
+    `benchstat` 的结果所示。那次运行的结果在[示例 8-8](#code-sum-go-bench-benchstat-unr)中呈现。
 - en: Example 8-8\. `benchstat` indicating large variance in latency results
+  id: totrans-131
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 8-8\. `benchstat` 表示延迟结果方差较大
 - en: '[PRE7]'
+  id: totrans-132
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE7]'
 - en: '[![1](assets/1.png)](#co_benchmarking_CO7-1)'
+  id: totrans-133
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_benchmarking_CO7-1)'
 - en: Nineteen percent variance is quite scary. We should ignore such results and
     stabilize the benchmark before making any conclusions.
+  id: totrans-134
   prefs: []
   type: TYPE_NORMAL
+  zh: 19% 的方差相当可怕。我们应该忽略这样的结果，并在做出任何结论之前稳定基准。
 - en: What can we do in this case? We already mentioned a few things in [“Performance
     Nondeterminism”](ch07.html#ch-obs-rel-unkn). We should consider running the benchmark
     longer, redesigning our benchmark, or running it in different environmental conditions.
     In my case I had to close my browser and increase `-benchtime` from 5 s to 15
     s to achieve the 2% variance run in [Example 8-7](#code-sum-go-bench-benchstat2).
+  id: totrans-135
   prefs: []
   type: TYPE_NORMAL
+  zh: 在这种情况下我们能做些什么呢？我们已经在[“性能非确定性”](ch07.html#ch-obs-rel-unkn)中提到了一些事情。我们应该考虑延长基准测试时间，重新设计我们的基准，或者在不同的环境条件下运行它。在我的情况下，我不得不关闭浏览器，并将
+    `-benchtime` 从 5 秒增加到 15 秒，以在[示例 8-7](#code-sum-go-bench-benchstat2)中达到 2% 的方差运行。
 - en: Find Your Workflow
+  id: totrans-136
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 找到您的工作流程
 - en: 'In [“Go Benchmarks”](#ch-obs-micro-go), you followed me through my efficiency
     assessment cycle on a micro level. Of course, this can vary, but it is generally
     based on `git` branches, and can be summarized as follows:'
+  id: totrans-137
   prefs: []
   type: TYPE_NORMAL
+  zh: 在[“Go 基准测试”](#ch-obs-micro-go)中，您跟随我通过微观层面的效率评估周期。当然，这可能会有所不同，但通常基于 `git` 分支，可以总结如下：
 - en: I check for any existing microbenchmark implementation for what I want to test.
     If none exists, I will create one.
+  id: totrans-138
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 我检查是否存在我要测试的现有微基准实现。如果不存在，我将创建一个。
 - en: In my terminal, I execute a command similar to [Example 8-4](#code-sum-go-bench-all)
     to run the benchmark several times (5–10). I save results to something like *v1.txt*,
     save profiles, and assume that as my baseline.
+  id: totrans-139
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 在我的终端中，我执行类似于[示例 8-4](#code-sum-go-bench-all)的命令多次运行基准测试（5–10 次）。我将结果保存到类似 *v1.txt*
+    的文件中，保存配置文件，并将其视为我的基准。
 - en: I assess the *v1.txt* results to check if the resource consumption is roughly
     what I expect from my understanding of the implementation and the input size.
     To confirm or reject, I perform the bottleneck analysis explained in [Chapter 9](ch09.html#ch-observability3).
@@ -756,126 +1082,174 @@
     This tells me roughly if there is room for some easy optimizations, should I invest
     in more dangerous and deliberate optimization, or should I move to optimizations
     on a different level.
+  id: totrans-140
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 我评估 *v1.txt* 的结果，检查资源消耗是否大致符合我对实现和输入大小的理解。为了确认或拒绝，我执行[第 9 章](ch09.html#ch-observability3)中解释的瓶颈分析。在这个阶段，我可能会为不同的输入执行更多的基准测试以获取更多信息。这大致告诉我是否有一些简单的优化空间，我是否应该投资于更危险和有意识的优化，或者是否应该转向不同层次的优化。
 - en: Assuming room for some optimizations, I create a new [`git` branch](https://oreil.ly/AcM1D)
     and implement it.
+  id: totrans-141
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 假设存在一些优化空间，我创建一个新的[`git` 分支](https://oreil.ly/AcM1D)并实现它。
 - en: Following the TFBO flow, I test my implementation first.
+  id: totrans-142
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 遵循 TFBO 流程，我首先测试了我的实现。
 - en: I commit the changes, run the benchmarking function with the same command, and
     save it to, e.g., *v2.txt*.
+  id: totrans-143
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 我提交更改，使用相同的命令运行基准测试函数，并将其保存为，例如，*v2.txt*。
 - en: I compare the results with `benchstat` and adjust the benchmark or optimizations
     to achieve the best results.
+  id: totrans-144
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 我使用 `benchstat` 比较结果，并调整基准或优化，以达到最佳结果。
 - en: If I want to try a different optimization, I create yet another `git` branch
     or build new commits on the same branch and repeat the process (e.g., produce
     *v3.txt*, *v4.txt*, and so on). This allows me to get back to previous optimizations
     if an attempt makes me pessimistic.
+  id: totrans-145
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 如果我想尝试不同的优化，我会创建另一个`git`分支或在同一分支上构建新的提交，并重复这个过程（例如，生成*v3.txt*、*v4.txt*等）。这使我可以在一次尝试让我悲观的情况下返回到先前的优化。
 - en: I jot findings in my notes, commit message, or repository change set (e.g.,
     pull requests), and discard my *.txt* results (expiration date!).
+  id: totrans-146
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 我在我的笔记、提交消息或存储库变更集（例如，拉取请求）中记录发现，并丢弃我的*.txt*结果（过期日期！）。
 - en: 'This flow works for me, but you might want to try a different one! As long
     as it’s not confusing for you, is reliable, and follows the TFBO pattern we discussed
     in [“Efficiency-Aware Development Flow”](ch03.html#ch-conq-eff-flow), use it.
     There are many other options, for example:'
+  id: totrans-147
   prefs: []
   type: TYPE_NORMAL
+  zh: 这个流程对我来说效果很好，但你可能想尝试不同的流程！只要它对你没有困惑，是可靠的，并且遵循我们在[“效率感知开发流程”](ch03.html#ch-conq-eff-flow)中讨论的TFBO模式，就可以使用它。还有许多其他选择，例如：
 - en: You can use your terminal history to track benchmarking results.
+  id: totrans-148
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 你可以使用终端历史记录来跟踪基准测试结果。
 - en: You can create different functions for the same functionality with different
     optimizations. Then you can swap what function you use in your benchmark functions
     if you don’t want to use `git` here.
+  id: totrans-149
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 对于相同功能，您可以创建具有不同优化的不同函数。然后，如果您不想在此处使用`git`，可以在基准函数中交换要使用的函数。
 - en: Use `git stash` instead of commits.
+  id: totrans-150
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 使用`git stash`而不是提交。
 - en: Finally, you can follow the [Dave Cheney flow](https://oreil.ly/1MJNT) that
     uses the `go test -c` command to build the testing framework and your code into
     a separate binary. You can then save this binary and perform benchmarks without
     rebuilding source code or saving your test results.^([12](ch08.html#idm45606828737680))
+  id: totrans-151
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 最后，您可以遵循[Dave Cheney流程](https://oreil.ly/1MJNT)，该流程使用`go test -c`命令将测试框架和代码构建为单独的二进制文件。然后，您可以保存此二进制文件并执行基准测试，而无需重新构建源代码或保存您的测试结果。^([12](ch08.html#idm45606828737680))
 - en: I would propose trying different flows and learning what helps you the most!
+  id: totrans-152
   prefs: []
   type: TYPE_NORMAL
+  zh: 我建议尝试不同的流程，了解哪种对你最有帮助！
 - en: I would suggest avoiding writing too complex automation for our local microbenchmarking
     workflow (e.g., complex bash script to automate some steps). Microbenchmarks are
     meant to be more interactive, where you can manually dig information you care
     for. Writing complex automation might mean more overhead and a longer feedback
     loop than needed. Still, if this is working for you, do it!
+  id: totrans-153
   prefs: []
   type: TYPE_NORMAL
+  zh: 我建议避免为我们的本地微基准工作流编写过于复杂的自动化（例如，复杂的bash脚本来自动化一些步骤）。微基准测试应该更具交互性，您可以手动挖掘您关心的信息。编写复杂的自动化可能意味着比必要的更多开销和更长的反馈周期。但是，如果这对您有效，请继续！
 - en: Test Your Benchmark for Correctness!
+  id: totrans-154
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 测试您的基准测试是否正确！
 - en: One of the most common mistakes we make in benchmarking is assessing the efficiency
     of the function that does not provide correct results. Due to the nature of deliberate
     optimizations, it is easy to introduce a bug that breaks the functionality of
     our code. Sometimes, optimizing failed executions is important,^([13](ch08.html#idm45606828728032))
     but it should be an explicit decision.
+  id: totrans-155
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们在基准测试中最常见的错误之一是评估不提供正确结果的功能的效率。由于有意的优化性质，很容易引入破坏我们代码功能的错误。有时，优化失败的执行很重要，^([13](ch08.html#idm45606828728032))但这应该是一个明确的决定。
 - en: The “Testing” part in TFBO, explained in [“Efficiency-Aware Development Flow”](ch03.html#ch-conq-eff-flow),
     is not there by mistake. Our priority should be to write a unit test for the same
     functionality we will benchmark. An example unit test for our `Sum` function can
     look like [Example 8-9](#code-sum-go-test).
+  id: totrans-156
   prefs: []
   type: TYPE_NORMAL
+  zh: TFBO中的“测试”部分，解释在[“效率感知开发流程”](ch03.html#ch-conq-eff-flow)中，并非偶然。我们的重点应该是为我们的`Sum`函数编写一个单元测试，例如单元测试示例可以看作是[Example 8-9](#code-sum-go-test)。
 - en: Example 8-9\. Example unit test to assess the correctness of the `Sum` function
+  id: totrans-157
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 8-9\. 用于评估`Sum`函数正确性的单元测试示例
 - en: '[PRE8]'
+  id: totrans-158
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE8]'
 - en: Having the unit test ensures that with the right CI configured, when we propose
     our change to the main repository (perhaps via a [pull request](https://oreil.ly/r24MR)
     [PR]), we will notice if our code is correct or not. So this already improves
     the reliability of our optimization job.
+  id: totrans-159
   prefs: []
   type: TYPE_NORMAL
+  zh: 有了单元测试，可以确保在正确配置CI后，当我们向主存储库提交我们的更改（可能通过[拉取请求](https://oreil.ly/r24MR) [PR]）时，我们会注意到我们的代码是否正确。因此，这已经提高了我们优化工作的可靠性。
 - en: 'However, there are still things we could do to improve this process. If you
     only test as the last development step, you might have already performed all the
     effort of benchmarking and optimizing without realizing that the code is broken.
     This can be mitigated by manually running the unit test in [Example 8-10](#code-sum-go-bench-test)
     before each benchmarking run, e.g., the [Example 8-2](#code-sum-go-bench) code.
     This helps, but there are still some slight problems:'
+  id: totrans-160
   prefs: []
   type: TYPE_NORMAL
+  zh: 但是，我们仍然可以做一些事情来改进这个过程。如果您仅在最后一个开发步骤中进行测试，您可能已经进行了所有基准测试和优化的努力，而没有意识到代码是错误的。这可以通过在每次基准测试运行之前手动运行
+    [Example 8-10](#code-sum-go-bench-test) 中的单元测试来减轻，例如 [Example 8-2](#code-sum-go-bench)
+    中的代码。这有所帮助，但仍然存在一些轻微的问题：
 - en: It is tedious to run yet another thing after our changes. So it’s too tempting
     to skip that manual process of running functional tests after the change to save
     time and achieve an even quicker feedback loop.
+  id: totrans-161
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 在我们进行更改后，再运行另一个东西是很烦人的。因此，跳过运行功能测试的手动流程以节省时间并实现更快的反馈循环是非常诱人的。
 - en: The function might be well tested in the unit test, but there are differences
     between how you invoke your function in the unit test and the benchmark.
+  id: totrans-162
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 该函数在单元测试中可能经过了充分测试，但在如何调用函数以及基准测试中存在差异。
 - en: Additionally, as you learned in [“Comparison to Functional Testing”](ch07.html#ch-obs-bench-intro-fun),
     for benchmarks we need different inputs. A new thing means a new place for making
     an error! For example, when preparing the benchmark for this book in [Example 8-2](#code-sum-go-bench),
@@ -885,40 +1259,60 @@
     in [Example 8-2](#code-sum-go-bench) I ignored all errors for simplicity, I missed
     that information. Only intuition told me that my benchmark ran a bit too quickly
     to be true, so I double-checked what `Sum` actually returned.
+  id: totrans-163
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 另外，正如您在 [“与功能测试的比较”](ch07.html#ch-obs-bench-intro-fun) 中学到的那样，对于基准测试，我们需要不同的输入。新的东西意味着制造错误的新地方！例如，在为本书准备基准测试时，在
+    [Example 8-2](#code-sum-go-bench) 中，我在文件名中意外地写错了一个字母（*testdata/test2M.txt* 而不是
+    *testdata/test.2M.txt*）。当我运行我的基准测试时，它通过了，但结果的延迟非常低。事实证明，`Sum` 除了因文件不存在而失败外，什么也没做。因为在
+    [Example 8-2](#code-sum-go-bench) 中，我为简单起见忽略了所有错误，我错过了这些信息。只是直觉告诉我，我的基准测试运行得太快了，以至于不真实，所以我双重检查了`Sum`的实际返回情况。
 - en: During benchmarking at higher load, new errors might appear. For example, perhaps
     we could not open another file due to the limit of file descriptors on the machine,
     or our code does not clean files on disk, so we can’t write changes to the file
     due to a lack of disk space.
+  id: totrans-164
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 在更高负载下进行基准测试时，可能会出现新的错误。例如，由于机器上文件描述符的限制，我们可能无法打开另一个文件，或者我们的代码没有清理磁盘上的文件，因此由于磁盘空间不足而无法对文件进行更改。
 - en: Fortunately, an easy solution to that problem is adding a quick error check
     to the benchmark iteration. It could look like [Example 8-10](#code-sum-go-bench-test).
+  id: totrans-165
   prefs: []
   type: TYPE_NORMAL
+  zh: 幸运的是，解决这个问题的简单方法是在基准测试迭代中添加快速的错误检查。它看起来像 [Example 8-10](#code-sum-go-bench-test)。
 - en: Example 8-10\. Go benchmark for assessing the efficiency of the `Sum` function
     with error check
+  id: totrans-166
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 例如 8-10\. 用于评估带有错误检查的`Sum`函数效率的Go基准测试
 - en: '[PRE9]'
+  id: totrans-167
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE9]'
 - en: '[![1](assets/1.png)](#co_benchmarking_CO8-1)'
+  id: totrans-168
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_benchmarking_CO8-1)'
 - en: Asserting `Sum` does not return an error on every iteration loop.
+  id: totrans-169
   prefs: []
   type: TYPE_NORMAL
+  zh: 断言每次迭代循环中`Sum`不会返回错误。
 - en: It’s important to notice that the efficiency metrics we get after the benchmark
     will include the latency contributed by the `testutil.Ok(b, err)` invocation,^([14](ch08.html#idm45606828555728))
     even if there is no error. This is because we invoke this function in our `b.N`
     loop, so it adds a certain overhead.
+  id: totrans-170
   prefs: []
   type: TYPE_NORMAL
+  zh: 需要注意的是，基准测试之后我们获得的效率指标将包括由 `testutil.Ok(b, err)` 调用引入的延迟，即使没有错误。这是因为我们在 `b.N`
+    循环中调用此函数，因此它会增加一定的开销。
 - en: Should we accept this overhead? This is the same question we have about including
     `-benchmem` and profile generation for tests, which also can add small noise.
     Such overhead is unacceptable if we try to benchmark very fast operations (let’s
@@ -927,15 +1321,21 @@
     such error assertion will exist in production, so it should be included in the
     efficiency assessment.^([15](ch08.html#idm45606828553248)) Similar to `-benchmem`
     and profiles, I add that assertion to almost all microbenchmarks I work with.
+  id: totrans-171
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们应该接受这种开销吗？这与包括 `-benchmem` 和测试生成的问题相同，这也可能会增加一些小的噪音。如果我们尝试对非常快速的操作进行基准测试（比如毫秒级的快速操作），这种开销是不可接受的。然而，对于大多数基准测试来说，这样的断言不会改变您的基准测试结果。甚至可以认为这种错误断言将存在于生产中，因此应该包含在效率评估中。^([15](ch08.html#idm45606828553248))
+    就像 `-benchmem` 和性能分析一样，我几乎在所有微基准测试中添加了这种断言。
 - en: In some ways, we are still prone to mistakes. Perhaps with the large input,
     the `Sum` function does not provide a correct answer without returning an error.
     As with all testing, we will never stop all mistakes—there has to be a balance
     between the effort of writing, executing, and maintaining extra tests and confidence.
     It’s up to you to decide how much you trust your workflow.
+  id: totrans-172
   prefs: []
   type: TYPE_NORMAL
+  zh: 在某些方面，我们仍然容易出错。也许对于大输入，`Sum` 函数在不返回错误的情况下无法提供正确的答案。就像所有测试一样，我们永远不会消除所有错误 ——
+    在编写、执行和维护额外测试的努力与信心之间必须保持平衡。由您决定有多少信任您的工作流程。
 - en: If you want to choose the preceding case for more confidence, you can add a
     check that compares the returned sum with the expected result. In our case, it
     will not be a big overhead to add `testutil.Equals(t, <expected number>, ret)`,
@@ -945,57 +1345,86 @@
     purposes. This allows it to be always up-to-date in terms of correctness, which
     is especially challenging in bigger shared code repositories. For example, continuous
     testing of our `Sum` benchmark could look like [Example 8-11](#code-sum-go-bench-test2).^([16](ch08.html#idm45606828507296))
+  id: totrans-173
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果您希望为了更多的信心选择前述案例，您可以添加一个检查，将返回的总和与预期结果进行比较。在我们的情况下，添加 `testutil.Equals(t,
+    <expected number>, ret)` 不会增加太多开销，但通常对于微基准测试来说，这样做更昂贵，因此不合适。出于这些目的，我创建了一个小的 [`testutil.TB`
+    对象](https://oreil.ly/wMX6O)，允许您运行单次迭代的微基准测试。这使得它在正确性方面始终保持最新，这在更大的共享代码库中尤为具有挑战性。例如，对我们的
+    `Sum` 基准测试进行持续测试可能看起来像 [示例 8-11](#code-sum-go-bench-test2)。^([16](ch08.html#idm45606828507296))
 - en: Example 8-11\. Testable Go benchmark for assessing the efficiency of the `Sum`
     function
+  id: totrans-174
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 8-11\. 用于评估 `Sum` 函数效率的可测试 Go 基准测试
 - en: '[PRE10]'
+  id: totrans-175
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE10]'
 - en: '[![1](assets/1.png)](#co_benchmarking_CO9-1)'
+  id: totrans-176
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_benchmarking_CO9-1)'
 - en: '`testutil.TB` is an interface that allows running a function as both benchmarks
     and a unit test. Furthermore, it allows us to design our code, so the same benchmark
     is executed by other functions, e.g., with extra profiling, as shown in [Example 10-2](ch10.html#code-sum-go-bench-fgprof).'
+  id: totrans-177
   prefs: []
   type: TYPE_NORMAL
+  zh: '`testutil.TB` 是一个接口，允许将函数作为基准测试和单元测试运行。此外，它允许我们设计我们的代码，以便其他函数执行相同的基准测试，例如，带有额外的性能分析，如
+    [示例 10-2](ch10.html#code-sum-go-bench-fgprof) 所示。'
 - en: '[![2](assets/2.png)](#co_benchmarking_CO9-2)'
+  id: totrans-178
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_benchmarking_CO9-2)'
 - en: The `tb.N()` method returns `b.N` for the benchmark, allowing normal microbenchmark
     execution. It returns `1` to perform one test run for unit tests.
+  id: totrans-179
   prefs: []
   type: TYPE_NORMAL
+  zh: '`tb.N()` 方法返回基准测试中的 `b.N`，允许正常的微基准测试执行。它返回 `1` 以执行单元测试的一个测试运行。'
 - en: '[![3](assets/3.png)](#co_benchmarking_CO9-3)'
+  id: totrans-180
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_benchmarking_CO9-3)'
 - en: We can now put the extra code that might be more expensive (e.g., more complex
     test assertions) in the space unreachable for benchmarks, thanks to the `tb.IsBenchmark()`
     method.
+  id: totrans-181
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在，我们可以将可能更昂贵的额外代码（例如更复杂的测试断言）放入基准测试无法达到的空间，这要归功于 `tb.IsBenchmark()` 方法。
 - en: To sum up, please test your microbenchmark code. It will save you and your team
     time in the long run. On top of that, it can provide a natural countermeasure
     against unwanted compiler optimizations, explained in [“Compiler Optimizations
     Versus Benchmark”](#ch-obs-micro-comp).
+  id: totrans-182
   prefs: []
   type: TYPE_NORMAL
+  zh: 总之，请测试您的微基准测试代码。这将节省您和您的团队的时间。此外，它可以对抗不需要的编译器优化，详见 [“编译器优化与基准测试”](#ch-obs-micro-comp)。
 - en: Sharing Benchmarks with the Team (and Your Future Self)
+  id: totrans-183
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 与团队分享基准测试（以及未来的自己）
 - en: 'Once you finish your TFBO cycle and are happy with your next optimization iteration,
     it’s time to commit to new code. Share what you found or achieved with your team
     for more than your small one-person project. When someone proposes an optimization
     change, it’s not uncommon to see the optimization in the production code and only
     a small description: “I benchmarked it, and it was 30% faster.” This is not ideal
     for multiple reasons:'
+  id: totrans-184
   prefs: []
   type: TYPE_NORMAL
+  zh: 一旦完成TFBO周期并对下一个优化迭代感到满意，就是提交新代码的时候了。与你的小型个人项目相比，与团队分享你发现或取得的成果更为重要。当有人提出优化更改时，在生产代码中只看到优化并且只有一个小小的描述：“我对此进行了基准测试，速度提高了30%。”
+    这对多种原因都不理想：
 - en: It’s hard for the reviewer to validate the benchmark without seeing the actual
     microbenchmark code you use. It’s not that reviewers should not trust that you
     tell the truth, but rather it’s easy to make a mistake, forget a side effect,
@@ -1004,79 +1433,110 @@
     the expected use cases. This can only be validated by another person looking at
     your benchmarking code. It’s especially important when we work remotely with the
     team and in open source projects, where strong communication is essential.
+  id: totrans-185
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 对于审阅者而言，在没有看到你使用的实际微基准测试代码之前很难验证基准测试的有效性。审阅者不应不信任你所说的，而是很容易犯错误、忽略副作用或错误地进行基准测试。^([17](ch08.html#idm45606828284848))
+    例如，输入必须是某个特定大小才能触发问题，或者输入不反映预期的用例。只有通过另一个人查看你的基准测试代码才能验证这一点。这在我们远程与团队合作和开源项目中尤为重要，强大的沟通至关重要。
 - en: Once merged, it’s likely any other change that touches this code might accidentally
     introduce efficiency regression.
+  id: totrans-186
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 一旦合并，任何涉及此代码的其他更改可能会意外引入效率退化。
 - en: If you or anyone else wants to try to improve the same part of code, they have
     no other option than to re-create the benchmark and go through the same effort
     you did in your pull request because the previous benchmark implementation is
     gone (or stored on your machine).
+  id: totrans-187
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 如果你或其他任何人想尝试改进相同的代码部分，他们除了重新创建基准测试并经历与你在拉取请求中所做的相同努力外别无选择，因为先前的基准测试实现已经消失（或存储在你的计算机上）。
 - en: The solution here is to provide as much context as possible on your experiment
     details, input, and implementation of the benchmark. Of course, we can provide
     that in some form of documentation (e.g., in the description of the pull report),
     but there is nothing better than committing the actual microbenchmark next to
     your production code! In practice, however, it isn’t so simple. Some extra pieces
     are worth adding before sharing the microbenchmark with others.
+  id: totrans-188
   prefs: []
   type: TYPE_NORMAL
+  zh: 解决方案在于尽可能提供有关实验细节、输入和基准测试实现的上下文。当然，我们可以以某种形式提供这些文档（例如，在拉取请求描述中），但没有比将实际的微基准测试与你的生产代码一起提交更好的方式！然而，在实践中，这并不简单。在分享微基准测试之前，值得添加一些额外的内容。
 - en: I optimized our `Sum` function and explained my benchmarking process. However,
     you don’t want to write an entire chapter to explain the optimization you made
     to your team (and your future self)! Instead, you could provide all that is needed
     in a single piece of code as presented in [Example 8-12](#code-sum-go-bench2).
+  id: totrans-189
   prefs: []
   type: TYPE_NORMAL
+  zh: 我优化了我们的`Sum`函数并解释了我的基准测试过程。然而，你不希望为了向团队（和未来的自己）解释你所做的优化而写一整章！相反，你可以像在[示例 8-12](#code-sum-go-bench2)中呈现的那样提供一个单独的代码片段，这就足够了。
 - en: Example 8-12\. Well-documented, reusable Go benchmark for assessing concurrent
     implementations of the `Sum` function
+  id: totrans-190
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 8-12\. 用于评估并发实现`Sum`函数的良好文档化、可重复使用的Go基准测试。
 - en: '[PRE11]'
+  id: totrans-191
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE11]'
 - en: '[![1](assets/1.png)](#co_benchmarking_CO10-1)'
+  id: totrans-192
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_benchmarking_CO10-1)'
 - en: It might feel excessive for a simple benchmark, but good documentation significantly
     increases the reliability of your and your team’s benchmarking. Mention any surprising
     facts around this benchmark, dataset choice, conditions, or prerequisites in the
     commentary.
+  id: totrans-193
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于一个简单的基准测试来说可能会感到有些过度，但良好的文档显著提高了你和你的团队的基准测试的可靠性。在评论中提及关于这个基准测试的任何令人惊讶的事实、数据集选择、条件或先决条件。
 - en: '[![2](assets/2.png)](#co_benchmarking_CO10-2)'
+  id: totrans-194
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_benchmarking_CO10-2)'
 - en: I recommend commenting on the benchmark with the suggested way to invoke it.
     It’s not to force anything but rather to describe how you envisioned running this
     benchmark (e.g., for how long). Future you or your team members will thank you!
+  id: totrans-195
   prefs: []
   type: TYPE_NORMAL
+  zh: 我建议用建议的方式对基准进行评论，描述如何运行这个基准测试，而不是强迫什么。未来的你或你的团队成员会感谢你！
 - en: '[![3](assets/3.png)](#co_benchmarking_CO10-3)'
+  id: totrans-196
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_benchmarking_CO10-3)'
 - en: Provide the exact input you intend to run your benchmark with. You could create
     a static file for unit tests and commit it to your repository. Unfortunately,
     the benchmarking inputs are often too big to be committed to your source code
     (e.g., `git`). For this purpose, I created a small `createTestInput` function
     that can generate a dynamic number of lines. Notice the use of [`b.TempDir()`](https://oreil.ly/elBJa),
     which creates a temporary directory and cares about cleaning it manually afterward.^([18](ch08.html#idm45606828161072))
+  id: totrans-197
   prefs: []
   type: TYPE_NORMAL
+  zh: 提供您打算运行基准测试的确切输入。您可以为单元测试创建一个静态文件并将其提交到您的代码库中。不幸的是，基准测试的输入通常太大而无法提交到您的源代码库（例如`git`）。为此，我创建了一个小的`createTestInput`函数，可以生成动态数量的行。注意使用[`b.TempDir()`](https://oreil.ly/elBJa)，它创建一个临时目录，并在使用后需要手动清理。^([18](ch08.html#idm45606828161072))
 - en: '[![4](assets/4.png)](#co_benchmarking_CO10-4)'
+  id: totrans-198
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![4](assets/4.png)](#co_benchmarking_CO10-4)'
 - en: Because you want to reuse this benchmark in the future, and it will also be
     used by other team members, it makes sense to ensure others do not measure the
     wrong thing, thus testing for basic error modes even in the benchmark.
+  id: totrans-199
   prefs: []
   type: TYPE_NORMAL
+  zh: 因为你希望将来重复使用此基准，并且其他团队成员也将使用它，所以确保其他人不要测量错误的内容，在基准测试中甚至要测试基本的错误模式是有意义的。
 - en: Thanks to `b.ResetTimer()`, even if the input file creation is relatively slow,
     latency and resource usage won’t be visible in the benchmarking results. However,
     it might not be very pleasant for you while repeatedly running that benchmark.
@@ -1086,42 +1546,60 @@
     your feedback loop, you can add the code that will cache test the input on the
     filesystem. See [Example 8-13](#code-sum-go-bench3) for how you can add a simple
     `os.Stat` to achieve this.
+  id: totrans-200
   prefs: []
   type: TYPE_NORMAL
+  zh: 由于 `b.ResetTimer()` 的存在，即使输入文件的创建相对较慢，延迟和资源使用在基准测试结果中也不会显现出来。但是，如果你反复运行该基准测试，可能会感到不太愉快。而且，在多次运行该基准测试后，你会多次经历到这种慢速度。正如我们在[“Go基准测试”](#ch-obs-micro-go)中学到的那样，Go可以多次运行基准测试以找到正确的`N`值。如果初始化时间太长并影响到你的反馈循环，你可以添加代码在文件系统上缓存测试输入。参见[Example 8-13](#code-sum-go-bench3)如何使用简单的`os.Stat`来实现这一点。
 - en: Example 8-13\. Example of the benchmark with input creation executed only once
     and cached on disk
+  id: totrans-201
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: Example 8-13\. 执行一次且在磁盘上缓存的基准测试示例
 - en: '[PRE12]'
+  id: totrans-202
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE12]'
 - en: '[![1](assets/1.png)](#co_benchmarking_CO11-1)'
+  id: totrans-203
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_benchmarking_CO11-1)'
 - en: '`t.Helper` tells the testing framework to point out the line that invokes `lazyCreateTestInput`
     when a potential error happens.'
+  id: totrans-204
   prefs: []
   type: TYPE_NORMAL
+  zh: '`t.Helper` 告诉测试框架，当出现潜在错误时要指出调用`lazyCreateTestInput`的行。'
 - en: '[![2](assets/2.png)](#co_benchmarking_CO11-2)'
+  id: totrans-205
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_benchmarking_CO11-2)'
 - en: '`os.Stat` stops executing `createTestInput` if the file exists. Be careful
     when changing the characteristics or size of the input file. If you don’t change
     the filename, the risk is that people who ran those tests will have a cached old
     version of the input. However, that small risk is worth it if the creation of
     the input is slower than a few seconds or so.'
+  id: totrans-206
   prefs: []
   type: TYPE_NORMAL
+  zh: '`os.Stat` 如果文件存在则停止执行 `createTestInput`。在更改输入文件的特性或大小时要小心。如果不改变文件名，则运行这些测试的人可能会得到输入的旧版本的缓存。然而，如果输入文件的创建慢于几秒钟，那么这种小风险是值得的。'
 - en: Such a benchmark provides elegant and concise information about the benchmark
     implementation, purpose, input, run command, and prerequisites. Moreover, it allows
     you and your team to replicate or reuse the same benchmark with little effort.
+  id: totrans-207
   prefs: []
   type: TYPE_NORMAL
+  zh: 这样的基准测试提供了有关基准实现、目的、输入、运行命令和先决条件的优雅而简洁的信息。此外，它允许您和您的团队以极少的工作量复制或重用相同的基准测试。
 - en: Running Benchmarks for Different Inputs
+  id: totrans-208
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 运行不同输入的基准测试
 - en: It’s often helpful to learn how the efficiency of our implementation changes
     for different sizes and types of input. Sometimes it’s fine to manually change
     the input in our code and rerun our benchmark, but sometimes we would like to
@@ -1129,63 +1607,92 @@
     source code (e.g., for our team to use later). Table tests are perfect for such
     use cases. Typically, we see this pattern in functional tests, but we can use
     it in microbenchmarks, as presented in [Example 8-14](#code-sum-go-bench-cases).
+  id: totrans-209
   prefs: []
   type: TYPE_NORMAL
+  zh: 了解我们的实现在不同大小和类型的输入下效率如何通常是很有帮助的。有时我们可以手动更改代码中的输入并重新运行基准测试，但有时我们希望为同一段代码编写针对源代码中不同输入的基准测试（例如供团队以后使用）。表格测试非常适合这些用例。通常，我们在功能测试中看到这种模式，但在微基准测试中也可以使用，正如[Example 8-14](#code-sum-go-bench-cases)中所述。
 - en: Example 8-14\. Table benchmark using a common pattern with `b.Run`
+  id: totrans-210
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 8-14。使用通用模式与`b.Run`的表格基准测试
 - en: '[PRE13]'
+  id: totrans-211
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE13]'
 - en: '[![1](assets/1.png)](#co_benchmarking_CO12-1)'
+  id: totrans-212
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_benchmarking_CO12-1)'
 - en: An inlined slice of anonymous structures works well here because you don’t need
     to reference this type anywhere. Feel free to add any fields here to map test
     cases as you need.
+  id: totrans-213
   prefs: []
   type: TYPE_NORMAL
+  zh: 内联的匿名结构体片段在这里效果很好，因为您不需要在任何地方引用此类型。随意在此处添加任何字段以根据需要映射测试案例。
 - en: '[![2](assets/2.png)](#co_benchmarking_CO12-2)'
+  id: totrans-214
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_benchmarking_CO12-2)'
 - en: In the test case loop, we can run `b.Run` that tells `go test` about a subbenchmark.
     If you put the `""` empty string as the name, `go test` will use numbers as your
     test case identification. I decided to present a number of lines as a unique description
     of each test case. The test case identification will be added as a suffix, so
     `BenchmarkSum/<test-case>`.
+  id: totrans-215
   prefs: []
   type: TYPE_NORMAL
+  zh: 在测试用例循环中，我们可以运行`b.Run`来告诉`go test`有一个子基准。如果您将空字符串`""`作为名称，`go test`将使用数字作为测试案例的标识。我决定将一些行作为每个测试案例的唯一描述。测试案例标识将作为后缀添加，因此`BenchmarkSum/<test-case>`。
 - en: '[![3](assets/3.png)](#co_benchmarking_CO12-3)'
+  id: totrans-216
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_benchmarking_CO12-3)'
 - en: For these tests, `go test` ignores any `b.ReportAllocs` and other benchmark
     methods outside the `b.Run`, so make sure to repeat them here.
+  id: totrans-217
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于这些测试，`go test`会忽略在`b.Run`之外的任何`b.ReportAllocs`和其他基准方法，因此确保在这里重复它们。
 - en: '[![4](assets/4.png)](#co_benchmarking_CO12-4)'
+  id: totrans-218
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![4](assets/4.png)](#co_benchmarking_CO12-4)'
 - en: A common pitfall here is to accidentally use `b` from the main function, not
     from the closure created for the inner function. This is common if you try to
     avoid shadowing the `b` variable and use a different variable name for the inner
     `*testing.B,` e.g., `b.Run("", func(b2 *testing.B)`. These problems are hard to
     debug, so I recommend always using the same name, e.g., `b`.
+  id: totrans-219
   prefs: []
   type: TYPE_NORMAL
+  zh: 常见的陷阱是意外地使用`b`，不是内部函数创建的闭包中的`b`。如果您试图避免遮蔽`b`变量，并为内部的`*testing.B`使用不同的变量名，例如，`b.Run("",
+    func(b2 *testing.B)`，这种问题很常见。这些问题很难调试，因此我建议始终使用相同的名称，例如`b`。
 - en: Amazingly, we can use the same recommended `run` command presented in [Example 8-4](#code-sum-go-bench-all)
     for a nontable test. The example run output processes by `benchstat` will then
     look like [Example 8-15](#code-sum-go-bench-test-out).
+  id: totrans-220
   prefs: []
   type: TYPE_NORMAL
+  zh: 令人惊讶的是，我们可以使用与[示例 8-4](#code-sum-go-bench-all)中呈现的相同推荐的`run`命令来进行非表格测试。然后，`benchstat`处理的示例运行输出看起来像[示例 8-15](#code-sum-go-bench-test-out)。
 - en: Example 8-15\. `benchstat` output on results from the [Example 8-14](#code-sum-go-bench-cases)
     test
+  id: totrans-221
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 8-15。`benchstat`对[示例 8-14](#code-sum-go-bench-cases)测试结果的输出
 - en: '[PRE14]'
+  id: totrans-222
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE14]'
 - en: I find the table tests great for quickly learning about the estimated complexity
     (discussed in [“Complexity Analysis”](ch07.html#ch-hw-complexity)) of our application.
     Then, after I learn more, I can trim the number of cases to those that can truly
@@ -1193,41 +1700,56 @@
     to our team’s source code will increase the chances that other team members (and
     yourself!) will reuse it and run a microbenchmark with all cases that matter for
     the project.
+  id: totrans-223
   prefs: []
   type: TYPE_NORMAL
+  zh: 我发现表格测试非常适合快速了解应用程序的预估复杂性（在[“复杂性分析”](ch07.html#ch-hw-complexity)中讨论）。然后，了解更多信息后，我可以将案例数减少到真正能触发我们过去遇到的瓶颈的案例。此外，将这样的基准测试提交到我们团队的源代码中，将增加其他团队成员（包括您自己！）重复使用它并运行项目中所有重要案例的微基准测试的机会。
 - en: Microbenchmarks Versus Memory Management
+  id: totrans-224
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 微基准测试与内存管理
 - en: The simplicity of microbenchmarks has many benefits but also downsides. One
     of the most surprising problems is that the memory statistics reported in the
     `go test` benchmarks don’t tell a lot. Unfortunately, given how memory management
     is implemented in Go ([“Go Memory Management”](ch05.html#ch-hw-go-mem)), we can’t
     reproduce all the aspects of memory efficiency of our Go programs with microbenchmarks.
+  id: totrans-225
   prefs: []
   type: TYPE_NORMAL
+  zh: 微基准测试的简单性带来了许多好处，但也有缺点。其中一个最令人惊讶的问题是`go test`基准测试中报告的内存统计信息并不详尽。不幸的是，鉴于Go语言中的内存管理实现（在[“Go内存管理”](ch05.html#ch-hw-go-mem)中讨论），我们无法通过微基准测试复制我们Go程序的所有内存效率方面。
 - en: 'As we saw in [Example 8-6](#code-sum-go-bench-benchstat), the naive implementation
     of `Sum` in [Example 4-1](ch04.html#code-sum) allocates around 60 MB of memory
     on the heap with the 1.6 million objects to calculate a sum for 2 million integers.
     This tells us less about memory efficiency than we might think. It only tells
     us three things:'
+  id: totrans-226
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如我们在[示例 8-6](#code-sum-go-bench-benchstat)中看到的，`Sum`的朴素实现在[示例 4-1](ch04.html#code-sum)中分配了约60
+    MB的堆内存，用于计算200万个整数的总和。这告诉我们的内存效率比我们想象的要少。它只告诉我们三件事：
 - en: Some of the latency we experience in microbenchmark results inevitably come
     from the sole fact of making so many allocations (and we can confirm with profiles
     how much it matters).
+  id: totrans-227
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们在微基准结果中经历的某些延迟不可避免地来自于进行如此多分配的事实（我们可以通过配置文件确认它有多重要）。
 - en: We can compare that number and size of allocations with other implementations.
+  id: totrans-228
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们可以将该分配数量和大小与其他实现进行比较。
 - en: We can compare the number and size of the allocation with expected space complexity
     ([“Complexity Analysis”](ch07.html#ch-hw-complexity)).
+  id: totrans-229
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们可以将分配的数量和大小与预期的空间复杂度进行比较（[“复杂度分析”](ch07.html#ch-hw-complexity)）。
 - en: Unfortunately, any other conclusion based on those numbers is in the realm of
     estimations, which only can be verified when we run [“Macrobenchmarks”](ch07.html#ch-obs-benchmarking-macro)
     or [“Benchmarking in Production”](ch07.html#ch-obs-benchmarking-prod). The reason
@@ -1238,37 +1760,52 @@
     it might not run at all! Therefore, any attempts to manually trigger `runtime.GC()`
     are also poor options, given that it’s not how it will be running in production
     and might clash with normal GC schedules.
+  id: totrans-230
   prefs: []
   type: TYPE_NORMAL
+  zh: 不幸的是，基于这些数字的任何其他结论都属于估计范畴，只有在我们运行[“宏基准”](ch07.html#ch-obs-benchmarking-macro)或[“生产中的基准测试”](ch07.html#ch-obs-benchmarking-prod)时才能验证。原因很简单——基准测试没有专门的GC调度，因为我们希望尽可能地模拟生产环境。它们按照生产代码中的正常调度运行，这意味着在我们的基准测试的100次迭代期间，GC可能运行1,000次、10次，或者在快速基准测试中根本不会运行！因此，任何手动触发`runtime.GC()`的尝试也是不理想的选择，因为这不是它在生产环境中运行的方式，可能会与正常的GC调度冲突。
 - en: 'As a result, the microbenchmark will not give us a clear idea and the following
     memory efficiency questions:'
+  id: totrans-231
   prefs: []
   type: TYPE_NORMAL
+  zh: 结果，微基准不会给我们一个清晰的概念和以下的内存效率问题：
 - en: GC latency
+  id: totrans-232
   prefs: []
   type: TYPE_NORMAL
+  zh: GC延迟
 - en: As we learned in [“Go Memory Management”](ch05.html#ch-hw-go-mem), a bigger
     heap (more objects in a heap) will mean more work for the GC, which always translates
     to increased CPU usage or, more often, GC cycles (even with fair 25% CPU usage
     mechanisms). Because of nondeterministic GC and quick benchmarking operations,
     we most likely won’t see GC impact on a microbenchmark level.^([19](ch08.html#idm45606827504960))
+  id: totrans-233
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如我们在[“Go内存管理”](ch05.html#ch-hw-go-mem)中学到的，堆越大（堆中的对象越多），GC的工作量就越大，这总是会导致增加的CPU使用率，或者更频繁的GC周期（即使使用公平的25%
+    CPU使用率机制）。由于非确定性的GC和快速的基准操作，我们很可能不会在微基准水平上看到GC的影响。^([19](ch08.html#idm45606827504960))
 - en: Maximum memory usage
+  id: totrans-234
   prefs: []
   type: TYPE_NORMAL
+  zh: 最大内存使用量
 - en: If a single operation allocates 60 MB, does it mean that the program performing
     one such operation at the time will need no more and no less than ~60 MB of memory
     in our system? Unfortunately, for the same reason mentioned previously, we can’t
     tell with microbenchmarks.
+  id: totrans-235
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果一个单个操作分配了60 MB，这是否意味着执行一次这样的操作的程序在我们的系统中需要不多不少约60 MB的内存？不幸的是，出于前面提到的同样原因，我们无法通过微基准测试来确定。
 - en: It might be that our single operation doesn’t need all objects for the full
     duration. This might mean that the maximum usage of memory will be, for example,
     only 10 MB, despite the 60 MB allocation number, as the GC can do clean-up runs
     multiple times in practice.
+  id: totrans-236
   prefs: []
   type: TYPE_NORMAL
+  zh: 可能我们的单个操作并不需要所有对象的完整持续时间。这可能意味着内存的最大使用量仅为例如10 MB，尽管有60 MB的分配数量，因为GC实际上可以多次执行清理操作。
 - en: You might even have the opposite situation too! Especially for [Example 4-1](ch04.html#code-sum),
     most of the memory is kept during the whole operation (it is kept in the file
     buffer—we can tell that from profiling, explained in [“Profiling in Go”](ch09.html#ch-obs-profiling)).
@@ -1276,15 +1813,20 @@
     next operation allocating 60 MB on top of the original 60 MB, requiring 120 MB
     in total from the OS. This situation can be even worse if we do a larger concurrency
     of our operations.
+  id: totrans-237
   prefs: []
   type: TYPE_NORMAL
+  zh: 甚至你可能会遇到相反的情况！特别是对于[示例 4-1](ch04.html#code-sum)，在整个操作期间大部分内存是保留的（它保存在文件缓冲区中——我们可以从性能分析中看出，详见[“Go性能分析”](ch09.html#ch-obs-profiling)）。此外，GC可能无法快速清理内存，导致下一个操作在原始60
+    MB基础上再分配60 MB，总共需要OS提供120 MB。如果我们对操作进行更大的并发，情况可能会更糟。
 - en: This is unfortunate, as the preceding problems are often seen in our Go code.
     If we could verify those problems on microbenchmarks, it would be easier to tell
     if we can reuse memory better (e.g., through [“Memory Reuse and Pooling”](ch11.html#ch-basic-pool))
     or if we should straight reduce allocation and to what level. Unfortunately, to
     tell for sure, we need to move to [“Macrobenchmarks”](#ch-obs-macro).
+  id: totrans-238
   prefs: []
   type: TYPE_NORMAL
+  zh: 遗憾的是，前述问题经常出现在我们的 Go 代码中。如果我们能在微基准测试中验证这些问题，那么判断我们是否能更好地重用内存（例如，通过[“内存重用和池化”](ch11.html#ch-basic-pool)）或者我们应该直接减少分配并减少到什么水平，将会更容易。不幸的是，为了确切地判断，我们需要转向[“宏基准测试”](#ch-obs-macro)。
 - en: Still, the microbenchmark allocation information is incredibly useful if we
     assume that, generally, more allocations can cause more problems. This is why
     simply focusing on reducing the number of allocations or allocated space in our
@@ -1293,17 +1835,24 @@
     confidence about whether the end GC overhead or maximum memory usage will be acceptable
     or problematic. We can try to estimate this, but we won’t know for sure until
     we move to the macro level to assess that.
+  id: totrans-239
   prefs: []
   type: TYPE_NORMAL
+  zh: 然而，如果我们假设通常情况下更多的分配可能会引起更多问题，那么微基准测试分配信息将非常有用。这就是为什么在我们的微优化周期中仍然专注于减少分配数量或分配空间非常有效的原因。然而，我们需要承认的是，仅仅从微基准测试中得出的这些数字可能无法完全让我们对最终的
+    GC 开销或最大内存使用量是否可接受或有问题产生完全的信心。我们可以尝试估计这一点，但在我们转向宏级别来评估它之前，我们不会确切知道。
 - en: Compiler Optimizations Versus Benchmark
+  id: totrans-240
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 编译器优化与基准测试
 - en: There is a very interesting “meta” dynamic between microbenchmarking and compiler
     optimizations, which is sometimes controversial. It is worth knowing about this
     problem, the potential consequences, and how to mitigate them.
+  id: totrans-241
   prefs: []
   type: TYPE_NORMAL
+  zh: 微基准测试和编译器优化之间存在非常有趣的“元”动态，有时会引起争议。了解这个问题、潜在的后果以及如何缓解它们是值得的。
 - en: Our goal when microbenchmarking is to assess the efficiency of the small part
     of our production code with as high confidence as possible (given the amount of
     time available and problem constraints). For this reason, the Go compiler treats
@@ -1313,39 +1862,54 @@
     are performed by the compiler on all parts of the code—no special exceptions for
     benchmarks. Therefore, we are reproducing all production conditions, including
     the compilation stage.
+  id: totrans-242
   prefs: []
   type: TYPE_NORMAL
+  zh: 在进行微基准测试时，我们的目标是尽可能高置信度地评估我们生产代码中的小部分效率（考虑到可用时间和问题约束）。因此，Go 编译器将我们的[“Go 基准测试”](#ch-obs-micro-go)功能视为任何其他生产代码。编译器对代码的所有部分执行相同的
+    AST 转换、类型安全、内存安全、死代码消除和优化规则，正如在[“理解 Go 编译器”](ch04.html#ch-hw-compilation)中讨论的那样——没有针对基准测试的特殊例外。因此，我们在复制所有生产条件，包括编译阶段。
 - en: 'This premise is great, but what gets in the way of this philosophy is that
     microbenchmarks are a little special. From the runtime process perspective, there
     are three main differences between how this code is executed on production and
     when we want to learn about production code efficiency:'
+  id: totrans-243
   prefs: []
   type: TYPE_NORMAL
+  zh: 这个前提很好，但阻碍这一哲学的是微基准测试有点特殊。从运行时进程的角度来看，这段代码在生产环境执行和我们想要了解生产代码效率时有三个主要区别：
 - en: No other user code is running at the same time in the same process.^([20](ch08.html#idm45606827483632))
+  id: totrans-244
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 没有其他用户代码在同一进程中同时运行。^([20](ch08.html#idm45606827483632))
 - en: We are invoking the same code in a loop.
+  id: totrans-245
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们在循环中调用相同的代码。
 - en: We typically don’t use the output or return arguments.
+  id: totrans-246
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们通常不使用输出或返回参数。
 - en: Those three elements might not seem like a big difference, but as we learned
     in [“CPU and Memory Wall Problem”](ch04.html#ch-hw-mem-wall), modern CPUs can
     already run differently in those cases due to, e.g., different branch prediction
     and L-cache locality. On top of that, you can imagine a smart enough compiler
     that will adjust the machine code differently based on those cases too!
+  id: totrans-247
   prefs: []
   type: TYPE_NORMAL
+  zh: 这三个元素可能看起来没有什么大的区别，但正如我们在[“CPU 和内存墙问题”](ch04.html#ch-hw-mem-wall)中学到的，现代 CPU
+    由于不同的分支预测和 L-cache 局部性等原因，在这些情况下已经可以以不同的方式运行。此外，你可以想象一个足够智能的编译器，它也会根据这些情况调整机器码！
 - en: This problem is especially visible when programming in Java because some compilation
     phases are done in runtime, thanks to the mature just-in-time (JIT) compiler.
     As a result, Java engineers must be [very careful when benchmarking](https://oreil.ly/OJKNS)
     and use special [frameworks](https://oreil.ly/Cil2Z) for Java to ensure simulating
     production conditions with warm-up phases and other tricks to increase the reliability
     of benchmarks.
+  id: totrans-248
   prefs: []
   type: TYPE_NORMAL
 - en: In Go, things are simpler. The compiler is less mature than Java’s, and no JIT
@@ -1353,6 +1917,7 @@
     compiler optimization (PGO)](https://oreil.ly/yFYut) is being [considered for
     Go](https://oreil.ly/jDYqF), which might make our microbenchmark more complex
     in future. Time will tell.
+  id: totrans-249
   prefs: []
   type: TYPE_NORMAL
 - en: However, even if we focus on the current compiler, it sometimes can apply unwanted
@@ -1360,17 +1925,22 @@
     code elimination](https://oreil.ly/QG1y1). Let’s consider a low-level function
     representing [`population count` instruction](https://oreil.ly/lnuMl) and the
     naive microbenchmark in [Example 8-16](#code-bench-popcnt).^([21](ch08.html#idm45606827468608))
+  id: totrans-250
   prefs: []
   type: TYPE_NORMAL
 - en: Example 8-16\. `popcnt` function with the naive implementation of microbenchmark
     impacted by compiler optimizations
+  id: totrans-251
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
 - en: '[PRE15]'
+  id: totrans-252
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE15]'
 - en: '[![1](assets/1.png)](#co_benchmarking_CO13-1)'
+  id: totrans-253
   prefs: []
   type: TYPE_NORMAL
 - en: 'In the original issue #14813, the input for the function was taken from `uint64(i)`,
@@ -1379,20 +1949,26 @@
     so let’s imagine we want to assess the efficiency of `popcnt` working on the largest
     unsigned integer possible (using `math.MaxInt64` to obtain it). This also will
     expose us to an unexpected behavior mentioned below.'
+  id: totrans-254
   prefs: []
   type: TYPE_NORMAL
 - en: If we execute this benchmark for a second, we will get slightly concerning output,
     as presented in [Example 8-17](#code-bench-popcnt-out).
+  id: totrans-255
   prefs: []
   type: TYPE_NORMAL
 - en: Example 8-17\. The output of the `BenchmarkPopcnt` benchmark from [Example 8-16](#code-bench-popcnt)
+  id: totrans-256
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
 - en: '[PRE16]'
+  id: totrans-257
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE16]'
 - en: '[![1](assets/1.png)](#co_benchmarking_CO14-1)'
+  id: totrans-258
   prefs: []
   type: TYPE_NORMAL
 - en: Every time you see your benchmark making a billion iterations (maximum number
@@ -1400,6 +1976,7 @@
     will see a loop overhead rather than the latency we are measuring. This can be
     caused by the compiler optimizing away your code or by measuring something too
     fast to be measured with a Go benchmark (e.g., single instruction).
+  id: totrans-259
   prefs: []
   type: TYPE_NORMAL
 - en: What is happening? The first problem is that the Go compiler inlines the `popcnt`
@@ -1413,8 +1990,12 @@
     assembly more interactively. We can verify this problem by running a test with
     `-gcflags=-N`, which turns off all compiler optimizations. Executing or looking
     at the assembly will show you the large difference.
+  id: totrans-260
   prefs: []
   type: TYPE_NORMAL
+  zh: 发生了什么？第一个问题是，Go 编译器内联了`popcnt`代码，进一步的优化阶段检测到没有其他代码使用内联计算的结果。编译器检测到如果移除这部分代码不会改变可观察行为，因此省略了内联的代码部分。如果我们在`go
+    build`或`go test`时使用`-gcflags=-S`列出汇编代码，你会注意到没有代码负责执行`popcnt`后面的语句（我们运行了一个空循环！）。这也可以通过运行`GOSSAFUNC=BenchmarkPopcnt
+    go build`并在浏览器中打开*ssa.html*来确认，这会更交互地列出生成的汇编代码。我们可以通过使用`-gcflags=-N`运行测试来验证这个问题，该标志关闭所有编译器优化。执行或查看汇编将显示明显的差异。
 - en: The second problem is that all the iterations of our benchmark run `popcnt`
     with the same constant number—the largest unsigned integer. Even if code elimination
     did not happen, with inlining, the Go compiler is smart enough to precompute some
@@ -1422,25 +2003,37 @@
     of `popcnt(math.MaxUint64)` is always 64, no matter how many times and where we
     run it; thus, the machine code will simply use `64` instead of calculating `popcnt`
     in every iteration.
+  id: totrans-261
   prefs: []
   type: TYPE_NORMAL
+  zh: 第二个问题是，我们基准测试的所有迭代都使用相同的常数——最大的无符号整数来运行`popcnt`。即使没有发生代码消除，通过内联，Go 编译器足够聪明以预计算某些逻辑（有时称为[`内部函数`](https://oreil.ly/NEOyQ)）。`popcnt(math.MaxUint64)`的结果始终是64，无论我们运行多少次和在何处运行它；因此，机器代码将简单地使用`64`而不是在每次迭代中计算`popcnt`。
 - en: 'Generally, there are three practical countermeasures against compiler optimization
     in benchmarks:'
+  id: totrans-262
   prefs: []
   type: TYPE_NORMAL
+  zh: 通常，在基准测试中有三种实用的对抗编译器优化的对策：
 - en: Move to the macro level.
+  id: totrans-263
   prefs: []
   type: TYPE_NORMAL
+  zh: 转向宏观层面。
 - en: On a macro level, there is no special code within the same binary, so we can
     use the same machine code for both benchmarks and production code.
+  id: totrans-264
   prefs: []
   type: TYPE_NORMAL
+  zh: 在宏观层面上，同一二进制中没有特殊的代码，因此我们可以同时用于基准测试和生产代码的同一机器代码。
 - en: Microbenchmark more complex functionality.
+  id: totrans-265
   prefs: []
   type: TYPE_NORMAL
+  zh: 在微基准测试更复杂的功能。
 - en: If compiler optimizations impact, you might be optimizing Go on a too low level.
+  id: totrans-266
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果编译器优化影响，可能是在过低的层面上优化 Go。
 - en: I personally haven’t been impacted by compiler optimization, because I tend
     to microbenchmark on higher-level functionalities. If you benchmark really small
     functions like [Example 8-16](#code-bench-popcnt), typically inlined and a few
@@ -1449,11 +2042,17 @@
     machine code for benchmarking purposes. The number of instructions and data on
     bigger macrobenchmarks will also more likely break the CPU branch predictor and
     cache locality like it would at production.^([22](ch08.html#idm45606827194896))
+  id: totrans-267
   prefs: []
   type: TYPE_NORMAL
+  zh: 我个人没有受到编译器优化的影响，因为我倾向于在更高层次的功能上进行微基准测试。如果您像[示例 8-16](#code-bench-popcnt)这样微小的函数进行基准测试，通常会内联并且速度快几纳秒，期望
+    CPU 和编译器效果对您的影响更大。对于更复杂的代码，编译器通常不会像为基准测试目的内联或调整机器代码。更大的宏基准测试中的指令数量和数据也更有可能打破 CPU
+    的分支预测器和缓存局部性，就像在生产环境中一样。^([22](ch08.html#idm45606827194896))
 - en: Outsmart compiler in microbenchmark.
+  id: totrans-268
   prefs: []
   type: TYPE_NORMAL
+  zh: 在微基准测试中躲避编译器。
 - en: If you want to microbenchmark such a tiny function like [Example 8-16](#code-bench-popcnt),
     there is no other way to obfuscate the compiler code analysis. What typically
     works is using exported global variables. They are hard to predict given the current
@@ -1463,6 +2062,7 @@
     heap). The `//go:noinline` directive that stops the compiler from inlining function
     might also work, but it’s not recommended as on production, your code might be
     inlined and optimized, which we want to benchmark too.
+  id: totrans-269
   prefs: []
   type: TYPE_NORMAL
 - en: If we would like to improve the Go benchmark shown in [Example 8-16](#code-bench-popcnt),
@@ -1470,39 +2070,49 @@
     variable for input, as presented in [Example 8-18](#code-bench-popcnt2). This
     works in Go 1.18 with the `gc` compiler, but it’s not prone to future improvements
     in the Go compiler.
+  id: totrans-270
   prefs: []
   type: TYPE_NORMAL
 - en: Example 8-18\. `Sink` pattern and variable input countermeasure unwanted compiler
     optimization on microbenchmarks
+  id: totrans-271
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
 - en: '[PRE17]'
+  id: totrans-272
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE17]'
 - en: '[![1](assets/1.png)](#co_benchmarking_CO15-1)'
+  id: totrans-273
   prefs: []
   type: TYPE_NORMAL
 - en: The global `Input` variable masks the fact that `math.MaxUint64` is constant.
     This forces the compiler to not be lazy and do the work in our benchmark iteration.
     This works because the compiler can’t tell if anyone else will change this variable
     in runtime before or during experiments.
+  id: totrans-274
   prefs: []
   type: TYPE_NORMAL
 - en: '[![2](assets/2.png)](#co_benchmarking_CO15-2)'
+  id: totrans-275
   prefs: []
   type: TYPE_NORMAL
 - en: '`Sink` is a similar global variable to `Input`, but it hides from the compiler
     that the value of our function is never used, so the compiler won’t assume it’s
     a dead code.'
+  id: totrans-276
   prefs: []
   type: TYPE_NORMAL
 - en: '[![3](assets/3.png)](#co_benchmarking_CO15-3)'
+  id: totrans-277
   prefs: []
   type: TYPE_NORMAL
 - en: Notice that we don’t assign a value directly to the global variable as it’s
     [more expensive](https://oreil.ly/yvNAi), thus potentially adding even more overhead
     to our benchmark.
+  id: totrans-278
   prefs: []
   type: TYPE_NORMAL
 - en: Thanks to the techniques presented in [Example 8-18](#code-bench-popcnt2), I
@@ -1512,20 +2122,24 @@
     the compiler or disabling optimizations are quite controversial techniques—they
     go against the philosophy that benchmarked code should be as close to production
     code as possible.
+  id: totrans-279
   prefs: []
   type: TYPE_NORMAL
 - en: Don’t Put Sinks Everywhere!
+  id: totrans-280
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
 - en: This section might feel scary and complicated. Initially, when I learned about
     these complex compilation impacts, I was putting a sink to all my microbenchmarks
     or assert errors only to avoid potential elision problems.
+  id: totrans-281
   prefs: []
   type: TYPE_NORMAL
 - en: That is unnecessary. Be pragmatic, be vigilant of benchmarking results you can’t
     explain (as mentioned in [“Human Errors”](ch07.html#ch-obs-rel-err)), and add
     those special countermeasures.
+  id: totrans-282
   prefs: []
   type: TYPE_NORMAL
 - en: Personally, I’d rather not see sinks appear everywhere until they are needed.
@@ -1533,14 +2147,17 @@
     to wait until the benchmark is clearly optimized away and only then put them in.
     The details of the sink can depend on the context. If you have a function returning
     an int, it’s fine to sum them up and then assign the result to a global, for example.
+  id: totrans-283
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: ''
+  id: totrans-284
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: Russ Cox (rsc), “Benchmarks vs Dead Code Elimination,” [email thread](https://oreil.ly/xGDYr)
+  id: totrans-285
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
@@ -1552,9 +2169,11 @@
     of your Go code for a specific use case, move to a higher level by testing more
     complex functionality. Fortunately, most of the code you will work with will likely
     be too complex to trigger such a “battle” with the Go compiler.
+  id: totrans-286
   prefs: []
   type: TYPE_NORMAL
 - en: Macrobenchmarks
+  id: totrans-287
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -1566,6 +2185,7 @@
     with many dependencies, orchestration systems, and generally bigger infrastructure.
     As a result, such activity used to be the domain of operation teams, system administrators,
     and DevOps engineers.
+  id: totrans-288
   prefs: []
   type: TYPE_NORMAL
 - en: However, things are changing a bit, especially for the infrastructure software,
@@ -1577,9 +2197,11 @@
     responsibility for their areas of expertise. Therefore, in the last decades, we
     are seeing the move toward making testing (and running) software on all levels
     easier for developers.
+  id: totrans-289
   prefs: []
   type: TYPE_NORMAL
 - en: Participate in Macrobenchmarks That Touch Your Software!
+  id: totrans-290
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -1588,6 +2210,7 @@
     clarity to the priority. Additionally, if you catch those problems on the setup
     you control or are familiar with, it is easier to debug the problem or find the
     bottleneck, ensuring a quick fix or optimization.
+  id: totrans-291
   prefs: []
   type: TYPE_NORMAL
 - en: I would like to break the mentioned convention and introduce you to some basic
@@ -1596,50 +2219,69 @@
     assessment and bottleneck analysis at higher levels. So let’s use this fact and
     discuss some basic principles and provide a practical example of running a macrobenchmark
     via `go test`.
+  id: totrans-292
   prefs: []
   type: TYPE_NORMAL
+  zh: 我想打破提到的惯例，并向您介绍一些有效的宏基准测试所需的基本概念。特别是对于后端应用程序，当涉及到高层次的准确效率评估和瓶颈分析时，开发者们有更多的说法。因此，让我们利用这一事实，讨论一些基本原则，并通过`go
+    test`提供一个宏基准测试的实际示例。
 - en: Basics
+  id: totrans-293
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 基础知识
 - en: As we learned in [“Benchmarking Levels”](ch07.html#ch-obs-benchmarking), macrobenchmarks
     focus on testing your code at the product level (application, service, or system)
     close to your functional and efficiency requirements (as described in [“Efficiency
     Requirements Should Be Formalized”](ch03.html#ch-conq-req-formal)). As a result,
     we could compare macrobenchmarking to integration or end-to-end (e2e) functional
     testing.
+  id: totrans-294
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如我们在[“基准测试层次”](ch07.html#ch-obs-benchmarking)中学到的，宏基准测试侧重于在产品级别（应用程序、服务或系统）测试代码，接近您的功能和效率要求（如[“效率要求应被正式化”](ch03.html#ch-conq-req-formal)所述）。因此，我们可以将宏基准测试与集成或端到端（e2e）功能测试进行比较。
 - en: 'In this section, I will mostly focus on benchmarking server-side, multicomponent
     Go backend applications. There are three reasons why:'
+  id: totrans-295
   prefs: []
   type: TYPE_NORMAL
+  zh: 在本节中，我将主要关注基准测试服务器端、多组件的Go后端应用程序。原因有三：
 - en: That’s my speciality.
+  id: totrans-296
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 那是我的专长。
 - en: It’s the typical target environment of applications written in the Go language.
+  id: totrans-297
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 这是典型的用Go语言编写的应用程序目标环境。
 - en: This application typically involves working with nontrivial infrastructure and
     many complex dependencies.
+  id: totrans-298
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 这种应用通常涉及与非平凡基础设施和许多复杂依赖项的协作。
 - en: Especially the last two items make it beneficial for me to focus on backend
     applications, as other types of programs (CLI, frontend, mobile) might require
     less-complex architecture. Still, all types will reuse some patterns and learnings
     from this section.
+  id: totrans-299
   prefs: []
   type: TYPE_NORMAL
+  zh: 特别是最后两项使我更倾向于专注于后端应用程序，因为其他类型的程序（CLI、前端、移动端）可能需要较少复杂的架构。尽管如此，所有类型的程序都会重复使用本节的某些模式和经验教训。
 - en: For instance, in [“Microbenchmarks”](#ch-obs-micro), we assessed the efficiency
     of the `Sum` function ([Example 4-1](ch04.html#code-sum)) in our Go code, but
     that function might have been a bottleneck for a much bigger product or service.
     Imagine that our team’s task is to develop and maintain a bigger microservice
     called `labeler` that uses the `Sum`.
+  id: totrans-300
   prefs: []
   type: TYPE_NORMAL
+  zh: 例如，在[“微基准”](#ch-obs-micro)中，我们评估了我们Go代码中`Sum`函数的效率（[示例 4-1](ch04.html#code-sum)），但该函数可能是更大产品或服务的瓶颈。想象一下，我们团队的任务是开发和维护一个名为`labeler`的更大微服务，该服务使用了`Sum`。
 - en: The `labeler` will run in a container and connect to an object storage^([25](ch08.html#idm45606827011232))
     with various files. Each file has potentially millions of integers in each new
     line (the same input as in our `Sum` problem). The `labeler` job is to return
@@ -1647,29 +2289,42 @@
     calls the HTTP `GET` method `/label_object`. The returned label contains attributes
     like the object name, object size, checksum, and more. One of the key label fields
     is the sum of all numbers in the object.^([26](ch08.html#idm45606827007440))
+  id: totrans-301
   prefs: []
   type: TYPE_NORMAL
+  zh: '`labeler`将在容器中运行，并连接到一个对象存储^([25](ch08.html#idm45606827011232))，其中包含各种文件。每个文件的每一行可能包含数百万个整数（与我们`Sum`问题中的输入相同）。`labeler`的任务是在用户调用HTTP
+    `GET`方法`/label_object`时返回一个标签—指定对象的元数据和一些统计信息。返回的标签包含属性，如对象名称、对象大小、校验和等等。其中一个关键的标签字段是对象中所有数字的总和。^([26](ch08.html#idm45606827007440))'
 - en: You learned first how to assess the efficiency of the smaller `Sum` function
     on a micro level because it’s simpler. On the product level the situation is much
     more complex. That’s why to perform reliable benchmarking (or bottleneck analysis)
     on a macro level, there are a few differences to notice and extra components to
     have. Let’s go through them, as presented in [Figure 8-1](#img-opt-macro-bench).
+  id: totrans-302
   prefs: []
   type: TYPE_NORMAL
+  zh: 你首先学习如何评估较小的`Sum`函数在微观层面上的效率，因为它更简单。在产品层面上情况要复杂得多。这就是为什么在宏观层面上进行可靠的基准测试（或瓶颈分析）时，需要注意一些差异和额外组件。让我们来看看它们，如[图 8-1](#img-opt-macro-bench)中所示。
 - en: '![efgo 0801](assets/efgo_0801.png)'
+  id: totrans-303
   prefs: []
   type: TYPE_IMG
+  zh: '![efgo 0801](assets/efgo_0801.png)'
 - en: Figure 8-1\. Common elements required for the macrobenchmark, for example, to
     benchmark the `labeler` service
+  id: totrans-304
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 8-1\. 宏基准测试所需的常见元素，例如，用于对`labeler`服务进行基准测试的。
 - en: 'The specific differences from our `Sum` microbenchmark can be outlined as follows:'
+  id: totrans-305
   prefs: []
   type: TYPE_NORMAL
+  zh: 与我们的`Sum`微基准测试的具体差异可以概述如下：
 - en: Our Go program as a separate process
+  id: totrans-306
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们的Go程序作为一个独立的进程
 - en: Thanks to [“Go Benchmarks”](#ch-obs-micro-go), we understand the efficiency
     of the `Sum` function and can optimize it. But what if another part of the code
     is now a bigger bottleneck in our flow? This is why we typically want to benchmark
@@ -1677,11 +2332,16 @@
     process in a similar fashion and configuration as in production. But unfortunately,
     this also means we can’t run the `go test` benchmarking framework anymore as we
     benchmark on the process level.
+  id: totrans-307
   prefs: []
   type: TYPE_NORMAL
+  zh: 由于[“Go Benchmarks”](#ch-obs-micro-go)，我们了解到`Sum`函数的效率并可以对其进行优化。但是，如果代码的另一部分现在成为流程中更大的瓶颈呢？这就是为什么我们通常希望在宏观层面上对我们的Go程序进行基准测试的原因。这意味着以与生产环境中相似的方式和配置运行该过程。但不幸的是，这也意味着我们不能再运行`go
+    test`基准测试框架，因为我们是在进程级别上进行基准测试。
 - en: Dependencies, e.g., object storage
+  id: totrans-308
   prefs: []
   type: TYPE_NORMAL
+  zh: 依赖项，例如对象存储
 - en: 'One of the key elements of macrobenchmarks is that we typically want to analyze
     the efficiency of the full system, including all key dependencies. This is especially
     important when our code might rely on certain efficiency characteristics of the
@@ -1690,35 +2350,46 @@
     `Sum` if the object storage communication is the main bottleneck in latency or
     resource consumption. There are generally three ways of handling dependencies
     on a macro level:'
+  id: totrans-309
   prefs: []
   type: TYPE_NORMAL
+  zh: 宏基准测试的关键元素之一是我们通常希望分析整个系统的效率，包括所有关键依赖项。当我们的代码可能依赖于依赖项的某些效率特征时，这一点尤为重要。在我们的`labeler`示例中，我们使用对象存储，这通常意味着在网络上传输字节。如果对象存储通信是延迟或资源消耗的主要瓶颈，那么优化`Sum`可能没有太多意义。通常有三种处理宏观依赖的方式：
 - en: We can try to use realistic dependency (e.g., in our example, the exact object
     storage provider that will be used on production, with a similar dataset size).
     This is typically the best idea if we want to test the end-to-end efficiency of
     the whole system.
+  id: totrans-310
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们可以尝试使用真实的依赖关系（例如，在我们的示例中，将在生产中使用的确切对象存储提供者，与相似的数据集大小）。如果我们希望测试整个系统的端到端效率，这通常是最好的方法。
 - en: We can try to implement or use a [fake](https://oreil.ly/06UmC) or adapter that
     will simulate production problems. However, this often takes too much effort and
     it’s hard to simulate the exact behavior of, for example, a slow TCP connection
     or server.
+  id: totrans-311
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们可以尝试实现或使用一个[fake](https://oreil.ly/06UmC)或适配器来模拟生产问题。然而，这往往需要太多的精力，而且很难模拟慢速TCP连接或服务器的确切行为。
 - en: We could implement the simplest fake for our dependency and assess the isolated
     efficiency of our program. In our example, this might mean running local, open
     source object storage like [Minio](https://min.io). It will not reflect all the
     problems we might have with production dependencies, but it will give us some
     estimates on the problems and overhead for our program. We will use this in [“Go
     e2e Framework”](#ch-obs-macro-example) for simplicity.
+  id: totrans-312
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们可以实现我们依赖项的最简单的仿真，并评估我们程序的隔离效率。在我们的示例中，这可能意味着运行本地的开源对象存储，如[Minio](https://min.io)。它不会反映出我们可能在生产依赖项中遇到的所有问题，但它会为我们的程序的问题和开销提供一些估算。我们将在[“Go
+    e2e Framework”](#ch-obs-macro-example)中使用这种方法以保持简单。
 - en: Observability
+  id: totrans-313
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
+  zh: 可观察性
 - en: We can’t use [“Go Benchmarks”](#ch-obs-micro-go) on a macro level, so we don’t
     have built-in support for latency, allocations, and custom metrics. So we have
     to provide our observability and monitoring solution. Fortunately, we already
@@ -1728,74 +2399,100 @@
     project, which allows gathering latency, usage, and custom benchmarking metrics.
     You can enrich this setup with other tools like tracing, logging, and continuous
     profiling to debug the functional and efficiency problems even easier.
+  id: totrans-314
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
+  zh: 我们无法在宏观层面上使用[“Go Benchmarks”](#ch-obs-micro-go)，因此我们没有内置支持用于延迟、分配和自定义指标。因此，我们必须提供自己的可观察性和监控解决方案。幸运的是，在第6章中，我们已经讨论了用于Go程序的仪表和可观察性，我们可以在宏观层面上使用这些内容。在[“Go
+    e2e Framework”](#ch-obs-macro-example)中，我将向您展示一个具有内置支持的框架，用于开源项目[Prometheus](https://prometheus.io)，允许收集延迟、使用情况和自定义基准指标。您可以通过其他工具（如跟踪、日志记录和连续分析）增强此设置，以更轻松地调试功能和效率问题。
 - en: Load tester
+  id: totrans-315
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
+  zh: 负载测试器
 - en: Another consequence of getting out of the Go benchmark framework is the missing
     logic of triggering the experiment cases. Go benchmark was executing our code
     the desired amount of times with desired arguments. On the macro level, we might
     want to use this service as the user would use the HTTP REST API for web services
     like `labeler`. This is why we need some load-tester code that understands our
     APIs and will call them the desired amount of times and arguments.
+  id: totrans-316
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
+  zh: 走出Go基准测试框架的另一个后果是触发实验案例逻辑的缺失。Go基准测试执行我们的代码所需的次数和参数。在宏观层面上，我们可能希望使用这种服务，就像用户使用HTTP
+    REST API用于像`labeler`这样的网络服务。这就是为什么我们需要一些理解我们的API并将其调用所需次数和参数的负载测试器代码。
 - en: You can implement your own to simulate the user traffic, which unfortunately
     is prone to errors.^([27](ch08.html#idm45606826978976)) There are ways to “fork”
     or replay production traffic to the testing product using more advanced solutions
     like Kafka. Perhaps the easiest solution is to pick an off-the-shelf framework
     like an open source [k6](https://k6.io) project, which is designed and battle-tested
     for load-testing purposes. I will present an example of using k6 in [“Go e2e Framework”](#ch-obs-macro-example).
+  id: totrans-317
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
+  zh: 您可以实现自己的负载测试器来模拟用户流量，但这很可能容易出错。^([27](ch08.html#idm45606826978976)) 有一些方法可以使用更先进的解决方案如Kafka来“分叉”或重放生产流量到测试产品中。也许最简单的解决方案是选择一个开源项目，比如[k6](https://k6.io)，它专为负载测试目的设计并经过实战检验。我将在[“Go
+    e2e Framework”](#ch-obs-macro-example)中展示使用k6的示例。
 - en: Continuous Integration (CI) and Continuous Deployment (CD)
+  id: totrans-318
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
+  zh: 持续集成（CI）和持续部署（CD）
 - en: Finally, we rarely run macrobenchmarks on local development machines for more
     complex systems. This means we might want to invest in automation that schedules
     the load test and deploys required components with the desired version.
+  id: totrans-319
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
+  zh: 最后，我们很少在本地开发机器上运行更复杂系统的宏基准测试。这意味着我们可能希望投资于自动化，以安排负载测试并部署所需版本的组件。
 - en: With such architecture, we can perform the efficiency analysis on a macro level.
     Our goals are similar to what we have for [“Microbenchmarks”](#ch-obs-micro),
     just on a more complex system, such as A/B testing and learning the space and
     runtime complexity of your system functionality. However, given that we are closer
     to how users use our system, we can also treat it as an acceptance test that will
     validate efficiency with our RAER.
+  id: totrans-320
   prefs: []
   type: TYPE_NORMAL
+  zh: 通过这样的架构，我们可以在宏观层面进行效率分析。我们的目标与我们为[“微基准”](#ch-obs-micro)设定的类似，只是在更复杂的系统上，比如A/B测试和了解系统功能的空间和运行时复杂性。然而，考虑到我们更接近用户如何使用我们的系统，我们也可以将其视为接受测试，以验证RAER的效率。
 - en: The theory is important, but how does it look in practice? Unfortunately, there
     is no consistent way of performing macrobenchmarks with Go, as it highly depends
     on your use case, environment, and goals. However, I would like to provide an
     example of a pragmatic and fast macrobenchmark of `labeler` that we can perform
     on our local development machine using Go code! So let’s dive into the next section.
+  id: totrans-321
   prefs: []
   type: TYPE_NORMAL
+  zh: 理论很重要，但在实践中是什么样子呢？不幸的是，使用Go执行宏基准测试没有一致的方法，因为它高度依赖于您的使用案例、环境和目标。然而，我想提供一个关于`labeler`的实用且快速的宏基准示例，我们可以在本地开发机上使用Go代码执行！所以让我们深入下一节。
 - en: Go e2e Framework
+  id: totrans-322
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: Go端到端框架
 - en: Backend macrobenchmarking does not necessarily always mean using the same deployment
     mechanism we have in production (e.g., Kubernetes). However, to reduce the feedback
     loop, we can try macrobenchmarking with all the required dependencies, dedicated
     load tester, and observability on our developer machine or small virtual machine
     (VM). In many cases, it might give you reliable enough results on a macro level.
+  id: totrans-323
   prefs: []
   type: TYPE_NORMAL
+  zh: 后端宏基准测试并不总是意味着使用与生产环境相同的部署机制（例如Kubernetes）。然而，为了减少反馈循环，我们可以尝试在开发者机器或小型虚拟机（VM）上执行所有必需的依赖项、专用负载测试器和可观察性的宏基准测试。在许多情况下，这可能会为您在宏观层面提供足够可靠的结果。
 - en: For experiments, you can manually deploy all the elements mentioned in [“Basics”](#ch-obs-macro-basics)
     on your machine. For example, you can write a bash script or [Ansible](https://oreil.ly/x9LTf)
     runbook. However, since we are Go developers looking to improve the efficiency
     of our code, what about implementing such a benchmark in Go code and saving it
     next to your benchmarked code?
+  id: totrans-324
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于实验，您可以在您的机器上手动部署[“Basics”](#ch-obs-macro-basics)中提到的所有元素。例如，您可以编写一个bash脚本或[Ansible](https://oreil.ly/x9LTf)
+    runbook。然而，由于我们是Go开发人员，希望提高代码的效率，那么在您的代码旁边实现这样一个基准测试如何呢？
 - en: For this purpose, I would like to introduce you to the [`e2e`](https://oreil.ly/f0IJo)
     Go framework that allows running interactive or automated experiments on a single
     machine using Go code and Docker containers. [The container](https://oreil.ly/aMXxz)
@@ -1805,77 +2502,111 @@
     software we want to run beforehand. Alternatively, we can build our container
     image and add required software like pre-build binary of our Go program, e.g.,
     `labeler`.
+  id: totrans-325
   prefs: []
   type: TYPE_NORMAL
+  zh: 为此，我想向您介绍 [`e2e`](https://oreil.ly/f0IJo) Go 框架，它允许使用 Go 代码和 Docker 容器在单台机器上运行交互式或自动化实验。[容器](https://oreil.ly/aMXxz)是一个概念，允许在安全隔离的沙箱环境中运行进程，同时重用主机的内核。在这个概念中，我们在预定义的容器镜像中执行软件。这意味着我们必须预先构建（或下载）要运行的软件的所需镜像。或者，我们可以构建我们自己的容器镜像，并添加像我们的
+    Go 程序的预构建二进制文件，例如 `labeler`。
 - en: A container is not a first-class citizen on any OS. Instead, it can be constructed
     with existing Linux mechanisms like `cgroups`, `namespaces`, and Linux Security
     Modules ([LSMs](https://oreil.ly/C4h3z)). Docker provides one implementation of
     the container engine, among others.^([28](ch08.html#idm45606826953008)) Containers
     are also heavily used for large cloud-native infrastructure thanks to orchestration
     systems like Kubernetes.
+  id: totrans-326
   prefs: []
   type: TYPE_NORMAL
+  zh: 在任何操作系统上，容器都不是第一等公民。相反，它可以使用现有的 Linux 机制构建，例如 `cgroups`、`namespaces` 和 Linux
+    安全模块（[LSMs](https://oreil.ly/C4h3z)）。Docker 提供了容器引擎的一个实现，以及其他一些选择。^([28](ch08.html#idm45606826953008))
+    多亏像 Kubernetes 这样的编排系统，容器在大型云原生基础设施中也被广泛使用。
 - en: To leverage all benefits of containers, run only one process per container!
     Putting more processes (e.g., local database) into one container is tempting.
     But that defies the point of observing and isolating containers. Tools like Kubernetes
     or Docker are designed for singular processes per container, so put auxiliary
     processes in sidecar containers.
+  id: totrans-327
   prefs: []
   type: TYPE_NORMAL
+  zh: 要利用容器的所有优势，每个容器只运行一个进程！将更多进程（例如本地数据库）放入一个容器中是诱人的。但这违背了观察和隔离容器的初衷。像 Kubernetes
+    或 Docker 这样的工具是为每个容器设计的单一进程，因此将辅助进程放在 sidecar 容器中。
 - en: Let’s go through a complete macrobenchmark implementation divided into two parts,
     Examples [8-19](#code-macrobench) and [8-20](#code-macrobench2), that assess latency
     and memory usage of our `labeler` service introduced in [“Basics”](#ch-obs-macro-basics).
     For convenience, our implementation can be scripted and executed as a normal `go
     test` guarded by `t.Skip` or [build tag](https://oreil.ly/tyue6) to execute it
     manually or in a different cadence than functional tests.^([30](ch08.html#idm45606826932640))
+  id: totrans-328
   prefs: []
   type: TYPE_NORMAL
+  zh: 让我们来完成一个完整的宏基准实现，分为两部分，示例[8-19](#code-macrobench)和[8-20](#code-macrobench2)，评估我们在[“基础知识”](#ch-obs-macro-basics)中介绍的
+    `labeler` 服务的延迟和内存使用。为了方便起见，我们的实现可以作为正常的 `go test` 脚本化和执行，通过 `t.Skip` 或 [构建标签](https://oreil.ly/tyue6)来手动执行，或者在不同的周期比功能测试更频繁地执行。^([30](ch08.html#idm45606826932640))
 - en: Example 8-19\. Go test running the macrobenchmark in interactive mode (part
     1)
+  id: totrans-329
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 例 8-19\. 在交互模式下运行宏基准的 Go 测试（第 1 部分）
 - en: '[PRE18]'
+  id: totrans-330
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE18]'
 - en: '[![1](assets/1.png)](#co_benchmarking_CO16-1)'
+  id: totrans-331
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_benchmarking_CO16-1)'
 - en: The e2e project is a Go module that allows the creation of end-to-end testing
     environments. It currently supports running the components (in any language) in
     [Docker containers](https://oreil.ly/iXrgX), which allows clean isolation for
     both filesystems, network, and observability. Containers can talk to each other
     but can’t connect with the host. Instead, the host can connect to the container
     via mapped `localhost` ports printed at the container start.
+  id: totrans-332
   prefs: []
   type: TYPE_NORMAL
+  zh: '`e2e` 项目是一个 Go 模块，允许创建端到端测试环境。目前支持在[Docker 容器](https://oreil.ly/iXrgX)中运行（任何语言的）组件，这样可以在文件系统、网络和可观察性方面进行清洁隔离。容器之间可以互相通信，但不能连接主机。相反，主机可以通过映射的
+    `localhost` 端口与容器连接。'
 - en: '[![2](assets/2.png)](#co_benchmarking_CO16-2)'
+  id: totrans-333
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_benchmarking_CO16-2)'
 - en: The `e2emonitoring.Start` method starts Prometheus and [cadvisor](https://oreil.ly/v9gEL).
     The latter translates cgroups related to our containers to Prometheus metric format
     so it can collect them. Prometheus will also automatically collect metrics from
     all containers started using `e2e.New​InstrumentedRunnable`.
+  id: totrans-334
   prefs: []
   type: TYPE_NORMAL
+  zh: '`e2emonitoring.Start` 方法启动 Prometheus 和[cadvisor](https://oreil.ly/v9gEL)。后者将我们容器相关的
+    cgroups 转换为 Prometheus 指标格式，以便收集它们。Prometheus 还将自动收集使用 `e2e.New​InstrumentedRunnable`
+    启动的所有容器的指标。'
 - en: '[![3](assets/3.png)](#co_benchmarking_CO16-3)'
+  id: totrans-335
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_benchmarking_CO16-3)'
 - en: For an interactive exploration of resource usage and application metrics, we
     can invoke `mon.OpenUserInterfaceInBrowser()` that will open the Prometheus UI
     in our browser (if running on a desktop).
+  id: totrans-336
   prefs: []
   type: TYPE_NORMAL
 - en: '[![4](assets/4.png)](#co_benchmarking_CO16-4)'
+  id: totrans-337
   prefs: []
   type: TYPE_NORMAL
 - en: '`Labeler` uses object storage dependency. As mentioned in [“Basics”](#ch-obs-macro-basics),
     I simplified this benchmark by focusing on `labeler` Go program efficiency without
     the impact of remote object storage. For that purpose, local `Minio` container
     is suitable.'
+  id: totrans-338
   prefs: []
   type: TYPE_NORMAL
 - en: '[![5](assets/5.png)](#co_benchmarking_CO16-5)'
+  id: totrans-339
   prefs: []
   type: TYPE_NORMAL
 - en: Finally, it’s time to start our `labeler` Go program in the container. It is
@@ -1883,33 +2614,42 @@
     to ensure our local benchmark is not saturating all the CPUs my machines have.
     Finally, we inject object storage configuration to connect with the local `minio`
     instance.
+  id: totrans-340
   prefs: []
   type: TYPE_NORMAL
 - en: '[![6](assets/6.png)](#co_benchmarking_CO16-6)'
+  id: totrans-341
   prefs: []
   type: TYPE_NORMAL
 - en: I used the `labeler:test` image that is built locally. I often add a script
     in `Makefile` to produce such an image, e.g., `make docker`. You risk forgetting
     to build the image with the desired Go program version you want to benchmark,
     so be mindful of what you are testing!
+  id: totrans-342
   prefs: []
   type: TYPE_NORMAL
 - en: Example 8-20\. Go test running the macrobenchmark in interactive mode (part
     2)
+  id: totrans-343
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
 - en: '[PRE19]'
+  id: totrans-344
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE19]'
 - en: '[![1](assets/1.png)](#co_benchmarking_CO17-1)'
+  id: totrans-345
   prefs: []
   type: TYPE_NORMAL
 - en: We have to upload some test data. In our simple test, we upload a single file
     with two million lines, using a similar pattern we used in [“Go Benchmarks”](#ch-obs-micro-go).
+  id: totrans-346
   prefs: []
   type: TYPE_NORMAL
 - en: '[![2](assets/2.png)](#co_benchmarking_CO17-2)'
+  id: totrans-347
   prefs: []
   type: TYPE_NORMAL
 - en: I choose `k6` as my load tester. `k6` works as a batch job, so I first have
@@ -1921,27 +2661,33 @@
     and results simple, let’s stick to one user for now to avoid simultaneous HTTP
     calls. The `-d` (short flag for `--duration`) is similar to the `-benchtime` flag
     in our [“Go Benchmarks”](#ch-obs-micro-go). See more tips about using [`k6` here](https://oreil.ly/AbLOD).
+  id: totrans-348
   prefs: []
   type: TYPE_NORMAL
 - en: '[![3](assets/3.png)](#co_benchmarking_CO17-3)'
+  id: totrans-349
   prefs: []
   type: TYPE_NORMAL
 - en: '`k6` accepts load-testing logic programmed in simple JavaScript code. My load
     test is simple. Make an HTTP `GET` call to the `labeler` path I want to benchmark.
     I choose to sleep 500 ms after each HTTP call to give the `labeler` server time
     to clean resources after each call.'
+  id: totrans-350
   prefs: []
   type: TYPE_NORMAL
 - en: '[![4](assets/4.png)](#co_benchmarking_CO17-4)'
+  id: totrans-351
   prefs: []
   type: TYPE_NORMAL
 - en: Similar to [“Test Your Benchmark for Correctness!”](#ch-obs-micro-corr), we
     have to test the output. If we trigger a bug in the `labeler` code or macrobenchmark
     implementation, we might be measuring the wrong thing! Using the `check` JavaScript
     functions allows us to assert the expected HTTP code and output.
+  id: totrans-352
   prefs: []
   type: TYPE_NORMAL
 - en: '[![5](assets/5.png)](#co_benchmarking_CO17-5)'
+  id: totrans-353
   prefs: []
   type: TYPE_NORMAL
 - en: We might want to add here the automatic assertion rules that pass these tests
@@ -1952,15 +2698,18 @@
     stops the `go test` benchmark until you hit the printed HTTP URL. It allows us
     to explore all outputs and our observability signals, e.g., collected metrics
     about `labeler` and the test in Prometheus.
+  id: totrans-354
   prefs: []
   type: TYPE_NORMAL
 - en: The code snippet might be long, but it’s relatively small and readable compared
     to how many things it orchestrates. On the other hand, it has to describe quite
     a complex macrobenchmark to configure and schedule five processes in one reliable
     benchmark with rich instrumentation for containers and internal Go metrics.
+  id: totrans-355
   prefs: []
   type: TYPE_NORMAL
 - en: Keep Your Container Images Versioned!
+  id: totrans-356
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -1970,6 +2719,7 @@
     realize after the second benchmark that you cannot compare it to the result of
     the first one because the dependency version changed, which might (or might not!)
     potentially impact the results.
+  id: totrans-357
   prefs: []
   type: TYPE_NORMAL
 - en: You can start the benchmark in [Example 8-19](#code-macrobench) either via your
@@ -1980,15 +2730,18 @@
     printed with summarized statistics around correctness and latency for our tested
     functionality. The test will stop when we hit the printed URL. If we do that,
     the test will remove all containers and the Docker network.
+  id: totrans-358
   prefs: []
   type: TYPE_NORMAL
 - en: Duration of Macrobenchmarks
+  id: totrans-359
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
 - en: 'In [“Go Benchmarks”](#ch-obs-micro-go), it was often enough to run a benchmark
     for 5–15 seconds. Why do I choose to run the macro load test for five minutes?
     Two main reasons:'
+  id: totrans-360
   prefs: []
   type: TYPE_NORMAL
 - en: Generally, the more complex functionality we benchmark, the more time and iterations
@@ -1998,6 +2751,7 @@
     we run a full `labeler` process, so we want to see how the Go GC will cope with
     the `labeler` work. However, to see the frequency, the impact of GC, and maximum
     memory usage, we need to run our program longer under stress.
+  id: totrans-361
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -2006,51 +2760,77 @@
     Prometheus collection (scrape) interval is around 15 to 30 s. As a result, we
     might want to run our test through a couple of collection periods to obtain accurate
     measurements while also sharing the same observability as production.
+  id: totrans-362
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 为了在生产环境中实现可持续且更经济的可观察性和监控，我们避免过于频繁地测量应用程序的状态。这就是为什么推荐的 Prometheus 收集（抓取）间隔大约在
+    15 到 30 秒左右。因此，我们可能希望通过几个收集周期来运行我们的测试，以获得准确的测量结果，同时与生产环境共享相同的可观察性。
 - en: In the next section, I will go through the outputs this experiment gives us
     and potential observations we can make.
+  id: totrans-363
   prefs: []
   type: TYPE_NORMAL
+  zh: 在接下来的章节中，我将详细介绍此实验给我们带来的输出及可能的观察。
 - en: Understanding Results and Observations
+  id: totrans-364
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 理解结果与观察
 - en: As we saw in [“Understanding the Results”](#ch-obs-micro-res), experimenting
     is only half of the success. The second half is to correctly interpret the results.
     After running [Example 8-19](#code-macrobench) for around seven minutes, we should
     see `k6` output^([31](ch08.html#idm45606826232800)) that might look like [Example 8-21](#code-macrobench-k6-out).
+  id: totrans-365
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如我们在 [“理解结果”](#ch-obs-micro-res) 中所看到的，实验只是成功的一半。另一半是正确解读结果。在运行约七分钟的 [Example 8-19](#code-macrobench)
+    后，我们应该看到类似 [Example 8-21](#code-macrobench-k6-out) 的 `k6` 输出^([31](ch08.html#idm45606826232800))。
 - en: Example 8-21\. Last 24 lines of the macrobenchmark output from a 7-minute test
     with one virtual user (VUS) using `k6`
+  id: totrans-366
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 8-21\. 在使用 `k6` 进行一次虚拟用户（VUS）7分钟测试的宏基准输出的最后 24 行。
 - en: '[PRE20]'
+  id: totrans-367
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE20]'
 - en: '[![1](assets/1.png)](#co_benchmarking_CO18-1)'
+  id: totrans-368
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_benchmarking_CO18-1)'
 - en: Check this line to ensure you measure successful calls!
+  id: totrans-369
   prefs: []
   type: TYPE_NORMAL
+  zh: 检查这一行以确保您测量了成功的调用！
 - en: '[![2](assets/2.png)](#co_benchmarking_CO18-2)'
+  id: totrans-370
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_benchmarking_CO18-2)'
 - en: '`http_req_duration` is the most important measurement if we want to track the
     latency of the total HTTP request latency.'
+  id: totrans-371
   prefs: []
   type: TYPE_NORMAL
+  zh: '`http_req_duration` 是如果我们想要追踪总 HTTP 请求延迟的最重要的测量值。'
 - en: '[![3](assets/3.png)](#co_benchmarking_CO18-4)'
+  id: totrans-372
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_benchmarking_CO18-4)'
 - en: It’s also important to note the total number of calls we made (the more iterations
     we have, the more reliable it will be).
+  id: totrans-373
   prefs: []
   type: TYPE_NORMAL
+  zh: 还需要注意我们所做的总调用次数（迭代次数越多，可靠性越高）。
 - en: From the client’s perspective, the `k6` results can tell us much about the achieved
     throughput and latencies of different HTTP stages. It seems that with just one
     “worker” calling our method and waiting 500 ms, we reached around 1.6 calls per
@@ -2064,8 +2844,15 @@
     in this case, we should try to optimize `Sum`. We will learn how to verify that
     percentage and identify other bottlenecks in [Chapter 9](ch09.html#ch-observability3)
     with tools like profiling.
+  id: totrans-374
   prefs: []
   type: TYPE_NORMAL
+  zh: 从客户端的角度来看，`k6` 的结果可以告诉我们有关不同 HTTP 阶段的吞吐量和延迟的情况。看起来，只需一个“worker”调用我们的方法并等待 500
+    毫秒，我们就达到了每秒约 1.6 次调用 (`http_reqs`) 和平均客户端延迟为 128.9 毫秒 (`http_req_duration`)。正如我们在
+    [“延迟”](ch06.html#ch-obs-latency) 中所学到的，尾延迟对于延迟测量可能更为重要。为此，`k6` 也计算了百分位数，这表明 90%
+    的请求 (`p90`) 比 160 毫秒快。我们在 [“Go Benchmarks”](#ch-obs-micro-go) 中了解到，这个过程中涉及的 `Sum`
+    函数平均需要 79 毫秒，这意味着它占据了平均延迟甚至总体 `p90` 延迟的大部分。如果我们关心优化延迟，我们应该尝试优化 `Sum`。我们将学习如何通过像性能分析这样的工具在
+    [第 9 章](ch09.html#ch-observability3) 中验证这一百分比并识别其他瓶颈。
 - en: Another important result we should check is the variance of our runs. I wish
     `k6` provided out-of-the-box variance calculation because it’s hard to tell how
     repeatable our iterations were without it. For example, we see that the fastest
@@ -2080,6 +2867,7 @@
     important, as the same [“Reliability of Experiments”](ch07.html#ch-obs-rel) aspects
     apply to macrobenchmarks. If our results are not repeatable, we might want to
     improve our testing environment, reduce the number of unknowns, or test longer.
+  id: totrans-375
   prefs: []
   type: TYPE_NORMAL
 - en: The `k6` output is not everything we have! The beauty of macrobenchmarks with
@@ -2092,13 +2880,16 @@
     on our goals and the RAER (see [“Efficiency-Aware Development Flow”](ch03.html#ch-conq-eff-flow)),
     for example, the metrics we discussed in [“Efficiency Metrics Semantics”](ch06.html#ch-obs-semantics)
     and more.
+  id: totrans-376
   prefs: []
   type: TYPE_NORMAL
 - en: Let’s go through some metric visualizations I could see in Prometheus after
     my run.
+  id: totrans-377
   prefs: []
   type: TYPE_NORMAL
 - en: Server-side latency
+  id: totrans-378
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -2109,13 +2900,16 @@
     we may want or don’t want to account for in our results. If we don’t, we can query
     Prometheus for the average request duration server handled for our `/label_object`
     path, as presented in [Figure 8-2](#img-macrobench-avglat).
+  id: totrans-379
   prefs: []
   type: TYPE_NORMAL
 - en: '![efgo 0803](assets/efgo_0803.png)'
+  id: totrans-380
   prefs: []
   type: TYPE_IMG
 - en: Figure 8-2\. Dividing `http_request_duration_seconds` histogram sum by count
     rates to obtain server-side latency
+  id: totrans-381
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
@@ -2123,9 +2917,11 @@
     The observed average latency is around 0.12–0.15 seconds, depending on the moment.
     The metric comes from manually created HTTP middleware I added in Go using the
     [`prometheus/client_golang` library](https://oreil.ly/j1k4E).^([32](ch08.html#idm45606826182432))
+  id: totrans-382
   prefs: []
   type: TYPE_NORMAL
 - en: Prometheus Rate Duration
+  id: totrans-383
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -2134,6 +2930,7 @@
     a 15-second scrape, 1 minute should have enough samples for `rate` to make sense,
     but also I can see more details in my metric value with one-time minute window
     granularity.
+  id: totrans-384
   prefs: []
   type: TYPE_NORMAL
 - en: 'When it comes to the server-side percentile, we rely on a bucketed histogram.
@@ -2142,13 +2939,16 @@
     of benchmark, the buckets were defined in `labeler` as follows: `0.001, 0.01,
     0.1, 0.3, 0.6, 1, 3, 6, 9, 20, 30, 60, 90, 120, 240, 360, 720`. As a result, we
     can only tell that 90% of requests were faster than 300 ms, as presented in [Figure 8-3](#img-macrobench-p90).'
+  id: totrans-385
   prefs: []
   type: TYPE_NORMAL
 - en: '![efgo 0804](assets/efgo_0804.png)'
+  id: totrans-386
   prefs: []
   type: TYPE_IMG
 - en: Figure 8-3\. Using the `http_request_duration_seconds` histogram to calculate
     the `p90` quantile of the `/label_object` request
+  id: totrans-387
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
@@ -2156,9 +2956,11 @@
     a new sparse histogram feature in the upcoming Prometheus 2.40 version. The default
     buckets work well in cases when we don’t care if the request was handled in 100
     ms or 300 ms, but we care if it was suddenly 1 second.
+  id: totrans-388
   prefs: []
   type: TYPE_NORMAL
 - en: CPU time
+  id: totrans-389
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -2168,19 +2970,23 @@
     we learned in [Chapter 4](ch04.html#ch-hardware), higher latency of our iterations
     might be a result of the CPU saturation—our program using all available CPU cores
     (or close to the limit), in effect slowing the execution of all goroutines.
+  id: totrans-390
   prefs: []
   type: TYPE_NORMAL
 - en: In our benchmark we can use either the Go runtime `process_cpu_seconds_total`
     counter or the `cadvisor` `container_cpu_usage_seconds_total` counter to find
     that number. This is because `labeler` is the only process in its container. Both
     metrics look similar, with the latter presented in [Figure 8-4](#img-macrobench-cpu).
+  id: totrans-391
   prefs: []
   type: TYPE_NORMAL
 - en: '![efgo 0805](assets/efgo_0805.png)'
+  id: totrans-392
   prefs: []
   type: TYPE_IMG
 - en: Figure 8-4\. Using the `container_cpu_usage_seconds_total` counter to assess
     `labeler` CPU usage
+  id: totrans-393
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
@@ -2197,9 +3003,11 @@
     tasks, like listening to signal, metric collection, GC, and HTTP background goroutines.
     Again, see [“Profiling in Go”](ch09.html#ch-obs-profiling) as the best way to
     tell exactly what’s taking the CPU here.
+  id: totrans-394
   prefs: []
   type: TYPE_NORMAL
 - en: Memory
+  id: totrans-395
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -2210,12 +3018,14 @@
     we mentioned in [“Microbenchmarks Versus Memory Management”](#ch-obs-micro-mem)
     that only on the macro level do we have a chance to learn more about GC impact
     and maximum memory usage of our `labeler` process.
+  id: totrans-396
   prefs: []
   type: TYPE_NORMAL
 - en: Looking at the heap metric presented in [Figure 8-5](#img-macrobench-heap),
     we can observe that a single `/label_object` is using the nontrivial amount of
     memory. This is not unexpected after seeing the `Sum` function microbenchmarks
     results in [Example 8-7](#code-sum-go-bench-benchstat2) showing 60.8 MB per iteration.
+  id: totrans-397
   prefs: []
   type: TYPE_NORMAL
 - en: This observation shows us the eventuality of GC that might cause problems. Given
@@ -2226,13 +3036,16 @@
     call before the second call started. If we account for spikes, the overall maximum
     heap size is stable at around 120 MB, which should tell us there are no immediate
     memory leaks.^([34](ch08.html#idm45606826132608))
+  id: totrans-398
   prefs: []
   type: TYPE_NORMAL
 - en: '![efgo 0806](assets/efgo_0806.png)'
+  id: totrans-399
   prefs: []
   type: TYPE_IMG
 - en: Figure 8-5\. Using the `go_memstats_heap_alloc_bytes` gauge to assess `labeler`
     heap usage
+  id: totrans-400
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
@@ -2242,13 +3055,16 @@
     for goroutine stacks, manually created memory maps, and kernel cache (e.g., for
     file access) requires the OS to reserve more pages on the physical memory. We
     can see that when we look at our container-level RSS metric presented in [Figure 8-6](#img-macrobench-rss).
+  id: totrans-401
   prefs: []
   type: TYPE_NORMAL
 - en: '![efgo 0807](assets/efgo_0807.png)'
+  id: totrans-402
   prefs: []
   type: TYPE_IMG
 - en: Figure 8-6\. Using the `container_memory_rss` gauge to assess `labeler` physical
     RAM usage
+  id: totrans-403
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
@@ -2256,6 +3072,7 @@
     were more or less the size of the heap and returned to a smaller level as soon
     as the test finished. So we can assess that `labeler` requires around 130 MB of
     memory for this load.
+  id: totrans-404
   prefs: []
   type: TYPE_NORMAL
 - en: To sum up, we assessed the efficiency of latency and resources like CPU and
@@ -2263,9 +3080,11 @@
     efficiency goals like disk, network, I/O devices, DB usage, and more. The `k6`
     configuration was straightforward in our test—single worker and sequential calls
     with a pause. Let’s explore other variations and possibilities in the next section.
+  id: totrans-405
   prefs: []
   type: TYPE_NORMAL
 - en: Common Macrobenchmarking Workflows
+  id: totrans-406
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -2274,32 +3093,38 @@
     dependencies, and set up and use pragmatic observability for efficiency analysis.
     On top of that, you can expand such local `e2e` tests in the direction you and
     your project need based on the efficiency goals. For example:'
+  id: totrans-407
   prefs: []
   type: TYPE_NORMAL
 - en: Load test your system with more than one worker to assess how many resources
     it takes to sustain a given request per second (RPS) rate while sustaining a desired
     `p90` latency.^([36](ch08.html#idm45606826102992))
+  id: totrans-408
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Run `k6` or other load-testing tools to simulate realistic client traffic in
     a different location.
+  id: totrans-409
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Deploy the macrobenchmark on remote servers, perhaps with the same hardware
     as your production.
+  id: totrans-410
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Deploy dependencies in a remote location; e.g., in our `labeler` example, use
     the [AWS S3 service](https://oreil.ly/pzeua) instead of the local object storage
     instance.
+  id: totrans-411
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Scale out your macro test and services to multiple replicas to check if the
     traffic can be load balanced properly, so the system’s efficiency stays predictable.
+  id: totrans-412
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -2308,42 +3133,50 @@
     For example, for myself and the teams I worked with, the process of designing
     and using the macrobenchmark like in [“Go e2e Framework”](#ch-obs-macro-example)
     might look as follows:'
+  id: totrans-413
   prefs: []
   type: TYPE_NORMAL
 - en: As a team, we plan the macrobenchmark elements, dependencies, what aspects we
     want to benchmark, and what load we want to put on it.
+  id: totrans-414
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: I ensure a clean code state for `labeler` and macrobenchmark code. I commit
     all the changes to know what I am testing and with what benchmark. Let’s say we
     end up with a benchmark as in [“Go e2e Framework”](#ch-obs-macro-example).
+  id: totrans-415
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: Before starting the benchmark, I create a shared Google Document^([37](ch08.html#idm45606826088720))
     and note all the experiment details like environmental conditions and software
     version.
+  id: totrans-416
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: 'I perform the benchmark to assess the efficiency of a given program version:'
+  id: totrans-417
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: I run my macrobenchmarks, e.g., by starting the `go test` with the Go e2e framework
     (see [“Go e2e Framework”](#ch-obs-macro-example)) in Goland IDE and waiting until
     the load test finishes.
+  id: totrans-418
   prefs:
   - PREF_IND
   - PREF_UL
   type: TYPE_NORMAL
 - en: I confirm no functional errors are present.
+  id: totrans-419
   prefs:
   - PREF_IND
   - PREF_UL
   type: TYPE_NORMAL
 - en: I save the `k6` results to Google Documents.
+  id: totrans-420
   prefs:
   - PREF_IND
   - PREF_UL
@@ -2352,12 +3185,14 @@
     heap and RSS to assess memory efficiency. I capture screenshots and paste them
     to my Google document.^([38](ch08.html#idm45606826080928)) Finally, I note all
     conclusions I made.
+  id: totrans-421
   prefs:
   - PREF_IND
   - PREF_UL
   type: TYPE_NORMAL
 - en: Optionally, I gather profiles for the [“Profiling in Go”](ch09.html#ch-obs-profiling)
     process.
+  id: totrans-422
   prefs:
   - PREF_IND
   - PREF_UL
@@ -2366,6 +3201,7 @@
     it and save it as a new `git` commit. Then I benchmark again (see step 5) and
     save the new results to the same Google Doc under a different version, so I can
     compare my A/B test later on.
+  id: totrans-423
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
@@ -2378,6 +3214,7 @@
     There is no single consistent procedure and framework for macrobenchmarking, and
     it all highly depends on the type of software, production conditions, and price
     you want to invest in to ensure your product’s efficiency.
+  id: totrans-424
   prefs: []
   type: TYPE_NORMAL
 - en: It’s also worth mentioning that macrobenchmarking is not so far from [“Benchmarking
@@ -2388,9 +3225,11 @@
     in a production environment is to assure the quality of the production users—either
     by ensuring basic qualities of a new software version on different testing and
     benchmarking levels, or by leveraging beta testers or canary deployments.
+  id: totrans-425
   prefs: []
   type: TYPE_NORMAL
 - en: Summary
+  id: totrans-426
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -2399,25 +3238,30 @@
     to optimize our software further, what to optimize if we have to, and how much.
     Moreover, both micro- and macrobenchmarks are also invaluable in other aspects
     of software development connected to efficiency like capacity planning and scalability.^([39](ch08.html#idm45606826071280))
+  id: totrans-427
   prefs: []
   type: TYPE_NORMAL
 - en: In my daily career in software development, I lean heavily on micro- and macrobenchmarks.
     Thanks to the micro-level fast feedback loop, I often do them for smaller functions
     in the critical path to decide how the implementation should go. They are easy
     to write and easy to delete.
+  id: totrans-428
   prefs: []
   type: TYPE_NORMAL
 - en: 'Macrobenchmarks require more investment, so I especially recommend creating
     and doing such benchmarks:'
+  id: totrans-429
   prefs: []
   type: TYPE_NORMAL
 - en: As an acceptance test against the RAER assessment of the entire system after
     a bigger feature or release.
+  id: totrans-430
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: When debugging and optimizing regressions or incidents that trigger efficiency
     problems.
+  id: totrans-431
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -2426,14 +3270,17 @@
     However, during that benchmark, we can also perform profiling of our Go program
     to deduce the main efficiency bottlenecks. Let’s see how to do that in action
     in the next chapter!
+  id: totrans-432
   prefs: []
   type: TYPE_NORMAL
 - en: ^([1](ch08.html#idm45606829538272-marker)) For bigger projects, I would suggest
     adding the *_bench_test.go* suffix for an easier way of discovering benchmarks.
+  id: totrans-433
   prefs: []
   type: TYPE_NORMAL
 - en: ^([2](ch08.html#idm45606829527136-marker)) It is well explained in the [testing
     package’s Example documentation](https://oreil.ly/PRrlW).
+  id: totrans-434
   prefs: []
   type: TYPE_NORMAL
 - en: ^([3](ch08.html#idm45606829392480-marker)) If we would remove `b.N` completely,
@@ -2442,42 +3289,50 @@
     exceed 1 second as it does not depend on `b.N`. Such a benchmark will stop at
     `b.N` being equal to 1 billion iterations, but with just a single iteration being
     executed, the benchmark results will be wrong.
+  id: totrans-435
   prefs: []
   type: TYPE_NORMAL
 - en: ^([4](ch08.html#idm45606829378320-marker)) As mentioned earlier, microbenchmarks
     are always based on some amount of assumptions; we cannot simulate everything
     in such a small test.
+  id: totrans-436
   prefs: []
   type: TYPE_NORMAL
 - en: ^([5](ch08.html#idm45606829377392-marker)) Note that it definitely will not
     take 29 nanoseconds for a benchmark with a single integer. This number is a latency
     we see for a larger number of integers.
+  id: totrans-437
   prefs: []
   type: TYPE_NORMAL
 - en: ^([6](ch08.html#idm45606829374944-marker)) Note that it is acceptable to change
     test data in future versions of our program and benchmark. Usually, our optimizations
     over time make our test dataset “too small,” so we can increase it over time to
     spot different problems if we need to optimize further.
+  id: totrans-438
   prefs: []
   type: TYPE_NORMAL
 - en: ^([7](ch08.html#idm45606829214608-marker)) As explained previously, note that
     the full benchmarking process can take longer than 10 seconds because the Go framework
     will try to find a correct number of iterations. The more variance in the test
     results—potentially the longer the test will last.
+  id: totrans-439
   prefs: []
   type: TYPE_NORMAL
 - en: ^([8](ch08.html#idm45606829011072-marker)) You can also provide multiple numbers
     after a comma. For example, `-cpu=1,2,3` will run a test with `GOMAXPROCS` set
     to 1, then to 2, and the third run with 3 CPUs.
+  id: totrans-440
   prefs: []
   type: TYPE_NORMAL
 - en: ^([9](ch08.html#idm45606828985008-marker)) The internal representation of that
     format can be explored by looking at [`BenchmarkResult` type](https://oreil.ly/90wO2).
+  id: totrans-441
   prefs: []
   type: TYPE_NORMAL
 - en: ^([10](ch08.html#idm45606828962032-marker)) Things like the Go version, Linux
     kernel version, other processes running at the same time, CPU mode, etc. Unfortunately,
     the full list is almost impossible to capture.
+  id: totrans-442
   prefs: []
   type: TYPE_NORMAL
 - en: ^([11](ch08.html#idm45606828942480-marker)) The Go testing framework does not
@@ -2486,6 +3341,7 @@
     so with more processes in the system, the four CPUs, in my case, are not fully
     reserved for the benchmark. On top of that, programmatic changes to `runtime.GOMAXPROCS`
     are not reflected here.
+  id: totrans-443
   prefs: []
   type: TYPE_NORMAL
 - en: ^([12](ch08.html#idm45606828737680-marker)) Make sure to strictly control the
@@ -2493,6 +3349,7 @@
     Go version might create misleading results. For example, you can build a binary
     and add a suffix to its name with the `git` hash of the version of your source
     code.
+  id: totrans-444
   prefs: []
   type: TYPE_NORMAL
 - en: ^([13](ch08.html#idm45606828728032-marker)) This is especially important for
@@ -2500,77 +3357,93 @@
     and it’s part of the normal program life cycle. For example, I often worked with
     code that was fast for database writes, but was allocating an extreme amount of
     memory on failed runs, causing cascading failures.
+  id: totrans-445
   prefs: []
   type: TYPE_NORMAL
 - en: ^([14](ch08.html#idm45606828555728-marker)) In my benchmarks, on my machine,
     this instruction alone takes 244 ns and allocates zero bytes.
+  id: totrans-446
   prefs: []
   type: TYPE_NORMAL
 - en: ^([15](ch08.html#idm45606828553248-marker)) Profiling, explained in [“Profiling
     in Go”](ch09.html#ch-obs-profiling), can also help determine how much your benchmark
     affects those overheads.
+  id: totrans-447
   prefs: []
   type: TYPE_NORMAL
 - en: ^([16](ch08.html#idm45606828507296-marker)) Note that `TB` is my own invention
     and it’s not common or recommended by the Go community, so use with care!
+  id: totrans-448
   prefs: []
   type: TYPE_NORMAL
 - en: ^([17](ch08.html#idm45606828284848-marker)) In fact, we should not even trust
     ourselves there! A second careful reviewer is always a good idea.
+  id: totrans-449
   prefs: []
   type: TYPE_NORMAL
 - en: ^([18](ch08.html#idm45606828161072-marker)) Note that the `t.TempDir` and `b.TempDir`
     methods create a new, unique directory every time they are invoked!
+  id: totrans-450
   prefs: []
   type: TYPE_NORMAL
 - en: ^([19](ch08.html#idm45606827504960-marker)) For longer microbenchmarks, you
     might see the GC latency. Some tutorials also recommend running [microbenchmarks
     without GC](https://oreil.ly/7v3oE) (using `GOGC=off`), but I found this not useful
     in practice. Ideally, move to the macro level to understand the full impact.
+  id: totrans-451
   prefs: []
   type: TYPE_NORMAL
 - en: ^([20](ch08.html#idm45606827483632-marker)) Unless you run with the parallel
     option I discouraged in [“Performance Nondeterminism”](ch07.html#ch-obs-rel-unkn).
+  id: totrans-452
   prefs: []
   type: TYPE_NORMAL
 - en: ^([21](ch08.html#idm45606827468608-marker)) The idea behind this function comes
     from amazing Dave’s [tutorial](https://oreil.ly/BKZfr) and [issue 14813](https://oreil.ly/m3Yiy),
     with some modifications.
+  id: totrans-453
   prefs: []
   type: TYPE_NORMAL
 - en: ^([22](ch08.html#idm45606827194896-marker)) I am not discouraging microbenchmarks
     on super low-level functions. You can still compare things, but be mindful that
     production numbers might surprise you.
+  id: totrans-454
   prefs: []
   type: TYPE_NORMAL
 - en: ^([23](ch08.html#idm45606827192512-marker)) This does not mean that the future
     Go compiler won’t be able to be smarter and consider optimization with global
     variables.
+  id: totrans-455
   prefs: []
   type: TYPE_NORMAL
 - en: ^([24](ch08.html#idm45606827188416-marker)) The `sink` pattern is also popular
     in C++ for [the same reasons](https://oreil.ly/UpGFo).
+  id: totrans-456
   prefs: []
   type: TYPE_NORMAL
 - en: ^([25](ch08.html#idm45606827011232-marker)) Object storage is cheap cloud storage
     with simple APIs for uploading objects and reading them or their byte ranges.
     It treats all data in the form of objects with a certain ID that typically looks
     similar to the file path.
+  id: totrans-457
   prefs: []
   type: TYPE_NORMAL
 - en: ^([26](ch08.html#idm45606827007440-marker)) You can find simplified microservice
     code in the [`labeler` package](https://oreil.ly/myFWw).
+  id: totrans-458
   prefs: []
   type: TYPE_NORMAL
 - en: ^([27](ch08.html#idm45606826978976-marker)) One common pitfall is to implement
     inefficient load-testing code. There is a risk that your application does not
     allow the throughput you want only because the client is not sending the traffic
     fast enough!
+  id: totrans-459
   prefs: []
   type: TYPE_NORMAL
 - en: ^([28](ch08.html#idm45606826953008-marker)) This space expanded quite quickly
     with two separate specifications (CRI and OCI) and various implementations of
     various parts of the container ecosystem. Read more about it [here](https://oreil.ly/yKSL8).
+  id: totrans-460
   prefs: []
   type: TYPE_NORMAL
 - en: ^([29](ch08.html#idm45606826944448-marker)) This is often underestimated. Creating
@@ -2578,26 +3451,32 @@
     takes a nontrivial amount of work. If our local testing and production environment
     share the same metrics and other signals, it saves us a lot of time and increases
     the chances our observability is high quality.
+  id: totrans-461
   prefs: []
   type: TYPE_NORMAL
 - en: ^([30](ch08.html#idm45606826932640-marker)) You can run this code yourself or
     explore the `e2e` framework to see how it configures all components [here](https://oreil.ly/ftAY1).
+  id: totrans-462
   prefs: []
   type: TYPE_NORMAL
 - en: ^([31](ch08.html#idm45606826232800-marker)) There is also a way to push those
     results directly to [Prometheus](https://oreil.ly/1UdNR).
+  id: totrans-463
   prefs: []
   type: TYPE_NORMAL
 - en: ^([32](ch08.html#idm45606826182432-marker)) See the [example code](https://oreil.ly/22YQp)
     that `labeler` uses.
+  id: totrans-464
   prefs: []
   type: TYPE_NORMAL
 - en: ^([33](ch08.html#idm45606826151952-marker)) 128.9 ms divided by 128.9+500 milliseconds
     to tell what portion of time the load tester was actively load-testing.
+  id: totrans-465
   prefs: []
   type: TYPE_NORMAL
 - en: ^([34](ch08.html#idm45606826132608-marker)) Looking on `go_goroutines` also
     helps. If we see a visible trend, we might forget to close some resources.
+  id: totrans-466
   prefs: []
   type: TYPE_NORMAL
 - en: ^([35](ch08.html#idm45606826124784-marker)) The solution is to use counters.
@@ -2605,16 +3484,19 @@
     and dividing it by the rate of bytes released by the GC. Unfortunately, the Prometheus
     Go collector does not expose such metrics. Go [allows us to get this information](https://oreil.ly/Noqnp),
     so it is possible to get it added in the future.
+  id: totrans-467
   prefs: []
   type: TYPE_NORMAL
 - en: ^([36](ch08.html#idm45606826102992-marker)) For bigger tests, consider making
     sure your load tester has enough resources. For `k6`, see [this guide](https://oreil.ly/v4DGs).
+  id: totrans-468
   prefs: []
   type: TYPE_NORMAL
 - en: ^([37](ch08.html#idm45606826088720-marker)) Any other medium like Jira ticket
     comments or GitHub issue works too. Just ensure you can easily paste screenshots
     so it’s less fuss and there are fewer occasions to make mistakes on what screenshot
     was for what experiment!
+  id: totrans-469
   prefs: []
   type: TYPE_NORMAL
 - en: ^([38](ch08.html#idm45606826080928-marker)) Don’t just make it all screenshots
@@ -2622,10 +3504,12 @@
     in Google Documents, as it’s easy to forget later what situation you were capturing.
     Additionally, I saw many incidents of thinking screenshots were saved in my laptop’s
     local directory, then losing all benchmarking results.
+  id: totrans-470
   prefs: []
   type: TYPE_NORMAL
 - en: '^([39](ch08.html#idm45606826071280-marker)) Explained well in [Martin Kleppmann’s
     book *Designing Data-Intensive Applications: The Big Ideas Behind Reliable, Scalable,
     and Maintainable Systems*](https://oreil.ly/M9RYQ) (O’Reilly).'
+  id: totrans-471
   prefs: []
   type: TYPE_NORMAL
