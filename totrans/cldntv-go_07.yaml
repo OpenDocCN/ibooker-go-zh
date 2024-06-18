@@ -1,112 +1,162 @@
 - en: Chapter 5\. Building a Cloud Native Service
+  id: totrans-0
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 第5章。构建云原生服务
 - en: Life was simple before World War II. After that, we had systems.^([1](ch05.xhtml#idm45983635901544))
+  id: totrans-1
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: 二战前生活简单。之后，我们有了系统。^([1](ch05.xhtml#idm45983635901544))
 - en: ''
+  id: totrans-2
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: Grace Hopper, OCLC Newsletter (1987)
+  id: totrans-3
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: Grace Hopper，《OCLC Newsletter》（1987年）
 - en: In this chapter, our real work finally begins.
+  id: totrans-4
   prefs: []
   type: TYPE_NORMAL
+  zh: 在本章中，我们的真正工作终于开始了。
 - en: We’ll weave together many of the materials discussed throughout [Part II](part02.xhtml#part_2)
     to create a service that will serve as the jumping-off point for the remainder
     of the book. As we go forward, we’ll iterate on what we begin here, adding layers
     of functionality with each chapter until, at the conclusion, we have ourselves
     a true cloud native application.
+  id: totrans-5
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们将整合讨论过的许多材料，创建一个服务，作为本书其余部分的起点。随着我们的进行，我们将在这里开始的基础上进行迭代，每一章都添加功能层，直到最后，我们将拥有一个真正的云原生应用程序。
 - en: Naturally, it won’t be “production ready”—it will be missing important security
     features, for example—but it will provide a solid foundation for us to build upon.
+  id: totrans-6
   prefs: []
   type: TYPE_NORMAL
+  zh: 当然，它不会“生产就绪”——例如，它将缺少重要的安全功能——但它将为我们提供一个坚实的基础来构建。
 - en: But what do we build?
+  id: totrans-7
   prefs: []
   type: TYPE_NORMAL
+  zh: 那我们要构建什么？
 - en: Let’s Build a Service!
+  id: totrans-8
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 让我们构建一个服务！
 - en: Okay. So. We need something to build.
+  id: totrans-9
   prefs: []
   type: TYPE_NORMAL
+  zh: 好的。所以。我们需要建立一些东西。
 - en: It should be conceptually simple, straightforward enough to implement in its
     most basic form, but non-trivial and amenable to scaling and distributing. Something
     that we can iteratively refine over the remainder of the book. I put a lot of
     thought into this, considering different ideas for what our application would
     be, but in the end the answer was obvious.
+  id: totrans-10
   prefs: []
   type: TYPE_NORMAL
+  zh: 它应该在概念上简单，足够直接地以其最基本的形式实现，但是复杂且适合扩展和分布。我们可以在本书的其余部分逐步完善它。我对此进行了深思熟虑，考虑了我们的应用程序将是什么不同的想法，但最终答案显而易见。
 - en: We’ll build ourselves a distributed key-value store.
+  id: totrans-11
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们将构建一个分布式键值存储。
 - en: What’s a Key-Value Store?
+  id: totrans-12
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 什么是键值存储？
 - en: A key-value store is a kind of nonrelational database that stores data as a
     collection of key-value pairs. They’re very different from the better-known relational
     databases, like Microsoft SQL Server or PostgreSQL, that we know and love.^([2](ch05.xhtml#idm45983635889304))
     Where relational databases structure their data among fixed tables with well-defined
     data types, key-value stores are far simpler, allowing users to associate a unique
     identifier (the key) with an arbitrary value.
+  id: totrans-13
   prefs: []
   type: TYPE_NORMAL
+  zh: 键值存储是一种非关系数据库，它将数据存储为一组键值对。它们与我们熟知和喜爱的更为知名的关系数据库（如Microsoft SQL Server或PostgreSQL）非常不同。^([2](ch05.xhtml#idm45983635889304))
+    在关系数据库将数据结构化到固定表和定义良好的数据类型之中时，键值存储则简单得多，允许用户将唯一标识符（键）与任意值关联起来。
 - en: In other words, at its heart, a key-value store is really just a map with a
     service endpoint, as shown in [Figure 5-1](#img_ch05_minimal_kvs). They’re the
     simplest possible database.
+  id: totrans-14
   prefs: []
   type: TYPE_NORMAL
+  zh: 换句话说，在其核心，键值存储实际上只是具有服务端点的映射，如[图5-1](#img_ch05_minimal_kvs)所示。它们是可能的最简单的数据库。
 - en: '![cngo 0501](Images/cngo_0501.png)'
+  id: totrans-15
   prefs: []
   type: TYPE_IMG
+  zh: '![cngo 0501](Images/cngo_0501.png)'
 - en: Figure 5-1\. A key-value store is essentially a map with a service endpoint
+  id: totrans-16
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图5-1\. 键值存储本质上是具有服务端点的映射
 - en: Requirements
+  id: totrans-17
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 需求
 - en: By the end of this chapter, we’re going to have built a simple, nondistributed
     key-value store that can do all of the things that a (monolithic) key-value store
     should do.
+  id: totrans-18
   prefs: []
   type: TYPE_NORMAL
+  zh: 到本章末尾，我们将建立一个简单的、非分布式的键值存储，它可以执行一个（单体）键值存储应该做的所有事情。
 - en: It must be able to store arbitrary key-value pairs.
+  id: totrans-19
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 它必须能够存储任意的键值对。
 - en: It must provide service endpoints that allow a user to put, get, and delete
     key-value pairs.
+  id: totrans-20
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 它必须提供服务端点，允许用户放置、获取和删除键值对。
 - en: It must be able to persistently store its data in some fashion.
+  id: totrans-21
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 它必须能够以某种方式持久地存储其数据。
 - en: Finally, we’d like the service to be idempotent. But why?
+  id: totrans-22
   prefs: []
   type: TYPE_NORMAL
+  zh: 最后，我们希望服务是幂等的。但是为什么？
 - en: What Is Idempotence and Why Does It Matter?
+  id: totrans-23
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 什么是幂等性以及为什么它很重要？
 - en: The concept of *idempotence* has its origins in algebra, where it describes
     particular properties of certain mathematical operations. Fortunately, this isn’t
     a math book. We’re not going to talk about that (except in the sidebar at the
     end of this section).
+  id: totrans-24
   prefs: []
   type: TYPE_NORMAL
+  zh: '*幂等性*的概念起源于代数，它描述了某些数学运算的特定属性。幸运的是，这不是一本数学书。我们不打算谈论这个（除了本节末尾的侧边栏）。'
 - en: 'In the programming world, an operation (such as a method or service call) is
     idempotent if calling it once has the same effect as calling it multiple times.
     For example, the assignment operation `x=1` is idempotent, because `x` will always
@@ -115,34 +165,50 @@
     anything: it won’t get any more `PUT` the second time.^([3](ch05.xhtml#idm45983635871960))
     The operation `x+=1`, however, is not idempotent, because every time that it’s
     called, a new state is produced.'
+  id: totrans-25
   prefs: []
   type: TYPE_NORMAL
+  zh: 在编程世界中，操作（例如方法或服务调用）如果调用一次与多次调用产生相同效果，则称为幂等操作。例如，赋值操作 `x=1` 是幂等的，因为无论您赋值多少次，`x`
+    都将始终为 `1`。类似地，HTTP 的 `PUT` 方法是幂等的，因为多次 `PUT` 同一个资源到同一位置不会改变任何内容：第二次也不会多一个 `PUT`。^([3](ch05.xhtml#idm45983635871960))
+    然而，操作 `x+=1` 不是幂等的，因为每次调用它时都会产生新的状态。
 - en: Less discussed, but also important, is the related property of *nullipotence*,
     in which a function or operation has no side effect at all. For example, the `x=1`
     assignment and an HTTP `PUT` are idempotent but not nullipotent because they trigger
     state changes. Assigning a value to itself, such as `x=x`, is nullipotent because
     no state has changed as a result of it. Similarly, simply reading data, as with
     an HTTP `GET`, usually has no side effects, so it’s also nullipotent.
+  id: totrans-26
   prefs: []
   type: TYPE_NORMAL
+  zh: 较少讨论，但同样重要的是*空位性*的相关属性，其中函数或操作根本没有任何副作用。例如，赋值 `x=1` 和 HTTP `PUT` 是幂等的但不是空位的，因为它们触发了状态更改。将值分配给自身，例如
+    `x=x`，是空位的，因为它没有导致任何状态的改变。同样地，仅仅读取数据，如 HTTP `GET`，通常没有副作用，因此它也是空位的。
 - en: 'Of course, that’s all very nice in theory, but why should we care in the real
     world? Well, as it turns out, designing your service methods to be idempotent
     provides a number of very real benefits:'
+  id: totrans-27
   prefs: []
   type: TYPE_NORMAL
+  zh: 当然，在理论上这一切听起来都很好，但在现实世界中为什么我们要关心呢？事实证明，设计服务方法为幂等提供了一些非常实际的好处：
 - en: Idempotent operations are safer
+  id: totrans-28
   prefs: []
   type: TYPE_NORMAL
+  zh: Idempotent 操作更安全。
 - en: What if you make a request to a service, but get no response? You’ll probably
     try again. But what if it heard you the first time?^([4](ch05.xhtml#idm45983635864728))
     If the service method is idempotent, then no harm done. But if it’s not, you could
     have a problem. This scenario is more common than you think. Networks are unreliable.
     Responses can be delayed; packets can get dropped.
+  id: totrans-29
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果您向服务发送请求，但没有得到响应，您可能会再次尝试。但如果它第一次就听到了您呢？^([4](ch05.xhtml#idm45983635864728))
+    如果服务方法是幂等的，那么没有任何伤害。但如果不是，可能会有问题。这种情况比您想象的更常见。网络不可靠。响应可能延迟；数据包可能丢失。
 - en: Idempotent operations are often simpler
+  id: totrans-30
   prefs: []
   type: TYPE_NORMAL
+  zh: 幂等操作通常更简单。
 - en: 'Idempotent operations are more self-contained and easier to implement. Compare,
     for example, an idempotent `PUT` method that simply adds a key-value pair into
     a backing data store, and a similar but nonidempotent `CREATE` method that returns
@@ -150,120 +216,174 @@
     receive request, set value. The `CREATE`, on the other hand, requires additional
     layers of error checking and handling, and possibly even distributed locking and
     coordination among any service replicas, making its service harder to scale.'
+  id: totrans-31
   prefs: []
   type: TYPE_NORMAL
+  zh: 幂等操作更加自包含和易于实现。例如，简单地将键值对添加到后备数据存储的幂等 `PUT` 方法与类似但非幂等的 `CREATE` 方法进行比较，如果数据存储已经包含键，则
+    `CREATE` 方法将返回错误。`PUT` 逻辑很简单：接收请求，设置值。另一方面，`CREATE` 需要额外的错误检查和处理，可能需要在任何服务副本之间进行分布式锁定和协调，使其难以扩展。
 - en: Idempotent operations are more declarative
+  id: totrans-32
   prefs: []
   type: TYPE_NORMAL
+  zh: Idempotent 操作更声明性。
 - en: 'Building an idempotent API encourages the designer to focus on end-states,
     encouraging the production of methods that are more *declarative*: they allow
     users to tell a service *what needs to be done*, instead of telling it *how to
     do it*. This may seem to be a fine point, but declarative methods—as opposed to
     *imperative methods*—free users from having to deal with low-level constructs,
     allowing them to focus on their goals and minimizing potential side-effects.'
+  id: totrans-33
   prefs: []
   type: TYPE_NORMAL
+  zh: 构建一个幂等的 API 鼓励设计者专注于最终状态，鼓励生成更*声明性*的方法：它们允许用户告诉服务*需要做什么*，而不是告诉它*如何做*。这可能看起来微妙，但声明性方法——与*命令式方法*相对——使用户不必处理低级构造，可以专注于他们的目标并最小化潜在的副作用。
 - en: In fact, idempotence provides such an advantage, particularly in a cloud native
     context, that some very smart people have even gone so far as to assert that it’s
     a *synonym* for “cloud native.”^([5](ch05.xhtml#idm45983635854008)) I don’t think
     that I’d go quite that far, but I *would* say that if your service aims to be
     cloud native, accepting any less than idempotence is asking for trouble.
+  id: totrans-34
   prefs: []
   type: TYPE_NORMAL
+  zh: 实际上，幂等性在云原生环境中提供了如此大的优势，以至于一些非常聪明的人甚至进一步断言它是“云原生”的*同义词*^([5](ch05.xhtml#idm45983635854008))。我认为这种说法有些言过其实，但我*可以*说，如果你的服务旨在成为云原生，接受不到幂等性将会招来麻烦。
 - en: The Eventual Goal
+  id: totrans-35
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 最终目标
 - en: These requirements are quite a lot to chew on, but they represent the absolute
     minimum for our key-value store to be usable. Later on we’ll add some important
     basic functionality, like support for multiple users and data encryption in transit.
     More importantly, though, we’ll introduce techniques and technologies that make
     the service more scalable, resilient, and generally capable of surviving and thriving
     in a cruel, uncertain universe.
+  id: totrans-36
   prefs: []
   type: TYPE_NORMAL
+  zh: 这些要求非常繁琐，但它们代表了我们的键值存储可用的绝对最低要求。稍后我们将添加一些重要的基本功能，比如支持多用户和数据传输加密。更重要的是，我们将引入使服务更具可伸缩性、弹性并且能够在一个残酷不确定的宇宙中生存和繁荣的技术和技术。
 - en: 'Generation 0: The Core Functionality'
+  id: totrans-37
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 生成 0：核心功能
 - en: Okay, let’s get started. First things first. Without worrying about user requests
     and persistence, let’s first build the core functions, which can be called later
     from whatever web framework we decide to use.
+  id: totrans-38
   prefs: []
   type: TYPE_NORMAL
+  zh: 好的，让我们开始吧。首先要做的是。在不用担心用户请求和持久性的情况下，让我们首先构建核心函数，稍后可以从我们决定使用的任何 Web 框架调用它。
 - en: Storing arbitrary key-value pairs
+  id: totrans-39
   prefs: []
   type: TYPE_NORMAL
+  zh: 存储任意键-值对
 - en: For now, we can implement this with a simple map, but what kind? For the sake
     of simplicity, we’ll limit ourselves to keys and values that are simple strings,
     though we may choose to allow arbitrary types later. We’ll just use a simple `map[string]string`
     as our core data structure.
+  id: totrans-40
   prefs: []
   type: TYPE_NORMAL
+  zh: 目前，我们可以用一个简单的映射来实现这个，但是什么样的映射呢？为了简单起见，我们将限制键和值为简单字符串，尽管以后我们可能会选择允许任意类型。我们将使用一个简单的
+    `map[string]string` 作为我们的核心数据结构。
 - en: Allow put, get, and delete of key-value pairs
+  id: totrans-41
   prefs: []
   type: TYPE_NORMAL
+  zh: 允许键-值对的放置、获取和删除
 - en: In this initial iteration, we’ll create a simple Go API that we can call to
     perform the basic modification operations. Partitioning the functionality in this
     way will make it easier to test and easier to update in future iterations.
+  id: totrans-42
   prefs: []
   type: TYPE_NORMAL
+  zh: 在这一初始迭代中，我们将创建一个简单的Go API，我们可以调用它执行基本的修改操作。通过这种方式分区功能将使测试和将来迭代更新变得更加容易。
 - en: Your Super Simple API
+  id: totrans-43
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 您的超级简单 API
 - en: 'The first thing that we need to do is to create our map. The heart of our key-value
     store:'
+  id: totrans-44
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们需要做的第一件事是创建我们的映射。我们键值存储的核心：
 - en: '[PRE0]'
+  id: totrans-45
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE0]'
 - en: Isn’t it a beauty? So simple. Don’t worry, we’ll make it more complicated later.
+  id: totrans-46
   prefs: []
   type: TYPE_NORMAL
+  zh: 它不是美吗？如此简单。别担心，稍后我们会让它变得更复杂。
 - en: 'The first function that we’ll create is, appropriately, `PUT`, which will be
     used to add records to the store. It does exactly what its name suggests: it accepts
     `key` and `value` strings, and puts them into `store`. `PUT`’s function signature
     includes an `error` return, which we’ll need later:'
+  id: totrans-47
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们将创建的第一个函数很恰当地是 `PUT`，它将用于向存储添加记录。它确实像其名称所示：接受 `key` 和 `value` 字符串，并将它们放入 `store`
+    中。 `PUT` 的函数签名包括一个 `error` 返回，稍后我们将需要它：
 - en: '[PRE1]'
+  id: totrans-48
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE1]'
 - en: Because we’re making the conscious choice to create an idempotent service, `Put`
     doesn’t check to see whether an existing key-value pair is being overwritten,
     so it will happily do so if asked. Multiple executions of `Put` with the same
     parameters will have the same result, regardless of any current state.
+  id: totrans-49
   prefs: []
   type: TYPE_NORMAL
+  zh: 因为我们有意选择创建一个幂等服务，`Put` 操作不会检查是否正在覆盖现有的键-值对，因此如果需要的话，它将乐意这样做。使用相同参数多次执行 `Put`
+    操作将产生相同的结果，而不管当前状态如何。
 - en: 'Now that we’ve established a basic pattern, writing the `Get` and `Delete`
     operations is just a matter of following through:'
+  id: totrans-50
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在我们已经建立了一个基本模式，编写 `Get` 和 `Delete` 操作只是按照计划进行：
 - en: '[PRE2]'
+  id: totrans-51
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE2]'
 - en: 'But look carefully: see how when `Get` returns an error, it doesn’t use `errors.New`?
     Instead it returns the prebuilt `ErrorNoSuchKey` error value. But why? This is
     an example of a *sentinel error*, which allows the consuming service to determine
     exactly what type of error it’s receiving and to respond accordingly. For example,
     it might do something like this:'
+  id: totrans-52
   prefs: []
   type: TYPE_NORMAL
+  zh: 但请仔细观察：看到 `Get` 返回错误时，它没有使用 `errors.New` 吗？相反，它返回了预先构建的 `ErrorNoSuchKey` 错误值。但是为什么？这是一个*哨兵错误*的例子，它允许使用服务确定确切收到的错误类型，并相应地做出响应。例如，它可能做类似于以下操作：
 - en: '[PRE3]'
+  id: totrans-53
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE3]'
 - en: Now that you have your absolute minimal function set (really, really minimal),
     don’t forget to write tests. We’re not going to do that here, but if you’re feeling
     anxious to move forward (or lazy—lazy works too) you can grab the code from [the
     GitHub repository created for this book](https://oreil.ly/ois1B).
+  id: totrans-54
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在，你已经拥有了绝对最小的功能集（真的非常少），别忘了写测试。我们这里不会做这个，但如果你感到急于前进（或懒惰——懒惰也行），你可以从[为本书创建的GitHub仓库](https://oreil.ly/ois1B)获取代码。
 - en: 'Generation 1: The Monolith'
+  id: totrans-55
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 第一代：单体应用
 - en: Now that we have a minimally functional key-value API, we can begin building
     a service around it. We have a few different options for how to do this. We could
     use something like GraphQL. There are some decent third-party packages out there
@@ -271,81 +391,118 @@
     it. We could also use remote procedure call (RPC), which is supported by the standard
     `net/rpc` package, or even gRPC, but these require additional overhead for the
     client, and again our data just isn’t complex enough to warrant it.
+  id: totrans-56
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在我们有了一个最小功能的键值API，我们可以开始构建围绕它的服务。我们有几种不同的选项来做这件事。我们可以使用类似GraphQL的东西。市面上有一些不错的第三方包可供使用，但我们没有必要复杂的数据景观来需要它。我们还可以使用远程过程调用（RPC），它受到标准`net/rpc`包的支持，甚至是gRPC，但这些需要额外的客户端开销，再次，我们的数据并不复杂到需要这么做。
 - en: That leaves us with representational state transfer (REST). REST isn’t a lot
     of people’s favorite, but it *is* simple, and it’s perfectly adequate for our
     needs.
+  id: totrans-57
   prefs: []
   type: TYPE_NORMAL
+  zh: 这使我们只能选择表现状态转移（REST）。REST并不是很多人的最爱，但*它*很简单，对我们的需求来说完全足够。
 - en: Building an HTTP Server with net/http
+  id: totrans-58
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 使用 net/http 构建 HTTP 服务器
 - en: 'Go doesn’t have any web frameworks that are as sophisticated or historied as
     something like Django or Flask. What it does have, however, is a strong set of
     standard libraries that are perfectly adequate for 80% of use cases. Even better:
     they’re designed to be extensible, so there *are* a number of Go web frameworks
     that extend them.'
+  id: totrans-59
   prefs: []
   type: TYPE_NORMAL
+  zh: Go语言没有像Django或Flask那样复杂或悠久历史的Web框架。然而，它拥有一套强大的标准库，完全能够满足80%的使用场景。更好的是：它们设计为可扩展，因此*确实*有一些Go
+    Web框架在其基础上扩展。
 - en: 'For now, let’s take a look at the standard HTTP handler idiom in Go, in the
     form of a “Hello World” as implemented with `net/http`:'
+  id: totrans-60
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在，让我们看一下在Go语言中的标准HTTP处理程序惯用法，以一个“Hello World”为例，使用`net/http`实现：
 - en: '[PRE4]'
+  id: totrans-61
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE4]'
 - en: 'In the previous example, we define a method, `helloGoHandler`, which satisfies
     the definition of a `http.HandlerFunc`:'
+  id: totrans-62
   prefs: []
   type: TYPE_NORMAL
+  zh: 在前面的示例中，我们定义了一个方法，`helloGoHandler`，它满足`http.HandlerFunc`的定义：
 - en: '[PRE5]'
+  id: totrans-63
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE5]'
 - en: The `http.ResponseWriter` and a `*http.Request` parameters can be used to construct
     the HTTP response and retrieve the request, respectively. You can use the `http.HandleFunc`
     function to register `helloGoHandler` as the handler function for any request
     that matches a given pattern (the root path, in this example).
+  id: totrans-64
   prefs: []
   type: TYPE_NORMAL
+  zh: '`http.ResponseWriter`和`*http.Request`参数可用于构造HTTP响应和检索请求。您可以使用`http.HandleFunc`函数将`helloGoHandler`注册为匹配给定模式的任何请求的处理函数（在本示例中为根路径）。'
 - en: Once you’ve registered our handlers, you can call `ListenAndServe`, which listens
     on the address `addr`. It also accepts a second parameter, set to `nil` in our
     example.
+  id: totrans-65
   prefs: []
   type: TYPE_NORMAL
+  zh: 一旦注册了我们的处理程序，你就可以调用`ListenAndServe`，它监听地址`addr`。在我们的示例中，第二个参数设置为`nil`。
 - en: You’ll notice that `ListenAndServe` is also wrapped in a `log.Fatal` call. This
     is because `ListenAndServe` always stops the execution flow, only returning in
     the event of an error. Therefore, it always returns a non-nil `error`, which we
     always want to log.
+  id: totrans-66
   prefs: []
   type: TYPE_NORMAL
+  zh: 注意到`ListenAndServe`也被包装在`log.Fatal`调用中。这是因为`ListenAndServe`始终会停止执行流程，在错误发生时才会返回。因此，它始终返回非nil的错误，我们总是希望将其记录下来。
 - en: 'The previous example is a complete program that can be compiled and run using
     `go run`:'
+  id: totrans-67
   prefs: []
   type: TYPE_NORMAL
+  zh: 前面的示例是一个完整的程序，可以使用`go run`编译并运行：
 - en: '[PRE6]'
+  id: totrans-68
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE6]'
 - en: 'Congratulations! You’re now running the world’s tiniest web service. Now go
     ahead and test it with `curl` or your favorite web browser:'
+  id: totrans-69
   prefs: []
   type: TYPE_NORMAL
+  zh: 恭喜！你现在运行着世界上最小的Web服务。现在可以用`curl`或你喜欢的浏览器来测试它：
 - en: '[PRE7]'
+  id: totrans-70
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE7]'
 - en: Building an HTTP Server with gorilla/mux
+  id: totrans-71
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 使用 gorilla/mux 构建 HTTP 服务器
 - en: For many web services the `net/http` and `DefaultServeMux` will be perfectly
     sufficient. However, sometimes you’ll need the additional functionality provided
     by a third-party web toolkit. A popular choice is [Gorilla](https://oreil.ly/15sGK),
     which, while being relatively new and less fully developed and resource-rich than
     something like Django or Flask, does build on Go’s standard `net/http` package
     to provide some excellent enhancements.
+  id: totrans-72
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于许多 web 服务来说，`net/http` 和 `DefaultServeMux` 将足够了。但是，有时你会需要第三方 web 工具包提供的额外功能。一个受欢迎的选择是
+    [Gorilla](https://oreil.ly/15sGK)，尽管它相对较新，开发和资源比不上像 Django 或 Flask 这样的框架，但它基于
+    Go 的标准 `net/http` 包来提供一些优秀的增强功能。
 - en: The `gorilla/mux` package—one of several packages provided as part of the Gorilla
     web toolkit—provides an HTTP request router and dispatcher that can fully replace
     `DefaultServeMux`, Go’s default service handler, to add several very useful enhancements
@@ -353,192 +510,282 @@
     just yet, but they will come in handy going forward. If you’re curious and/or
     impatient, however, you can take a look at [the `gorilla/mux` documentation](https://oreil.ly/qfIph)
     for more information.
+  id: totrans-73
   prefs: []
   type: TYPE_NORMAL
+  zh: '`gorilla/mux` 包是 Gorilla web 工具包提供的几个包之一，它提供了一个 HTTP 请求路由器和调度器，完全可以取代 `DefaultServeMux`，Go
+    的默认服务处理器，以增强请求路由和处理的几个非常有用的功能。尽管我们目前还没有使用这些特性，但它们将在以后派上用场。如果你感兴趣和/或心急，你可以查看 [gorilla/mux
+    文档](https://oreil.ly/qfIph) 获取更多信息。'
 - en: Creating a minimal service
+  id: totrans-74
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 创建一个最小化服务
 - en: 'Once you’ve done so, making use of the minimal `gorilla/mux` router is a matter
     of adding an import and one line of code: the initialization of a new router,
     which can be passed to the `handler` parameter of `ListenAndServe`:'
+  id: totrans-75
   prefs: []
   type: TYPE_NORMAL
+  zh: 一旦你这样做了，使用最小化的 `gorilla/mux` 路由器只需添加一个导入和一行代码：初始化一个新的路由器，可以传递给 `ListenAndServe`
+    的 `handler` 参数：
 - en: '[PRE8]'
+  id: totrans-76
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE8]'
 - en: 'So you should be able to just run this now with `go run`, right? Give it a
     try:'
+  id: totrans-77
   prefs: []
   type: TYPE_NORMAL
+  zh: 所以现在你应该可以用 `go run` 直接运行了，对吧？试试看：
 - en: '[PRE9]'
+  id: totrans-78
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE9]'
 - en: It turns out that you can’t (yet). Since you’re now using a third-party package—a
     package that lives outside the standard library—you’re going to have to use Go
     modules.
+  id: totrans-79
   prefs: []
   type: TYPE_NORMAL
+  zh: 结果证明你还不能这样做。因为现在你正在使用一个第三方包——一个不在标准库中的包——你必须使用 Go modules。
 - en: Initializing your project with Go modules
+  id: totrans-80
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 使用 Go modules 初始化你的项目
 - en: Using a package from outside the standard library requires that you make use
     of [Go modules](https://oreil.ly/QJzOi), which were introduced in Go 1.12 to replace
     an essentially nonexistent dependency management system with one that’s explicit
     and actually quite painless to use. All of the operations that you’ll use for
     managing your dependencies will use one of a small handful of `go mod` commands.
+  id: totrans-81
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用来自标准库之外的包需要使用 [Go modules](https://oreil.ly/QJzOi)，这是在 Go 1.12 中引入的，以替换几乎不存在的依赖管理系统，改为使用明确且实际上相当轻松的系统。所有管理依赖项的操作都将使用一小组
+    `go mod` 命令之一。
 - en: The first thing you’re going to have to do is initialize your project. Start
     by creating a new, empty directory, `cd` into it, and create (or move) the Go
     file for your service there. Your directory should now contain only a single Go
     file.
+  id: totrans-82
   prefs: []
   type: TYPE_NORMAL
+  zh: 首先，你需要初始化你的项目。创建一个新的空目录，`cd` 进入该目录，然后在那里创建（或移动）你的服务的 Go 文件。你的目录现在应该只包含一个单独的
+    Go 文件。
 - en: 'Next, use the `go mod init` command to initialize the project. Typically, if
     a project will be imported by other projects, it’ll have to be initialized with
     its import path. This is less important for a standalone service like ours, though,
     so you can be a little more lax about the name you choose. I’ll just use `example.com/gorilla`;
     you can use whatever you like:'
+  id: totrans-83
   prefs: []
   type: TYPE_NORMAL
+  zh: 接下来，使用 `go mod init` 命令初始化项目。通常，如果一个项目将被其他项目导入，它将必须使用其导入路径进行初始化。不过，对于像我们这样的独立服务来说，这就不那么重要了，所以你可以在选择名称时放松一点。我将使用
+    `example.com/gorilla`；你可以使用任何你喜欢的名称：
 - en: '[PRE10]'
+  id: totrans-84
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE10]'
 - en: You’ll now have an (almost) empty module file, `go.mod`, in your directory:^([6](ch05.xhtml#idm45983635173272))
+  id: totrans-85
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在你的目录中将有一个（几乎）空的模块文件 `go.mod`：
 - en: '[PRE11]'
+  id: totrans-86
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE11]'
 - en: 'Next, we’ll want to add our dependencies, which can be done automatically using
     `go mod tidy`:'
+  id: totrans-87
   prefs: []
   type: TYPE_NORMAL
+  zh: 接下来，我们将想要添加我们的依赖项，可以使用 `go mod tidy` 自动完成：
 - en: '[PRE12]'
+  id: totrans-88
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE12]'
 - en: 'If you check your `go.mod` file, you’ll see that the dependency (and a version
     number) have been added:'
+  id: totrans-89
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果你检查你的 `go.mod` 文件，你会看到依赖项（以及版本号）已经被添加了：
 - en: '[PRE13]'
+  id: totrans-90
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE13]'
 - en: 'Believe it or not, that’s all you need. If your required dependencies change
     in the future you need only run `go mod tidy` again to rebuild the file. Now try
     again to start your service:'
+  id: totrans-91
   prefs: []
   type: TYPE_NORMAL
+  zh: 信不信由你，这就是你需要的全部。如果将来需要更改所需的依赖项，只需再次运行`go mod tidy`即可重新构建文件。现在再次尝试启动您的服务：
 - en: '[PRE14]'
+  id: totrans-92
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE14]'
 - en: 'Since the service runs in the foreground, your terminal should pause. Calling
     the endpoint with `curl` from another terminal or browsing to it with a browser
     should provide the expected response:'
+  id: totrans-93
   prefs: []
   type: TYPE_NORMAL
+  zh: 由于服务在前台运行，您的终端应该暂停。从另一个终端使用`curl`调用端点或在浏览器中浏览到它应该提供预期的响应：
 - en: '[PRE15]'
+  id: totrans-94
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE15]'
 - en: Success! But surely you want your service to do more than print a simple string,
     right? Of course you do. Read on!
+  id: totrans-95
   prefs: []
   type: TYPE_NORMAL
+  zh: 成功！但是您肯定希望您的服务不仅仅打印一个简单的字符串，对吧？当然希望。请继续阅读！
 - en: Variables in URI paths
+  id: totrans-96
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: URI路径中的变量
 - en: 'The Gorilla web toolkit provides a wealth of additional functionality over
     the standard `net/http` package, but one feature is particularly interesting right
     now: the ability to create paths with variable segments, which can even optionally
     contain a regular expression pattern. Using the `gorilla/mux` package, a programmer
     can define variables using the format `{name}` or `{name:pattern}`, as follows:'
+  id: totrans-97
   prefs: []
   type: TYPE_NORMAL
+  zh: Gorilla Web工具包比标准的`net/http`包提供了丰富的附加功能，但其中一个特性现在特别有趣：使用变量段创建路径的能力，甚至可以选择包含正则表达式模式。使用`gorilla/mux`包，程序员可以使用格式`{name}`或`{name:pattern}`定义变量，如下所示：
 - en: '[PRE16]'
+  id: totrans-98
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE16]'
 - en: 'The `mux.Vars` function conveniently allows the handler function to retrieve
     the variable names and values as a `map[string]string`:'
+  id: totrans-99
   prefs: []
   type: TYPE_NORMAL
+  zh: '`mux.Vars`函数方便地允许处理程序函数作为`map[string]string`检索变量名和值：'
 - en: '[PRE17]'
+  id: totrans-100
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE17]'
 - en: In the next section we’ll use this ability to allow clients to perform operations
     on arbitrary keys.
+  id: totrans-101
   prefs: []
   type: TYPE_NORMAL
+  zh: 在下一节中，我们将利用这种能力允许客户端对任意键执行操作。
 - en: So many matchers
+  id: totrans-102
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 如此多的匹配器
 - en: Another feature provided by `gorilla/mux` is that it allows a variety of *matchers*
     to be added to routes that let the programmer add a variety of additional matching
     request criteria. These include (but aren’t limited to) specific domains or subdomains,
     path prefixes, schemes, headers, and even custom matching functions of your own
     creation.
+  id: totrans-103
   prefs: []
   type: TYPE_NORMAL
+  zh: '`gorilla/mux`提供的另一个功能是允许在路由中添加各种*匹配器*，以便程序员添加各种额外的匹配请求条件。这些条件包括（但不限于）特定的域或子域、路径前缀、方案、标头，甚至您自己创建的自定义匹配函数。'
 - en: 'Matchers can be applied by calling the appropriate function on the `*Route`
     value that’s returned by Gorilla’s `HandleFunc` implementation. Each matcher function
     returns the affected `*Route`, so they can be chained. For example:'
+  id: totrans-104
   prefs: []
   type: TYPE_NORMAL
+  zh: 可以通过对Gorilla的`HandleFunc`实现返回的`*Route`值调用适当的函数来应用匹配器。每个匹配器函数都返回受影响的`*Route`，因此它们可以链接在一起。例如：
 - en: '[PRE18]'
+  id: totrans-105
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE18]'
 - en: See [the `gorilla/mux` documentation](https://oreil.ly/6ztZe) for an exhaustive
     list of available matcher functions.
+  id: totrans-106
   prefs: []
   type: TYPE_NORMAL
+  zh: 查看[gorilla/mux文档](https://oreil.ly/6ztZe)以获取可用匹配器函数的详尽列表。
 - en: Building a RESTful Service
+  id: totrans-107
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 构建RESTful服务
 - en: Now that you know how to use Go’s standard HTTP library, you can use it to create
     a RESTful service that a client can interact with to execute call to the API you
     built in [“Your Super Simple API”](#section_ch05_our_api). Once you’ve done this
     you’ll have implemented the absolute minimal viable key-value store.
+  id: totrans-108
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在您已经知道如何使用Go的标准HTTP库，您可以使用它创建一个RESTful服务，客户端可以与之交互以执行在[“您的超级简单API”](#section_ch05_our_api)中构建的API调用。完成此操作后，您将实施绝对最小的可行键值存储。
 - en: Your RESTful methods
+  id: totrans-109
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 您的RESTful方法
 - en: We’re going to do our best to follow RESTful conventions, so our API will consider
     every key-value pair to be a distinct resource with a distinct URI that can be
     operated upon using the various HTTP methods. Each of our three basic operations—Put,
     Get, and Delete—will be requested using a different HTTP method that we summarize
     in [Table 5-1](#table_ch05_restful_methods).
+  id: totrans-110
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们将尽力遵循RESTful约定，因此我们的API将考虑每个键值对作为一个独立的资源，具有可以使用各种HTTP方法操作的独特URI。我们的三种基本操作——Put、Get和Delete——将使用不同的HTTP方法请求，我们在[表 5-1](#table_ch05_restful_methods)中进行了总结。
 - en: The URI for your key-value pair resources will have the form `/v1/key/{key}`,
     where `{key}` is the unique key string. The `v1` segment indicates the API version.
     This convention is often used to manage API changes, and while this practice is
     by no means required or universal, it can be helpful for managing the impact of
     future changes that could break existing client integrations.
+  id: totrans-111
   prefs: []
   type: TYPE_NORMAL
+  zh: 您的键值对资源的URI将采用`/v1/key/{key}`的形式，其中`{key}`是唯一的键字符串。`v1`段表示API版本。这种约定通常用于管理API更改，虽然这种做法并非必需或通用，但有助于管理可能会破坏现有客户端集成的未来更改的影响。
 - en: Table 5-1\. Your RESTful methods
+  id: totrans-112
   prefs: []
   type: TYPE_NORMAL
 - en: '| Functionality | Method | Possible Statuses |'
+  id: totrans-113
   prefs: []
   type: TYPE_TB
 - en: '| --- | --- | --- |'
+  id: totrans-114
   prefs: []
   type: TYPE_TB
 - en: '| **Put a key-value pair into the store** | `PUT` | `201 (Created)` |'
+  id: totrans-115
   prefs: []
   type: TYPE_TB
 - en: '| **Read a key-value pair from the store** | `GET` | `200 (OK), 404 (Not Found)`
     |'
+  id: totrans-116
   prefs: []
   type: TYPE_TB
 - en: '| **Delete a key-value pair** | `DELETE` | `200 (OK)` |'
+  id: totrans-117
   prefs: []
   type: TYPE_TB
 - en: In [“Variables in URI paths”](#section_ch05_variables_in_paths), we discussed
@@ -549,166 +796,218 @@
     route matchers to direct requests to specific handler functions based on various
     nonpath criteria, which you can use to create a separate handler function for
     each of the five HTTP methods that you’ll be supporting.
+  id: totrans-118
   prefs: []
   type: TYPE_NORMAL
 - en: Implementing the create function
+  id: totrans-119
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: 'Okay, you now have everything you need to get started! So, let’s go ahead and
     implement the handler function for the creation of key-value pairs. This function
     has to be sure to satisfy several requirements:'
+  id: totrans-120
   prefs: []
   type: TYPE_NORMAL
 - en: It must only match `PUT` requests for `/v1/key/{key}`.
+  id: totrans-121
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: It must call the `Put` method from [“Your Super Simple API”](#section_ch05_our_api).
+  id: totrans-122
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: It must respond with a `201 (Created)` when a key-value pair is created.
+  id: totrans-123
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: It must respond to unexpected errors with a `500 (Internal Server Error)`.
+  id: totrans-124
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: 'All of the previous requirements are implemented in the `keyValuePutHandler`
     function. Note how the key’s value is retrieved from the request body:'
+  id: totrans-125
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE19]'
+  id: totrans-126
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE19]'
 - en: 'Now that you have your “key-value create” handler function, you can register
     it with your Gorilla request router for the desired path and method:'
+  id: totrans-127
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE20]'
+  id: totrans-128
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE20]'
 - en: Now that you have your service put together, you can run it using `go run .`
     from the project root. Do that now, and send it some requests to see how it responds.
+  id: totrans-129
   prefs: []
   type: TYPE_NORMAL
 - en: 'First, use our old friend `curl` to send a `PUT` containing a short snippet
     of text to the `/v1/key-a` endpoint to create a key named `key-a` with a value
     of `Hello,` `key-value store!`:'
+  id: totrans-130
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE21]'
+  id: totrans-131
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE21]'
 - en: 'Executing this command provides the following output. The complete output was
     quite wordy, so I’ve selected the relevant bits for readability:'
+  id: totrans-132
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE22]'
+  id: totrans-133
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE22]'
 - en: The first portion, prefixed with a greater-than symbol (`>`), shows some details
     about the request. The last portion, prefixed with a less-than symbol (`<`), gives
     details about the server response.
+  id: totrans-134
   prefs: []
   type: TYPE_NORMAL
 - en: In this output you can see that you did in fact transmit a `PUT` to the `/v1/key-a`
     endpoint, and that the server responded with a `201 Created`—as expected.
+  id: totrans-135
   prefs: []
   type: TYPE_NORMAL
 - en: 'What if you hit the `/v1/key-a` endpoint with an unsupported `GET` method?
     Assuming that the matcher function is working correctly, you should receive an
     error message:'
+  id: totrans-136
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE23]'
+  id: totrans-137
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE23]'
 - en: Indeed, the server responds with a `405 Method Not Allowed` error. Everything
     seems to be working correctly.
+  id: totrans-138
   prefs: []
   type: TYPE_NORMAL
 - en: Implementing the read function
+  id: totrans-139
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: 'Now that your service has a fully functioning `Put` method, it sure would be
     nice if you could read your data back! For our next trick, we’re going to implement
     the `Get` functionality, which has the following requirements:'
+  id: totrans-140
   prefs: []
   type: TYPE_NORMAL
 - en: It must only match `GET` requests for `/v1/key/{key}`.
+  id: totrans-141
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: It must call the `Get` method from [“Your Super Simple API”](#section_ch05_our_api).
+  id: totrans-142
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: It must respond with a `404 (Not Found)` when a requested key doesn’t exist.
+  id: totrans-143
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: It must respond with the requested value and a status `200` if the key exists.
+  id: totrans-144
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: It must respond to unexpected errors with a `500 (Internal Server Error)`.
+  id: totrans-145
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: 'All of the previous requirements are implemented in the `keyValueGetHandler`
     function. Note how the value is written to `w`—the handler function’s `http.ResponseWriter`
     parameter—after it’s retrieved from the key-value API:'
+  id: totrans-146
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE24]'
+  id: totrans-147
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE24]'
 - en: 'And now that you have the “get” handler function, you can register it with
     the request router alongside the “put” handler:'
+  id: totrans-148
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE25]'
+  id: totrans-149
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE25]'
 - en: 'Now let’s fire up your newly improved service and see if it works:'
+  id: totrans-150
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE26]'
+  id: totrans-151
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE26]'
 - en: 'It works! Now that you can get your values back, you’re able to test for idempotence
     as well. Let’s repeat the requests and make sure that you get the same results:'
+  id: totrans-152
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE27]'
+  id: totrans-153
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE27]'
 - en: 'You do! But what if you want to overwrite the key with a new value? Will the
     subsequent `GET` have the new value? You can test that by changing the value sent
     by your `curl` slightly to be `Hello, again, key-value store!`:'
+  id: totrans-154
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE28]'
+  id: totrans-155
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE28]'
 - en: As expected, the `GET` responds back with a `200` status and your new value.
+  id: totrans-156
   prefs: []
   type: TYPE_NORMAL
 - en: Finally, to complete your method set you’ll just need to create a handler for
     the `DELETE` method. I’ll leave that as an exercise, though. Enjoy!
+  id: totrans-157
   prefs: []
   type: TYPE_NORMAL
 - en: Making Your Data Structure Concurrency-Safe
+  id: totrans-158
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
 - en: Maps in Go are not atomic and are not safe for concurrent use. Unfortunately,
     you now have a service designed to handle concurrent requests that’s wrapped around
     exactly such a map.
+  id: totrans-159
   prefs: []
   type: TYPE_NORMAL
 - en: So what do you do? Well, typically when a programmer has a data structure that
@@ -716,93 +1015,119 @@
     use something like a mutex—also known as a lock—to act as a synchronization mechanism.
     By using a mutex in this way, you can ensure that exactly one process has exclusive
     access to a particular resource.
+  id: totrans-160
   prefs: []
   type: TYPE_NORMAL
 - en: 'Fortunately, you don’t need to implement this yourself:^([7](ch05.xhtml#idm45983634450664))
     Go’s `sync` package provides exactly what you need in the form of `sync.RWMutex`.
     The following statement uses the magic of composition to create an *anonymous
     struct* that contains your map and an embedded `sync.RWMutex`:'
+  id: totrans-161
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE29]'
+  id: totrans-162
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE29]'
 - en: 'The `myMap` struct has all of the methods from the embedded `sync.RWMutex`,
     allowing you to use the `Lock` method to take the write lock when you want to
     write to the `myMap` map:'
+  id: totrans-163
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE30]'
+  id: totrans-164
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE30]'
 - en: If another process has either a read or write lock, then `Lock` will block until
     that lock is released.
+  id: totrans-165
   prefs: []
   type: TYPE_NORMAL
 - en: 'Similarly, to read from the map, you use the `RLock` method to take the read
     lock:'
+  id: totrans-166
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE31]'
+  id: totrans-167
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE31]'
 - en: Read locks are less restrictive than write locks in that any number of processes
     can simultaneously take read locks. However, `RLock` will block until any open
     write locks are released.
+  id: totrans-168
   prefs: []
   type: TYPE_NORMAL
 - en: Integrating a read-write mutex into your application
+  id: totrans-169
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: Now that you know how to use a `sync.RWMutex` to implement a basic read-write
     mutex, you can go back and work it into the code you created for [“Your Super
     Simple API”](#section_ch05_our_api).
+  id: totrans-170
   prefs: []
   type: TYPE_NORMAL
 - en: 'First, you’ll want to refactor the `store` map.^([8](ch05.xhtml#idm45983634224808))
     You can construct it like `myMap`, i.e., as an anonymous struct that contains
     the map and an embedded `sync.RWMutex`:'
+  id: totrans-171
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE32]'
+  id: totrans-172
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE32]'
 - en: 'Now that you have your `store` struct, you can update the `Get` and `Put` functions
     to establish the appropriate locks. Because `Get` only needs to *read* the `store`
     map, it’ll use `RLock` to take a read lock only. `Put`, on the other hand, needs
     to *modify* the map, so it’ll need to use `Lock` to take a write lock:'
+  id: totrans-173
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE33]'
+  id: totrans-174
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE33]'
 - en: 'The pattern here is clear: if a function needs to modify the map (`Put`, `Delete`),
     it’ll use `Lock` to take a write lock. If it only needs to read existing data
     (`Get`), it’ll use `RLock` to take a read lock. We leave the creation of the `Delete`
     function as an exercise for the reader.'
+  id: totrans-175
   prefs: []
   type: TYPE_NORMAL
 - en: Warning
+  id: totrans-176
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
 - en: Don’t forget to release your locks, and make sure you’re releasing the correct
     lock type!
+  id: totrans-177
   prefs: []
   type: TYPE_NORMAL
 - en: 'Generation 2: Persisting Resource State'
+  id: totrans-178
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
 - en: One of the stickiest challenges with distributed cloud native applications is
     how to handle state.
+  id: totrans-179
   prefs: []
   type: TYPE_NORMAL
 - en: 'There are various techniques for distributing the state of application resources
     between multiple service instances, but for now we’re just going to concern ourselves
     with the minimum viable product and consider two ways of maintaining the state
     of our application:'
+  id: totrans-180
   prefs: []
   type: TYPE_NORMAL
 - en: In [“Storing State in a Transaction Log File”](#section_ch05_state_transaction_log),
@@ -810,6 +1135,7 @@
     resource is modified. If a service crashes, is restarted, or otherwise finds itself
     in an inconsistent state, a transaction log allows a service to reconstruct original
     state simply by replaying the transactions.
+  id: totrans-181
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -819,6 +1145,7 @@
     you’re building, but externalizing data into another service designed specifically
     for that purpose is a common means of sharing state between service replicas and
     providing resilience.
+  id: totrans-182
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -826,6 +1153,7 @@
     events when you could just use the database to store the values themselves. This
     makes sense when you intend to store your data in memory most of the time, only
     accessing your persistence mechanism in the background and at startup time.
+  id: totrans-183
   prefs: []
   type: TYPE_NORMAL
 - en: 'This also affords you another opportunity: given that you’re creating two different
@@ -833,9 +1161,11 @@
     file and to a database—you can describe your functionality with an interface that
     both implementations can satisfy. This could come in quite handy, especially if
     you want to be able to choose the implementation according to your needs.'
+  id: totrans-184
   prefs: []
   type: TYPE_NORMAL
 - en: What’s a Transaction Log?
+  id: totrans-185
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
@@ -844,18 +1174,22 @@
     is restarted, or otherwise finds itself in an inconsistent state, a transaction
     log makes it possible to replay the transactions to reconstruct the service’s
     functional state.
+  id: totrans-186
   prefs: []
   type: TYPE_NORMAL
 - en: Transaction logs are commonly used by database management systems to provide
     a degree of data resilience against crashes or hardware failures. However, while
     this technique can get quite sophisticated, we’ll be keeping ours pretty straightforward.
+  id: totrans-187
   prefs: []
   type: TYPE_NORMAL
 - en: Your transaction log format
+  id: totrans-188
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: Before we get to the code, let’s decide what the transaction log should contain.
+  id: totrans-189
   prefs: []
   type: TYPE_NORMAL
 - en: We’ll assume that your transaction log will be read only when your service is
@@ -864,40 +1198,52 @@
     log will consist of an ordered list of mutating events. For speed and simplicity,
     a transaction log is also generally append-only, so when a record is deleted from
     your key-value store, for example, a `delete` is recorded in the log.
+  id: totrans-190
   prefs: []
   type: TYPE_NORMAL
 - en: 'Given everything we’ve discussed so far, each recorded transaction event will
     need to include the following attributes:'
+  id: totrans-191
   prefs: []
   type: TYPE_NORMAL
 - en: Sequence number
+  id: totrans-192
   prefs: []
   type: TYPE_NORMAL
 - en: A unique record ID, in monotonically increasing order.
+  id: totrans-193
   prefs: []
   type: TYPE_NORMAL
 - en: Event type
+  id: totrans-194
   prefs: []
   type: TYPE_NORMAL
 - en: A descriptor of the type of action taken; this can be `PUT` or `DELETE`.
+  id: totrans-195
   prefs: []
   type: TYPE_NORMAL
 - en: Key
+  id: totrans-196
   prefs: []
   type: TYPE_NORMAL
 - en: A string containing the key affected by this transaction.
+  id: totrans-197
   prefs: []
   type: TYPE_NORMAL
 - en: Value
+  id: totrans-198
   prefs: []
   type: TYPE_NORMAL
 - en: If the event is a `PUT`, the value of the transaction.
+  id: totrans-199
   prefs: []
   type: TYPE_NORMAL
 - en: Nice and simple. Hopefully we can keep it that way.
+  id: totrans-200
   prefs: []
   type: TYPE_NORMAL
 - en: Your transaction logger interface
+  id: totrans-201
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -905,17 +1251,22 @@
     For now, we’re only going to define two methods: `WritePut` and `WriteDelete`,
     which will be used to write `PUT` and `DELETE` events, respectively, to a transaction
     log:'
+  id: totrans-202
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE34]'
+  id: totrans-203
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE34]'
 - en: You’ll no doubt want to add other methods later, but we’ll cross that bridge
     when we come to it. For now, let’s focus on the first implementation and add additional
     methods to the interface as we come across them.
+  id: totrans-204
   prefs: []
   type: TYPE_NORMAL
 - en: Storing State in a Transaction Log File
+  id: totrans-205
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
@@ -923,42 +1274,54 @@
     of transaction log, which is just an append-only log file that maintains a history
     of mutating changes executed by the data store. This file-based implementation
     has some tempting pros, but some pretty significant cons as well:'
+  id: totrans-206
   prefs: []
   type: TYPE_NORMAL
 - en: 'Pros:'
+  id: totrans-207
   prefs: []
   type: TYPE_NORMAL
 - en: No downstream dependency
+  id: totrans-208
   prefs: []
   type: TYPE_NORMAL
 - en: There’s no dependency on an external service that could fail or that we can
     lose access to.
+  id: totrans-209
   prefs: []
   type: TYPE_NORMAL
 - en: Technically straightforward
+  id: totrans-210
   prefs: []
   type: TYPE_NORMAL
 - en: The logic isn’t especially sophisticated. We can be up and running quickly.
+  id: totrans-211
   prefs: []
   type: TYPE_NORMAL
 - en: 'Cons:'
+  id: totrans-212
   prefs: []
   type: TYPE_NORMAL
 - en: Harder to scale
+  id: totrans-213
   prefs: []
   type: TYPE_NORMAL
 - en: You’ll need some additional way to distribute your state between nodes when
     you want to scale.
+  id: totrans-214
   prefs: []
   type: TYPE_NORMAL
 - en: Uncontrolled growth
+  id: totrans-215
   prefs: []
   type: TYPE_NORMAL
 - en: These logs have to be stored on disk, so you can’t let them grow forever. You’ll
     need some way of compacting them.
+  id: totrans-216
   prefs: []
   type: TYPE_NORMAL
 - en: Prototyping your transaction logger
+  id: totrans-217
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -967,34 +1330,44 @@
     time- and space-efficient, but we can always optimize later. Second, each entry
     will be written on its own line; this will make it much easier to read the data
     later.
+  id: totrans-218
   prefs: []
   type: TYPE_NORMAL
 - en: 'Finally, each transaction will include the four fields listed in [“Your transaction
     log format”](#section_ch05_log_format), delimited by tabs. Once again, these are:'
+  id: totrans-219
   prefs: []
   type: TYPE_NORMAL
 - en: Sequence number
+  id: totrans-220
   prefs: []
   type: TYPE_NORMAL
 - en: A unique record ID, in monotonically increasing order.
+  id: totrans-221
   prefs: []
   type: TYPE_NORMAL
 - en: Event type
+  id: totrans-222
   prefs: []
   type: TYPE_NORMAL
 - en: A descriptor of the type of action taken; this can be `PUT` or `DELETE`.
+  id: totrans-223
   prefs: []
   type: TYPE_NORMAL
 - en: Key
+  id: totrans-224
   prefs: []
   type: TYPE_NORMAL
 - en: A string containing the key affected by this transaction.
+  id: totrans-225
   prefs: []
   type: TYPE_NORMAL
 - en: Value
+  id: totrans-226
   prefs: []
   type: TYPE_NORMAL
 - en: If the event is a `PUT`, the value of the transaction.
+  id: totrans-227
   prefs: []
   type: TYPE_NORMAL
 - en: 'Now that we’ve established these fundamentals, let’s go ahead and define a
@@ -1002,16 +1375,21 @@
     interface described in [“Your transaction logger interface”](#section_ch05_eventlogger_interface)
     by defining `WritePut` and `WriteDelete` methods for writing `PUT` and `DELETE`
     events, respectively, to the transaction log:'
+  id: totrans-228
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE35]'
+  id: totrans-229
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE35]'
 - en: Clearly these methods are a little light on detail, but we’ll flesh them out
     soon!
+  id: totrans-230
   prefs: []
   type: TYPE_NORMAL
 - en: Defining the event type
+  id: totrans-231
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -1020,69 +1398,87 @@
     that some concurrent goroutine could read from and perform the log writes. That
     sounds like a nice idea, but if you’re going to do that you’ll need some kind
     of internal representation of an “event.”
+  id: totrans-232
   prefs: []
   type: TYPE_NORMAL
 - en: 'That shouldn’t give you too much trouble. Incorporating all of the fields that
     we listed in [“Your transaction log format”](#section_ch05_log_format) gives something
     like the `Event` struct, in the following:'
+  id: totrans-233
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE36]'
+  id: totrans-234
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE36]'
 - en: Seems straightforward, right? `Sequence` is the sequence number, and `Key` and
     `Value` are self-explanatory. But…what’s an `EventType`? Well, it’s whatever we
     say it is, and we’re going to say that it’s a constant that we can use to refer
     to the different types of events, which we’ve already established will include
     one each for `PUT` and `DELETE` events.
+  id: totrans-235
   prefs: []
   type: TYPE_NORMAL
 - en: 'One way to do this might be to just assign some constant `byte` values, like
     this:'
+  id: totrans-236
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE37]'
+  id: totrans-237
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE37]'
 - en: 'Sure, this would work, but Go actually provides a better (and more idiomatic)
     way: `iota`. `iota` is a predefined value that can be used in a `constant` declaration
     to construct a series of related constant values.'
+  id: totrans-238
   prefs: []
   type: TYPE_NORMAL
 - en: 'Using the `iota` technique, you don’t have to manually assign values to constants.
     Instead, you can do something like the following:'
+  id: totrans-239
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE38]'
+  id: totrans-240
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE38]'
 - en: This might not be a big deal when you only have two constants like we have here,
     but it can come in handy when you have a number of related constants and don’t
     want to be bothered manually keeping track of which value is assigned to what.
+  id: totrans-241
   prefs: []
   type: TYPE_NORMAL
 - en: Warning
+  id: totrans-242
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
 - en: If you’re using `iota` as enumerations in serializations (as we are here), take
     care to only *append* to the list, and don’t reorder or insert values in the middle,
     or you won’t be able to deserialize later.
+  id: totrans-243
   prefs: []
   type: TYPE_NORMAL
 - en: We now have an idea of what the `TransactionLogger` will look like, as well
     as the two primary write methods. We’ve also defined a struct that describes a
     single event, and created a new `EventType` type and used `iota` to define its
     legal values. Now we’re finally ready to get started.
+  id: totrans-244
   prefs: []
   type: TYPE_NORMAL
 - en: Implementing your FileTransactionLogger
+  id: totrans-245
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: We’ve made some progress. We know we want a `TransactionLogger` implementation
     with methods for writing events, and we’ve created a description of an event in
     code. But what about the `FileTransactionLogger` itself?
+  id: totrans-246
   prefs: []
   type: TYPE_NORMAL
 - en: The service will want to keep track of the physical location of the transaction
@@ -1091,6 +1487,7 @@
     set each event’s sequence number; that can be kept as an unsigned 64-bit integer
     attribute. That’s great, but how will the `FileTransactionLogger` actually write
     the events?
+  id: totrans-247
   prefs: []
   type: TYPE_NORMAL
 - en: One possible approach would be to keep an `io.Writer` that the `WritePut` and
@@ -1099,20 +1496,25 @@
     spending more time in I/O than you’d like. Alternatively, you could create a buffer
     from a slice of `Event` values that are processed by a separate goroutine. Definitely
     warmer, but too complicated.
+  id: totrans-248
   prefs: []
   type: TYPE_NORMAL
 - en: 'After all, why go through all of that work when we can just use standard buffered
     channels? Taking our own advice, we end up with a `FileTransactionLogger` and
     `Write` methods that look like the following:'
+  id: totrans-249
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE39]'
+  id: totrans-250
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE39]'
 - en: You now have your `FileTransactionLogger`, which has a `uint64` value that’s
     used to track the last-used event sequence number, a write-only channel that receives
     `Event` values, and `WritePut` and `WriteDelete` methods that send `Event` values
     into that channel.
+  id: totrans-251
   prefs: []
   type: TYPE_NORMAL
 - en: 'But it looks like there might be a part left over: there’s an `Err` method
@@ -1122,9 +1524,11 @@
     for a more efficient write, it also means that `WritePut` and `WriteDelete` can’t
     simply return an `error` when they encounter a problem, so we provide a dedicated
     error channel to communicate errors instead.'
+  id: totrans-252
   prefs: []
   type: TYPE_NORMAL
 - en: Creating a new FileTransactionLogger
+  id: totrans-253
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -1133,77 +1537,99 @@
     it’s going to cause some problems. Go doesn’t have constructors, though, so to
     solve this you need to define a construction function, which you’ll call, for
     lack of a better name,^([9](ch05.xhtml#idm45983633408024)) `NewFileTransactionLogger`:'
+  id: totrans-254
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE40]'
+  id: totrans-255
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE40]'
 - en: Warning
+  id: totrans-256
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
 - en: See how `NewFileTransactionLogger` returns a pointer type, but its return list
     specifies the decidedly nonpointy `TransactionLogger` interface type?
+  id: totrans-257
   prefs: []
   type: TYPE_NORMAL
 - en: 'The reason for this is tricksy: while Go allows pointer types to implement
     an interface, it doesn’t allow pointers to interface types.'
+  id: totrans-258
   prefs: []
   type: TYPE_NORMAL
 - en: '`NewFileTransactionLogger` calls the `os.OpenFile` function to open the file
     specified by the `filename` parameter. You’ll notice it accepts several flags
     that have been binary `OR`-ed together to set its behavior:'
+  id: totrans-259
   prefs: []
   type: TYPE_NORMAL
 - en: '`os.O_RDWR`'
+  id: totrans-260
   prefs: []
   type: TYPE_NORMAL
 - en: Opens the file in read/write mode.
+  id: totrans-261
   prefs: []
   type: TYPE_NORMAL
 - en: '`os.O_APPEND`'
+  id: totrans-262
   prefs: []
   type: TYPE_NORMAL
 - en: Any writes to this file will append, not overwrite.
+  id: totrans-263
   prefs: []
   type: TYPE_NORMAL
 - en: '`os.O_CREATE`'
+  id: totrans-264
   prefs: []
   type: TYPE_NORMAL
 - en: If the file doesn’t exist, creates it.
+  id: totrans-265
   prefs: []
   type: TYPE_NORMAL
 - en: There are quite a few of these flags besides the three we use here. Take a look
     at [the `os` package documentation](https://pkg.go.dev/os) for a full listing.
+  id: totrans-266
   prefs: []
   type: TYPE_NORMAL
 - en: We now have a construction function that ensures that the transaction log file
     is correctly created. But what about the channels? We *could* create the channels
     and spawn a goroutine with `NewFileTransactionLogger`, but that feels like we’d
     be adding too much mysterious functionality. Instead, we’ll create a `Run` method.
+  id: totrans-267
   prefs: []
   type: TYPE_NORMAL
 - en: Appending entries to the transaction log
+  id: totrans-268
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: 'As of yet, there’s nothing reading from the `events` channel, which is less
     than ideal. What’s worse, the channels aren’t even initialized. Let’s change this
     by creating a `Run` method, shown in the following:'
+  id: totrans-269
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE41]'
+  id: totrans-270
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE41]'
 - en: Note
+  id: totrans-271
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
 - en: This implementation is incredibly basic. It won’t even correctly handle entries
     with whitespace or multiple lines!
+  id: totrans-272
   prefs: []
   type: TYPE_NORMAL
 - en: The `Run` function does several important things.
+  id: totrans-273
   prefs: []
   type: TYPE_NORMAL
 - en: First, it creates a buffered `events` channel. Using a buffered channel in our
@@ -1211,30 +1637,36 @@
     as long as the buffer isn’t full. This lets the consuming service handle short
     bursts of events without being slowed by disk I/O. If the buffer does fill up,
     then the write methods will block until the log writing goroutine catches up.
+  id: totrans-274
   prefs: []
   type: TYPE_NORMAL
 - en: Second, it creates an `errors` channel, which is also buffered, that we’ll use
     to signal any errors that arise in the goroutine that’s responsible for concurrently
     writing events to the transaction log. The buffer value of `1` allows us to send
     an error in a nonblocking manner.
+  id: totrans-275
   prefs: []
   type: TYPE_NORMAL
 - en: Finally, it starts a goroutine that retrieves `Event` values from our `events`
     channel and uses the `fmt.Fprintf` function to write them to the transaction log.
     If `fmt.Fprintf` returns an `error`, the goroutine sends the error to the `errors`
     channel and halts.
+  id: totrans-276
   prefs: []
   type: TYPE_NORMAL
 - en: Using a bufio.Scanner to play back file transaction logs
+  id: totrans-277
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: Even the best transaction log is useless if it’s never read.^([10](ch05.xhtml#idm45983633120568))
     But how do we do that?
+  id: totrans-278
   prefs: []
   type: TYPE_NORMAL
 - en: You’ll need to read the log from the beginning and parse each line; `io.ReadString`
     and `fmt.Sscanf` let you do this with minimal fuss.
+  id: totrans-279
   prefs: []
   type: TYPE_NORMAL
 - en: Channels, our dependable friends, will let your service stream the results to
@@ -1244,18 +1676,23 @@
     over that array to replay the events. Go’s convenient concurrency primitives make
     it almost trivially easy to stream the data to the consumer in a much more space-
     and memory-efficient way.
+  id: totrans-280
   prefs: []
   type: TYPE_NORMAL
 - en: 'The `ReadEvents` method^([11](ch05.xhtml#idm45983633116792)) demonstrates this:'
+  id: totrans-281
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE42]'
+  id: totrans-282
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE42]'
 - en: 'The `ReadEvents` method can really be said to be two functions in one: the
     outer function initializes the file reader, and creates and returns the event
     and error channels. The inner function runs concurrently to ingest the file contents
     line by line and send the results to the channels.'
+  id: totrans-283
   prefs: []
   type: TYPE_NORMAL
 - en: 'Interestingly, the `file` attribute of `TransactionLogger` is of type `*os.File`,
@@ -1265,16 +1702,19 @@
     which provides a convenient means for reading newline-delimited lines of text.
     We can get a new `Scanner` value by passing an `io.Reader`—an `os.File` in this
     case—to `bufio.NewScanner`.'
+  id: totrans-284
   prefs: []
   type: TYPE_NORMAL
 - en: Each call to the `scanner.Scan` method advances it to the next line, returning
     `false` if there aren’t any lines left. A subsequent call to `scanner.Text` returns
     the line.
+  id: totrans-285
   prefs: []
   type: TYPE_NORMAL
 - en: Note the `defer` statements in the inner anonymous goroutine. These ensure that
     the output channels are always closed. Because `defer` is scoped to the function
     they’re declared in, these get called at the end of the goroutine, not `ReadEvents`.
+  id: totrans-286
   prefs: []
   type: TYPE_NORMAL
 - en: 'You may recall from [“Formatting I/O in Go”](ch03.xhtml#sidebar_ch03_printf)
@@ -1284,9 +1724,11 @@
     (`%d`) and two strings (`%s`), separated by tab characters (`\t`). Conveniently,
     `fmt.Sscanf` lets you pass in pointers to the target values for each verb, which
     it can update directly.^([12](ch05.xhtml#idm45983632869720))'
+  id: totrans-287
   prefs: []
   type: TYPE_NORMAL
 - en: Tip
+  id: totrans-288
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
@@ -1294,6 +1736,7 @@
     but they’ve been adopted by many other languages over the years, including C++,
     Java, Perl, PHP, Ruby, and Scala. You may already be familiar with them, but if
     you’re not, take a break now to look at [the `fmt` package documentation](https://pkg.go.dev/fmt).
+  id: totrans-289
   prefs: []
   type: TYPE_NORMAL
 - en: 'At the end of each loop the last-used sequence number is updated to the value
@@ -1302,15 +1745,18 @@
     new one. This is possible because the `outEvent` channel is sending struct values,
     not *pointers* to struct values, so it already provides copies of whatever value
     we send into it.'
+  id: totrans-290
   prefs: []
   type: TYPE_NORMAL
 - en: Finally, the function checks for `Scanner` errors. The `Scan` method returns
     only a single boolean value, which is really convenient for looping. Instead,
     when it encounters an error, `Scan` returns `false` and exposes the error via
     the `Err` method.
+  id: totrans-291
   prefs: []
   type: TYPE_NORMAL
 - en: Your transaction logger interface (redux)
+  id: totrans-292
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -1319,16 +1765,21 @@
     the `TransactionLogger` interface. It actually looks like there are quite few
     we might like to keep in any implementation, leaving us with the following final
     form for the `TransactionLogger` interface:'
+  id: totrans-293
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE43]'
+  id: totrans-294
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE43]'
 - en: Now that that’s settled, you can finally start integrating the transaction log
     into your key-value service.
+  id: totrans-295
   prefs: []
   type: TYPE_NORMAL
 - en: Initializing the FileTransactionLogger in your web service
+  id: totrans-296
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -1336,24 +1787,32 @@
     integrate it with your web service. The first step of this is to add a new function
     that can create a new `TransactionLogger` value, read in and replay any existing
     events, and call `Run`.
+  id: totrans-297
   prefs: []
   type: TYPE_NORMAL
 - en: 'First, let’s add a `TransactionLogger` reference to our `service.go`. You can
     call it `logger` because naming is hard:'
+  id: totrans-298
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE44]'
+  id: totrans-299
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE44]'
 - en: 'Now that you have that detail out of the way, you can define your initialization
     method, which can look like the following:'
+  id: totrans-300
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE45]'
+  id: totrans-301
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE45]'
 - en: 'This function starts as you’d expect: it calls `NewFileTransactionLogger` and
     assigns it to `logger`.'
+  id: totrans-302
   prefs: []
   type: TYPE_NORMAL
 - en: 'The next part is more interesting: it calls `logger.ReadEvents`, and replays
@@ -1362,14 +1821,17 @@
     the cases in the `select` use the format `case foo, ok = <-ch`. The `bool` returned
     by a channel read in this way will be `false` if the channel in question has been
     closed, setting the value of `ok` and terminating the `for` loop.'
+  id: totrans-303
   prefs: []
   type: TYPE_NORMAL
 - en: If we get an `Event` value from the `events` channel, we call either `Delete`
     or `Put` as appropriate; if we get an error from the `errors` channel, `err` will
     be set to a non-`nil` value and the `for` loop will be terminated.
+  id: totrans-304
   prefs: []
   type: TYPE_NORMAL
 - en: Integrating FileTransactionLogger with your web service
+  id: totrans-305
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -1377,74 +1839,91 @@
     complete the integration of the `TransactionLogger` is add exactly three function
     calls into the web service. This is fairly straightforward, so we won’t walk through
     it here. But, briefly, you’ll need to add the following:'
+  id: totrans-306
   prefs: []
   type: TYPE_NORMAL
 - en: '`initializeTransactionLog` to the `main` method'
+  id: totrans-307
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: '`logger.WriteDelete` to `keyValueDeleteHandler`'
+  id: totrans-308
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: '`logger.WritePut` to `keyValuePutHandler`'
+  id: totrans-309
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: We’ll leave the actual integration as an exercise for the reader.^([13](ch05.xhtml#idm45983632511416))
+  id: totrans-310
   prefs: []
   type: TYPE_NORMAL
 - en: Future improvements
+  id: totrans-311
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: 'We may have completed a minimal viable implementation of our transaction logger,
     but it still has plenty of issues and opportunities for improvement, such as:'
+  id: totrans-312
   prefs: []
   type: TYPE_NORMAL
 - en: There aren’t any tests.
+  id: totrans-313
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: There’s no `Close` method to gracefully close the file.
+  id: totrans-314
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: 'The service can close with events still in the write buffer: events can get
     lost.'
+  id: totrans-315
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: 'Keys and values aren’t encoded in the transaction log: multiple lines or whitespace
     will fail to parse correctly.'
+  id: totrans-316
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: 'The sizes of keys and values are unbound: huge keys or values can be added,
     filling the disk.'
+  id: totrans-317
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: 'The transaction log is written in plain text: it will take up more disk space
     than it probably needs to.'
+  id: totrans-318
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: 'The log retains records of deleted values forever: it will grow indefinitely.'
+  id: totrans-319
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: All of these would be impediments in production. I encourage you to take the
     time to consider—or even implement—solutions to one or more of these points.
+  id: totrans-320
   prefs: []
   type: TYPE_NORMAL
 - en: Storing State in an External Database
+  id: totrans-321
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
 - en: Databases, and data, are at the core of many, if not most, business and web
     applications, so it makes perfect sense that Go includes a standard interface
     for SQL (or SQL-like) databases [in its core libraries](https://oreil.ly/NosgK).
+  id: totrans-322
   prefs: []
   type: TYPE_NORMAL
 - en: But does it make sense to use a SQL database to back our key-value store? After
@@ -1454,6 +1933,7 @@
     to be shared between service replicas and provides data resilience. Besides, the
     point is to show how you might interact with a database, not to design the perfect
     application.
+  id: totrans-323
   prefs: []
   type: TYPE_NORMAL
 - en: 'In this section, you’ll be implementing a transaction log backed by an external
@@ -1461,65 +1941,83 @@
     [“Storing State in a Transaction Log File”](#section_ch05_state_transaction_log).
     This would certainly work, and even have some benefits as mentioned previously,
     but it comes with some tradeoffs:'
+  id: totrans-324
   prefs: []
   type: TYPE_NORMAL
 - en: 'Pros:'
+  id: totrans-325
   prefs: []
   type: TYPE_NORMAL
 - en: Externalizes application state
+  id: totrans-326
   prefs: []
   type: TYPE_NORMAL
 - en: Less need to worry about distributed state and closer to “cloud native.”
+  id: totrans-327
   prefs: []
   type: TYPE_NORMAL
 - en: Easier to scale
+  id: totrans-328
   prefs: []
   type: TYPE_NORMAL
 - en: Not having to share data between replicas makes scaling out *easier* (but not
     *easy*).
+  id: totrans-329
   prefs: []
   type: TYPE_NORMAL
 - en: 'Cons:'
+  id: totrans-330
   prefs: []
   type: TYPE_NORMAL
 - en: Introduces a bottleneck
+  id: totrans-331
   prefs: []
   type: TYPE_NORMAL
 - en: What if you had to scale way up? What if all replicas had to read from the database
     at once?
+  id: totrans-332
   prefs: []
   type: TYPE_NORMAL
 - en: Introduces an upstream dependency
+  id: totrans-333
   prefs: []
   type: TYPE_NORMAL
 - en: Creates a dependency on another resource that might fail.
+  id: totrans-334
   prefs: []
   type: TYPE_NORMAL
 - en: Requires initialization
+  id: totrans-335
   prefs: []
   type: TYPE_NORMAL
 - en: What if the `Transactions` table doesn’t exist?
+  id: totrans-336
   prefs: []
   type: TYPE_NORMAL
 - en: Increases complexity
+  id: totrans-337
   prefs: []
   type: TYPE_NORMAL
 - en: Yet another thing to manage and configure.
+  id: totrans-338
   prefs: []
   type: TYPE_NORMAL
 - en: Working with databases in Go
+  id: totrans-339
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: Databases, particularly SQL and SQL-like databases, are everywhere. You can
     try to avoid them, but if you’re building applications with some kind of data
     component, you will at some point have to interact with one.
+  id: totrans-340
   prefs: []
   type: TYPE_NORMAL
 - en: Fortunately for us, the creators of the Go standard library provided [the `database/sql`
     package](https://oreil.ly/YKPZ6), which provides an idiomatic and lightweight
     interface around SQL (and SQL-like) databases. In this section we’ll briefly demonstrate
     how to use this package, and point out some of the gotchas along the way.
+  id: totrans-341
   prefs: []
   type: TYPE_NORMAL
 - en: 'Among the most ubiquitous members of the `database/sql` package is `sql.DB`:
@@ -1528,13 +2026,16 @@
     name might suggest, map to any particular concept of a database or schema, it
     does do quite a lot of things for you, including, but not limited to, negotiating
     connections with your database and managing a database connection pool.'
+  id: totrans-342
   prefs: []
   type: TYPE_NORMAL
 - en: We’ll get into how you create your `sql.DB` in a bit. But first, we have to
     talk about database drivers.
+  id: totrans-343
   prefs: []
   type: TYPE_NORMAL
 - en: Importing a database driver
+  id: totrans-344
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -1542,26 +2043,33 @@
     database, it depends on database drivers to implement the specifics for particular
     database types. At the time of this writing there are 45 drivers listed [in the
     Go repository](https://oreil.ly/QDQIe).
+  id: totrans-345
   prefs: []
   type: TYPE_NORMAL
 - en: In the following section we’ll be working with a Postgres database, so we’ll
     use the third-party [`lib/pq` Postgres driver implementation](https://oreil.ly/hYW8r).
+  id: totrans-346
   prefs: []
   type: TYPE_NORMAL
 - en: 'To load a database driver, anonymously import the driver package by aliasing
     its package qualifier to `_`. This triggers any initializers the package might
     have while also informing the compiler that you have no intention of directly
     using it:'
+  id: totrans-347
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE46]'
+  id: totrans-348
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE46]'
 - en: Now that you’ve done this, you’re finally ready to create your `sql.DB` value
     and access the database.
+  id: totrans-349
   prefs: []
   type: TYPE_NORMAL
 - en: Implementing your PostgresTransactionLogger
+  id: totrans-350
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -1569,47 +2077,60 @@
     a standard definition for a generic transaction log. You might recall that it
     defined methods for starting the logger, as well as reading and writing events
     to the log, as detailed here:'
+  id: totrans-351
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE47]'
+  id: totrans-352
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE47]'
 - en: Our goal now is to create a database-backed implementation of `TransactionLogger`.
     Fortunately, much of our work is already done for us. Looking back at [“Implementing
     your FileTransactionLogger”](#section_ch05_implementing_filetransactionlogger)
     for guidance, it looks like we can create a `PostgresTransactionLogger` using
     very similar logic.
+  id: totrans-353
   prefs: []
   type: TYPE_NORMAL
 - en: 'Starting with the `WritePut`, `WriteDelete`, and `Err` methods, you can do
     something like the following:'
+  id: totrans-354
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE48]'
+  id: totrans-355
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE48]'
 - en: 'If you compare this to the `FileTransactionLogger` it’s clear that the code
     is nearly identical. All we’ve really changed is:'
+  id: totrans-356
   prefs: []
   type: TYPE_NORMAL
 - en: Renaming (obviously) the type to `PostgresTransactionLogger`
+  id: totrans-357
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Swapping the `*os.File` for a `*sql.DB`
+  id: totrans-358
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Removing `lastSequence`; you can let the database handle the sequencing
+  id: totrans-359
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Creating a new PostgresTransactionLogger
+  id: totrans-360
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: That’s all well and good, but we still haven’t talked about how we create the
     `sql.DB`. I know how you must feel. The suspense is definitely killing me, too.
+  id: totrans-361
   prefs: []
   type: TYPE_NORMAL
 - en: Much like we did in the `NewFileTransactionLogger` function, we’re going to
@@ -1617,6 +2138,7 @@
     call (quite predictably) `NewPostgresTransactionLogger`. However, instead of opening
     a file like `NewFileTransactionLogger`, it’ll establish a connection with the
     database, returning an `error` if it fails.
+  id: totrans-362
   prefs: []
   type: TYPE_NORMAL
 - en: 'There’s a little bit of a wrinkle, though. Namely, that the setup for a Postgres
@@ -1624,57 +2146,74 @@
     host where the database lives, the name of the database, and the user name and
     password. One way to deal with this would be to create a function like the following,
     which simply accepts a bunch of string parameters:'
+  id: totrans-363
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE49]'
+  id: totrans-364
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE49]'
 - en: This approach is pretty ugly, though. Plus, what if you wanted an additional
     parameter? Do you chunk it onto the end of the parameter list, breaking any code
     that’s already using this function? Maybe worse, the parameter order isn’t clear
     without looking at the documentation.
+  id: totrans-365
   prefs: []
   type: TYPE_NORMAL
 - en: 'There has to be a better way. So, instead of this potential horror show, you
     can create a small helper struct:'
+  id: totrans-366
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE50]'
+  id: totrans-367
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE50]'
 - en: 'Unlike the big-bag-of-strings approach, this struct is small, readable, and
     easily extended. To use it, you can create a `PostgresDBParams` variable and pass
     it to your construction function. Here’s what that looks like:'
+  id: totrans-368
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE51]'
+  id: totrans-369
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE51]'
 - en: 'The new construction function looks something like the following:'
+  id: totrans-370
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE52]'
+  id: totrans-371
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE52]'
 - en: This does quite a few things, but fundamentally it is not very different from
     `NewFileTransactionLogger`.
+  id: totrans-372
   prefs: []
   type: TYPE_NORMAL
 - en: The first thing it does is to use `sql.Open` to retrieve a `*sql.DB` value.
     You’ll note that the connection string passed to `sql.Open` contains several parameters;
     the `lib/pq` package supports many more than the ones listed here. See [the package
     documentation](https://oreil.ly/uIgyN) for a complete listing.
+  id: totrans-373
   prefs: []
   type: TYPE_NORMAL
 - en: Many drivers, including `lib/pq`, don’t actually create a connection to the
     database immediately, so it uses `db.Ping` to force the driver to establish and
     test a connection.
+  id: totrans-374
   prefs: []
   type: TYPE_NORMAL
 - en: Finally, it creates the `PostgresTransactionLogger` and uses that to verify
     that the `transactions` table exists, creating it if necessary. Without this step,
     the `PostgresTransactionLogger` will essentially assume that the table already
     exists, and will fail if it doesn’t.
+  id: totrans-375
   prefs: []
   type: TYPE_NORMAL
 - en: You may have noticed that the `verifyTableExists` and `createTable` methods
@@ -1683,126 +2222,159 @@
     think about how you might go about doing that. If you’d prefer not to, you can
     find an implementation in [the GitHub repository](https://oreil.ly/1MEIr) that
     comes with this book.
+  id: totrans-376
   prefs: []
   type: TYPE_NORMAL
 - en: You now have a construction function that establishes a connection to the database
     and returns a newly created `TransactionLogger`. But, once again, you need to
     get things started. For that, you need to implement the `Run` method that will
     create the `events` and `errors` channels and spawn the event ingestion goroutine.
+  id: totrans-377
   prefs: []
   type: TYPE_NORMAL
 - en: Using db.Exec to execute a SQL INSERT
+  id: totrans-378
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: For the `FileTransactionLogger`, you implemented a `Run` method that initialized
     the channels and created the go function responsible for writing to the transaction
     log.
+  id: totrans-379
   prefs: []
   type: TYPE_NORMAL
 - en: 'The `PostgresTransactionLogger` is very similar. However, instead of appending
     a line to a file, the new logger uses `db.Exec` to execute an SQL `INSERT` to
     accomplish the same result:'
+  id: totrans-380
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE53]'
+  id: totrans-381
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE53]'
 - en: 'This implementation of the `Run` method does almost exactly what its `FileTransactionLogger`
     equivalent does: it creates the buffered `events` and `errors` channels, and it
     starts a goroutine that retrieves `Event` values from our `events` channel and
     writes them to the transaction log.'
+  id: totrans-382
   prefs: []
   type: TYPE_NORMAL
 - en: Unlike the `FileTransactionLogger`, which appends to a file, this goroutine
     uses `db.Exec` to execute a SQL query that appends a row to the `transactions`
     table. The numbered arguments (`$1, $2, $3`) in the query are placeholder query
     parameters, which must be satisfied when the `db.Exec` function is called.
+  id: totrans-383
   prefs: []
   type: TYPE_NORMAL
 - en: Using db.Query to play back postgres transaction logs
+  id: totrans-384
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: In [“Using a bufio.Scanner to play back file transaction logs”](#section_ch05_scanner_playback),
     you used a `bufio.Scanner` to read previously written transaction log entries.
+  id: totrans-385
   prefs: []
   type: TYPE_NORMAL
 - en: 'The Postgres implementation won’t be *quite* as straightforward, but the principle
     is the same: you point at the top of your data source and read until you hit the
     bottom:'
+  id: totrans-386
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE54]'
+  id: totrans-387
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE54]'
 - en: 'All of the interesting (or at least new) bits are happening in the goroutine.
     Let’s break them down:'
+  id: totrans-388
   prefs: []
   type: TYPE_NORMAL
 - en: '`query` is a string that contains the SQL query. The query in this code requests
     four columns: `sequence`, `event_type`, `key`, and `value`.'
+  id: totrans-389
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: '`db.Query` sends `query` to the database, and returns values of type `*sql.Rows`
     and `error`.'
+  id: totrans-390
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: We defer a call to `rows.Close`. Failing to do so can lead to connection leakage!
+  id: totrans-391
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: '`rows.Next` lets us iterate over the rows; it returns `false` if there are
     no more rows or if there’s an error.'
+  id: totrans-392
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: '`rows.Scan` copies the columns in the current row into the values we pointed
     at in the call.'
+  id: totrans-393
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: We send event `e` to the output channel.
+  id: totrans-394
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: '`Err` returns the error, if any, that may have caused `rows.Next` to return
     `false`.'
+  id: totrans-395
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Initializing the PostgresTransactionLogger in your web service
+  id: totrans-396
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: The `PostgresTransactionLogger` is pretty much complete. Now let’s go ahead
     and integrate it into the web service.
+  id: totrans-397
   prefs: []
   type: TYPE_NORMAL
 - en: 'Fortunately, since we already had the `FileTransactionLogger` in place, we
     only need to change one line:'
+  id: totrans-398
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE55]'
+  id: totrans-399
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE55]'
 - en: which becomes…
+  id: totrans-400
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE56]'
+  id: totrans-401
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE56]'
 - en: Yup. That’s it. Really.
+  id: totrans-402
   prefs: []
   type: TYPE_NORMAL
 - en: Because this represents a complete implementation of the `TransactionLogger`
     interface, everything else stays exactly the same. You can interact with the `PostgresTransactionLogger`
     using exactly the same methods as before.
+  id: totrans-403
   prefs: []
   type: TYPE_NORMAL
 - en: Future improvements
+  id: totrans-404
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -1810,41 +2382,50 @@
     a minimal viable implementation of a transaction logger and has lots of room for
     improvement. Some of the areas for improvement include, but are certainly not
     limited to:'
+  id: totrans-405
   prefs: []
   type: TYPE_NORMAL
 - en: We assume that the database and table exist, and we’ll get errors if they don’t.
+  id: totrans-406
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: The connection string is hard-coded. Even the password.
+  id: totrans-407
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: There’s still no `Close` method to clean up open connections.
+  id: totrans-408
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: 'The service can close with events still in the write buffer: events can get
     lost.'
+  id: totrans-409
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: 'The log retains records of deleted values forever: it will grow indefinitely.'
+  id: totrans-410
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: All of these would be (major) impediments in production. I encourage you to
     take the time to consider—or even implement—solutions to one or more of these
     points.
+  id: totrans-411
   prefs: []
   type: TYPE_NORMAL
 - en: 'Generation 3: Implementing Transport Layer Security'
+  id: totrans-412
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
 - en: Security. Love it or hate it, the simple fact is that security is a critical
     feature of *any* application, cloud native or otherwise. Sadly, security is often
     treated as an afterthought, with potentially catastrophic consequences.
+  id: totrans-413
   prefs: []
   type: TYPE_NORMAL
 - en: 'There are rich tools and established security best practices for traditional
@@ -1853,6 +2434,7 @@
     provides significant flexibility and scalability benefits, it also creates a distinct
     opportunity for would-be attackers: every communication between services is transmitted
     across a network, opening it up to eavesdropping and manipulation.'
+  id: totrans-414
   prefs: []
   type: TYPE_NORMAL
 - en: 'The subject of security can take up an entire book of its own,^([14](ch05.xhtml#idm45983631389976))
@@ -1860,9 +2442,11 @@
     (or “on the wire”) is commonly used to guard against eavesdropping and message
     manipulation, and any language worth its salt—including, and especially, Go—will
     make it relatively low-lift to implement.'
+  id: totrans-415
   prefs: []
   type: TYPE_NORMAL
 - en: Transport Layer Security
+  id: totrans-416
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
@@ -1871,6 +2455,7 @@
     and widespread, being applicable to virtually any Internet communications. You’re
     most likely familiar with it (and perhaps using it right now) in the form of HTTPS—also
     known as HTTP over TLS—which uses TLS to encrypt exchanges over HTTP.
+  id: totrans-417
   prefs: []
   type: TYPE_NORMAL
 - en: TLS encrypts messages using *public-key cryptography*, in which both parties
@@ -1881,21 +2466,26 @@
     to communicate privately can exchange their public keys, which can then be used
     to secure all subsequent communications in a way that can only be read by the
     owner of the intended recipient, who holds the corresponding private key.^([15](ch05.xhtml#idm45983631362184))
+  id: totrans-418
   prefs: []
   type: TYPE_NORMAL
 - en: '![cngo 0502](Images/cngo_0502.png)'
+  id: totrans-419
   prefs: []
   type: TYPE_IMG
 - en: Figure 5-2\. One half of a public key exchange
+  id: totrans-420
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
 - en: Certificates, certificate authorities, and trust
+  id: totrans-421
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: If TLS had a motto, it would be “trust but verify.” Actually, scratch the trust
     part. Verify everything.
+  id: totrans-422
   prefs: []
   type: TYPE_NORMAL
 - en: It’s not enough for a service to simply provide a public key.^([16](ch05.xhtml#idm45983631356520))
@@ -1904,31 +2494,38 @@
     of the public key is, in fact, the named subject (owner) of the certificate, and
     describes how the key may be used. This allows the recipient to compare the certificate
     against various “trusts” to decide whether it will accept it as valid.
+  id: totrans-423
   prefs: []
   type: TYPE_NORMAL
 - en: First, the certificate must be digitally signed and authenticated by a *certificate
     authority*, a trusted entity that issues digital certificates.
+  id: totrans-424
   prefs: []
   type: TYPE_NORMAL
 - en: Second, the subject of the certificate has to match the domain name of the service
     the client is trying to connect to. Among other things, this helps to ensure that
     the certificates you’re receiving are valid and haven’t been swapped out by a
     man-in-the-middle.
+  id: totrans-425
   prefs: []
   type: TYPE_NORMAL
 - en: Only then will your conversation proceed.
+  id: totrans-426
   prefs: []
   type: TYPE_NORMAL
 - en: Warning
+  id: totrans-427
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
 - en: Web browsers or other tools will usually allow you to choose to proceed if a
     certificate can’t be validated. If you’re using self-signed certificates for development,
     for example, that might make sense. But generally speaking, heed the warnings.
+  id: totrans-428
   prefs: []
   type: TYPE_NORMAL
 - en: Private Key and Certificate Files
+  id: totrans-429
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
@@ -1937,14 +2534,17 @@
     you’d be wrong. Web searches for “key file format” will return a virtual zoo of
     file extensions: *.csr*, *.key*, *.pkcs12*, *.der*, and *.pem* just to name a
     few.'
+  id: totrans-430
   prefs: []
   type: TYPE_NORMAL
 - en: Of these, however, *.pem* seems to be the most common. It also happens to be
     the format that’s most easily supported by Go’s `net/http` package, so that’s
     what we’ll be using.
+  id: totrans-431
   prefs: []
   type: TYPE_NORMAL
 - en: Privacy enhanced mail (PEM) file format
+  id: totrans-432
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -1953,21 +2553,27 @@
     public or private keys) are common too. Conveniently, PEM is also base64 encoded
     and therefore viewable in a text editor, and even safe to paste into (for example)
     the body of an email message.^([18](ch05.xhtml#idm45983631338264))
+  id: totrans-433
   prefs: []
   type: TYPE_NORMAL
 - en: 'Often, *.pem* files will come in a pair, representing a complete key pair:'
+  id: totrans-434
   prefs: []
   type: TYPE_NORMAL
 - en: '*cert.pem*'
+  id: totrans-435
   prefs: []
   type: TYPE_NORMAL
 - en: The server certificate (including the CA-signed public key).
+  id: totrans-436
   prefs: []
   type: TYPE_NORMAL
 - en: '*key.pem*'
+  id: totrans-437
   prefs: []
   type: TYPE_NORMAL
 - en: A private key, not to be shared.
+  id: totrans-438
   prefs: []
   type: TYPE_NORMAL
 - en: Going forward, we’ll assume that your keys are in this configuration. If you
@@ -1976,15 +2582,18 @@
     other format, converting it is beyond the scope of this book. However, the Internet
     is a magical place, and there are plenty of tutorials online for converting between
     common key formats.
+  id: totrans-439
   prefs: []
   type: TYPE_NORMAL
 - en: Securing Your Web Service with HTTPS
+  id: totrans-440
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
 - en: So, now that we’ve established that security should be taken seriously, and
     that communication via TLS is a bare-minimum first step towards securing our communications,
     how do we go about doing that?
+  id: totrans-441
   prefs: []
   type: TYPE_NORMAL
 - en: One way might be to put a reverse proxy in front of our service that can handle
@@ -1993,66 +2602,87 @@
     over a network. Plus, the additional service adds some architectural complexity
     that we might prefer to avoid. Perhaps we can have our key-value service serve
     HTTPS?
+  id: totrans-442
   prefs: []
   type: TYPE_NORMAL
 - en: 'Actually, we can. Going all the way back to [“Building an HTTP Server with
     net/http”](#section_ch05_server_with_nethttp), you might recall that the `net/http`
     package contains a function, `ListenAndServe`, which, in its most basic form,
     looks something like the following:'
+  id: totrans-443
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE57]'
+  id: totrans-444
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE57]'
 - en: In this example, we call `HandleFunc` to add a handler function for the root
     path, followed by `ListenAndServe` to start the service listening and serving.
     For the sake of simplicity, we ignore any errors returned by `ListenAndServe`.
+  id: totrans-445
   prefs: []
   type: TYPE_NORMAL
 - en: 'There aren’t a lot of moving parts here, which is kind of nice. In keeping
     with that philosophy, the designers of `net/http` kindly provided a TLS-enabled
     variant of the `ListenAndServe` function that we’re familiar with:'
+  id: totrans-446
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE58]'
+  id: totrans-447
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE58]'
 - en: 'As you can see, `ListenAndServeTLS` looks and feels almost exactly like `ListenAndServe`
     except that it has two extra parameters: `certFile` and `keyFile`. If you happen
     to have certificate and private key PEM files, then service HTTPS-encrypted connections
     is just a matter of passing the names of those files to `ListenAndServeTLS`:'
+  id: totrans-448
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE59]'
+  id: totrans-449
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE59]'
 - en: This sure looks super convenient, but does it work? Let’s fire up our service
     (using self-signed certificates) and find out.
+  id: totrans-450
   prefs: []
   type: TYPE_NORMAL
 - en: 'Dusting off our old friend `curl`, let’s try inserting a key/value pair. Note
     that we use the `https` scheme in our URL instead of `http`:'
+  id: totrans-451
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE60]'
+  id: totrans-452
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE60]'
 - en: Well, that didn’t go as planned. As we mentioned in [“Certificates, certificate
     authorities, and trust”](#section_ch05_trust), TLS expects any certificates to
     be signed by a certificate authority. It doesn’t like self-signed certificates.
+  id: totrans-453
   prefs: []
   type: TYPE_NORMAL
 - en: 'Fortunately, we can turn this safety check off in `curl` with the appropriately
     named `--insecure` flag:'
+  id: totrans-454
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE61]'
+  id: totrans-455
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE61]'
 - en: We got a sternly worded warning, but it worked!
+  id: totrans-456
   prefs: []
   type: TYPE_NORMAL
 - en: Transport Layer Summary
+  id: totrans-457
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
@@ -2060,14 +2690,17 @@
     and there’s no way we’re going to do it justice, but we were able to at least
     introduce TLS, and how it can serve as one relatively low-cost, high-return component
     of a larger security strategy.
+  id: totrans-458
   prefs: []
   type: TYPE_NORMAL
 - en: We were also able to demonstrate how to implement TLS in an Go `net/http` web
     service, and saw how—as long as we have valid certificates—to secure a service’s
     communications without a great deal of effort.
+  id: totrans-459
   prefs: []
   type: TYPE_NORMAL
 - en: Containerizing Your Key-Value Store
+  id: totrans-460
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -2076,6 +2709,7 @@
     host and from other containers. The concept of the container has been around since
     at least 2000, but it was the introduction of Docker in 2013 that made containers
     accessible to the masses and brought containerization into the mainstream.
+  id: totrans-461
   prefs: []
   type: TYPE_NORMAL
 - en: Importantly, containers are not virtual machines:^([20](ch05.xhtml#idm45983631126600))
@@ -2085,6 +2719,7 @@
     kernel namespaces. In fact, it can be reasonably argued that containers are nothing
     more than a convenient abstraction, and that there’s actually no such thing as
     a container.
+  id: totrans-462
   prefs: []
   type: TYPE_NORMAL
 - en: Even though they’re not virtual machines,^([21](ch05.xhtml#idm45983631124536))
@@ -2092,54 +2727,66 @@
     which is that they allow an application, its dependencies, and much of its environment
     to be packaged within a single distributable artifact—a container image—that can
     be executed on any suitable host.
+  id: totrans-463
   prefs: []
   type: TYPE_NORMAL
 - en: 'The benefits don’t stop there, however. In case you need them, here’s a few
     more:'
+  id: totrans-464
   prefs: []
   type: TYPE_NORMAL
 - en: Agility
+  id: totrans-465
   prefs: []
   type: TYPE_NORMAL
 - en: Unlike virtual machines that are saddled with an entire operating system and
     a colossal memory footprint, containers boast image sizes in the megabyte range
     and startup times that measure in milliseconds. This is particularly true of Go
     applications, whose binaries have few, if any, dependencies.
+  id: totrans-466
   prefs: []
   type: TYPE_NORMAL
 - en: Isolation
+  id: totrans-467
   prefs: []
   type: TYPE_NORMAL
 - en: This was hinted at previously, but bears repeating. Containers virtualize CPU,
     memory, storage, and network resources at the operating-system-level, providing
     developers with a sandboxed view of the OS that is logically isolated from other
     applications.
+  id: totrans-468
   prefs: []
   type: TYPE_NORMAL
 - en: Standardization and productivity
+  id: totrans-469
   prefs: []
   type: TYPE_NORMAL
 - en: Containers let you package an application alongside its dependencies, such as
     specific versions of language runtimes and libraries, as a single distributable
     binary, making your deployments reproducible, predictable, and versionable.
+  id: totrans-470
   prefs: []
   type: TYPE_NORMAL
 - en: Orchestration
+  id: totrans-471
   prefs: []
   type: TYPE_NORMAL
 - en: Sophisticated container orchestration systems like Kubernetes provide a huge
     number of benefits. By containerizing your application(s) you’re taking the first
     step towards being able to take advantage of them.
+  id: totrans-472
   prefs: []
   type: TYPE_NORMAL
 - en: There are just four (very) motivating arguments.^([22](ch05.xhtml#idm45983631092424))
     In other words, containerization is super, super useful.
+  id: totrans-473
   prefs: []
   type: TYPE_NORMAL
 - en: For this book, we’ll be using Docker to build our container images. Alternative
     build tools exist, but Docker is the most common containerization tool in use
     today, and the syntax for its build file—termed a *Dockerfile*—lets you use familiar
     shell scripting commands and utilities.
+  id: totrans-474
   prefs: []
   type: TYPE_NORMAL
 - en: 'That being said, this isn’t a book about Docker or containerization, so our
@@ -2147,9 +2794,11 @@
     If you’re interested in learning more, I suggest picking up a copy of [*Docker:
     Up & Running: Shipping Reliable Containers in Production*](https://oreil.ly/rqGoI)
     by Sean P. Kane and Karl Matthias (O’Reilly).'
+  id: totrans-475
   prefs: []
   type: TYPE_NORMAL
 - en: Docker (Absolute) Basics
+  id: totrans-476
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
@@ -2158,199 +2807,253 @@
     binary that contains your application runtime and its dependencies. When an image
     is run, the resulting process is the *container*. An image can be run many times
     to create multiple (essentially) identical containers.
+  id: totrans-477
   prefs: []
   type: TYPE_NORMAL
 - en: Over the next few pages we’ll create a simple Dockerfile and build and execute
     an image. If you haven’t already, please take a moment and [install the Docker
     Community Edition (CE)](https://oreil.ly/yYwKL).
+  id: totrans-478
   prefs: []
   type: TYPE_NORMAL
 - en: The Dockerfile
+  id: totrans-479
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: 'Dockerfiles are essentially build files that describe the steps required to
     build an image. A very minimal—but complete—example is demonstrated in the following:'
+  id: totrans-480
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE62]'
+  id: totrans-481
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE62]'
 - en: 'As you can see, this Dockerfile includes four different commands:'
+  id: totrans-482
   prefs: []
   type: TYPE_NORMAL
 - en: '`FROM`'
+  id: totrans-483
   prefs: []
   type: TYPE_NORMAL
 - en: Specifies a *base image* that this build will extend, and will typically be
     a common Linux distribution, such as `ubuntu` or `alpine`. At build time this
     image is pulled and run, and the subsequent commands applied to it.
+  id: totrans-484
   prefs: []
   type: TYPE_NORMAL
 - en: '`RUN`'
+  id: totrans-485
   prefs: []
   type: TYPE_NORMAL
 - en: Will execute any commands on top of the current image. The result will be used
     for the next step in the Dockerfile.
+  id: totrans-486
   prefs: []
   type: TYPE_NORMAL
 - en: '`EXPOSE`'
+  id: totrans-487
   prefs: []
   type: TYPE_NORMAL
 - en: Tells Docker which port(s) the container will use. See [“What’s the Difference
     Between Exposing and Publishing Ports?”](#sidebar_ch05_expose_vs_publish) for
     more information on exposing ports.
+  id: totrans-488
   prefs: []
   type: TYPE_NORMAL
 - en: '`CMD`'
+  id: totrans-489
   prefs: []
   type: TYPE_NORMAL
 - en: The command to execute when the container is executed. There can only be one
     `CMD` in a Dockerfile.
+  id: totrans-490
   prefs: []
   type: TYPE_NORMAL
 - en: These are four of the most common Dockerfile instructions of many available.
     For a complete listing see the [official Dockerfile reference](https://oreil.ly/8LGdP).
+  id: totrans-491
   prefs: []
   type: TYPE_NORMAL
 - en: As you may have inferred, the previous example starts with an existing Linux
     distribution image (Ubuntu 20.04) and installs Nginx, which is executed when the
     container is started.
+  id: totrans-492
   prefs: []
   type: TYPE_NORMAL
 - en: By convention, the file name of a Dockerfile is *Dockerfile*. Go ahead and create
     a new file named *Dockerfile* and paste the previous example into it.
+  id: totrans-493
   prefs: []
   type: TYPE_NORMAL
 - en: Building your container image
+  id: totrans-494
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: 'Now that you have a simple Dockerfile, you can build it! Make sure that you’re
     in the same directory as your Dockerfile and enter the following:'
+  id: totrans-495
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE63]'
+  id: totrans-496
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE63]'
 - en: This will instruct Docker to begin the build process. If everything works correctly
     (and why wouldn’t it?) you’ll see the output as Docker downloads the parent image,
     and runs the `apt` commands. This will probably take a minute or two the first
     time you run it.
+  id: totrans-497
   prefs: []
   type: TYPE_NORMAL
 - en: 'At the end, you’ll see a line that looks something like the following: `Successfully
     tagged my-nginx:latest`.'
+  id: totrans-498
   prefs: []
   type: TYPE_NORMAL
 - en: 'If you do, you can use the `docker images` command to verify that your image
     is now present. You should see something like the following:'
+  id: totrans-499
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE64]'
+  id: totrans-500
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE64]'
 - en: 'If all has gone as planned, you’ll see at least two images listed: our parent
     image `ubuntu:20.04`, and your own `my-nginx:latest` image. Next step: running
     the service container!'
+  id: totrans-501
   prefs: []
   type: TYPE_NORMAL
 - en: Running your container image
+  id: totrans-502
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: 'Now that you’ve built your image, you can run it. For that, you’ll use the
     `docker run` command:'
+  id: totrans-503
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE65]'
+  id: totrans-504
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE65]'
 - en: This instructs Docker to run a container using your `my-nginx` image. The `--detach`
     flag will cause the container to be run in the background. Using `--publish 8080:80`
     instructs Docker to publish port 8080 on the host bridged to port 80 in the container,
     so any connections to `localhost:8080` will be forwarded to the container’s port
     80\. Finally, the `--name nginx` flag specifies a name for the container; without
     this, a randomly generated name will be assigned instead.
+  id: totrans-505
   prefs: []
   type: TYPE_NORMAL
 - en: You’ll notice that running this command presents us with a very cryptic line
     containing 65 very cryptic hexadecimal characters. This is the *container ID*,
     which can be used to refer to the container in lieu of its name.
+  id: totrans-506
   prefs: []
   type: TYPE_NORMAL
 - en: Running your container image
+  id: totrans-507
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: 'To verify that your container is running and is doing what you expect, you
     can use the `docker ps` command to list all running containers. This should look
     something like the following:'
+  id: totrans-508
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE66]'
+  id: totrans-509
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE66]'
 - en: 'The preceding output has been edited for brevity (you may notice that it’s
     missing the `COMMAND` and `CREATED` columns). Your output should include seven
     columns:'
+  id: totrans-510
   prefs: []
   type: TYPE_NORMAL
 - en: '`CONTAINER ID`'
+  id: totrans-511
   prefs: []
   type: TYPE_NORMAL
 - en: The first 12 characters of the container ID. You’ll notice it matches the output
     of your `docker run`.
+  id: totrans-512
   prefs: []
   type: TYPE_NORMAL
 - en: '`IMAGE`'
+  id: totrans-513
   prefs: []
   type: TYPE_NORMAL
 - en: The name (and tag, if specified) of this container’s source image. No tag implies
     `latest`.
+  id: totrans-514
   prefs: []
   type: TYPE_NORMAL
 - en: '`COMMAND` (not shown)'
+  id: totrans-515
   prefs: []
   type: TYPE_NORMAL
 - en: The command running inside the container. Unless overridden in the `docker run`
     this will be the same as the `CMD` instruction in the Dockerfile. In our case
     this will be `nginx -g 'daemon off;'`.
+  id: totrans-516
   prefs: []
   type: TYPE_NORMAL
 - en: '`CREATED` (not shown)'
+  id: totrans-517
   prefs: []
   type: TYPE_NORMAL
 - en: How long ago the container was created.
+  id: totrans-518
   prefs: []
   type: TYPE_NORMAL
 - en: '`STATUS`'
+  id: totrans-519
   prefs: []
   type: TYPE_NORMAL
 - en: The current state of the container (`up`, `exited`, `restarting`, etc) and how
     long it’s been in that state. If the state changed, then the time will differ
     from `CREATED`.
+  id: totrans-520
   prefs: []
   type: TYPE_NORMAL
 - en: '`PORTS`'
+  id: totrans-521
   prefs: []
   type: TYPE_NORMAL
 - en: Lists all exposed and published ports (see [“What’s the Difference Between Exposing
     and Publishing Ports?”](#sidebar_ch05_expose_vs_publish)). In our case, we’ve
     published `0.0.0.0:8080` on the host and mapped it to `80` on the container, so
     that all requests to host port 8080 are forwarded to container port 80.
+  id: totrans-522
   prefs: []
   type: TYPE_NORMAL
 - en: '`NAMES`'
+  id: totrans-523
   prefs: []
   type: TYPE_NORMAL
 - en: The name of the container. Docker will randomly set this if it’s not explicitly
     defined. Two containers with the same name, regardless of state, cannot exist
     on the same host at the same time. To reuse a name, you’ll first have to `delete`
     the unwanted container.
+  id: totrans-524
   prefs: []
   type: TYPE_NORMAL
 - en: Issuing a request to a published container port
+  id: totrans-525
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -2358,31 +3061,39 @@
     named `nginx` that appears to have port 8080 published and forwarding to the container’s
     port 80\. If so, then you’re ready to send a request to your running container.
     But which port should you query?
+  id: totrans-526
   prefs: []
   type: TYPE_NORMAL
 - en: 'Well, the Nginx container is listening on port 80\. Can you reach that? Actually,
     no. That port won’t be accessible because it wasn’t published to any network interface
     during the `docker run`. Any attempt to connect to an unpublished container port
     is doomed to failure:'
+  id: totrans-527
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE67]'
+  id: totrans-528
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE67]'
 - en: You haven’t published to port 80, but you *have* published port 8080 and forwarded
     it to the container’s port 80\. You can verify this with our old friend `curl`
     or by browsing to `localhost:8080`. If everything is working correctly you’ll
     be greeted with the familiar Nginx “Welcome” page illustrated in [Figure 5-3](#img_ch05_nginx_welcome).
+  id: totrans-529
   prefs: []
   type: TYPE_NORMAL
 - en: '![cngo 0503](Images/cngo_0503.png)'
+  id: totrans-530
   prefs: []
   type: TYPE_IMG
 - en: Figure 5-3\. Welcome to nginx!
+  id: totrans-531
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
 - en: Running multiple containers
+  id: totrans-532
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -2392,39 +3103,50 @@
     same host, with each listening on a different published port. For example, if
     you wanted to run an `httpd` container alongside your already-running `my-nginx`
     container, you could do exactly that.'
+  id: totrans-533
   prefs: []
   type: TYPE_NORMAL
 - en: “But,” you might say, “both of those containers expose port 80! Won’t they collide?”
+  id: totrans-534
   prefs: []
   type: TYPE_NORMAL
 - en: Great question, to which the answer is, happily, no. In fact, you can actually
     have as many containers as you want that *expose* the same port—even multiple
     instances of the same image—as long as they don’t attempt to *publish* the same
     port on the same network interface.
+  id: totrans-535
   prefs: []
   type: TYPE_NORMAL
 - en: 'For example, if you want to run the stock `httpd` image, you can run it by
     using the `docker run` command again, as long as you take care to publish to a
     different port (8081, in this case):'
+  id: totrans-536
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE68]'
+  id: totrans-537
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE68]'
 - en: 'If all goes as planned, this will spawn a new container listening on the host
     at port 8081\. Go ahead: use `docker ps` and `curl` to test:'
+  id: totrans-538
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE69]'
+  id: totrans-539
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE69]'
 - en: Stopping and deleting your containers
+  id: totrans-540
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: Now you’ve successfully run your container, you’ll probably need to stop and
     delete it at some point, particularly if you want to rerun a new container using
     the same name.
+  id: totrans-541
   prefs: []
   type: TYPE_NORMAL
 - en: 'To stop a running container, you can use the `docker stop` command, passing
@@ -2432,57 +3154,74 @@
     many characters doesn’t matter, as long they can be used to uniquely identify
     the desired container). Using the container ID to stop our `nginx` container looks
     like this:'
+  id: totrans-542
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE70]'
+  id: totrans-543
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE70]'
 - en: 'The output of a successful `docker stop` is just the name or ID that we passed
     into the command. You can verify that your container has actually been stopped
     using `docker ps --all`, which will show *all* containers, not just the running
     ones:'
+  id: totrans-544
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE71]'
+  id: totrans-545
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE71]'
 - en: If you ran the `httpd` container, it will also be displayed with a status of
     `Up`. You will probably want to stop it as well.
+  id: totrans-546
   prefs: []
   type: TYPE_NORMAL
 - en: As you can see, the status of our `nginx` container has changed to `Exited`,
     followed by its exit code—an exit status of 0 indicates that we were able to execute
     a graceful shutdown—and how long ago the container entered its current status.
+  id: totrans-547
   prefs: []
   type: TYPE_NORMAL
 - en: Now that you’ve stopped your container you can freely delete it.
+  id: totrans-548
   prefs: []
   type: TYPE_NORMAL
 - en: Tip
+  id: totrans-549
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
 - en: You can’t delete a running container or an image that’s used by a running container.
+  id: totrans-550
   prefs: []
   type: TYPE_NORMAL
 - en: 'To do this, you use the `docker rm` (or the newer `docker container rm`) command
     to remove your container, again passing it either the container name or the first
     few characters of the ID of the container you want to delete:'
+  id: totrans-551
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE72]'
+  id: totrans-552
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE72]'
 - en: As before, the output name or ID indicates success. If you were to go ahead
     and run `docker ps --all` again, you shouldn’t see the container listed anymore.
+  id: totrans-553
   prefs: []
   type: TYPE_NORMAL
 - en: Building Your Key-Value Store Container
+  id: totrans-554
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
 - en: Now that you have the basics down, you can start applying them to containerizing
     our key-value service.
+  id: totrans-555
   prefs: []
   type: TYPE_NORMAL
 - en: 'Fortunately, Go’s ability to compile into statically linked binaries makes
@@ -2491,105 +3230,136 @@
     `openjdk:15` for Java or the 885MB `python:3.9` for Python,^([23](ch05.xhtml#idm45983630908216))
     Go binaries need no runtime at all. They can be placed into a “scratch” image:
     an image, with no parent at all.'
+  id: totrans-556
   prefs: []
   type: TYPE_NORMAL
 - en: 'Iteration 1: adding your binary to a FROM scratch image'
+  id: totrans-557
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: 'To do this, you’ll need a Dockerfile. The following example is a pretty typical
     example of a Dockerfile for a containerized Go binary:'
+  id: totrans-558
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE73]'
+  id: totrans-559
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE73]'
 - en: This Dockerfile is fairly similar to the previous one, except that instead of
     using `apt` to install an application from a repository, it uses `COPY` to retrieve
     a compiled binary from the filesystem it’s being built on. In this case, it assumes
     the presence of a binary named `kvs`. For this to work, we’ll need to build the
     binary first.
+  id: totrans-560
   prefs: []
   type: TYPE_NORMAL
 - en: 'In order for your binary to be usable inside a container, it has to meet a
     few criteria:'
+  id: totrans-561
   prefs: []
   type: TYPE_NORMAL
 - en: It has to be compiled (or cross-compiled) for Linux.
+  id: totrans-562
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: It has to be statically linked.
+  id: totrans-563
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: It has to be named `kvs` (because that’s what the Dockerfile is expecting).
+  id: totrans-564
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: 'We can do all of these things in one command, as follows:'
+  id: totrans-565
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE74]'
+  id: totrans-566
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE74]'
 - en: 'Let’s walk through what this does:'
+  id: totrans-567
   prefs: []
   type: TYPE_NORMAL
 - en: '`CGO_ENABLED=0` tells the compiler to disable `cgo` and statically link any
     C bindings. We won’t go into what this is, other than that it enforces static
     linking, but I encourage you to look at [the `cgo` documentation](https://oreil.ly/XUI8H)
     if you’re curious.'
+  id: totrans-568
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: '`GOOS=linux` instructs the compiler to generate a Linux binary, cross-compiling
     if necessary.'
+  id: totrans-569
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: '`-a` forces the compiler to rebuild any packages that are already up to date.'
+  id: totrans-570
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: '`-o kvs` specifies that the binary will be named `kvs`.'
+  id: totrans-571
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: 'Executing the command should yield a statically linked Linux binary. This can
     be verified using the `file` command:'
+  id: totrans-572
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE75]'
+  id: totrans-573
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE75]'
 - en: Note
+  id: totrans-574
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
 - en: Linux binaries will run in a Linux container, even one running in Docker for
     MacOS or Windows, but won’t run on MacOS or Windows otherwise.
+  id: totrans-575
   prefs: []
   type: TYPE_NORMAL
 - en: 'Great! Now let’s build the container image, and see what comes out:'
+  id: totrans-576
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE76]'
+  id: totrans-577
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE76]'
 - en: Less than 7MB! That’s roughly two orders of magnitude smaller than the relatively
     massive images for other languages’ runtimes. This can come in quite handy when
     you’re operating at scale and have to pull your image onto a couple hundred nodes
     a few times a day.
+  id: totrans-578
   prefs: []
   type: TYPE_NORMAL
 - en: 'But does it run? Let’s find out:'
+  id: totrans-579
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE77]'
+  id: totrans-580
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE77]'
 - en: Looks like it works!
+  id: totrans-581
   prefs: []
   type: TYPE_NORMAL
 - en: So now you have a nice, simple Dockerfile that builds an image using a precompiled
@@ -2597,15 +3367,18 @@
     CI system) rebuilds the binary fresh for each Docker build. That’s not *too* terrible,
     but it does mean that you need to have Go installed on your build workers. Again,
     not terrible, but we can certainly do better.
+  id: totrans-582
   prefs: []
   type: TYPE_NORMAL
 - en: 'Iteration 2: using a multi-stage build'
+  id: totrans-583
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: In the last section, you created a simple Dockerfile that would take an existing
     Linux binary and wrap it in a bare-bones “scratch” image. But what if you could
     perform the *entire* image build—Go compilation and all—in Docker?
+  id: totrans-584
   prefs: []
   type: TYPE_NORMAL
 - en: One approach might be to use the `golang` image as our parent image. If you
@@ -2613,12 +3386,14 @@
     at deploy time. This could build on hosts that don’t have the Go compiler installed,
     but the resulting image would be saddled with an additional 862MB (the size of
     the `golang:1.16` image) of entirely unnecessary build machinery.
+  id: totrans-585
   prefs: []
   type: TYPE_NORMAL
 - en: 'Another approach might be to use two Dockerfiles: one for building the binary,
     and another that containerizes the output of the first build. This is a lot closer
     to where you want to be, but it requires two distinct Dockerfiles that need be
     sequentially built or managed by a separate script.'
+  id: totrans-586
   prefs: []
   type: TYPE_NORMAL
 - en: 'A better way became available with the introduction of multistage Docker builds,
@@ -2628,53 +3403,69 @@
     use this approach, you define a build with two stages: a “build” stage that generates
     the Go binary, and an “image” stage that uses that binary to produce the final
     image.'
+  id: totrans-587
   prefs: []
   type: TYPE_NORMAL
 - en: 'To do this, you use multiple `FROM` statements in our Dockerfile, each defining
     the start of a new stage. Each stage can be arbitrarily named. For example, you
     might name your build stage `build`, as follows:'
+  id: totrans-588
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE78]'
+  id: totrans-589
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE78]'
 - en: 'Once you have stages with names, you can use the `COPY` instruction in your
     Dockerfile to copy any artifact *from any previous stage*. Your final stage might
     have an instruction like the following, which copies the file `/src/kvs` from
     the `build` stage to the current working directory:'
+  id: totrans-590
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE79]'
+  id: totrans-591
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE79]'
 - en: 'Putting these things together yields a complete, two-stage Dockerfile:'
+  id: totrans-592
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE80]'
+  id: totrans-593
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE80]'
 - en: 'Now that you have your complete Dockerfile, you can build it in precisely the
     same way as before. We’ll tag it as `multipart` this time, though, so that you
     can compare the two images:'
+  id: totrans-594
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE81]'
+  id: totrans-595
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE81]'
 - en: This is encouraging! You now have a single Dockerfile that can compile your
     Go code—regardless of whether or not the Go compiler is even installed on the
     build worker—and that drops the resulting statically linked executable binary
     into a `FROM scratch` base to produce a very, very small image containing nothing
     except your key-value store service.
+  id: totrans-596
   prefs: []
   type: TYPE_NORMAL
 - en: You don’t need to stop there, though. If you wanted to, you could add other
     stages as well, such as a `test` stage that runs any unit tests prior to the build
     step. We won’t go through that exercise now, however, since it’s more of the same
     thing, but I encourage you to try it for yourself.
+  id: totrans-597
   prefs: []
   type: TYPE_NORMAL
 - en: Externalizing Container Data
+  id: totrans-598
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
@@ -2683,6 +3474,7 @@
     at any time, taking all of its data with it. To be clear, this is a feature, and
     is very intentional, but sometimes you might *want* your data to outlive your
     containers.
+  id: totrans-599
   prefs: []
   type: TYPE_NORMAL
 - en: For example, the ability to mount externally managed files directly into the
@@ -2691,6 +3483,7 @@
     This is a very powerful strategy, and is probably the most common use-case for
     container data externalization. So common in fact that Kubernetes even provides
     a resource type—`ConfigMap`—dedicated to it.
+  id: totrans-600
   prefs: []
   type: TYPE_NORMAL
 - en: 'Similarly, you might want data generated in a container to exist beyond the
@@ -2699,12 +3492,14 @@
     of the realities of cloud native infrastructure: nothing is permanent, not even
     servers. Don’t store anything on the host that you don’t mind possibly losing
     forever.'
+  id: totrans-601
   prefs: []
   type: TYPE_NORMAL
 - en: Fortunately, while “pure” Docker limits you to externalizing data directly onto
     local disk,^([24](ch05.xhtml#idm45983630671304)) container orchestration systems
     like Kubernetes provides [various abstractions](https://oreil.ly/vBXfA) that allows
     data to survive the loss of a host.
+  id: totrans-602
   prefs: []
   type: TYPE_NORMAL
 - en: 'Unfortunately, this is supposed to be a book about Go, so we really can’t cover
@@ -2712,20 +3507,24 @@
     to take a long look at the [excellent Kubernetes documentation](https://oreil.ly/wxImg),
     and equally excellent [*Kubernetes: Up and Running*](https://oreil.ly/e6rve) by
     Brendan Burns, Joe Beda, and Kelsey Hightower (O’Reilly).'
+  id: totrans-603
   prefs: []
   type: TYPE_NORMAL
 - en: Summary
+  id: totrans-604
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
 - en: This was a long chapter, and we touched on a lot of different topics. Consider
     how much we’ve accomplished!
+  id: totrans-605
   prefs: []
   type: TYPE_NORMAL
 - en: Starting from first principles, we designed and implemented a simple monolithic
     key-value store, using `net/http` and `gorilla/mux` to build a RESTful service
     around functionality provided by a small, independent, and easily testable Go
     library.
+  id: totrans-606
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -2733,114 +3532,142 @@
     different transaction logger implementations, one based on local files and using
     `os.File` and the `fmt` and `bufio` packages; the other backed by a Postgres database
     and using the `database/sql` and `github.com/lib/pq` Postgres driver packages.
+  id: totrans-607
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: We discussed the importance of security in general, covered some of the basics
     of TLS as one part of a larger security strategy, and implemented HTTPS in our
     service.
+  id: totrans-608
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Finally, we covered containerization, one of the core cloud native technologies,
     including how to build images and how to run and manage containers. We even containerized
     not only our application, but we even containerized its build process.
+  id: totrans-609
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Going forward, we’ll be extending on our key-value service in various ways when
     we introduce new concepts, so stay tuned. Things are about to get even more interesting.
+  id: totrans-610
   prefs: []
   type: TYPE_NORMAL
 - en: ^([1](ch05.xhtml#idm45983635901544-marker)) Schieber, Philip. “The Wit and Wisdom
     of Grace Hopper.” *OCLC Newsletter*, March/April, 1987, No. 167.
+  id: totrans-611
   prefs: []
   type: TYPE_NORMAL
 - en: ^([2](ch05.xhtml#idm45983635889304-marker)) For some definition of “love.”
+  id: totrans-612
   prefs: []
   type: TYPE_NORMAL
 - en: ^([3](ch05.xhtml#idm45983635871960-marker)) If it does, something is very wrong.
+  id: totrans-613
   prefs: []
   type: TYPE_NORMAL
 - en: ^([4](ch05.xhtml#idm45983635864728-marker)) Or, like my son, was only *pretending*
     not to hear you.
+  id: totrans-614
   prefs: []
   type: TYPE_NORMAL
 - en: ^([5](ch05.xhtml#idm45983635854008-marker)) “Cloud native is not a synonym for
     microservices… if cloud native has to be a synonym for anything, it would be idempotent,
     which definitely needs a synonym.” —Holly Cummins (Cloud Native London 2018).
+  id: totrans-615
   prefs: []
   type: TYPE_NORMAL
 - en: ^([6](ch05.xhtml#idm45983635173272-marker)) Isn’t this exciting?
+  id: totrans-616
   prefs: []
   type: TYPE_NORMAL
 - en: ^([7](ch05.xhtml#idm45983634450664-marker)) It’s a good thing too. Mutexes can
     be pretty tedious to implement correctly!
+  id: totrans-617
   prefs: []
   type: TYPE_NORMAL
 - en: ^([8](ch05.xhtml#idm45983634224808-marker)) Didn’t I tell you that we’d make
     it more complicated?
+  id: totrans-618
   prefs: []
   type: TYPE_NORMAL
 - en: ^([9](ch05.xhtml#idm45983633408024-marker)) That’s a lie. There are probably
     lots of better names.
+  id: totrans-619
   prefs: []
   type: TYPE_NORMAL
 - en: ^([10](ch05.xhtml#idm45983633120568-marker)) What makes a transaction log “good”
     anyway?
+  id: totrans-620
   prefs: []
   type: TYPE_NORMAL
 - en: ^([11](ch05.xhtml#idm45983633116792-marker)) Naming is hard.
+  id: totrans-621
   prefs: []
   type: TYPE_NORMAL
 - en: ^([12](ch05.xhtml#idm45983632869720-marker)) After all this time, I still think
     that’s pretty neat.
+  id: totrans-622
   prefs: []
   type: TYPE_NORMAL
 - en: ^([13](ch05.xhtml#idm45983632511416-marker)) You’re welcome.
+  id: totrans-623
   prefs: []
   type: TYPE_NORMAL
 - en: ^([14](ch05.xhtml#idm45983631389976-marker)) Ideally written by somebody who
     knows more than I do about security.
+  id: totrans-624
   prefs: []
   type: TYPE_NORMAL
 - en: ^([15](ch05.xhtml#idm45983631362184-marker)) This is a gross over-simplification,
     but it’ll do for our purposes. I encourage you to learn more about this and correct
     me, though.
+  id: totrans-625
   prefs: []
   type: TYPE_NORMAL
 - en: ^([16](ch05.xhtml#idm45983631356520-marker)) You don’t know where that key has
     been.
+  id: totrans-626
   prefs: []
   type: TYPE_NORMAL
 - en: ^([17](ch05.xhtml#idm45983631349192-marker)) SSL 2.0 was released in 1995 and
     TLS 1.0 was released in 1999\. Interestingly, SSL 1.0 had some pretty profound
     security flaws and was never publicly released.
+  id: totrans-627
   prefs: []
   type: TYPE_NORMAL
 - en: ^([18](ch05.xhtml#idm45983631338264-marker)) Public keys only, please.
+  id: totrans-628
   prefs: []
   type: TYPE_NORMAL
 - en: ^([19](ch05.xhtml#idm45983631128184-marker)) Containers are not virtual machines.
     They virtualize the operating system instead of hardware.
+  id: totrans-629
   prefs: []
   type: TYPE_NORMAL
 - en: ^([20](ch05.xhtml#idm45983631126600-marker)) Repetition intended. This is an
     important point.
+  id: totrans-630
   prefs: []
   type: TYPE_NORMAL
 - en: ^([21](ch05.xhtml#idm45983631124536-marker)) Yup. I said it. Again.
+  id: totrans-631
   prefs: []
   type: TYPE_NORMAL
 - en: ^([22](ch05.xhtml#idm45983631092424-marker)) The initial draft had several more,
     but this chapter is already pretty lengthy.
+  id: totrans-632
   prefs: []
   type: TYPE_NORMAL
 - en: ^([23](ch05.xhtml#idm45983630908216-marker)) To be fair, these images are “only”
     240MB and 337MB compressed, respectively.
+  id: totrans-633
   prefs: []
   type: TYPE_NORMAL
 - en: ^([24](ch05.xhtml#idm45983630671304-marker)) I’m intentionally ignoring solutions
     like Amazon’s Elastic Block Store, which can help, but have issues of their own.
+  id: totrans-634
   prefs: []
   type: TYPE_NORMAL
