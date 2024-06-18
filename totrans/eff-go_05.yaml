@@ -2885,6 +2885,7 @@
   id: totrans-367
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如我们之前提到的，GC的美妙之处在于它简化了程序员的生活，因为它无需担心分配，内存安全性以及对大多数应用程序的高效性。不幸的是，当我们的程序违反了我们的效率期望时，它也使我们的生活变得有点困难，而原因并非你所想象的那样。Go分配器和GC配对的主要问题是，它们隐藏了我们内存效率问题的根本原因——在几乎所有情况下，我们的代码分配了过多的内存！
 - en: 'Think of a garbage collector like a Roomba: Just because you have one does
     not mean you tell your children not to drop arbitrary pieces of garbage onto the
     floor.'
@@ -2892,6 +2893,7 @@
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: 把垃圾收集器想象成扫地机器人：仅仅因为你有一个，并不意味着你可以告诉你的孩子不要在地板上随意扔垃圾。
 - en: ''
   id: totrans-369
   prefs:
@@ -2902,21 +2904,25 @@
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: Halvar Flake，[Twitter](https://oreil.ly/ukXDV)
 - en: 'Let’s explore the potential symptoms we might notice in Go when we are not
     careful with the number and type of the allocations:'
   id: totrans-371
   prefs: []
   type: TYPE_NORMAL
+  zh: 让我们探讨一下在Go中，当我们在分配的数量和类型上不小心时，可能会注意到的潜在症状：
 - en: CPU overhead
   id: totrans-372
   prefs: []
   type: TYPE_NORMAL
+  zh: CPU开销
 - en: First and foremost, the GC must go through all the objects stored on the heap
     to tell which ones are in use. This can use a significant portion of the CPU resource,
     especially if there are many objects in heap.^([37](ch05.html#idm45606832784288))
   id: totrans-373
   prefs: []
   type: TYPE_NORMAL
+  zh: 首先且最重要的是，GC必须遍历堆上存储的所有对象，以确定哪些对象正在使用中。这可能会使用大量的CPU资源，特别是如果堆中有许多对象的话。
 - en: This is especially visible if the objects stored on the heap are rich in pointer
     types, which forces the GC to traverse them to check if they don’t point to an
     object that was not yet marked as “in use.” Given the limited CPU resources in
@@ -2925,12 +2931,14 @@
   id: totrans-374
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果堆上存储的对象富含指针类型，则会强制GC遍历它们以检查它们是否指向尚未标记为“正在使用”的对象。鉴于我们计算机中有限的CPU资源，我们为GC做的工作越多，我们能为核心程序功能执行的工作就越少，这会导致更高的程序延迟。
 - en: In platforms with garbage collection, memory pressure naturally translates into
     increased CPU consumption.
   id: totrans-375
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: 在具有垃圾收集功能的平台上，内存压力自然会转化为增加的CPU消耗。
 - en: ''
   id: totrans-376
   prefs:
@@ -2941,10 +2949,12 @@
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: Google团队，[*Site Reliability Engineering*](https://oreil.ly/PhZaD)
 - en: Additional increase in program latency
   id: totrans-378
   prefs: []
   type: TYPE_NORMAL
+  zh: 程序潜在延迟的额外增加
 - en: CPU time spent on GC is one thing, but there is more. First, the STW event performed
     twice slows down all goroutines. This is because the GC must stop all goroutines
     and inject (and then remove) a write barrier. It also prevents some goroutines
@@ -2953,11 +2963,13 @@
   id: totrans-379
   prefs: []
   type: TYPE_NORMAL
+  zh: 消耗在GC上的CPU时间只是一件事，还有更多。首先，执行两次STW事件会减慢所有goroutine的速度。这是因为GC必须停止所有goroutine并注入（然后删除）写入屏障。它还会阻止某些必须在内存中存储数据的goroutine在GC标记的时候继续工作。
 - en: There is also a second, often missed effect. The GC collection runs are destructive
     to the hierarchical cache system efficiency.
   id: totrans-380
   prefs: []
   type: TYPE_NORMAL
+  zh: 还有第二个经常被忽视的影响。GC收集运行破坏了分层缓存系统的效率。
 - en: For your program to be fast, you want everything you’re doing to be in the cache.
     ... There are technical and physical reasons in the silicon why allocating memory,
     throwing it away and GC cleaning that for you, is going to not only slow your
@@ -2967,6 +2979,7 @@
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: 为了使您的程序运行更快，您希望所有操作都在缓存中进行。……在硅片中有技术和物理原因，分配内存、丢弃它并由GC清理会使您的程序变慢，因为GC正在执行其工作，但它还会拖慢您的程序，因为它将所有东西从CPU缓存中移除。
 - en: ''
   id: totrans-382
   prefs:
@@ -2977,10 +2990,12 @@
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: Bryan Boreham，[“让你的Go更快！”](https://oreil.ly/cDw6c)
 - en: Memory overhead
   id: totrans-384
   prefs: []
   type: TYPE_NORMAL
+  zh: 内存开销
 - en: Since Go 1.19, there has been a way to set a soft memory limit for the GC. This
     still means that we have to often implement on our side checks against unbounded
     allocations (e.g., rejecting reading too-large HTTP body requests), but at least
@@ -2988,6 +3003,7 @@
   id: totrans-385
   prefs: []
   type: TYPE_NORMAL
+  zh: 自Go 1.19以来，已经有一种方法可以为GC设置软内存限制。这仍意味着我们经常需要在我们的代码中实现检查，以防止无限制的分配（例如，拒绝读取过大的HTTP请求体），但至少GC更及时，如果你需要避免那种开销。
 - en: Still, the collection phase is eventual. This means we might be unable to release
     some memory blocks before new allocations come in. Changing the `GOGC` option
     to run GC less often only amplifies the problem but might be a good trade-off
