@@ -1,323 +1,487 @@
 - en: Chapter 4\. CSV Recipes
+  id: totrans-0
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 第4章 CSV 配方
 - en: 4.0 Introduction
+  id: totrans-1
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 4.0 简介
 - en: The CSV format is a file format in which tabular data (numbers and text) can
     be easily written and read in a text editor. CSV is widely supported, and most
     spreadsheet programs, such as Microsoft Excel and Apple Numbers, support CSV.
     Consequently, many programming languages, including Go, come with libraries that
     produce and consume the data in CSV files.
+  id: totrans-2
   prefs: []
   type: TYPE_NORMAL
+  zh: CSV格式是一种文件格式，可以在文本编辑器中轻松编写和读取表格数据（数字和文本）。CSV得到广泛支持，大多数电子表格程序，如Microsoft Excel和Apple
+    Numbers，都支持CSV。因此，许多编程语言，包括Go，都提供了生成和消耗CSV文件数据的库。
 - en: It might come as a surprise to you that CSV has been around for almost 50 years.
     The IBM Fortran compiler supported it in OS/360 back in 1972\. If you’re not quite
     sure that that is, OS/360 is the batch processing operating system developed by
     IBM for their System/360 mainframe computer. So yes, one of the first uses for
     CSV was for Fortran in an IBM mainframe computer.
+  id: totrans-3
   prefs: []
   type: TYPE_NORMAL
+  zh: 或许你会感到惊讶，CSV已经存在了将近50年了。IBM Fortran编译器在1972年的OS/360中支持它。如果你对此不是很确定，那么OS/360是IBM为他们的System/360主机计算机开发的批处理操作系统。因此，是的，CSV最早的用途之一是用于IBM主机上的Fortran程序。
 - en: CSV (comma separated values) is not very well standardized and not all CSV formats
     are separated by commas either. Sometimes it can be a tab or a semicolon or other
     delimiters. However, there is a RFC specification for CSV — the RFC 4180 though
     not everyone follows that standard.
+  id: totrans-4
   prefs: []
   type: TYPE_NORMAL
+  zh: CSV（逗号分隔值）并没有很好地标准化，也不是所有的CSV格式都是用逗号分隔的。有时可能是制表符、分号或其他分隔符。但是，RFC 4180有一个CSV规范，尽管并不是所有人都遵循这个标准。
 - en: The Go standard library has an `encoding/csv` package that supports RFC 4180
     and helps us to read and write CSV.
+  id: totrans-5
   prefs: []
   type: TYPE_NORMAL
+  zh: Go标准库有一个`encoding/csv`包，支持RFC 4180，并帮助我们读写CSV文件。
 - en: 4.1 Reading a CSV file
+  id: totrans-6
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 4.1 读取CSV文件
 - en: Problem
+  id: totrans-7
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 问题
 - en: You want to read a CSV file into memory for use.
+  id: totrans-8
   prefs: []
   type: TYPE_NORMAL
+  zh: 你想要将CSV文件读入内存以供使用。
 - en: Solution
+  id: totrans-9
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 解决方案
 - en: Use the `encoding/csv` package and `csv.ReadAll` to read all data in the CSV
     file into a 2 dimensional array of strings.
+  id: totrans-10
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用`encoding/csv`包和`csv.ReadAll`将CSV文件中的所有数据读取到一个二维字符串数组中。
 - en: Discussion
+  id: totrans-11
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 讨论
 - en: 'Let’s say you have a file like this:'
+  id: totrans-12
   prefs: []
   type: TYPE_NORMAL
+  zh: 假设你有这样一个文件：
 - en: '[PRE0]'
+  id: totrans-13
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE0]'
 - en: The first row is the header, the next 2 rows are data for the user. Here’s the
     code to open the file and read it into the 2 dimensional array of strings.
+  id: totrans-14
   prefs: []
   type: TYPE_NORMAL
+  zh: 第一行是标题，接下来的2行是用户数据。以下是打开文件并将其读入二维字符串数组的代码。
 - en: '[PRE1]'
+  id: totrans-15
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE1]'
 - en: First, we open the file using `os.Open`. This creates an `os.File` struct (which
     is an `io.Reader`) that we can use as a parameter to `csv.NewReader`. The `csv.NewReader`
     creates a new `csv.Reader` struct that can be used to read data from the CSV file.
     With this CSV reader, we can use `ReadAll` to read all the data in the file and
     return a 2D array of strings [][]string.
+  id: totrans-16
   prefs: []
   type: TYPE_NORMAL
+  zh: 首先，我们使用`os.Open`打开文件。这会创建一个`os.File`结构体（它是一个`io.Reader`），我们可以将其作为参数传递给`csv.NewReader`。`csv.NewReader`创建一个新的`csv.Reader`结构体，可以用来从CSV文件中读取数据。有了这个CSV读取器，我们可以使用`ReadAll`读取文件中的所有数据，并返回一个二维字符串数组`[][]string`。
 - en: A 2 dimensional array of strings? You might be surprised, what if the CSV row
     item is an integer? Or a boolean or any other types? You should remember CSV files
     are text files, so there is really no way for you to differentiate if a value
     is anything else other than a string. In other words, all values are assumed to
     be string, and if you think otherwise you need to cast it to something else.
+  id: totrans-17
   prefs: []
   type: TYPE_NORMAL
+  zh: 一个二维字符串数组？也许你会感到惊讶，如果CSV行项是整数？或者布尔值或其他类型？你应该记住CSV文件是文本文件，所以除了字符串以外，没有其他方式可以区分一个值是否是其他类型。换句话说，所有的值都被假定为字符串，如果你认为有其他类型，你需要将其强制转换为其他类型。
 - en: Unmarshalling CSV data into structs
+  id: totrans-18
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 将CSV数据解析到结构体中
 - en: Problem
+  id: totrans-19
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 问题
 - en: You want to unmarshal CSV data into structs instead of a 2-dimensional array
     of strings.
+  id: totrans-20
   prefs: []
   type: TYPE_NORMAL
+  zh: 你想要将CSV数据解析到结构体中，而不是二维字符串数组。
 - en: Solution
+  id: totrans-21
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 解决方案
 - en: First read the CSV into a 2-dimensional array of strings then store it into
     structs.
+  id: totrans-22
   prefs: []
   type: TYPE_NORMAL
+  zh: 首先将CSV文件读入一个二维字符串数组，然后将其存储到结构体中。
 - en: Discussion
+  id: totrans-23
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 讨论
 - en: For some other formats like JSON or XML, it’s common to unmarshal the data read
     from file (or anywhere) into structs. You can also do this in CSV though you need
     to do a bit more work.
+  id: totrans-24
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于一些其他格式，比如JSON或XML，从文件（或任何地方）读取数据并将其解析到结构体中是很常见的。尽管在CSV中也可以做到这一点，但你需要做更多的工作。
 - en: Let’s say you want to put the data into a User struct.
+  id: totrans-25
   prefs: []
   type: TYPE_NORMAL
+  zh: 假设你想要将数据放入一个User结构体中。
 - en: '[PRE2]'
+  id: totrans-26
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE2]'
 - en: If you want to unmarshal the data in the 2D array of strings to the User struct,
     you need to convert each item yourself.
+  id: totrans-27
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果你想要将二维字符串数组中的数据解析到User结构体中，你需要自己转换每个项目。
 - en: '[PRE3]'
+  id: totrans-28
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE3]'
 - en: In the example above, because the user ID is an integer, I used `strconv.ParseInt`
     to convert the string into integer before using it to create the User struct.
+  id: totrans-29
   prefs: []
   type: TYPE_NORMAL
+  zh: 在上面的例子中，因为用户ID是整数，我在使用它创建用户结构之前使用了 `strconv.ParseInt` 将字符串转换为整数。
 - en: You see that at the end of the for loop you will have an array of User structs.
     If you print that out, this is what you should see.
+  id: totrans-30
   prefs: []
   type: TYPE_NORMAL
+  zh: 在for循环结束时，你将会有一个User结构体的数组。如果你打印出来，你应该会看到这样的结果。
 - en: '[PRE4]'
+  id: totrans-31
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE4]'
 - en: 4.2 Removing the header line
+  id: totrans-32
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 4.2 移除标题行
 - en: Problem
+  id: totrans-33
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 问题
 - en: If your CSV file has a line of headers that are column labels, you will get
     that as well in your returned 2 dimensional array of strings or array of structs.
     You want to remove it.
+  id: totrans-34
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果你的CSV文件有一行标头作为列标签，你也会得到它在返回的二维字符串数组或结构体数组中。你想把它移除。
 - en: Solution
+  id: totrans-35
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 解决方案
 - en: Read the first line using `Read` and then continue reading the rest.
+  id: totrans-36
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用 `Read` 读取第一行，然后继续读取剩下的行。
 - en: Discussion
+  id: totrans-37
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 讨论
 - en: When you use `Read` on the reader, you will read the first line and then move
     the cursor to the next line. If you use `ReadAll` afterwards, you can read the
     rest of the file into the rows that you want.
+  id: totrans-38
   prefs: []
   type: TYPE_NORMAL
+  zh: 当你在读取器上使用 `Read` 时，你将读取第一行，然后将光标移动到下一行。如果之后使用 `ReadAll`，你可以读取文件的其余部分到你想要的行中。
 - en: '[PRE5]'
+  id: totrans-39
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE5]'
 - en: 'This will give us something like this:'
+  id: totrans-40
   prefs: []
   type: TYPE_NORMAL
+  zh: 这将给我们带来这样的东西：
 - en: '[PRE6]'
+  id: totrans-41
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE6]'
 - en: 4.3 Using different delimiters
+  id: totrans-42
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 4.3 使用不同的分隔符
 - en: Problem
+  id: totrans-43
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 问题
 - en: CSV doesn’t necessarily need to use commas as delimiters. You want to read a
     CSV file which has delimiter that is not a comma.
+  id: totrans-44
   prefs: []
   type: TYPE_NORMAL
+  zh: CSV并不一定需要使用逗号作为分隔符。你想读取一个CSV文件，其分隔符不是逗号。
 - en: Solution
+  id: totrans-45
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 解决方案
 - en: Set the `Comma` variable in the `csv.Reader` struct to the delimiter used in
     the file and read as before.
+  id: totrans-46
   prefs: []
   type: TYPE_NORMAL
+  zh: 设置 `csv.Reader` 结构中的 `Comma` 变量为文件中使用的分隔符，然后像以前一样读取。
 - en: Discussion
+  id: totrans-47
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 讨论
 - en: Let’s say the file we want to read has semi-colons as delimiters.
+  id: totrans-48
   prefs: []
   type: TYPE_NORMAL
+  zh: 假设我们要读取的文件以分号作为分隔符。
 - en: '[PRE7]'
+  id: totrans-49
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE7]'
 - en: What we just need to do is the set the `Comma` in the `csv.Reader` struct we
     created earlier and you read the file as before.
+  id: totrans-50
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们只需在之前创建的 `csv.Reader` 结构中设置 `Comma`，然后像以前一样读取文件。
 - en: '[PRE8]'
+  id: totrans-51
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE8]'
 - en: 4.4 Ignoring rows
+  id: totrans-52
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 4.4 忽略行
 - en: Problem
+  id: totrans-53
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 问题
 - en: You want to ignore certain rows when reading the CSV file.
+  id: totrans-54
   prefs: []
   type: TYPE_NORMAL
+  zh: 当你读取CSV文件时，你想忽略某些行。
 - en: Solution
+  id: totrans-55
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 解决方案
 - en: Use comments in the file to indicate the rows to be ignored. Then enable coding
     in the `csv.Reader` and read the file as before.
+  id: totrans-56
   prefs: []
   type: TYPE_NORMAL
+  zh: 在文件中使用注释来指示要忽略的行。然后在 `csv.Reader` 中启用编码，并像以前一样读取文件。
 - en: Discussion
+  id: totrans-57
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 讨论
 - en: Let’s say you want to ignore certain rows; what you’d like to do is simply comment
     those rows out. Well, in CSV you can’t because comments are not in the standard.
     However with the Go `encoding/csv` package you can specify a comment rune, which
     if you place at the beginning of the row, ignores the entire row.
+  id: totrans-58
   prefs: []
   type: TYPE_NORMAL
+  zh: 假设你想忽略某些行；你想做的就是简单地注释掉那些行。在CSV中你不能这样做，因为注释不是标准。但是使用Go的 `encoding/csv` 包，你可以指定一个注释符号，如果你把它放在行的开头，整行都会被忽略。
 - en: So say you have this CSV file.
+  id: totrans-59
   prefs: []
   type: TYPE_NORMAL
+  zh: 所以说你有这个CSV文件。
 - en: '[PRE9]'
+  id: totrans-60
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE9]'
 - en: To enable commenting, just set the Comment variable in the csv.Reader struct
     that we got from csv.NewReader.
+  id: totrans-61
   prefs: []
   type: TYPE_NORMAL
+  zh: 要启用注释，只需在我们从 `csv.NewReader` 获取的 `csv.Reader` 结构中设置 `Comment` 变量。
 - en: '[PRE10]'
+  id: totrans-62
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE10]'
 - en: 'When you run this, you’ll see:'
+  id: totrans-63
   prefs: []
   type: TYPE_NORMAL
+  zh: 当你运行这个时，你会看到：
 - en: '[PRE11]'
+  id: totrans-64
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE11]'
 - en: 4.5 Writing CSV files
+  id: totrans-65
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 4.5 写入CSV文件
 - en: Problem
+  id: totrans-66
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 问题
 - en: You want to write data from memory into a CSV file.
+  id: totrans-67
   prefs: []
   type: TYPE_NORMAL
+  zh: 你想将内存中的数据写入CSV文件。
 - en: Solution
+  id: totrans-68
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 解决方案
 - en: Use the `encoding/csv` package and `csv.Writer` to write to file.
+  id: totrans-69
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用 `encoding/csv` 包和 `csv.Writer` 来写入文件。
 - en: Discussion
+  id: totrans-70
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 讨论
 - en: We had fun reading CSV files, now we have to write one. Writing is quite simliar
     to reading. First you need to create a file (an `io.Writer`).
+  id: totrans-71
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们乐在读取CSV文件，现在我们必须写一个。写入与读取非常相似。首先需要创建一个文件（一个 `io.Writer`）。
 - en: '[PRE12]'
+  id: totrans-72
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE12]'
 - en: The data to write to the file needs to be in a 2 dimensional array of strings.
     Remember, if you don’t have the data as a string, just convert it into a string
     before you do this. Create a `csv.Writer` struct with the file. After that you
     can call `WriteAll` on the writer and the file will be created. This writes all
     the data in your 2 dimensional string array into the file.
+  id: totrans-73
   prefs: []
   type: TYPE_NORMAL
+  zh: 写入文件的数据需要是二维字符串数组。记住，如果数据不是字符串，只需在这之前将其转换为字符串。创建一个带有文件的 `csv.Writer` 结构。之后，你可以在写入器上调用
+    `WriteAll`，文件就会被创建。这将所有数据写入你的二维字符串数组中的文件。
 - en: '[PRE13]'
+  id: totrans-74
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE13]'
 - en: 4.6 Writing to file one row at a time
+  id: totrans-75
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 4.6 一次写入一行到文件
 - en: Problem
+  id: totrans-76
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 问题
 - en: Instead of writing everything in our 2 dimensional string, we want to write
     to the file one row at a time.
+  id: totrans-77
   prefs: []
   type: TYPE_NORMAL
+  zh: 不要把所有东西写在我们的二维字符串中，我们想一次写入一行到文件中。
 - en: Solution
+  id: totrans-78
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 解决方案
 - en: Use the `Write` method on `csv.Writer` to write a single row/
+  id: totrans-79
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用 `csv.Writer` 上的 `Write` 方法来写入单行。
 - en: Discussion
+  id: totrans-80
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 讨论
 - en: Writing to file one row at a time is pretty much the same, except you will want
     to iterate the 2 dimensional array of strings to get each row and then call `Write`,
     passing that row. You will also need to call `Flush` whenever you want to write
@@ -326,8 +490,12 @@
     a lot of data. If you have a lot of rows, you would probably want to flush the
     data to the file once in a while. To check if there’s any problems with writing
     or flushing, you can call `Error`.
+  id: totrans-81
   prefs: []
   type: TYPE_NORMAL
+  zh: 将每一行逐行写入文件几乎相同，只是你需要迭代二维字符串数组以获取每一行，然后调用`Write`方法传递该行。每当需要将缓冲数据写入`Writer`（即文件）时，还需要调用`Flush`方法。在上面的示例中，我在将所有数据写入写入器后调用了`Flush`，但那是因为我没有很多数据。如果有很多行数据，你可能会想定期将数据刷新到文件中。要检查写入或刷新时是否出现问题，可以调用`Error`方法。
 - en: '[PRE14]'
+  id: totrans-82
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE14]'
