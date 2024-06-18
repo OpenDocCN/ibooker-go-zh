@@ -1494,36 +1494,44 @@
   id: totrans-195
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果您看到这样的性能分析，它应立即告诉您，并发开销再次过大。我们仍然看不到实际工作，比如解析整数，因为这项工作比开销多得多。这次开销是由三个元素引起的：
 - en: '`runtime.schedule`'
   id: totrans-196
   prefs: []
   type: TYPE_NORMAL
+  zh: '`runtime.schedule`'
 - en: The runtime code responsible for scheduling goroutines.
   id: totrans-197
   prefs: []
   type: TYPE_NORMAL
+  zh: 负责调度goroutines的运行时代码。
 - en: '`runtime.chansend`'
   id: totrans-198
   prefs: []
   type: TYPE_NORMAL
+  zh: '`runtime.chansend`'
 - en: In our case, waiting on the lock to send to our single channel.
   id: totrans-199
   prefs: []
   type: TYPE_NORMAL
+  zh: 在我们的情况下，等待锁以发送到我们的单个通道。
 - en: '`runtime.chanrecv`'
   id: totrans-200
   prefs: []
   type: TYPE_NORMAL
+  zh: '`runtime.chanrecv`'
 - en: The same as `chansend` but waiting on a read from the receive channel.
   id: totrans-201
   prefs: []
   type: TYPE_NORMAL
+  zh: 与`chansend`相同，但等待从接收通道读取。
 - en: As a result, parsing and additions are faster than the communication overhead.
     Essentially, coordination and distribution of the work take more CPU resources
     than the work itself.
   id: totrans-202
   prefs: []
   type: TYPE_NORMAL
+  zh: 因此，解析和添加比通信开销更快。基本上，协调和工作的分发比工作本身需要更多的CPU资源。
 - en: We have multiple options for improvement here. In our case, we can try to remove
     the effort of distributing the work. We can accomplish this via a coordination-free
     algorithm that will shard (split) the workload evenly across all goroutines. It’s
@@ -1535,6 +1543,7 @@
   id: totrans-203
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们在这里有多种改进选项。在我们的情况下，我们可以尝试消除分发工作的努力。我们可以通过无需协调的算法来实现这一点，该算法将工作负载均匀分布到所有goroutines中。这是无需协调的，因为没有通信来协商分配给每个goroutine的工作的部分。由于文件大小是预先知道的，因此我们可以使用某种启发式方法将每个文件部分分配给每个goroutine工作者。让我们看看如何在[示例 10-12](#code-sum-concurrent3)中实现这一点。
 - en: Example 10-12\. Concurrent optimization of [Example 10-5](#code-sum4) that maintains
     a finite set of goroutines that computes groups of lines. Lines are sharded without
     coordination.
@@ -1542,6 +1551,7 @@
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 10-12\. 对[示例 10-5](#code-sum4)的并发优化，维护了一组有限的goroutines，计算线组。线条被分片而无需协调。
 - en: '[PRE11]'
   id: totrans-205
   prefs: []
@@ -1551,12 +1561,14 @@
   id: totrans-206
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_optimization_examples_CO8-1)'
 - en: '`shardedRange` is not supplied for clarity. This function takes the size of
     the input file and splits into `bytesPerWorker` shards (four in our case). Then
     it gives each worker the `i`-th shard. You can see the full code [here](https://oreil.ly/By9wO).'
   id: totrans-207
   prefs: []
   type: TYPE_NORMAL
+  zh: 为了清晰起见，未提供`shardedRange`。此函数将输入文件的大小分割成`bytesPerWorker`（我们的情况下是四个）个片段，然后将第`i`个片段分配给每个工作器。您可以在[这里](https://oreil.ly/By9wO)查看完整的代码。
 - en: Tests pass too, so we confirmed that [Example 10-12](#code-sum-concurrent3)
     is functionally correct. But is it faster? Yes! The benchmark shows 7 ms and 7
     MB per operation, which is almost twice as fast as sequential [Example 10-5](#code-sum4).
@@ -1565,16 +1577,21 @@
   id: totrans-208
   prefs: []
   type: TYPE_NORMAL
+  zh: 测试也通过了，所以我们确认了[示例 10-12](#code-sum-concurrent3)在功能上是正确的。但是速度呢？是的！基准测试显示每个操作需要
+    7 毫秒和 7 MB，几乎比顺序执行的[示例 10-5](#code-sum4)快了一倍。不幸的是，这使我们的吞吐量达到了 3.4 * *N* 纳秒，远低于我们的目标
+    2.5 * *N*。
 - en: A Streamed, Sharded Worker Approach
   id: totrans-209
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 流式分片工作器方法
 - en: Let’s profile in [Figure 10-12](#img-opt-lat-vc3) one more time to check if
     we can improve anything easily.
   id: totrans-210
   prefs: []
   type: TYPE_NORMAL
+  zh: 让我们再次在[图 10-12](#img-opt-lat-vc3)中进行分析，看看是否可以轻松改进一些内容。
 - en: The CPU profile shows that the work done by our goroutines takes the most CPU
     time. However, ~10% of CPU time is spent reading all bytes, which we can also
     try to do concurrently. This effort does not look promising at first glance. However,
@@ -1583,16 +1600,20 @@
   id: totrans-211
   prefs: []
   type: TYPE_NORMAL
+  zh: CPU分析显示，我们的goroutines完成的工作占用了大部分CPU时间。然而，大约10%的CPU时间用于读取所有字节，我们也可以尝试并发执行。乍一看，这项工作似乎并不看好。然而，即使我们去除所有10%的CPU时间，10%的性能提升只能给我们带来3.1
+    * *N* 纳秒的数字，还不够。
 - en: '![efgo 1012](assets/efgo_1012.png)'
   id: totrans-212
   prefs: []
   type: TYPE_IMG
+  zh: '![efgo 1012](assets/efgo_1012.png)'
 - en: Figure 10-12\. Flame Graph view of [Example 10-12](#code-sum-concurrent3) CPU
     time with function granularity
   id: totrans-213
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 10-12\. [示例 10-12](#code-sum-concurrent3)的火焰图视图，以函数粒度查看CPU时间
 - en: This is where we have to be vigilant, though. As you can imagine, reading files
     is not a CPU-bound job, so perhaps the actual real time spend on that 10% of CPU
     time makes `os.ReadFile` a bigger bottleneck, thus a better option for us to optimize.

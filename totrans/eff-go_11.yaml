@@ -1,68 +1,92 @@
 - en: Chapter 11\. Optimization Patterns
+  id: totrans-0
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 第11章 优化模式
 - en: With all we’ve learned from the past 10 chapters, it’s time to go through various
     patterns and common pitfalls I found when developing efficient code in Go. As
     I mentioned in [Chapter 10](ch10.html#ch-opt), the optimization suggestion doesn’t
     generalize well. However, given you should know at this point how to assess code
     changes effectively, there is no harm in stating some common patterns that improve
     efficiency in certain cases.
+  id: totrans-1
   prefs: []
   type: TYPE_NORMAL
+  zh: 通过我们在过去10章学到的一切，现在是时候了解我在开发高效Go代码时发现的各种模式和常见陷阱了。正如我在[第10章](ch10.html#ch-opt)中提到的，优化建议并不通用。然而，考虑到此时此刻你应该知道如何有效评估代码变更，指出在某些情况下提高效率的常见模式是无害的。
 - en: Be a Mindful Go Developer
+  id: totrans-2
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 成为一个审慎的Go开发者
 - en: Remember that most optimization ideas you will see here are highly deliberate.
     This means we have to have a good reason to add them as they take the developer’s
     time to get right and maintain in the future. Even if you learn about some common
     optimization, ensure it improves efficiency for your specific workload.
+  id: totrans-3
   prefs: []
   type: TYPE_NORMAL
+  zh: 记住，你在这里看到的大多数优化想法都是经过深思熟虑的。这意味着我们必须有充分的理由将它们添加进来，因为它们需要开发者花费时间来正确实现并在未来维护。即使你了解了一些常见的优化方法，也要确保它们能提高你特定工作负载的效率。
 - en: Don’t use this chapter as a strict manual but as a list of potential options
     you did not think about. Nevertheless, always stick to the observability, benchmarking,
     and profiling tools we learned in previous chapters to ensure the optimizations
     you do are pragmatic, follow [YAGNI](https://oreil.ly/G9OLQ), and are needed.
+  id: totrans-4
   prefs: []
   type: TYPE_NORMAL
+  zh: 不要把这一章当作严格的手册，而是把它当作你没有考虑过的潜在选择列表。然而，始终坚持我们在前几章学到的可观察性、基准测试和性能分析工具，以确保你所做的优化是实用的，遵循[YAGNI](https://oreil.ly/G9OLQ)，并且是必要的。
 - en: We will start with [“Common Patterns”](#ch-opt-patterns), where I describe some
     high-level optimization patterns we could see from optimization examples in [Chapter 10](ch10.html#ch-opt).
     Then I will introduce you to the [“The Three Rs Optimization Method”](#ch-hw-rrr),
     an excellent memory optimization framework from the Go (and Prometheus) community.
+  id: totrans-5
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们将从[“常见模式”](#ch-opt-patterns)开始，我将描述一些高级优化模式，这些模式可以从[第10章](ch10.html#ch-opt)的优化示例中看到。然后，我将向您介绍[“三R优化方法”](#ch-hw-rrr)，这是Go（和Prometheus）社区的一个优秀的内存优化框架。
 - en: Finally, in [“Don’t Leak Resources”](#ch-basic-leaks), [“Pre-Allocate If You
     Can”](#ch-basic-prealloc), [“Overusing Memory with Arrays”](#ch-basic-subslice),
     and [“Memory Reuse and Pooling”](#ch-basic-pool), we will go through a set of
     specific optimizations, tips, and gotchas I wish I’d known when I started my journey
     with making Go code more efficient. I have chosen the most common ones that are
     worth being aware of!
+  id: totrans-6
   prefs: []
   type: TYPE_NORMAL
+  zh: 最后，在[“不泄露资源”](#ch-basic-leaks)，[“如果可能，预分配”](#ch-basic-prealloc)，[“使用数组时过度使用内存”](#ch-basic-subslice)和[“内存重用和池化”](#ch-basic-pool)中，我们将逐一介绍一套特定的优化、技巧和我在开始优化Go代码旅程时希望知道的陷阱！我选择了最常见的那些值得注意的。
 - en: Let’s start with common optimization patterns. Some of them I used in previous
     chapters.
+  id: totrans-7
   prefs: []
   type: TYPE_NORMAL
+  zh: 让我们从常见的优化模式开始。其中一些我在之前的章节中使用过。
 - en: Common Patterns
+  id: totrans-8
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 常见模式
 - en: How can you find optimizations? After benchmarking, profiling, and studying
     the code, the process requires us to figure out a better algorithm, data structure,
     or code that will be more efficient. Of course, this is easier said than done.
+  id: totrans-9
   prefs: []
   type: TYPE_NORMAL
+  zh: 如何找到优化？在进行基准测试、性能分析和代码研究之后，这个过程需要我们找出一个更好的算法、数据结构或代码，以便更高效地运行。当然，这说起来容易做起来难。
 - en: 'Some practice and experience help, but we can outline a few patterns that repeat
     in our optimization journeys. Let’s now walk through four generic patterns we
     see in the programming community and literature: doing less work, and trading
     functionality for efficiency, trading space for time, and trading time for space.'
+  id: totrans-10
   prefs: []
   type: TYPE_NORMAL
+  zh: 一些实践和经验是有帮助的，但我们可以概述一些在我们的优化旅程中重复出现的模式。现在让我们逐一介绍编程社区和文献中看到的四种通用模式：做更少的工作，以及为了效率而交换功能，为了时间而交换空间，为了空间而交换时间。
 - en: Do Less Work
+  id: totrans-11
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 做更少的工作
 - en: 'The first thing we should focus on is avoiding unnecessary work. Especially
     in [“Optimizing Latency”](ch10.html#ch-opt-latency-example), we improved the CPU
     time multiple times by removing a lot of unnecessary code. It might feel simplistic,
@@ -70,72 +94,104 @@
     and requires optimization, we can go through bottlenecks (e.g., lines of code
     with large contributions we see in Source view as we discussed in [“go tool pprof
     Reports”](ch09.html#ch-obs-profiling-res)) and check if we can:'
+  id: totrans-12
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们应该首先关注避免不必要的工作。特别是在[“优化延迟”](ch10.html#ch-opt-latency-example)中，通过删除大量不必要的代码，我们多次改进了
+    CPU 时间。这可能看起来过于简单，但这是我们经常忽视的强大模式。如果代码的某些部分非常关键并且需要优化，我们可以查看瓶颈（例如，在[“go tool pprof
+    报告”](ch09.html#ch-obs-profiling-res)中，我们在源代码视图中看到的大量贡献行）并检查我们是否可以：
 - en: Skip unnecessary logic
+  id: totrans-13
   prefs: []
   type: TYPE_NORMAL
+  zh: 跳过不必要的逻辑
 - en: Can we remove this line? For example, in [“Optimizing Latency”](ch10.html#ch-opt-latency-example),
     `strconv.ParseInt` had a lot of checks that weren’t needed in our implementation.
     We can use the assumptions and requirements we have to our advantage and trim
     down the functionality that isn’t strictly needed. This also includes potential
     resources we can clean early or any resource leaks (see [“Don’t Leak Resources”](#ch-basic-leaks)).
+  id: totrans-14
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们能移除这行吗？例如，在[“优化延迟”](ch10.html#ch-opt-latency-example)中，`strconv.ParseInt`
+    有很多检查，在我们的实现中并不需要。我们可以利用我们的假设和要求，削减不严格需要的功能。这还包括我们可以早期清理的潜在资源或任何资源泄漏（参见[“不要泄漏资源”](#ch-basic-leaks)）。
 - en: Generic Implementations
+  id: totrans-15
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 通用实现
 - en: It’s very tempting to approach programming problems with a generic solution.
     We are trained to see patterns, and programming languages offer many abstractions
     and object-oriented paradigms to reuse more code.
+  id: totrans-16
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于编程问题，使用通用解决方案非常诱人。我们经常训练自己发现模式，而编程语言提供了许多抽象和面向对象的范式来复用更多的代码。
 - en: As we could see in [“Optimizing Latency”](ch10.html#ch-opt-latency-example),
     while the `bytes.Split` and `strconv.ParseInt` functions are well designed, safe
     to use, and richer in features, they might not always be suitable for critical
     paths. Being “generic” has many drawbacks, and efficiency is usually the first
     victim.
+  id: totrans-17
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如我们在[“优化延迟”](ch10.html#ch-opt-latency-example)中看到的，虽然`bytes.Split`和`strconv.ParseInt`函数设计良好，使用安全，并且功能丰富，但它们可能并不总适合于关键路径。“通用”具有许多缺点，效率通常是首要受害者。
 - en: Do things once
+  id: totrans-18
   prefs: []
   type: TYPE_NORMAL
+  zh: 做一次事情
 - en: Was it done already? Perhaps we already loop over the same array somewhere else,
     so we could do more things “in place,” as we did in [Example 10-3](ch10.html#code-sum2).
+  id: totrans-19
   prefs: []
   type: TYPE_NORMAL
+  zh: 这已经完成了吗？也许我们已经在其他地方循环遍历了同一个数组，所以我们可以更多地“原地”处理，就像在[示例 10-3](ch10.html#code-sum2)中所做的那样。
 - en: There might be cases where we validate some invariant even though it was validated
     before. Or we sort again “just in case,” but when we double-check the code, it
     was sorted already. For example, in the Thanos project, we can do a [k-way merge](https://oreil.ly/LxjZq)
     instead of a naive merge and sort again when merging different metric streams
     because of the invariant that each stream gives metrics in lexicographic order.
+  id: totrans-20
   prefs: []
   type: TYPE_NORMAL
+  zh: 可能有些情况下，我们验证某个不变量，即使之前已经验证过它。或者我们“只是为了确保”再次排序，但当我们仔细检查代码时，它已经排序了。例如，在 Thanos
+    项目中，当合并不同的指标流时，我们可以进行[“k路归并”](https://oreil.ly/LxjZq)，而不是天真地合并并重新排序，因为每个流都以词典顺序提供指标，这是不变的。
 - en: Another common example is reusing memory. For instance, we can create a small
     buffer once and reuse it, as in [Example 10-8](ch10.html#code-sum6), instead of
     creating a new one every time we need it. We can also use caching or [“Memory
     Reuse and Pooling”](#ch-basic-pool).
+  id: totrans-21
   prefs: []
   type: TYPE_NORMAL
+  zh: 另一个常见的例子是内存重用。例如，我们可以创建一个小缓冲区并重复使用它，就像在[示例 10-8](ch10.html#code-sum6)中一样，而不是每次需要时都创建一个新的。我们还可以使用缓存或者[“内存重用和池化”](#ch-basic-pool)。
 - en: Leverage math to do less
+  id: totrans-22
   prefs: []
   type: TYPE_NORMAL
+  zh: 利用数学来少做一些工作
 - en: Using math is an amazing way to reduce the work we have to do. For example,
     to calculate the number of samples retrieved through the Prometheus API, we don’t
     decode chunks and iterate over all samples to count them. Instead, we estimate
     the number of samples by dividing the size of the chunk by the average sample
     size.
+  id: totrans-23
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用数学是减少我们需要做的工作的一个了不起的方法。例如，为了计算通过 Prometheus API 检索的样本数，我们不需要解码块并迭代所有样本来计数。相反，我们通过块的大小除以平均样本大小来估算样本数。
 - en: Use the knowledge or precomputed information
+  id: totrans-24
   prefs: []
   type: TYPE_NORMAL
+  zh: 利用已有的知识或预计算的信息
 - en: Many APIs and functions are designed to be smart and automate certain work,
     even if it means doing more work. One example is pre-allocation possibilities,
     discussed in [“Pre-Allocate If You Can”](#ch-basic-prealloc).
+  id: totrans-25
   prefs: []
   type: TYPE_NORMAL
+  zh: 许多 API 和函数被设计为智能并自动化某些工作，即使这意味着做更多工作。一个例子是预分配的可能性，在[“如果可以的话，预分配”](#ch-basic-prealloc)中讨论过。
 - en: In another, more complex example, the [`minio-go`](https://oreil.ly/YqDZ6) object
     storage client we use in [objstore](https://oreil.ly/l8xHu) can upload an arbitrary
     `io.Reader` implementation. However, the implementation requires calculating the
@@ -145,101 +201,146 @@
     a checksum that has to be sometimes sent up front. On the other hand, if we notice
     this and have the total size handy, providing this information through the API
     can dramatically improve upload efficiency.
+  id: totrans-26
   prefs: []
   type: TYPE_NORMAL
+  zh: 在另一个更复杂的例子中，我们使用的[`minio-go`](https://oreil.ly/YqDZ6)对象存储客户端可以上传任意的 `io.Reader`
+    实现。然而，该实现在上传前需要计算校验和。因此，如果我们没有提供读取器中可用字节的总预期大小，`minio-go` 将使用额外的 CPU 循环和内存来缓冲整个，可能是几十亿字节大的对象。所有这些只是为了计算有时必须提前发送的校验和。另一方面，如果我们注意到这一点，并且已经有了总大小的信息，通过
+    API 提供这些信息可以显著提高上传效率。
 - en: These elements seem like they focus on CPU time and latency, but we can use
     the same toward memory or any other resource usage. For example, consider a small
     example in [Example 11-1](#code-emptystruct) that shows what it means to do “less
     work” focused on lower memory usage.
+  id: totrans-27
   prefs: []
   type: TYPE_NORMAL
+  zh: 这些元素看起来是专注于 CPU 时间和延迟，但我们可以将其用于内存或任何其他资源的使用。例如，在[示例 11-1](#code-emptystruct)中展示了“少做更多”意味着专注于更低内存使用的小例子。
 - en: Example 11-1\. The function finding if the slice has a duplicated element optimized
     with an empty struct. Uses [“Generics”](ch02.html#ch-go-generics).
+  id: totrans-28
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 11-1\. 使用空结构优化的判断切片中是否有重复元素的函数。使用[“泛型”](ch02.html#ch-go-generics)。
 - en: '[PRE0]'
+  id: totrans-29
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE0]'
 - en: '[![1](assets/1.png)](#co_optimization_patterns_CO1-1)'
+  id: totrans-30
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_optimization_patterns_CO1-1)'
 - en: Since we don’t use the `map` value, we can use the `struct{}` statement, which
     uses no memory. Thanks to this, the `HasDuplicates2` on my machine is 22% faster
     and allocates 5 times less memory for a `float64` slice with 1 million elements.
     The same pattern can be used in places where we don’t care about value. For example,
     for channels we use to synchronize goroutines, we can use `make(chan struct{})`
     to avoid unnecessary space we don’t need.
+  id: totrans-31
   prefs: []
   type: TYPE_NORMAL
+  zh: 因为我们不使用 `map` 值，我们可以使用 `struct{}` 声明，它不使用内存。由于这个原因，我的机器上 `HasDuplicates2` 的速度快了22%，而对于包含100万个元素的
+    `float64` 切片，内存分配减少了5倍。在我们不关心值的地方也可以使用相同的模式。例如，对于用于同步 goroutine 的通道，我们可以使用 `make(chan
+    struct{})` 来避免我们不需要的不必要空间。
 - en: Usually, there is always room to reduce some effort in our programs. We can
     use profiling to our advantage to check all expensive parts and their relevance
     to our problem. Often we can remove or transform those into cheaper forms, gaining
     efficiency.
+  id: totrans-32
   prefs: []
   type: TYPE_NORMAL
+  zh: 通常，我们的程序中总是有减少一些工作的余地。我们可以利用分析来检查所有昂贵的部分及其与问题相关性，从而利用这一优势。通常我们可以删除或转换成更便宜的形式，从而提高效率。
 - en: Be Strategic!
+  id: totrans-33
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 要有战略眼光！
 - en: Sometimes, doing less work now means more work or resource usage later. We can
     be strategic about this and ensure that our local benchmark doesn’t miss the important
     trade-off elsewhere. This problem is highlighted in [“Memory Reuse and Pooling”](#ch-basic-pool),
     where the macrobenchmark results give opposite conclusions to the microbenchmark.
+  id: totrans-34
   prefs: []
   type: TYPE_NORMAL
+  zh: 有时，现在做少量工作意味着以后会做更多工作或使用更多资源。我们可以对此进行战略性处理，并确保我们的本地基准测试不会忽略其他重要的权衡。这个问题在[“内存重用和池化”](#ch-basic-pool)中得到了突出展示，宏基准测试结果与微基准测试相反。
 - en: Trading Functionality for Efficiency
+  id: totrans-35
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 牺牲功能以换取效率
 - en: In some cases, we have to negotiate or remove certain functionality to improve
     efficiency. In [“Optimizing Latency”](ch10.html#ch-opt-latency-example), we can
     improve the CPU time by removing support for negative integers in the file. Without
     this requirement, we can remove the check for negative sign in the [Example 10-5](ch10.html#code-sum4)
     `ParseInt` function! Perhaps this feature is not well used, and it can be traded
     for cheaper execution!
+  id: totrans-36
   prefs: []
   type: TYPE_NORMAL
+  zh: 在某些情况下，为了提高效率，我们不得不谈判或移除某些功能。在[“优化延迟”](ch10.html#ch-opt-latency-example)中，通过在文件中移除对负整数支持，我们可以改善
+    CPU 时间。在不需要这一要求的情况下，我们可以在[示例 10-5](ch10.html#code-sum4)的 `ParseInt` 函数中移除对负号的检查！也许这个功能并不常用，可以用更便宜的执行来替代！
 - en: This is also why accepting all the possible features in the project is often
     not very sustainable. In many cases, an extra API, extra parameter, or functionality
     might add a significant efficiency penalty for critical paths, which could be
     avoided if we just limit the functionality to a minimum.^([1](ch11.html#idm45606819377840))
+  id: totrans-37
   prefs: []
   type: TYPE_NORMAL
+  zh: 这也是为什么在项目中接受所有可能的功能通常不太可持续的原因。在许多情况下，额外的 API、额外的参数或功能可能会给关键路径带来显著的效率损失，如果我们仅将功能限制到最低限度，这些损失可以避免。^([1](ch11.html#idm45606819377840))
 - en: Trading Space for Time
+  id: totrans-38
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 以空间换时间
 - en: What else can we do if we limit our program’s work to a minimum by reducing
     unnecessary logic, features, and leaks? Generally, we can shift to systems, algorithms,
     or code that use less time but cost us more in terms of storage, like memory,
     disk, and so on. Let’s walk through some possible changes like this:^([2](ch11.html#idm45606819373392))
+  id: totrans-39
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果我们通过减少不必要的逻辑、功能和泄漏来限制程序的工作，我们还能做些什么呢？通常，我们可以转向使用时间更少但在存储方面（如内存、磁盘等）花费更多的系统、算法或代码。让我们一起探讨一些可能的变更：^([2](ch11.html#idm45606819373392))
 - en: Precomputing result
+  id: totrans-40
   prefs: []
   type: TYPE_NORMAL
+  zh: 预先计算结果
 - en: Instead of computing the same expensive function, we could try to precompute
     it and store the result in some table lookup or variable.
+  id: totrans-41
   prefs: []
   type: TYPE_NORMAL
+  zh: 而不是每次计算相同昂贵的函数，我们可以尝试预先计算它并将结果存储在某个查找表或变量中。
 - en: These days, it’s very common to see a compiler adapting optimization like this.
     The compiler trades compiler latency and program code space for faster execution.
     For example, statements like `10*1024*1024` or `20 * time.Seconds` can be precomputed
     by a compiler, so they don’t have to be computed at runtime.
+  id: totrans-42
   prefs: []
   type: TYPE_NORMAL
+  zh: 如今，看到编译器适应这样的优化非常普遍。编译器通过交换编译器延迟和程序代码空间来实现更快的执行。例如，像 `10*1024*1024` 或 `20 *
+    time.Seconds` 这样的语句可以由编译器预先计算，因此它们在运行时不必计算。
 - en: But there might be cases of more complex function statements that the compiler
     can’t precompute for us. For example, we could use `regexp.Must​Com⁠pile("…​").MatchString(`
     in some condition, which is on a critical path. Perhaps it will be efficient to
     create a variable `pattern := regexp.Must​Com⁠pile("…​")` and operate on `pattern.MatchString(`
     in that heavily used code instead. On top of that, some cryptographic encryption
     offer [precompute methods](https://oreil.ly/2VBL4) that speed up execution.
+  id: totrans-43
   prefs: []
   type: TYPE_NORMAL
+  zh: 但是可能存在更复杂的函数语句情况，编译器无法为我们预先计算。例如，在某些条件下我们可以使用 `regexp.Must​Com⁠pile("…​").MatchString(`，这在关键路径上。也许在那些频繁使用的代码中，创建一个变量
+    `pattern := regexp.Must​Com⁠pile("…​")` 并在 `pattern.MatchString(` 上操作会更有效率。此外，某些加密算法提供了[预计算方法](https://oreil.ly/2VBL4)，可以加速执行。
 - en: Caching
+  id: totrans-44
   prefs: []
   type: TYPE_NORMAL
+  zh: 缓存
 - en: 'When the computed results heavily depend on the input, precomputing it for
     one input that is only used from time to time is not very helpful. Instead, we
     can introduce caching as we did in [Example 4-1](ch04.html#code-sum). Writing
@@ -248,25 +349,35 @@
     Used (LRU) being the most popular in my experience. In [“Bonus: Thinking Out of
     the Box”](ch10.html#ch-opt-bonus), I mentioned a few off-the-shelf solutions in
     open source that we can use.'
+  id: totrans-45
   prefs: []
   type: TYPE_NORMAL
+  zh: 当计算结果严重依赖于输入时，为只有在偶尔使用的一个输入预先计算结果并不是很有帮助。相反，我们可以像我们在[示例 4-1](ch04.html#code-sum)中所做的那样引入缓存。编写我们的缓存解决方案是一项非常重要的工作，应该谨慎进行。^([3](ch11.html#idm45606819974288))有许多[缓存策略](https://oreil.ly/UAhqT)，其中最流行的是最近最少使用（LRU）策略，根据我的经验。
 - en: Augmenting data structure
+  id: totrans-46
   prefs: []
   type: TYPE_NORMAL
+  zh: 扩展数据结构
 - en: We can often change the data structure so certain information can be accessed
     more easily, or by adding more information to the structure. For example, we can
     store the size next to a file descriptor to know the file size instead of asking
     for it every time.
+  id: totrans-47
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们通常可以改变数据结构，使得某些信息可以更容易地访问，或者通过向结构中添加更多信息来实现。例如，我们可以将文件描述符旁边存储文件大小，而不是每次都查询文件大小。
 - en: In addition, we can maintain a map of elements next to the slice we already
     have in our structure, so we deduplicate or find elements easier (similar to the
     deduplication map I did in [Example 11-1](#code-emptystruct)).
+  id: totrans-48
   prefs: []
   type: TYPE_NORMAL
+  zh: 此外，我们可以在我们的结构中保持元素的映射，这样在我们已有的切片旁边，我们可以更轻松地去重或查找元素（类似于我在[示例 11-1](#code-emptystruct)中所做的去重映射）。
 - en: Decompressing
+  id: totrans-49
   prefs: []
   type: TYPE_NORMAL
+  zh: 解压缩
 - en: Compression algorithms are great for saving disk or memory space. However, any
     compression—e.g., string interning, gzip, [zstd](https://oreil.ly/OEx9B), etc.—have
     some CPU (thus, time) overhead, so when time is money, we might want to get rid
@@ -274,161 +385,215 @@
     latency, e.g., when used for messages across slow networks. Therefore, spending
     more CPU time to reduce message size so that we can send more with a smaller number
     of network packets can potentially be faster.
+  id: totrans-50
   prefs: []
   type: TYPE_NORMAL
+  zh: 压缩算法非常适合节省磁盘或内存空间。然而，任何压缩——例如，字符串内部化、gzip、[zstd](https://oreil.ly/OEx9B)等——都会带来一些CPU（因此，时间）开销，因此当时间就是金钱时，我们可能希望摆脱压缩。但要小心，因为启用压缩可以提高程序的响应延迟，例如在慢网络中用于消息时。因此，为了减少消息大小，以便我们可以通过更少的网络数据包发送更多内容，可能会更快。
 - en: Ideally, the decision is deliberate. For example, perhaps we know that based
     on the RAERs, our program can still use more memory, but we are not meeting the
     latency goal. In such a case, we could check if there is anything we can add,
     cache, or store that would allow you to spend less time in our program.
+  id: totrans-51
   prefs: []
   type: TYPE_NORMAL
+  zh: 理想情况下，决策是经过深思熟虑的。例如，也许我们知道根据RAERs，我们的程序仍然可以使用更多内存，但我们未能达到延迟目标。在这种情况下，我们可以检查是否有什么可以添加、缓存或存储的内容，以便在程序中花费更少的时间。
 - en: Trading Time for Space
+  id: totrans-52
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 用时间换空间
 - en: 'If we can spare some latency or extra CPU time but are low on memory during
     the execution, we can try the opposite rule to the previous one, trading space
     for time. The methods are usually exactly the opposite of those in [“Trading Space
     for Time”](#ch-basic-less-work3): compressing and encoding more, removing extra
     fields from the struct, recomputing results, removing caches, etc.'
+  id: totrans-53
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果在执行期间我们可以节省一些延迟或额外的CPU时间，但内存不足，我们可以尝试前面提到的相反规则，用空间换时间。这些方法通常完全与[“用时间换空间”](#ch-basic-less-work3)中的方法相反：压缩和编码更多内容、从结构体中删除额外字段、重新计算结果、移除缓存等。
 - en: Trading Space for Time or Time for Space Optimizations Is Not Always Intuitive
+  id: totrans-54
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 用时间换空间或用空间换时间优化并不总是直观的。
 - en: Sometimes to save memory resource usage, we have to allocate more first!
+  id: totrans-55
   prefs: []
   type: TYPE_NORMAL
+  zh: 有时为了节省内存资源的使用，我们必须先分配更多！
 - en: For example, in [“Overusing Memory with Arrays”](#ch-basic-subslice) and [“Memory
     Reuse and Pooling”](#ch-basic-pool), I mention situations where allocating more
     memory or explicitly copying memory is better, despite looking like more work.
     So it can save us more memory space in the long run.
+  id: totrans-56
   prefs: []
   type: TYPE_NORMAL
+  zh: 例如，在[“使用数组过多的内存”](#ch-basic-subslice)和[“内存重用和池化”](#ch-basic-pool)中，我提到了一些情况，即使看起来更费力，分配更多内存或明确复制内存也更好。因此，从长远来看，这可以节省更多内存空间。
 - en: To sum up, consider the four general rules as higher-level patterns of possible
     optimizations. Let me now introduce you to the “three Rs,” which helped me a lot
     to guide some of the optimizations in my efficiency development tasks.
+  id: totrans-57
   prefs: []
   type: TYPE_NORMAL
+  zh: 总之，考虑这四个通用规则作为可能优化的更高级模式。现在让我向您介绍“三R”，这对我在效率开发任务中指导一些优化工作非常有帮助。
 - en: The Three Rs Optimization Method
+  id: totrans-58
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 三R优化方法
 - en: The three Rs technique is an excellent method to reduce waste. It is generally
     applicable for all computer resources, but it is often used for [ecology purposes](https://oreil.ly/p6elc)
     to reduce literal waste. Thanks to those three ingredients—reduce, reuse, and
     recycle—we can reduce the impact we have on the Earth’s environment and ensure
     sustainable living.
+  id: totrans-59
   prefs: []
   type: TYPE_NORMAL
+  zh: 三R技术是减少浪费的一种卓越方法。它通常适用于所有计算机资源，但通常用于[生态目的](https://oreil.ly/p6elc)以减少实际浪费。由于这三个要素——减少、重复使用和回收利用——我们可以减少对地球环境的影响，并确保可持续生活。
 - en: At [FOSDEM](https://fosdem.org) 2018, I saw [Bryan Boreham’s amazing talk](https://oreil.ly/BLIiT),
     where he described using this method to mitigate memory issues. Indeed, the three
     Rs method is especially effective against memory allocations, which is the most
     common source of memory efficiency and GC overhead problems. So, let’s explore
     each “R” component and how each can help.
+  id: totrans-60
   prefs: []
   type: TYPE_NORMAL
+  zh: 在2018年的[FOSDEM](https://fosdem.org)上，我看到了[Bryan Boreham令人惊叹的演讲](https://oreil.ly/BLIiT)，他描述了如何使用这种方法来减轻内存问题。事实上，三R方法对抗内存分配尤为有效，这是内存效率和GC开销问题的最常见根源。因此，让我们探讨每个“R”组件及其如何帮助。
 - en: Reduce Allocations
+  id: totrans-61
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 减少分配
 - en: Attempting to directly affect the pace [e.g., using `GOGC` or `GOMEMLIMIT`]
     of [garbage] collection has nothing to do with being sympathetic with the collector.
     It’s really about getting more work done between each collection or during the
     collection. You affect that by reducing the amount or the number of allocations
     any piece of work adds to heap memory.
+  id: totrans-62
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: 直接影响节奏的尝试（例如，使用`GOGC`或`GOMEMLIMIT`）与与收集器的同情无关。这确实是关于在每次收集之间或收集过程中完成更多工作。通过减少任何工作部分添加到堆内存的分配量或数量来影响它。
 - en: ''
+  id: totrans-63
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: 'William Kennedy, [“Garbage Collection in Go: Part I—Semantics”](https://oreil.ly/DVdNm)'
+  id: totrans-64
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: William Kennedy，《Go中的垃圾收集：第一部分——语义》（https://oreil.ly/DVdNm）
 - en: There is almost always room to reduce allocations—look for the waste! Some ways
     to reduce the number of objects our code puts on the heap are obvious (reasonable
     optimizations like the pre-allocations of slices we saw in [Example 1-4](ch01.html#code-prea2)).
+  id: totrans-65
   prefs: []
   type: TYPE_NORMAL
+  zh: 几乎总有减少分配的空间——寻找浪费！我们的代码放在堆上的对象数量减少的一些方法显而易见（例如合理的优化，如我们在[示例 1-4](ch01.html#code-prea2)中看到的切片预分配）。
 - en: 'However, other optimizations require certain trade-offs—typically more CPU
     time or less readable code, for example:'
+  id: totrans-66
   prefs: []
   type: TYPE_NORMAL
+  zh: 然而，其他优化需要一定的权衡——通常需要更多的CPU时间或更不可读的代码，例如：
 - en: '[String interning](https://oreil.ly/qJu7u), where we avoid operating on the
     `string` type by providing a dictionary and using a much smaller, pointer-free
     dictionary of integers representing the ID of the string.'
+  id: totrans-67
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '[字符串国际化](https://oreil.ly/qJu7u)，我们通过提供一个字典并使用一个更小、无指针的整数字典来避免对`string`类型进行操作，从而避免分配。'
 - en: Unsafe conversion [from `[]byte` to `string` (and vice versa) without copying
     memory](https://oreil.ly/Y10YT), which potentially saves allocations, but if done
     wrongly can keep more memory in a heap (discussed in [Example 11-15](#code-overuse-mem)).
+  id: totrans-68
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 不安全的转换（从`[]byte`到`string`（反之亦然），无需复制内存）可能会节省分配，但如果操作不当可能会在堆中保留更多内存（在[示例 11-15](#code-overuse-mem)中讨论）。
 - en: Ensuring that a variable does not escape to the heap can also be considered
     an effort that reduces allocations.
+  id: totrans-69
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 确保变量不逃逸到堆中也可以被认为是减少分配的一种努力。
 - en: There are unlimited different ways we could reduce allocations. We already mentioned
     some earlier. For example, when doing less work, we typically can allocate less!
     Another tip is to look for reducing allocations on all optimization design levels
     ([“Optimization Design Levels”](ch03.html#ch-conq-opt-levels)), not only code.
     In most cases, the algorithm must change first so we can have big improvements
     in the space complexity before we move to the code level.
+  id: totrans-70
   prefs: []
   type: TYPE_NORMAL
+  zh: 减少分配方式有很多种。我们之前已经提到了一些。例如，当工作量减少时，通常可以减少分配！另一个提示是在所有优化设计层面上寻找减少分配的方法（[“优化设计层次”](ch03.html#ch-conq-opt-levels)），而不仅限于代码。在大多数情况下，算法必须首先改变，这样我们才能在移至代码层之前大幅提升空间复杂性。
 - en: Reuse Memory
+  id: totrans-71
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 内存重复使用
 - en: Reusing is also an effective technique. As we learned in [“Garbage Collection”](ch05.html#ch-hw-garbage),
     the Go runtime already reuses memory somehow. Still, there are ways to explicitly
     reuse objects like variables, slices, or maps for repeated operations instead
     of re-creating them in every loop. We will discuss some techniques in [“Memory
     Reuse and Pooling”](#ch-basic-pool).
+  id: totrans-72
   prefs: []
   type: TYPE_NORMAL
+  zh: 重复使用也是一种有效的技术。正如我们在[“垃圾收集”](ch05.html#ch-hw-garbage)中学到的那样，Go运行时已经以某种方式重用了内存。尽管如此，还有一些方法可以显式地重用对象，如变量、切片或映射，以便在每次循环中重复操作而不是在每次循环中重新创建它们。我们将在[“内存重用和池化”](#ch-basic-pool)中讨论一些技术。
 - en: Again, utilize all optimization design levels (see [“Optimization Design Levels”](ch03.html#ch-conq-opt-levels)).
     We can choose the designs of systems or algorithms that reuse memory; for example,
     see [“Moving to Streaming Algorithm”](ch10.html#ch-opt-mem-example-stream). Another
     example of a “reuse” optimization on the system level is the TCP protocol. It
     offers to keep connections alive for reuse, which also helps with the network
     latency required to establish a new connection.
+  id: totrans-73
   prefs: []
   type: TYPE_NORMAL
+  zh: 再次利用所有优化设计层次（参见[“优化设计层次”](ch03.html#ch-conq-opt-levels)）。我们可以选择重用内存的系统或算法设计；例如，请参阅[“转向流式算法”](ch10.html#ch-opt-mem-example-stream)。系统级别上“重用”的另一个优化示例是TCP协议。它提供保持连接以便重用，这也有助于建立新连接所需的网络延迟。
 - en: Be Careful When Reusing
+  id: totrans-74
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 重复使用时要小心
 - en: Treating this tip literally is tempting—many try to go as far as reusing every
     little thing, including variables. As we learned in [“Values, Pointers, and Memory
     Blocks”](ch05.html#ch-hw-allocations), variables are boxes that require some memory,
     but usually it’s on the stack, so we should not be afraid to create more of them
     if needed. On the contrary, overusing variables can lead to hard-to-find bugs
     when [we shadow variables](https://oreil.ly/9Dfvb).
+  id: totrans-75
   prefs: []
   type: TYPE_NORMAL
 - en: Reusing complex structures can also be very dangerous for two reasons:^([4](ch11.html#idm45606819332528))
+  id: totrans-76
   prefs: []
   type: TYPE_NORMAL
 - en: It is often not easy to reset the state of a complex structure before using
     it a second time (instead of allocating a new one, which creates a deterministic,
     empty structure).
+  id: totrans-77
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: We cannot concurrently use those structures, which can limit further optimizations
     or surprise us and cause data races.
+  id: totrans-78
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Recycle
+  id: totrans-79
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
@@ -437,14 +602,17 @@
     GC’s responsibility to recycle unused memory to the OS, unless we utilize advanced
     utilities like [“mmap Syscall”](ch05.html#ch-hw-memory-mmap) or other off-heap
     memory techniques.
+  id: totrans-80
   prefs: []
   type: TYPE_NORMAL
 - en: 'However, if we can’t “reduce” or “reuse” more memory, we can sometimes optimize
     our code or GC configuration, so the recycling is more efficient for the garbage
     collection. Let’s go through some ways to improve recycling:'
+  id: totrans-81
   prefs: []
   type: TYPE_NORMAL
 - en: Optimize the structure of the allocated object
+  id: totrans-82
   prefs: []
   type: TYPE_NORMAL
 - en: If we can’t reduce the number of allocations, maybe we can reduce the number
@@ -455,6 +623,7 @@
     pointer to a byte array. In extreme cases, in certain conditions, it might be
     worth changing [`[]string` into `offsets []int` and `bytes []byte`](https://oreil.ly/0zi89)
     to make it a pointer-free structure!
+  id: totrans-83
   prefs: []
   type: TYPE_NORMAL
 - en: Another widespread example where it’s easy to get very pointer-rich structures
@@ -467,25 +636,36 @@
     of objects (which is common, especially if we use them for messages over the network),
     we might consider trying to remove pointers from those data structures (many generators
     and marshalers offer that option).
+  id: totrans-84
   prefs: []
   type: TYPE_NORMAL
 - en: Reducing the number of pointers in our structures is better for GC and can make
     our data structure more L-cache friendly, decreasing the program latency. It also
     increases the chances that the compiler will put the data structure on the stack
     instead of the heap!
+  id: totrans-85
   prefs: []
   type: TYPE_NORMAL
+  zh: 减少结构中指针的数量对于 GC 更好，并且可以使我们的数据结构更加 L1 缓存友好，减少程序的延迟。它还增加了编译器将数据结构放在堆栈而不是堆上的机会！
 - en: The main downside, however, is more overhead when you pass that struct by value
     (copy overhead mentioned in [“Values, Pointers, and Memory Blocks”](ch05.html#ch-hw-allocations)).
+  id: totrans-86
   prefs: []
   type: TYPE_NORMAL
+  zh: 然而，主要的缺点是当你按值传递该结构时会有更多的开销（在 [“Values, Pointers, and Memory Blocks”](ch05.html#ch-hw-allocations)
+    中提到的复制开销）。
 - en: GC tuning
+  id: totrans-87
   prefs: []
   type: TYPE_NORMAL
+  zh: GC 调优
 - en: 'I mentioned in [“Garbage Collection”](ch05.html#ch-hw-garbage) about two tuning
     options for Go GC: `GOGC` and `GOMEMLIMIT`.'
+  id: totrans-88
   prefs: []
   type: TYPE_NORMAL
+  zh: 我在 [“Garbage Collection”](ch05.html#ch-hw-garbage) 中提到了两种 Go GC 的调优选项：`GOGC`
+    和 `GOMEMLIMIT`。
 - en: Adjusting the `GOGC` option from the default 100% value might sometimes positively
     affect your program efficiency. Moving the next GC collection to happen sooner
     or later (depending on need) might be beneficial. Unfortunately, it requires lots
@@ -495,46 +675,69 @@
     your code a lot. Every change requires another tuning session. This is why some
     bigger companies like Google and [Uber](https://oreil.ly/8YMRi) invest in automated
     tools that adjust `GOGC` automatically in runtime!
+  id: totrans-89
   prefs: []
   type: TYPE_NORMAL
+  zh: 调整 `GOGC` 选项，将其从默认的 100% 值调整可能会有时对程序效率产生积极影响。根据需要，使下一次 GC 收集提前或延迟可能是有利的。不幸的是，需要大量基准测试来找到合适的数值。此外，不能保证这种调优在应用程序的所有可能状态下都能良好工作。而且，如果代码的关键路径经常变动，这种技术的可持续性很差。每次更改都需要进行另一次调优会话。这就是为什么像
+    Google 和 [Uber](https://oreil.ly/8YMRi) 这样的大公司会投资于自动调整 `GOGC` 的工具，以在运行时自动进行调整！
 - en: The `GOMEMLIMIT` is another option you can adjust on top of the `GOGC`. It’s
     a relatively new option for GC to run more frequently when the heap is close to
     or above the desired soft memory limit.
+  id: totrans-90
   prefs: []
   type: TYPE_NORMAL
+  zh: '`GOMEMLIMIT` 是在 `GOGC` 之上可以调整的另一个选项。这是一个相对较新的 GC 选项，用于在堆接近或超过期望的软内存限制时更频繁地运行
+    GC。'
 - en: See [a more detailed guide on GC tuning](https://oreil.ly/3nGzV) with the interactive
     visualizations.
+  id: totrans-91
   prefs: []
   type: TYPE_NORMAL
+  zh: 查看 [更详细的 GC 调优指南](https://oreil.ly/3nGzV)，带有交互式可视化。
 - en: Triggering GC and freeing OS memory manually
+  id: totrans-92
   prefs: []
   type: TYPE_NORMAL
+  zh: 手动触发 GC 并手动释放 OS 内存
 - en: In extreme cases, we might want to experiment with manually triggered GC collections
     using `runtime.GC()`. For example, we might want to trigger GC manually after
     an operation that allocated a lot of memory and no longer reference it. Note that
     a manual GC trigger is usually a strong anti-pattern, especially in libraries
     as it has global effects.^([5](ch11.html#idm45606819295376))
+  id: totrans-93
   prefs: []
   type: TYPE_NORMAL
+  zh: 在极端情况下，我们可能希望尝试使用 `runtime.GC()` 手动触发 GC 收集。例如，在分配了大量内存并且不再引用它的操作之后，我们可能希望手动触发
+    GC。请注意，手动触发 GC 通常是一种强烈的反模式，特别是在库中，因为它具有全局效果。^([5](ch11.html#idm45606819295376))
 - en: Allocating objects off-heap
+  id: totrans-94
   prefs: []
   type: TYPE_NORMAL
+  zh: 在堆外分配对象
 - en: We mentioned trying to allocate objects on the stack first instead of the heap.
     But the stack and heap are not our only options. There are ways to allocate memory
     off-heap, so that it’s outside of the Go runtime’s responsibility to manage.
+  id: totrans-95
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们提到尝试先在堆栈上分配对象而不是在堆上。但是堆栈和堆并不是我们唯一的选择。有方法可以在堆外分配内存，因此它不由 Go 运行时负责管理。
 - en: We can achieve that with [the explicit `mmap` syscall](https://oreil.ly/yko2o)
     we learned in [“mmap Syscall”](ch05.html#ch-hw-memory-mmap). Some have even tried
     [calling C functions like `jemalloc` through the CGO](https://oreil.ly/6se5i).
+  id: totrans-96
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们可以通过我们在 [“mmap Syscall”](ch05.html#ch-hw-memory-mmap) 中学到的显式 `mmap` 系统调用来实现。一些人甚至尝试通过
+    CGO 调用像 `jemalloc` 这样的 C 函数。参见 [使用 CGO 调用 C 函数像 `jemalloc`](https://oreil.ly/6se5i)。
 - en: While possible, we need to acknowledge that doing this can be compared to reimplementing
     parts of the Go Allocator from scratch, not to mention dealing with the manual
     allocations and lack of memory safety. It is the last thing we might want to try
     for the ultimate high-performance Go implementation!
+  id: totrans-97
   prefs: []
   type: TYPE_NORMAL
+  zh: 虽然可能，我们需要认识到这样做可以与重新实现 Go 分配器的部分相比，更不用说处理手动分配和缺乏内存安全性。这是我们可能想尝试的最后一件事，以获得终极高性能的
+    Go 实现！
 - en: On the bright side, this space is continuously improving. At the time of writing
     this book, the Go team approved and implemented an exciting [proposal](https://oreil.ly/jXgHY)
     behind the `GOEXPERIMENT=arena` environment variable. It allows allocating a set
@@ -546,50 +749,69 @@
     use the memory that was unused before assuring a certain level of memory safety.
     I can’t wait to start playing with it once it is released—it might mean safe and
     easier-to-use off-heap optimizations.
+  id: totrans-98
   prefs: []
   type: TYPE_NORMAL
+  zh: 光明的一面是，这个领域正在不断改进。在撰写本书时，Go 团队批准并实施了一个令人兴奋的[提案](https://oreil.ly/jXgHY)，背后是`GOEXPERIMENT=arena`环境变量。它允许从
+    GC 管理的堆之外的内存连续区域（`arena`）中分配一组对象。因此，我们将能够在需要时显式地隔离、跟踪和快速释放该内存（例如，在处理 HTTP 请求时），而不必等待或支付垃圾收集周期的费用。关于`arena`的特殊之处在于，它旨在在您意外使用以前未使用的内存时使程序崩溃，从而确保一定程度的内存安全性。一旦发布，我迫不及待地想开始使用它——这可能意味着更安全、更易于使用的离堆优化。
 - en: Benchmarking and measuring all the effects of these optimizations is essential
     before trying any recycle improvements on our production code. Some of these can
     be considered tricky to maintain and unsafe if used without extensive tests.
+  id: totrans-99
   prefs: []
   type: TYPE_NORMAL
+  zh: 在尝试任何回收改进我们的生产代码之前，必须对所有这些优化的效果进行基准测试和测量。其中一些如果在没有进行广泛测试的情况下使用，可能被认为是棘手且不安全的。
 - en: 'To sum up, keep the three Rs method in mind, ideally in the same order: reduce,
     reuse, and recycle. Let’s now dive into some common Go optimizations I have seen
     in my experience. Some of them might surprise you!'
+  id: totrans-100
   prefs: []
   type: TYPE_NORMAL
+  zh: 总结一下，记住三个R方法，最好按照同样的顺序：减少，重用和回收。现在让我们深入了解一些我在实践中看到的常见 Go 优化。其中一些可能会让你感到意外！
 - en: Don’t Leak Resources
+  id: totrans-101
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 不要泄漏资源
 - en: Resource leak is a common problem that reduces the efficiency of our Go programs.
     The leak occurs when we create some resource or background goroutine, and after
     using it, we want it to get released or stopped, but it is accidentally left behind.
     This might not be noticeable on a smaller scale, but sooner or later this can
     become a large and hard-to-debug issue. I suggest always clearing something you
     created, even if you expect to exit the program in the next cycle!^([6](ch11.html#idm45606819276864))
+  id: totrans-102
   prefs: []
   type: TYPE_NORMAL
+  zh: 资源泄漏是降低我们 Go 程序效率的常见问题。当我们创建某些资源或后台 goroutine，并在使用后希望释放或停止它时，却意外地遗留下来。这在小规模上可能不明显，但迟早会变成一个难以调试的大问题。我建议无论如何都要清理自己创建的东西，即使你期望在下一个周期退出程序！^([6](ch11.html#idm45606819276864))
 - en: “This Program Has a Memory Leak!”
+  id: totrans-103
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: “这个程序有内存泄漏！”
 - en: Not every higher memory utilization behavior can be considered a leak. For example,
     we could generally “waste” more memory for some operations, resulting in a spike
     in heap usage, but it gets cleared at some point.
+  id: totrans-104
   prefs: []
   type: TYPE_NORMAL
+  zh: 不是每一种更高的内存利用行为都可以被视为泄漏。例如，我们可能会在某些操作中“浪费”更多的内存，导致堆使用量的突增，但在某个时刻会被清除。
 - en: Technically a leak is only when, for the same amount of load on the program
     (e.g., the same amount of HTTP traffic for a long-living service), we use an unbounded
     amount of resources (e.g., disk space, memory, rows in the database), which eventually
     run out.
+  id: totrans-105
   prefs: []
   type: TYPE_NORMAL
+  zh: 从技术上讲，泄漏只有当程序的负载相同时（例如，长时间运行的服务的相同数量的 HTTP 流量），我们使用无限量的资源（例如，磁盘空间，内存，数据库中的行数），最终耗尽时才会发生。
 - en: There are cases of unexpected nondeterministic memory usage on the edge of the
     leak and waste. These are sometimes called pseudomemory leaks, and we will discuss
     some of them in [“Overusing Memory with Arrays”](#ch-basic-subslice).
+  id: totrans-106
   prefs: []
   type: TYPE_NORMAL
+  zh: 在泄漏和浪费的边缘存在意外的不确定性内存使用情况。这些有时被称为伪内存泄漏，我们将在[“使用数组过多地消耗内存”](#ch-basic-subslice)中讨论其中一些。
 - en: Perhaps we might think that memory should be an exception to this rule. The
     stack memory is automatically removed, and the garbage collection in Go dynamically
     removes the memory allocated on the heap.^([7](ch11.html#idm45606819271728)) There
@@ -597,70 +819,99 @@
     it and waiting (or triggering) a full GC cycle. However, don’t let that fool you.
     There are many cases when the Go developer writes code that leaks memory, despite
     eventual garbage collection!
+  id: totrans-107
   prefs: []
   type: TYPE_NORMAL
+  zh: 或许我们可能会认为内存应该是这一规则的例外情况。堆栈内存会自动移除，并且 Go 中的垃圾回收动态地移除堆上分配的内存。^([7](ch11.html#idm45606819271728))
+    除了停止引用并等待（或触发）完整的 GC 循环外，没有办法触发内存块的清理。但是，不要被这个所欺骗。有很多情况下，Go 开发人员编写的代码会泄漏内存，尽管最终会进行垃圾回收！
 - en: 'There are a few reasons our program leaks memory:'
+  id: totrans-108
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们的程序泄漏内存有几个原因：
 - en: Our program constantly creates custom `mmap` syscalls and never closes them
     (or closes them slower than creating them). This will typically end with a process
     or machine OOM.
+  id: totrans-109
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们的程序频繁创建自定义的 `mmap` 系统调用，却从不关闭它们（或者关闭比创建慢）。这通常会导致进程或者机器的 OOM。
 - en: Our program calls too many nested functions, typically infinite or large recursion.
     Our process will then exit with a stack overflow error.
+  id: totrans-110
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们的程序调用了太多嵌套函数，通常是无限或大型递归。我们的进程将因此出现堆栈溢出错误而退出。
 - en: We are referencing a slice with a tiny length, but we forgot that its capacity
     is very large, as explained in [“Overusing Memory with Arrays”](#ch-basic-subslice).
+  id: totrans-111
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们引用了一个长度很小的 slice，但忘记了它的容量非常大，如 [“过度使用数组的内存”](#ch-basic-subslice) 中所解释的那样。
 - en: Our program constantly creates memory blocks on the heap, which are always referenced
     by some variables in the execution scope. This typically means we have leaked
     goroutines or infinitely growing slices or maps.
+  id: totrans-112
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们的程序在堆上不断创建内存块，这些内存块总是被执行范围内的某些变量引用。这通常意味着我们泄漏了 goroutines 或者无限增长的 slices 或
+    maps。
 - en: It’s easy to fix memory leaks when we know where they are, but it’s not easy
     to spot them. We often learn about leaks after the fact, when our application
     has already crashed. Without advanced tools like those in [“Continuous Profiling”](ch09.html#ch-obs-cont-profiling),
     we have to hope to reproduce the problem with local tests, which is not always
     possible.
+  id: totrans-113
   prefs: []
   type: TYPE_NORMAL
+  zh: 当我们知道内存泄漏的位置时，修复起来很容易，但是要找出它们并不容易。通常是在应用程序崩溃后才会得知泄漏问题。如果没有像 [“持续剖析”](ch09.html#ch-obs-cont-profiling)
+    中的高级工具，我们就必须希望通过本地测试来重现问题，但这并非总是可能的。
 - en: Even with the past heap profile, during the leak, we only see memory in the
     code that allocated memory blocks, not the code that currently references it.^([8](ch11.html#idm45606819262800))
     Some of the memory leaks, especially those caused by leaked goroutines, can be
     narrowed down thanks to the goroutine, but not always.
+  id: totrans-114
   prefs: []
   type: TYPE_NORMAL
+  zh: 即使在过去的堆剖析中，在泄漏期间，我们只能看到分配内存块的代码中的内存，而看不到当前引用它的代码。^([8](ch11.html#idm45606819262800))
+    一些内存泄漏，特别是由泄漏的 goroutine 导致的，可以通过 goroutine 缩小范围来缩小，但并非总是如此。
 - en: Fortunately, a few best practices can proactively prevent us from leaking any
     incompressible resource (e.g., disk space, memory, etc.) and avoid that painful
     leak analysis. Consider the suggestions in this section as something we always
     care for and use as reasonable optimizations.
+  id: totrans-115
   prefs: []
   type: TYPE_NORMAL
+  zh: 幸运的是，一些最佳实践可以预防我们泄漏任何不可压缩的资源（例如磁盘空间、内存等），避免那种痛苦的泄漏分析。请将本节中的建议视为我们始终关注和合理优化的内容。
 - en: Control the Lifecycle of Your Goroutines
+  id: totrans-116
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 控制你的 Goroutine 的生命周期
 - en: Every time you use the go keyword in your program to launch a goroutine, you
     must know how, and when, that goroutine will exit. If you don’t know the answer,
     that’s a potential memory leak.
+  id: totrans-117
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: 每当在程序中使用 go 关键字启动 goroutine 时，都必须知道该 goroutine 将如何以及何时退出。如果你不知道答案，那就可能会导致内存泄漏。
 - en: ''
+  id: totrans-118
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: Dave Cheney, [“Never Start a goroutine Without Knowing How It Will Stop”](https://oreil.ly/eZKzr)
+  id: totrans-119
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: Dave Cheney，《“不要在不知道如何停止它的情况下启动 goroutine”》(https://oreil.ly/eZKzr)
 - en: Goroutines are an elegant and clean framework for concurrent programming but
     have some downsides. One is that each goroutine is fully isolated from other goroutines
     (unless we use an explicit synchronization paradigm). There is no central dispatch
@@ -670,81 +921,124 @@
     to be very efficient. As a trade-off, we have to implement potential code that
     will stop them when the job is done—or, to be specific, the code inside the goroutine
     to stop itself (the only way!).
+  id: totrans-120
   prefs: []
   type: TYPE_NORMAL
+  zh: Goroutines 是一种优雅而干净的并发编程框架，但也有一些缺点。其中一个是每个 Goroutine 完全与其他 Goroutine 隔离（除非我们使用显式的同步范式）。在
+    Go 运行时中没有中央调度，我们可以调用它，并且例如要求关闭当前 Goroutine 创建的 Goroutines（甚至检查它创建了哪一个）。这不是框架成熟度的不足，而是允许
+    Goroutines 非常高效的设计选择。作为一种权衡，我们必须实现可能会在工作完成时停止它们的代码，或者更具体地说，停止 Goroutine 内部的代码（唯一的方法！）。
 - en: 'The solution is never to create a goroutine and leave it on its own without
     strict control, even if we think the computation is fast. Instead, when scheduling
     goroutines, think about two aspects:'
+  id: totrans-121
   prefs: []
   type: TYPE_NORMAL
+  zh: 解决方案决不是创建一个 Goroutine 并将其留在那里没有严格的控制，即使我们认为计算速度很快。相反，在调度 Goroutines 时，考虑两个方面：
 - en: How to stop them
+  id: totrans-122
   prefs: []
   type: TYPE_NORMAL
+  zh: 如何停止它们
 - en: We should always ask ourselves when the goroutine will finish. Will it finish
     on its own, or do I have to trigger the finish using context, channels, and so
     on (as in the examples that follow)? Should I be able to abort the goroutine long
     execution if, e.g., the request was cancelled?
+  id: totrans-123
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们应该始终问自己，Goroutine 何时会完成。它会自动完成，还是我必须使用上下文、通道等触发完成（如后续示例中的示例）？例如，如果请求被取消，我应该能够中止
+    Goroutine 的长时间执行吗？
 - en: Should my function wait for the goroutine to finish?
+  id: totrans-124
   prefs: []
   type: TYPE_NORMAL
+  zh: 我的函数应该等待 Goroutine 完成吗？
 - en: Do I want my code to continue the execution without waiting for my goroutines
     to finish? Usually, the answer is no, and you should wait for the goroutine to
     stop, for example, using channels [`sync.WaitGroup`](https://oreil.ly/PQHom) (e.g.,
     in [Example 10-10](ch10.html#code-sum-concurrent1)), [`errgroup`](https://oreil.ly/G1Aqx),
     or the excellent [`run.Group`](https://oreil.ly/B1ABL) abstraction.
+  id: totrans-125
   prefs: []
   type: TYPE_NORMAL
+  zh: 我的代码是否希望继续执行而不等待 Goroutines 完成？通常答案是否定的，您应该等待 Goroutine 停止，例如使用 [`sync.WaitGroup`](https://oreil.ly/PQHom)（例如在
+    [示例 10-10](ch10.html#code-sum-concurrent1) 中）、[`errgroup`](https://oreil.ly/G1Aqx)
+    或优秀的 [`run.Group`](https://oreil.ly/B1ABL) 抽象。
 - en: There are many cases where it feels safe just to let the goroutines “eventually”
     stop, but in practice, not waiting for them has dangerous consequences. For example,
     consider the HTTP server handler that computes some number asynchronously in [Example 11-2](#code-leakhandle1).
+  id: totrans-126
   prefs: []
   type: TYPE_NORMAL
+  zh: 有许多情况下，感觉可以放心地让 Goroutines “最终” 停止，但实际上，不等待它们会带来危险后果。例如，考虑异步计算某些数字的 HTTP 服务器处理程序，参见
+    [示例 11-2](#code-leakhandle1)。
 - en: Example 11-2\. Showcase of a common leak in a concurrent function
+  id: totrans-127
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 11-2\. 并发函数中常见泄漏的展示
 - en: '[PRE1]'
+  id: totrans-128
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE1]'
 - en: '[![1](assets/1.png)](#co_optimization_patterns_CO2-1)'
+  id: totrans-129
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_optimization_patterns_CO2-1)'
 - en: Small function simulating longer computation. Imagine it takes around two seconds
     to complete all.
+  id: totrans-130
   prefs: []
   type: TYPE_NORMAL
+  zh: 小函数模拟较长的计算过程。想象一下，完成所有计算大约需要两秒钟。
 - en: '[![2](assets/2.png)](#co_optimization_patterns_CO2-2)'
+  id: totrans-131
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_optimization_patterns_CO2-2)'
 - en: Imagine a handler that schedules asynchronous computation.
+  id: totrans-132
   prefs: []
   type: TYPE_NORMAL
+  zh: 想象一个调度异步计算的处理程序。
 - en: '[![3](assets/3.png)](#co_optimization_patterns_CO2-3)'
+  id: totrans-133
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_optimization_patterns_CO2-3)'
 - en: Our code does not depend on someone closing the channel, but as a good practice,
     the sender closes it.
+  id: totrans-134
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们的代码不依赖于某人关闭通道，但作为良好的实践，发送者关闭它。
 - en: '[![4](assets/4.png)](#co_optimization_patterns_CO2-4)'
+  id: totrans-135
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![4](assets/4.png)](#co_optimization_patterns_CO2-4)'
 - en: If cancellation happens, we return immediately. Otherwise, we wait for the result.
     At first glance, the above code does not look too bad. It feels like we control
     the lifecycle of the scheduled goroutine.
+  id: totrans-136
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果取消操作发生，则立即返回。否则，我们等待结果。乍看之下，上述代码看起来并不太糟糕。它似乎我们控制了调度 Goroutine 的生命周期。
 - en: '[![5](assets/5.png)](#co_optimization_patterns_CO2-5)'
+  id: totrans-137
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![5](assets/5.png)](#co_optimization_patterns_CO2-5)'
 - en: Unfortunately, the detail is hidden in more information. We control the lifecycle
     only in a good case (when no cancellation occurs). If our code hits this line,
     we are doing something bad here. We return without caring about the goroutine
     lifecycle. We don’t stop it. We don’t wait for it. Even worse, this is a permanent
     leak, i.e., the goroutine with `ComplexCalculation` will be starved—as no one
     reads from the `respCh` channel.
+  id: totrans-138
   prefs: []
   type: TYPE_NORMAL
 - en: While the goroutine looks like it’s controlled, it isn’t in all cases. This
@@ -752,6 +1046,7 @@
     focus to not forget about every little edge case. As a result of these mistakes,
     we tend to delay using goroutines in our Go, as it’s easy to create leaks like
     this.
+  id: totrans-139
   prefs: []
   type: TYPE_NORMAL
 - en: The worst part about leaks is that our Go program might survive long before
@@ -759,76 +1054,98 @@
     and cancelling it periodically will eventually OOM this Go program, but if we
     cancel only from time to time and restart our application periodically, without
     good observability we might never notice it!
+  id: totrans-140
   prefs: []
   type: TYPE_NORMAL
 - en: Fortunately, an amazing tool allows us to discover those leaks at the unit test
     level. Therefore, I suggest using a leak test in every unit (or test file) that
     uses concurrent code. One of them is called [`goleak`](https://oreil.ly/4N4bb)
     from Uber, and its basic use is presented in [Example 11-3](#code-leakhandletest).
+  id: totrans-141
   prefs: []
   type: TYPE_NORMAL
 - en: Example 11-3\. Testing for leaks in [Example 11-2](#code-leakhandle1) code
+  id: totrans-142
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
 - en: '[PRE2]'
+  id: totrans-143
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE2]'
 - en: '[![1](assets/1.png)](#co_optimization_patterns_CO3-1)'
+  id: totrans-144
   prefs: []
   type: TYPE_NORMAL
 - en: Let’s create tests that verify cancel behavior. This is where the leak is suspected
     to be triggered.
+  id: totrans-145
   prefs: []
   type: TYPE_NORMAL
 - en: '[![2](assets/2.png)](#co_optimization_patterns_CO3-2)'
+  id: totrans-146
   prefs: []
   type: TYPE_NORMAL
 - en: To verify goroutine leaks, just defer [`goleak.VerifyNone`](https://oreil.ly/bgcwF)
     at the top of our test. It runs at the end of our test and fails if any unexpected
     goroutine is still running. We can also verify whole package tests using the [`goloak.VerifyTestMain`
     method](https://oreil.ly/zyPjr).
+  id: totrans-147
   prefs: []
   type: TYPE_NORMAL
 - en: Running such a test causes the test to fail with the output in [Example 11-4](#code-leakhandletest-out).
+  id: totrans-148
   prefs: []
   type: TYPE_NORMAL
 - en: Example 11-4\. Output of two failed runs of [Example 11-3](#code-leakhandletest)
+  id: totrans-149
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
 - en: '[PRE3]'
+  id: totrans-150
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE3]'
 - en: '[![1](assets/1.png)](#co_optimization_patterns_CO4-1)'
+  id: totrans-151
   prefs: []
   type: TYPE_NORMAL
 - en: We see the goroutines still running at the end of the test and what they were
     executing.
+  id: totrans-152
   prefs: []
   type: TYPE_NORMAL
 - en: '[![2](assets/2.png)](#co_optimization_patterns_CO4-2)'
+  id: totrans-153
   prefs: []
   type: TYPE_NORMAL
 - en: If we waited a few seconds after cancelling, we could see that the goroutine
     was still running. However, this time it was waiting on a read from `respCh`,
     which would never happen.
+  id: totrans-154
   prefs: []
   type: TYPE_NORMAL
 - en: The solution to such an edge case leak is to fix the [Example 11-2](#code-leakhandle1)
     code. So let’s go through two potential solutions in [Example 11-5](#code-leakhandle2)
     that seem to fix the problem, but still leak in some way!
+  id: totrans-155
   prefs: []
   type: TYPE_NORMAL
 - en: Example 11-5\. (Still) leaking handlers. This time the goroutines left behind
     eventually stop.
+  id: totrans-156
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
 - en: '[PRE4]'
+  id: totrans-157
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE4]'
 - en: '[![1](assets/1.png)](#co_optimization_patterns_CO5-1)'
+  id: totrans-158
   prefs: []
   type: TYPE_NORMAL
 - en: The only difference between this code and `HandleVeryWrong` in [Example 11-2](#code-leakhandle1)
@@ -836,227 +1153,337 @@
     goroutine to push one message to this channel without waiting for someone to read
     it. If we cancel and wait some time, the “left behind” goroutine will eventually
     finish.
+  id: totrans-159
   prefs: []
   type: TYPE_NORMAL
+  zh: 这段代码与[示例 11-2](#code-leakhandle1) 中的 `HandleVeryWrong` 唯一的区别在于我们创建了一个带有一个消息缓冲区的通道。这使得计算goroutine可以将一个消息推送到这个通道而不必等待某人读取它。如果我们取消并等待一段时间，那么“遗留”的goroutine最终将完成。
 - en: '[![2](assets/2.png)](#co_optimization_patterns_CO5-2)'
+  id: totrans-160
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_optimization_patterns_CO5-2)'
 - en: To make things more efficient, we could even implement a `ComplexComputationWithCtx`
     that accepts context, which cancels computation and is no longer needed.
+  id: totrans-161
   prefs: []
   type: TYPE_NORMAL
+  zh: 为了使事情更有效率，我们甚至可以实现一个接受上下文的 `ComplexComputationWithCtx`，当计算被取消且不再需要时取消它。
 - en: '[![3](assets/3.png)](#co_optimization_patterns_CO5-3)'
+  id: totrans-162
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_optimization_patterns_CO5-3)'
 - en: Many context-cancelled functions do not finish immediately when the context
     is cancelled. Perhaps context is checked periodically, or some cleanup might be
     needed to revert cancelled changes. In our case, we simulate cleanup wait time
     with sleep.
+  id: totrans-163
   prefs: []
   type: TYPE_NORMAL
+  zh: 很多上下文取消的函数在上下文被取消时并不会立即结束。也许会定期检查上下文，或者需要一些清理来恢复取消的更改。在我们的情况下，我们用睡眠模拟清理等待时间。
 - en: 'The examples in [Example 11-5](#code-leakhandle2) provide some progress, but
     unfortunately, they still technically leak. In some ways, the leak is only temporary,
     but it can still cause problems for the following reasons:'
+  id: totrans-164
   prefs: []
   type: TYPE_NORMAL
+  zh: '[示例 11-5](#code-leakhandle2) 中的例子提供了一些进展，但不幸的是，它们仍然在技术上泄漏。在某些方面，泄漏只是暂时的，但它仍然可能由于以下原因导致问题：'
 - en: Unaccounted resource usage.
+  id: totrans-165
   prefs: []
   type: TYPE_NORMAL
+  zh: 未记账的资源使用。
 - en: If we used the `Handle_AlsoWrong` function for request A, then A would cancel.
     As a result, the `ComplexComputation` would accidentally allocate a lot of memory
     after `Handle_AlsoWrong` finished—it would create a confusing situation. Furthermore,
     all observability tools would indicate that a spike of memory happened after request
     A finished, so it would be a false perception that request A is not correlated
     to the memory problem.
+  id: totrans-166
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果我们为请求A使用 `Handle_AlsoWrong` 函数，然后A取消。结果，`ComplexComputation` 在 `Handle_AlsoWrong`
+    完成后意外分配了大量内存—这将导致混淆情况。此外，所有可观察性工具将指示请求A完成后发生了内存峰值，因此会错误地认为请求A与内存问题无关。
 - en: Accounting problems can have big consequences on the future scalability of our
     program. For example, imagine that a cancelled request usually takes 200 ms to
     finish. That’s not true—if we accounted for all computations, we would see it’s
     200 ms with, e.g., 1 second for `ComplexComputation` cleanup latency. This calculation
     is very important when predicting resource usage for certain traffic given certain
     machine resources.
+  id: totrans-167
   prefs: []
   type: TYPE_NORMAL
+  zh: 会计问题可能对我们程序未来的可扩展性有重大影响。例如，想象一下，取消的请求通常需要200毫秒才能完成。这并不正确—如果我们考虑了所有计算，我们会看到它与，例如，1秒钟的
+    `ComplexComputation` 清理延迟有关。在给定某些机器资源情况下，这种计算非常重要，用于预测特定流量的资源使用情况。
 - en: We can run out of resources sooner.
+  id: totrans-168
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们可能更快地耗尽资源。
 - en: Such “left behind” goroutines can still cause OOM as the usage is non-deterministic.
     Continuous runs and cancels can still give the impression that the server is ready
     to schedule another request, and keep adding leaked asynchronous jobs, which can
     eventually starve the program. This situation fits in the leak definition.
+  id: totrans-169
   prefs: []
   type: TYPE_NORMAL
+  zh: 这样的“遗留”goroutine仍然可能导致OOM，因为使用是非确定性的。连续运行和取消仍然会给人一种服务器准备调度另一个请求的印象，并继续添加泄漏的异步作业，这最终可能使程序饿死。这种情况符合泄漏的定义。
 - en: Are we sure they finished?
+  id: totrans-170
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们确定他们完成了吗？
 - en: Furthermore, leaving behind goroutines gives us no visibility on how long they
     run and if they finished in all edge cases. Perhaps there is a bug that gets them
     stuck at some point.
+  id: totrans-171
   prefs: []
   type: TYPE_NORMAL
+  zh: 此外，留下goroutine还会使我们无法了解它们运行多长时间以及在所有边缘情况下是否完成。也许有一个bug会使它们在某个时候被卡住。
 - en: As a result, I would highly suggest never leaving behind goroutines in your
     code. Fortunately, [Example 11-3](#code-leakhandletest) marks all three functions
     (`Handle_VeryWrong`, `Handle_Wrong`, and `Handle_AlsoWrong`) as leaking, which
     is usually what we want. To fix the leak completely, we can, in our case, always
     wait for the result channel, as presented in [Example 11-6](#code-leakhandle3).
+  id: totrans-172
   prefs: []
   type: TYPE_NORMAL
+  zh: 因此，我强烈建议在您的代码中永远不要留下goroutine。幸运的是，[示例 11-3](#code-leakhandletest) 将所有三个函数（`Handle_VeryWrong`、`Handle_Wrong`
+    和 `Handle_AlsoWrong`）标记为泄漏，这通常是我们想要的。要完全修复泄漏，我们可以在我们的情况下始终等待结果通道，就像[示例 11-6](#code-leakhandle3)
+    中所示。
 - en: Example 11-6\. Version of [Example 11-2](#code-leakhandle1) that is not leaking
+  id: totrans-173
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 11-6\. 不会泄漏的 [Example 11-2](#code-leakhandle1) 版本
 - en: '[PRE5]'
+  id: totrans-174
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE5]'
 - en: '[![1](assets/1.png)](#co_optimization_patterns_CO6-1)'
+  id: totrans-175
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_optimization_patterns_CO6-1)'
 - en: Always reading from the channel allows us to wait for the goroutine stop. We
     also respond to cancel as quickly as possible, thanks to propagating proper context
     to `ComplexComputationWithCtx`.
+  id: totrans-176
   prefs: []
   type: TYPE_NORMAL
+  zh: 始终从通道读取使我们能够等待 goroutine 停止。我们还通过向 `ComplexComputationWithCtx` 传播适当的上下文尽快响应取消。
 - en: Last but not least, be careful when you benchmark concurrent code. Always wait
     in each `b.N` iteration for what you want to define as “an operation.” A common
     leak in benchmarking code with the solution is presented in [Example 11-7](#code-leakbenchmark).
+  id: totrans-177
   prefs: []
   type: TYPE_NORMAL
+  zh: 最后但并非最不重要的，当您进行并发代码基准测试时要小心。始终在每个 `b.N` 迭代中等待您定义为“一个操作”的内容。在 [Example 11-7](#code-leakbenchmark)
+    中提供了解决方案的常见基准测试中的泄漏。
 - en: Example 11-7\. Showcase of a common leak in benchmarking concurrent code
+  id: totrans-178
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 11-7\. 展示并发代码基准测试中常见的泄漏。
 - en: '[PRE6]'
+  id: totrans-179
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE6]'
 - en: '[![1](assets/1.png)](#co_optimization_patterns_CO7-1)'
+  id: totrans-180
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_optimization_patterns_CO7-1)'
 - en: Let’s say we want to benchmark concurrent `ComplexComputation`. Scheduling two
     goroutines might find some interesting slowdowns if any resources are shared between
     those functions. However, these benchmark results are completely wrong. My machine
     shows `1860 ns/op`, but if we look carefully, we will see we don’t wait for any
     of those goroutines to complete. As a result, we only measure the latency needed
     to schedule two goroutines per operation.
+  id: totrans-181
   prefs: []
   type: TYPE_NORMAL
+  zh: 假设我们想要对并发的 `ComplexComputation` 进行基准测试。调度两个 goroutine 可能会发现一些有趣的减速，如果这些函数之间共享任何资源。然而，这些基准测试结果完全错误。我的机器显示
+    `1860 ns/op`，但如果仔细观察，我们会发现我们没有等待任何这些 goroutine 完成。因此，我们只测量了每个操作调度两个 goroutine
+    所需的延迟。
 - en: '[![2](assets/2.png)](#co_optimization_patterns_CO7-2)'
+  id: totrans-182
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_optimization_patterns_CO7-2)'
 - en: To measure the latency of two concurrent computations, we have to wait for their
     completion, perhaps with `sync.WaitGroup`. This benchmark shows a much more realistic
     `2000339135 ns/op` (two seconds per operation) result.
+  id: totrans-183
   prefs: []
   type: TYPE_NORMAL
+  zh: 要测量两个并发计算的延迟，我们必须等待它们的完成，也许使用 `sync.WaitGroup`。这个基准测试显示了一个更加现实的 `2000339135
+    ns/op`（每个操作两秒）的结果。
 - en: '[![3](assets/3.png)](#co_optimization_patterns_CO7-3)'
+  id: totrans-184
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_optimization_patterns_CO7-3)'
 - en: We can also use `goleak` on our benchmarks to verify against leaks! However,
     we need to have a benchmark-specific filter due to this [issue](https://oreil.ly/VTE9t).
+  id: totrans-185
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们还可以在我们的基准测试中使用 `goleak` 来验证泄漏！然而，由于这个 [问题](https://oreil.ly/VTE9t)，我们需要一个特定于基准测试的过滤器。
 - en: To sum up, control your goroutine lifecycle for reliable efficiency now and
     in the future! Ensure the goroutine lifecycle as a reasonable optimization.
+  id: totrans-186
   prefs: []
   type: TYPE_NORMAL
+  zh: 总之，控制你的 goroutine 生命周期，以确保当前和未来的可靠效率！确保 goroutine 生命周期作为合理的优化。
 - en: Reliably Close Things
+  id: totrans-187
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 可靠地关闭事物
 - en: 'This might be obvious, but if we create some object that is supposed to be
     closed after use, we should ensure we don’t forget or ignore this. We have to
     be extra careful if we create an instance of some `struct` or use a function,
     and we see some kind of “closer,” for example:'
+  id: totrans-188
   prefs: []
   type: TYPE_NORMAL
+  zh: 这可能是显而易见的，但是如果我们创建了某个对象，该对象在使用后应该关闭，我们应该确保不要忘记或忽视这一点。如果我们创建了某个 `struct` 的实例或使用了某个函数，并且我们看到某种“closer”，例如：
 - en: It returns `cancel` or `close` closure, e.g., [`context.WithTimeout`](https://oreil.ly/lmvQd)
     or [`context.WithCancel`](https://oreil.ly/aVkMY).^([9](ch11.html#idm45606817523552))
+  id: totrans-189
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 它返回 `cancel` 或 `close` 闭包，例如 [`context.WithTimeout`](https://oreil.ly/lmvQd)
+    或 [`context.WithCancel`](https://oreil.ly/aVkMY).^([9](ch11.html#idm45606817523552))
 - en: The returned object has a method with closing, cancelling, or stopping-like
     semantics, e.g., [`io.ReaderCloser.Close()`](https://oreil.ly/7Lyfs), [`time.Timer.Stop()`](https://oreil.ly/V7ba8),
     or TearDown.
+  id: totrans-190
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 返回的对象具有类似关闭、取消或停止的语义的方法，例如 [`io.ReaderCloser.Close()`](https://oreil.ly/7Lyfs)，[`time.Timer.Stop()`](https://oreil.ly/V7ba8)，或
+    TearDown。
 - en: Some functions do not have a closer method but have a dedicated closing or deleting
     package-level function, e.g., the corresponding “releasing” function for [`os.Create`](https://oreil.ly/a2nt4)
     or [`os.Mkdir`](https://oreil.ly/klgKo) is [`os.Remove`](https://oreil.ly/DPNIA).
+  id: totrans-191
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 有些函数没有 closer 方法，但有一个专门的关闭或删除包级函数，例如 [`os.Create`](https://oreil.ly/a2nt4) 或
+    [`os.Mkdir`](https://oreil.ly/klgKo) 的相应“释放”函数是 [`os.Remove`](https://oreil.ly/DPNIA)。
 - en: 'If we have such a situation, assume the worst: if we don’t call that function
     at the end of using that object, bad things will happen. Some goroutine will not
     finish, some memory will be kept referenced, or worse, our data will not bet saved
     (e.g., in case of `os.File.Close()`). We should try to be vigilant. When we use
     a new abstraction, we should check if it has any closers. Unfortunately, there
     are no linters that would point out if we forgot to call them.^([10](ch11.html#idm45606817514192))'
+  id: totrans-192
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果我们遇到这种情况，请假设最坏的情况：如果在使用对象后没有调用该函数，会发生糟糕的事情。某些goroutine将无法完成，某些内存将被保持引用，或者更糟的是，我们的数据将无法保存（例如`os.File.Close()`的情况）。我们应该尽量保持警惕。当我们使用新的抽象时，应检查它是否有任何关闭器。不幸的是，没有linter会指出我们是否忘记调用它们。^([10](ch11.html#idm45606817514192))
 - en: Unfortunately, that isn’t everything. We can’t just defer a call to `Close`.
     Typically, it also returns the error, which might mean the close could not happen,
     and this situation has to be handled. For example, `os.Remove` failed because
     of permission issues and the file was not removed. If we cannot exit the application,
     retry, or handle the error, we should at least be aware of this potential leak.
+  id: totrans-193
   prefs: []
   type: TYPE_NORMAL
+  zh: 不幸的是，这还不是全部。我们不能只是推迟对`Close`的调用。通常，它还会返回错误，这可能意味着关闭操作无法完成，必须处理这种情况。例如，`os.Remove`由于权限问题失败，文件没有被删除。如果我们不能退出应用程序、重试或处理错误，至少应意识到可能存在的泄漏。
 - en: Does it mean that `defer` statements are less useful, and we have to have that
     `if err != nil` boilerplate for all closers? Not really. This is when I would
     suggest using the [`errcapture`](https://oreil.ly/ucTUB) and [`logerrcapture`](https://oreil.ly/vb2vn)
     packages. See [Example 11-8](#code-deferclose).
+  id: totrans-194
   prefs: []
   type: TYPE_NORMAL
+  zh: 这是否意味着`defer`语句不那么有用，我们必须为所有关闭器添加`if err != nil`样板？并不完全是这样。这就是我建议使用[`errcapture`](https://oreil.ly/ucTUB)和[`logerrcapture`](https://oreil.ly/vb2vn)包的情况。参见[Example 11-8](#code-deferclose)。
 - en: Example 11-8\. Examples of closing files with `defer`
+  id: totrans-195
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: Example 11-8\. 使用`defer`关闭文件的示例
 - en: '[PRE7]'
+  id: totrans-196
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE7]'
 - en: '[![1](assets/1.png)](#co_optimization_patterns_CO8-1)'
+  id: totrans-197
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_optimization_patterns_CO8-1)'
 - en: Never ignore errors. Especially on a file close, which often flushes some of
     our writes to disk only on `Close`, we lose data on an error.
+  id: totrans-198
   prefs: []
   type: TYPE_NORMAL
+  zh: 绝不要忽视错误。特别是在文件关闭时，这通常会导致我们的写入仅在`Close`时刷新到磁盘上，如果出现错误，我们将丢失数据。
 - en: '[![2](assets/2.png)](#co_optimization_patterns_CO8-2)'
+  id: totrans-199
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_optimization_patterns_CO8-2)'
 - en: Fortunately, we don’t need to give up on the amazing Go `defer` logic. Using
     `errcapture`, we can return an error if `f.Close` returns an error. If `doWithFile_CaptureCloseErr`
     returns an error and we do `Close`, the potential close error will be appended
     to the returned one. This is possible thanks to the return argument `(err error`)
     of this function. This pattern will not work without it!
+  id: totrans-200
   prefs: []
   type: TYPE_NORMAL
+  zh: 幸运的是，我们不需要放弃令人惊叹的Go `defer`逻辑。使用`errcapture`，我们可以在`f.Close`返回错误时返回错误。如果`doWithFile_CaptureCloseErr`返回错误并且我们关闭文件，则潜在的关闭错误将附加到返回的错误中。这要归功于此函数的返回参数`(err
+    error)`。如果没有它，这种模式将无法工作！
 - en: '[![3](assets/3.png)](#co_optimization_patterns_CO8-4)'
+  id: totrans-201
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_optimization_patterns_CO8-4)'
 - en: We can also log the close error if we can’t handle it.
+  id: totrans-202
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果我们无法处理，还可以记录关闭错误。
 - en: If we see any project I was involved in (and influenced to impact patterns like
     this), I use `errcapture` in all functions that return errors, and I can defer
     them—a clean and reliable way to avoid some leaks.
+  id: totrans-203
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果我们看到我参与的任何项目（并影响了类似这样的模式），我会在所有返回错误的函数中使用`errcapture`，并且可以推迟它们——这是一种干净且可靠的方式来避免某些泄漏。
 - en: Another common example of when we forget to close things is error cases. Suppose
     we have to open a set of files for later use. Making sure we close them is not
     always trivial, as shown in [Example 11-9](#code-errclose).
+  id: totrans-204
   prefs: []
   type: TYPE_NORMAL
+  zh: 另一个常见的例子是错误情况下忘记关闭的情况。假设我们需要打开一组文件以备后用。确保关闭它们并不总是简单的，正如在[Example 11-9](#code-errclose)中所示。
 - en: Example 11-9\. Closing files in error cases
+  id: totrans-205
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: Example 11-9\. 在错误情况下关闭文件
 - en: '[PRE8]'
+  id: totrans-206
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE8]'
 - en: '[![1](assets/1.png)](#co_optimization_patterns_CO9-1)'
+  id: totrans-207
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_optimization_patterns_CO9-1)'
 - en: This is often difficult to notice, but if we create more resources that have
     to be closed, or we want to close them in a different function, `defer` can’t
     be used. This is normally fine, but if we want to create three files and we have
@@ -1065,66 +1492,100 @@
     and an error because the consistent flow is to ignore anything returned if there
     was an error. We typically have to close the already opened file to avoid leaks
     and confusion.
+  id: totrans-208
   prefs: []
   type: TYPE_NORMAL
+  zh: 这通常很难注意到，但如果我们创建了更多需要关闭的资源，或者我们希望在不同的函数中关闭它们，`defer` 就不能用了。通常这没问题，但如果我们想创建三个文件并且在打开第二个文件时出现错误，我们就会泄漏第一个未关闭的文件的资源！我们不能只是从
+    `openMultiple_Wrong` 返回已打开的文件和一个错误，因为一致的流程是忽略返回的任何内容，如果有错误的话。我们通常必须关闭已打开的文件以避免泄漏和混乱。
 - en: '[![2](assets/2.png)](#co_optimization_patterns_CO9-2)'
+  id: totrans-209
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_optimization_patterns_CO9-2)'
 - en: The solution is typically creating a short helper that will iterate over appended
     closers and close them. For example, we use the [`merrors`](https://oreil.ly/icRMt)
     package for convenient error append, because we want to know if any new error
     happened in any `Close` call.
+  id: totrans-210
   prefs: []
   type: TYPE_NORMAL
+  zh: 解决方案通常是创建一个短小的辅助函数，遍历附加的关闭器并关闭它们。例如，我们使用 [`merrors`](https://oreil.ly/icRMt)
+    包进行方便的错误追加，因为我们希望知道在任何 `Close` 调用中是否发生了新的错误。
 - en: To sum up, closing things is very important and considered a good optimization.
     Of course, no single pattern or linter would prevent us from all mistakes, but
     we can do a lot to reduce that risk.
+  id: totrans-211
   prefs: []
   type: TYPE_NORMAL
+  zh: 总之，关闭资源非常重要，被认为是一种良好的优化策略。当然，没有单一的模式或者检查工具能够防止所有的错误，但我们可以采取很多措施来减少风险。
 - en: Exhaust Things
+  id: totrans-212
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 用尽资源
 - en: To make things more complex, certain implementations require us to do more work
     to release all resources fully. For example, an [`io.Reader`](https://oreil.ly/HR89x)
     implementation might not give the `Close` method, but it might assume that all
     bytes will be read fully. On the other hand, some implementations might have a
     `Close` method, yet still expect us to “exhaust” the reader for efficient use.
+  id: totrans-213
   prefs: []
   type: TYPE_NORMAL
+  zh: 更复杂的是，某些实现要求我们做更多的工作来完全释放所有资源。例如，一个 [`io.Reader`](https://oreil.ly/HR89x) 的实现可能没有提供
+    `Close` 方法，但它可能假定所有的字节都将被完全读取。另一方面，某些实现可能有 `Close` 方法，但仍然期望我们“用尽”读取器以实现高效利用。
 - en: One of the most popular implementations that have such behavior are the [`http.Request`](https://oreil.ly/3Gq9j)
     and [`http.Response`](https://oreil.ly/3L02L) body `io.ReadCloser` from the standard
     library. The problem is shown in [Example 11-10](#code-exhaust).
+  id: totrans-214
   prefs: []
   type: TYPE_NORMAL
+  zh: 具有这种行为的最流行的实现之一是标准库中的 [`http.Request`](https://oreil.ly/3Gq9j) 和 [`http.Response`](https://oreil.ly/3L02L)
+    的 body `io.ReadCloser`。问题显示在 [Example 11-10](#code-exhaust) 中。
 - en: Example 11-10\. An example of the inefficiency of `http/net` Client caused by
     a wrongly handled HTTP response
+  id: totrans-215
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: Example 11-10\. `http/net` 客户端由于错误处理的 HTTP 响应而导致效率低下的示例
 - en: '[PRE9]'
+  id: totrans-216
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE9]'
 - en: '[![1](assets/1.png)](#co_optimization_patterns_CO10-1)'
+  id: totrans-217
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_optimization_patterns_CO10-1)'
 - en: 'Imagine we are designing a function that handles an HTTP response from a [`http.Client.Get`](https://oreil.ly/uB0Vd)
     request. `Get` clearly mentions that the “caller should close resp.Body when done
     reading from it.” This `handle​R⁠esp_Wrong` is wrong because it leaks two goroutines:'
+  id: totrans-218
   prefs: []
   type: TYPE_NORMAL
+  zh: 想象我们正在设计一个函数，处理来自 [`http.Client.Get`](https://oreil.ly/uB0Vd) 请求的 HTTP 响应。`Get`
+    明确提到，“调用方在读取完后应关闭 resp.Body。” 这个 `handle​R⁠esp_Wrong` 是错误的，因为它会泄漏两个 goroutine：
 - en: One doing `net/http.(*persistConn).writeLoop`
+  id: totrans-219
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: One doing `net/http.(*persistConn).writeLoop`
 - en: The second doing `net/http.(*persistConn).readLoop`, which is visible when we
     run `BenchmarkClient` with the `goleak`
+  id: totrans-220
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: The second doing `net/http.(*persistConn).readLoop`，这在我们用 `goleak` 运行 `BenchmarkClient`
+    时可见。
 - en: '[![2](assets/2.png)](#co_optimization_patterns_CO10-2)'
+  id: totrans-221
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_optimization_patterns_CO10-2)'
 - en: 'The `handleResp_StillWrong` is better, as we stop the main leak. However, we
     still don’t read bytes from the body. We might not need them, but the `net/http`
     implementations can block the TCP connection if we don’t fully exhaust the body.
@@ -1133,39 +1594,53 @@
     is not both read to EOF and closed, the Client’s underlying RoundTripper (typically
     Transport) may not be able to re-use a persistent TCP connection to the server
     for a subsequent ‘keep-alive’ request.”'
+  id: totrans-222
   prefs: []
   type: TYPE_NORMAL
+  zh: '`handleResp_StillWrong`更好，因为我们停止了主要的泄漏。然而，我们仍然没有从body中读取字节。我们可能不需要它们，但是如果我们不完全释放body，`net/http`的实现可能会阻塞TCP连接。不幸的是，这并不是广为人知的信息。在[`http.Client.Do`](https://oreil.ly/RegPv)方法描述中简要提到：“如果没有读取到EOF并关闭Body，Client的底层RoundTripper（通常是Transport）可能无法重新使用与服务器的持久化TCP连接进行下一个‘keep-alive’请求。”'
 - en: '[![3](assets/3.png)](#co_optimization_patterns_CO10-3)'
+  id: totrans-223
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_optimization_patterns_CO10-3)'
 - en: Ideally, we read until the EOF (end of file), representing the end of whatever
     we are reading. For this reason we created convenient helpers like `ExhaustClose`
     from [`errcapture`](https://oreil.ly/4LhOs) or [`logerrcapture`](https://oreil.ly/XRxyA)
     that do exactly this.
+  id: totrans-224
   prefs: []
   type: TYPE_NORMAL
+  zh: 理想情况下，我们应该读取直到EOF（文件结束），表示我们正在读取的内容结束。因此，我们创建了方便的辅助工具，如来自[`errcapture`](https://oreil.ly/4LhOs)或[`logerrcapture`](https://oreil.ly/XRxyA)的`ExhaustClose`。
 - en: '[![4](assets/4.png)](#co_optimization_patterns_CO10-4)'
+  id: totrans-225
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![4](assets/4.png)](#co_optimization_patterns_CO10-4)'
 - en: Client runs some goroutines for each TCP connection we want to keep alive and
     reuse. We can close them using `CloseIdleConnection` to detect any leaks our code
     might introduce.
+  id: totrans-226
   prefs: []
   type: TYPE_NORMAL
+  zh: 客户端为每个想要保持活动并重用的TCP连接运行一些goroutine。我们可以使用`CloseIdleConnection`关闭它们，以检测我们的代码可能引入的任何泄漏。
 - en: I wish structures like `http.Response.Body` were easier to use. The close and
     exhaust need for the body are important and should be used as a reasonable optimization.
     `handleResp_Wrong` fails the `BenchmarkClient` with a leak error. The `handleResp_StillWrong`
     does not leak any goroutine, so the leak test passes. The “leak” is on a different
     level, the TCP level, with the TCP connection being unable to reuse, which can
     cost us extra latency and insufficient file descriptors.
+  id: totrans-227
   prefs: []
   type: TYPE_NORMAL
+  zh: 我希望像`http.Response.Body`这样的结构更容易使用。关闭和彻底释放body是重要的，应该作为合理优化的一部分使用。`handleResp_Wrong`导致`BenchmarkClient`出现泄漏错误。`handleResp_StillWrong`不会泄漏任何goroutine，因此泄漏测试通过。这种“泄漏”发生在不同层次，即TCP层次，TCP连接无法重用，这可能会导致额外的延迟和文件描述符不足。
 - en: We can see its impact with the results of the `BenchmarkClient` benchmark in
     [Example 11-10](#code-exhaust). On my machine, it takes 265 ms to call `http://google.com`
     with `handleResp_StillWrong`. For the version that cleans all resources in `handleResp_Better`,
     it takes only 188 ms, which is 29% faster!^([11](ch11.html#idm45606816330528))
+  id: totrans-228
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们可以通过[Example 11-10](#code-exhaust)中`BenchmarkClient`基准测试的结果看到其影响。在我的机器上，使用`handleResp_StillWrong`调用`http://google.com`花费了265毫秒。对于在`handleResp_Better`中清理所有资源的版本，只花费了188毫秒，快了29%!^([11](ch11.html#idm45606816330528))
 - en: The need for exhaust is also visible in `http.HandlerFunc` code. We should always
     ensure our server implementation exhausts and closes the `http.Request` body.
     Otherwise, we will have the same problem as in [Example 11-10](#code-exhaust).
@@ -1173,75 +1648,113 @@
     storage can have a `ChunkSeriesSet` iterator](https://oreil.ly/voRFc). Some implementations
     can leak or overuse resources if we forget to iterate through all items until
     `Next()` equals false.
+  id: totrans-229
   prefs: []
   type: TYPE_NORMAL
+  zh: 在`http.HandlerFunc`代码中也可以看到需要彻底释放资源。我们应该始终确保我们的服务器实现会完全释放和关闭`http.Request`的body。否则，我们将会遇到与[Example
+    11-10](#code-exhaust)中相同的问题。类似地，对于各种迭代器也是如此；例如，[Prometheus存储可以有一个`ChunkSeriesSet`迭代器](https://oreil.ly/voRFc)。如果我们忘记遍历直到`Next()`为false，一些实现可能会泄漏或过度使用资源。
 - en: To sum up, always check the implementation for those nontrivial edge cases.
     Ideally, we should design our implementations to have obvious efficiency guarantees.
+  id: totrans-230
   prefs: []
   type: TYPE_NORMAL
+  zh: 总之，始终检查那些非常规的边界情况的实现。理想情况下，我们应该设计我们的实现以明显的效率保证。
 - en: Let’s now dive into the pre-allocation technique I mentioned in previous chapters.
+  id: totrans-231
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在让我们深入探讨我在前几章中提到的预分配技术。
 - en: Pre-Allocate If You Can
+  id: totrans-232
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 如果可能的话，预分配资源。
 - en: I mentioned pre-allocation in [“Optimized Code Is Not Readable”](ch01.html#ch-eff-s-readable)
     as a reasonable optimization. I showed how easy it is to pre-allocate a slice
     with `make` in [Example 1-4](ch01.html#code-prea2) as an optimization to `append`.
     Generally, we want to reduce the amount of work that code has to do to resize
     or allocate new items if we know the code has to do it eventually.
+  id: totrans-233
   prefs: []
   type: TYPE_NORMAL
+  zh: 我在 [“优化代码不易阅读”](ch01.html#ch-eff-s-readable) 中提到了预分配作为一个合理的优化方法。我展示了如何在 [示例 1-4](ch01.html#code-prea2)
+    中使用 `make` 轻松地预分配一个片段，作为 `append` 的一个优化。通常，我们希望减少代码需要重新调整或分配新项的工作量，如果我们知道代码最终必须这样做。
 - en: The `append` example is important, but there are more examples. It turns out
     that almost every container implementation that cares about efficiency has some
     easier pre-allocation methods. See the ones in [Example 11-11](#code-prea3) with
     explanations.
+  id: totrans-234
   prefs: []
   type: TYPE_NORMAL
+  zh: '`append` 的例子很重要，但还有更多例子。事实证明，几乎每个关心效率的容器实现都有一些更简单的预分配方法。查看 [示例 11-11](#code-prea3)
+    中的解释。'
 - en: Example 11-11\. Examples of pre-allocation for some common types
+  id: totrans-235
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 11-11\. 一些常见类型的预分配示例
 - en: '[PRE10]'
+  id: totrans-236
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE10]'
 - en: '[![1](assets/1.png)](#co_optimization_patterns_CO11-1)'
+  id: totrans-237
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_optimization_patterns_CO11-1)'
 - en: Let’s assume we know the size we want to grow the containers up front.
+  id: totrans-238
   prefs: []
   type: TYPE_NORMAL
+  zh: 假设我们知道要提前扩展容器的大小。
 - en: '[![2](assets/2.png)](#co_optimization_patterns_CO11-2)'
+  id: totrans-239
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_optimization_patterns_CO11-2)'
 - en: '`make` with slices allows us to grow the capacity of the underlying arrays
     to the given size. Thanks to the proactive growth of the array with `make`, the
     loop with `append` is much cheaper in CPU time and memory allocation. This is
     because `append` does not need to resize the array when it’s too small.'
+  id: totrans-240
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用切片的 `make` 允许我们将基础数组的容量增长到给定的大小。由于使用 `make` 主动增长数组，所以使用 `append` 的循环在 CPU
+    时间和内存分配上更加便宜。这是因为 `append` 在数组太小时无需重新调整数组大小。
 - en: Resizing is quite naive. It simply creates a new, bigger array and copies all
     elements. A certain heuristic also tells how many new slices are grown. This heuristic
     was recently [changed](https://oreil.ly/6uIHH), but it will still allocate and
     copy a few times until it extends to our expected one million elements. In our
     case, the same logic is 8 times faster with pre-allocation and allocates 16 MB
     instead of 88 MB of memory.
+  id: totrans-241
   prefs: []
   type: TYPE_NORMAL
+  zh: 调整大小是相当朴素的。它只是创建一个新的更大的数组并复制所有元素。某种启发式算法还告诉我们要增长多少个新片段。这个启发式算法最近已经 [改变](https://oreil.ly/6uIHH)，但它仍然会分配和复制几次，直到扩展到我们预期的一百万个元素。在我们的情况下，使用预分配的相同逻辑比传统方式快8倍，并且只分配了16
+    MB 的内存，而不是88 MB。
 - en: '[![3](assets/3.png)](#co_optimization_patterns_CO11-3)'
+  id: totrans-242
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_optimization_patterns_CO11-3)'
 - en: We can also pre-allocate the slice’s capacity and length. Both `slice` and `slice2`
     will have the same elements. Both ways are almost equally efficient, so we use
     one that fits more functionally to what we need to do. However, with `slice2`,
     we are using all array elements, whereas in `slice`, we can grow it to be bigger
     but end up using a smaller number if needed.^([12](ch11.html#idm45606816088384))
+  id: totrans-243
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们还可以预先分配片段的容量和长度。`slice` 和 `slice2` 都将具有相同的元素。两种方式几乎同样高效，因此我们选择更符合功能需求的方式。然而，在
+    `slice2` 中，我们使用了所有数组元素，而在 `slice` 中，我们可以将其扩展为更大，但如果需要的话最终使用较少的数字。^([12](ch11.html#idm45606816088384))
 - en: '[![4](assets/4.png)](#co_optimization_patterns_CO11-4)'
+  id: totrans-244
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![4](assets/4.png)](#co_optimization_patterns_CO11-4)'
 - en: Map can be created using `make` with an optional number representing its capacity.
     If we know the size up front, it’s more efficient for Go to create the required
     internal data structure with up-front sizes. The efficiency results show the difference—on
@@ -1249,14 +1762,21 @@
     179 ms! The total allocated space with pre-allocation is 57 MB, without 123 MB.
     However, map insertion can still allocate some memory, just much smaller than
     pre-allocation.
+  id: totrans-245
   prefs: []
   type: TYPE_NORMAL
+  zh: 可以使用 `make` 来创建 Map，并使用可选的数字表示其容量。如果我们提前知道大小，对于 Go 来说创建所需的内部数据结构更有效率。效率结果显示出差异——在我的机器上，使用预分配的地图初始化需要
+    87 毫秒，没有预分配则需要 179 毫秒！使用预分配的总分配空间为 57 MB，没有预分配则为 123 MB。然而，地图插入仍然可能分配一些内存，只是比预分配少得多。
 - en: '[![5](assets/5.png)](#co_optimization_patterns_CO11-5)'
+  id: totrans-246
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![5](assets/5.png)](#co_optimization_patterns_CO11-5)'
 - en: Various buffers and builders offer the `Grow` function that also pre-allocates.
+  id: totrans-247
   prefs: []
   type: TYPE_NORMAL
+  zh: 各种缓冲区和构建器提供了 `Grow` 函数，也可以进行预分配。
 - en: The preceding example is actually something I use very often during almost every
     coding session. Pre-allocation usually takes the extra line of code, but it is
     a fantastic, more readable pattern. If you are still not convinced that you won’t
@@ -1267,110 +1787,159 @@
     byte slice if you know the size up front? Unfortunately, `io.ReadAll` does not
     have a `size` or `capacity` argument, but there is a simple way to optimize it,
     as presented in [Example 11-12](#code-prea4).
+  id: totrans-248
   prefs: []
   type: TYPE_NORMAL
+  zh: 上述示例实际上是我在几乎每次编码会话中经常使用的东西。预分配通常需要额外的一行代码，但它是一个很棒的、更可读的模式。如果你仍然不相信在切片大小上有很多情况时，你不会有很多情况，让我们来谈谈`io.ReadAll`。我们在Go社区中经常使用[`io.ReadAll`](https://oreil.ly/TN7bt)（以前是[`ioutil.ReadAll`](https://oreil.ly/nt1oT)）函数。你知道吗，如果你事先知道大小，你可以通过预分配内部字节切片来显著优化它？不幸的是，`io.ReadAll`没有`size`或`capacity`参数，但有一种简单的方法可以优化它，就像在[示例 11-12](#code-prea4)中所示的那样。
 - en: Example 11-12\. Examples of ReadAll optimizations with the benchmark
+  id: totrans-249
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 11-12\. 使用基准测试的ReadAll优化示例
 - en: '[PRE11]'
+  id: totrans-250
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE11]'
 - en: '[![1](assets/1.png)](#co_optimization_patterns_CO12-1)'
+  id: totrans-251
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_optimization_patterns_CO12-1)'
 - en: One way of simulating `ReadAll` is by creating a pre-allocated buffer and using
     `io.Copy` to copy all bytes.
+  id: totrans-252
   prefs: []
   type: TYPE_NORMAL
+  zh: 模拟`ReadAll`的一种方式是创建一个预分配的缓冲区，并使用`io.Copy`复制所有字节。
 - en: '[![2](assets/2.png)](#co_optimization_patterns_CO12-2)'
+  id: totrans-253
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_optimization_patterns_CO12-2)'
 - en: Even more efficient is pre-allocating a byte slice and using `ReadFull`, which
     is similar. `ReadAll` does not use the `io.EOF` error sentinel if everything is
     read, so we need special handling for it.
+  id: totrans-254
   prefs: []
   type: TYPE_NORMAL
+  zh: 更加高效的是预分配一个字节切片，并使用`ReadFull`，这与`ReadAll`类似。如果读取了所有内容，`ReadAll`不会使用`io.EOF`错误标志，因此我们需要特殊处理它。
 - en: The results, presented in [Example 11-13](#code-prea4-res), speak for themselves.
     The `ReadAll2` using `io.ReadFull` is over eight times faster and allocates five
     times less memory for our one million byte slice.
+  id: totrans-255
   prefs: []
   type: TYPE_NORMAL
+  zh: 结果如[示例 11-13](#code-prea4-res)所示。使用`io.ReadFull`的`ReadAll2`比`io.ReadAll`快八倍，并为我们的一百万字节切片分配的内存少五倍。
 - en: Example 11-13\. Results of the benchmark in [Example 11-12](#code-prea4)
+  id: totrans-256
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 11-13\. 在[示例 11-12](#code-prea4)中的基准测试结果
 - en: '[PRE12]'
+  id: totrans-257
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE12]'
 - en: The `io.ReadAll` optimization is very often possible in our Go code. Especially
     when dealing with HTTP code, the request or response headers often offer a `Content-Length`
     header that allows pre-allocations.^([13](ch11.html#idm45606815217568)) The preceding
     examples represent only a small subset of types and abstractions that allow pre-allocation.
     Check the documentation and code of the type we use if we can average eager allocations
     for better efficiency.
+  id: totrans-258
   prefs: []
   type: TYPE_NORMAL
+  zh: 在我们的Go代码中，`io.ReadAll`优化经常是可能的。特别是在处理HTTP代码时，请求或响应头通常提供了一个`Content-Length`头，允许预分配。^([13](ch11.html#idm45606815217568))
+    前面的例子只是允许预分配的类型和抽象的一个小子集。检查我们使用的类型的文档和代码，看看我们是否可以为了更好的效率而进行提前分配。
 - en: However, there is one more amazing pre-allocation pattern I would like you to
     know. Consider a simple, singly linked list. If we implement it using pointers,
     and if we know we will insert millions of new elements on that list, is there
     a way to pre-allocate things for efficiency? Turns out there might be, as shown
     in [Example 11-14](#code-prea5).
+  id: totrans-259
   prefs: []
   type: TYPE_NORMAL
+  zh: 然而，还有一种令人惊奇的预分配模式我想让你知道。考虑一个简单的单链表。如果我们使用指针实现它，并且知道我们将在该列表上插入数百万个新元素，有没有办法为效率预分配东西？结果可能是有的，正如在[示例 11-14](#code-prea5)中所示。
 - en: Example 11-14\. Basic pre-allocation of linked list elements
+  id: totrans-260
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 11-14\. 链表元素的基本预分配
 - en: '[PRE13]'
+  id: totrans-261
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE13]'
 - en: '[![1](assets/1.png)](#co_optimization_patterns_CO13-1)'
+  id: totrans-262
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_optimization_patterns_CO13-1)'
 - en: This line makes this linked list a bit special. We maintain a pool of objects
     in the form of one slice.
+  id: totrans-263
   prefs: []
   type: TYPE_NORMAL
+  zh: 这一行使得这个链表有些特殊。我们以一个切片的形式维护一个对象池。
 - en: '[![2](assets/2.png)](#co_optimization_patterns_CO13-2)'
+  id: totrans-264
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_optimization_patterns_CO13-2)'
 - en: Thanks to the pool, we can implement our own `Grow` method, which will allocate
     a pool of many `Node` objects within one allocation. Generally, it’s way faster
     to allocate one large `[]Node` than millions of `*Node`.
+  id: totrans-265
   prefs: []
   type: TYPE_NORMAL
+  zh: 多亏了池，我们可以实现自己的`Grow`方法，它将在一个分配内分配许多`Node`对象的池。通常，分配一个大的`[]Node`比分配数百万个`*Node`要快得多。
 - en: '[![3](assets/3.png)](#co_optimization_patterns_CO13-3)'
+  id: totrans-266
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_optimization_patterns_CO13-3)'
 - en: During the insert, we can check if we have room in our pool and take one element
     from it instead of allocating an individual `Node`. This implementation can be
     expanded to be more robust, e.g., for subsequent growth, if we hit the capacity
     limit.
+  id: totrans-267
   prefs: []
   type: TYPE_NORMAL
+  zh: 在插入过程中，我们可以检查我们的池中是否有空间，并从中取出一个元素，而不是单独分配一个`Node`。如果我们达到容量限制，此实现可以扩展为更加健壮的实现，例如为后续的增长。
 - en: If we benchmarked the insertion of one million elements using the preceding
     linked list, we would see that the insertion takes four times less time with one
     eager allocation and the same space with just one allocation instead of one million.
+  id: totrans-268
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果我们使用前述的链表插入一百万个元素进行基准测试，我们将看到，通过一次急切的分配，插入操作时间减少了四倍，并且与仅进行一次分配相比，占用的空间相同。
 - en: The simple pre-allocation with slices and maps presented in [Example 11-11](#code-prea3)
     have almost no downsides, so they can be treated as reasonable optimizations.
     The pre-allocation presented in [Example 11-14](#code-prea5), on the other hand,
     should be done with care, deliberately, and with benchmarks as it’s not without
     trade-offs.
+  id: totrans-269
   prefs: []
   type: TYPE_NORMAL
+  zh: 如示例 11-11中所示，简单的预分配与切片和映射几乎没有缺点，因此可以视为合理的优化。另一方面，示例 11-14中介绍的预分配应该谨慎进行，并且需要进行基准测试，因为它并非没有权衡。
 - en: First, the problem is that potential deletion logic or allowing the `Grow` call
     multiple times is not trivial to implement. The second issue is that a single
     `Node` element is now connected to a very large single memory block. Let’s dive
     into this problem in the next section.
+  id: totrans-270
   prefs: []
   type: TYPE_NORMAL
+  zh: 首先，问题在于删除逻辑的可能性或允许多次调用`Grow`不是易事。第二个问题是，单个`Node`元素现在连接到一个非常大的单一内存块。让我们在下一节深入探讨这个问题。
 - en: Overusing Memory with Arrays
+  id: totrans-271
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 使用数组过度使用内存
 - en: As you probably know, slices are very powerful in Go. They offer [robust flexibility
     for using arrays](https://oreil.ly/YhOdH) that is used daily in the Go community.
     But with power and flexibility comes responsibility. There are many cases where
@@ -1379,81 +1948,111 @@
     because it’s related to garbage collection and will not release memory we thought
     could be released. Let’s explore this problem in [Example 11-15](#code-overuse-mem),
     which tests potential deletion in `SinglyLinkedList` introduced in [Example 11-14](#code-prea5).
+  id: totrans-272
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如您可能知道的那样，切片在Go语言中非常强大。它们为每天在Go社区中使用的数组提供了[灵活的弹性](https://oreil.ly/YhOdH)。但是，随着强大和灵活性的增加，也伴随着责任。有许多情况下，我们可能会过度使用内存，有些人可能称之为“内存泄漏”。主要问题在于这些情况在[“Go基准测试”](ch08.html#ch-obs-micro-go)中永远不会出现，因为它涉及垃圾收集，并且不会释放我们认为可以释放的内存。让我们在[示例 11-15](#code-overuse-mem)中探讨这个问题，该示例测试了在[示例 11-14](#code-prea5)中引入的`SinglyLinkedList`中的潜在删除操作。
 - en: Example 11-15\. Reproducing memory overuse for a linked list that used pre-allocation
     in [Example 11-14](#code-prea5)
+  id: totrans-273
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 11-15\. 重新制造过度使用内存的链表，该链表使用了预分配的方式在[示例 11-14](#code-prea5)中引入。
 - en: '[PRE14]'
+  id: totrans-274
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE14]'
 - en: '[![1](assets/1.png)](#co_optimization_patterns_CO14-1)'
+  id: totrans-275
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_optimization_patterns_CO14-1)'
 - en: Let’s add deletion logic to the linked list, which removes the given element.
+  id: totrans-276
   prefs: []
   type: TYPE_NORMAL
+  zh: 让我们向链表添加删除逻辑，以删除给定的元素。
 - en: '[![2](assets/2.png)](#co_optimization_patterns_CO14-2)'
+  id: totrans-277
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_optimization_patterns_CO14-2)'
 - en: Using a microbenchmark to assess the efficiency of `Delete` would show us that
     when `Grow` was used, the deletion was only marginally faster. However, to showcase
     the memory overuse problem, we would need the macrobenchmarks test (see [“Macrobenchmarks”](ch08.html#ch-obs-macro)).
     Alternatively, we can write a brittle interactive test as we did here.^([14](ch11.html#idm45606814784544))
+  id: totrans-278
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用微基准来评估`Delete`的效率将告诉我们，当使用`Grow`时，删除操作只会稍微快一点。然而，为了展示内存过度使用的问题，我们需要进行宏基准测试（参见[“宏基准”](ch08.html#ch-obs-macro)）。或者，我们可以像这里一样编写脆弱的交互式测试。^([14](ch11.html#idm45606814784544))
 - en: '[![3](assets/3.png)](#co_optimization_patterns_CO14-3)'
+  id: totrans-279
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_optimization_patterns_CO14-3)'
 - en: Notice we are trying our best for the GC to remove the deleted node. However,
     we `nil` the `pool` variable, so the slice we used to create all nodes in the
     list is not referenced anywhere.
+  id: totrans-280
   prefs: []
   type: TYPE_NORMAL
+  zh: 注意，我们正在尽力让垃圾收集器删除已删除的节点。但是，我们将`pool`变量设为`nil`，因此我们用于创建列表中所有节点的切片不再被引用。
 - en: '[![4](assets/4.png)](#co_optimization_patterns_CO14-4)'
+  id: totrans-281
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![4](assets/4.png)](#co_optimization_patterns_CO14-4)'
 - en: We use a manual trigger for the GC and print of the heap, which is not very
     reliable generally as it contains allocations from background runtime work. However,
     it’s good enough here to show us the problem. The pre-allocated list showed 15,818.5
     KB in one of the runs, and 15,813.0 KB for the run without `Grow`. Don’t look
     at the difference between those, but how this value changed for pre-allocated.
+  id: totrans-282
   prefs: []
   type: TYPE_NORMAL
 - en: '[![5](assets/5.png)](#co_optimization_patterns_CO14-5)'
+  id: totrans-283
   prefs: []
   type: TYPE_NORMAL
 - en: Let’s remove all but one element.
+  id: totrans-284
   prefs: []
   type: TYPE_NORMAL
 - en: '[![6](assets/6.png)](#co_optimization_patterns_CO14-6)'
+  id: totrans-285
   prefs: []
   type: TYPE_NORMAL
 - en: 'In a perfect world, we would expect to hold only memory for one `Node`, right?
     This is the case for the non-pre-allocated list—189.85 KB on the heap. On the
     other hand, for the pre-allocated list, we can observe a certain problem: the
     heap is still big, with 15,831.2 KB on it!'
+  id: totrans-286
   prefs: []
   type: TYPE_NORMAL
 - en: '[![7](assets/7.png)](#co_optimization_patterns_CO14-7)'
+  id: totrans-287
   prefs: []
   type: TYPE_NORMAL
 - en: Only after all the elements do we see a small heap size for both cases (around
     190 KB for both).
+  id: totrans-288
   prefs: []
   type: TYPE_NORMAL
 - en: This problem is important to understand, and we have it every time we work with
     structs with arrays. The representation of what happens when all but one element
     is deleted in both cases is shown in [Figure 11-1](#img-opt-overuse-mem).
+  id: totrans-289
   prefs: []
   type: TYPE_NORMAL
 - en: '![efgo 1101](assets/efgo_1101.png)'
+  id: totrans-290
   prefs: []
   type: TYPE_IMG
 - en: Figure 11-1\. The heap’s state with references with one node in the list. On
     the left, created without a pool, on the right with it.
+  id: totrans-291
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
@@ -1462,71 +2061,88 @@
     `buf[1:2]`) from a bigger slice, the GC will see that the big memory block for
     continuous memory used by the array is referenced. It’s not smart enough to see
     that only 1% of it is used and could be “clipped.”
+  id: totrans-292
   prefs: []
   type: TYPE_NORMAL
 - en: The solution is to avoid pooling or come up with a more advanced pool that can
     be grown or shrunk (maybe even automatically). For example, if half of the objects
     are deleted, we can “clip” the array behind our linked list nodes. Alternatively,
     we can add the on-demand `ClipMemory` method, as presented in [Example 11-16](#code-overuse-mem2).
+  id: totrans-293
   prefs: []
   type: TYPE_NORMAL
 - en: Example 11-16\. Example implementation of clipping too-big memory block
+  id: totrans-294
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
 - en: '[PRE15]'
+  id: totrans-295
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE15]'
 - en: '[![1](assets/1.png)](#co_optimization_patterns_CO15-1)'
+  id: totrans-296
   prefs: []
   type: TYPE_NORMAL
 - en: At this moment, we get rid of the reference to the old `[]Node` slice and create
     a smaller one.
+  id: totrans-297
   prefs: []
   type: TYPE_NORMAL
 - en: '[![2](assets/2.png)](#co_optimization_patterns_CO15-2)'
+  id: totrans-298
   prefs: []
   type: TYPE_NORMAL
 - en: As we saw in [Figure 11-1](#img-opt-overuse-mem), there are still other references
     to bigger memory blocks from each element in the list. So we need to perform a
     copy using a new pool of objects to ensure the GC can remove that old bigger pool.
+  id: totrans-299
   prefs: []
   type: TYPE_NORMAL
 - en: '[![3](assets/3.png)](#co_optimization_patterns_CO15-3)'
+  id: totrans-300
   prefs: []
   type: TYPE_NORMAL
 - en: Let’s not forget about the last pointer, `l.head`, which would otherwise still
     point to the old memory block.
+  id: totrans-301
   prefs: []
   type: TYPE_NORMAL
 - en: We can now use the `ClipMemory` when we delete some items to resize the underlying
     memory block.
+  id: totrans-302
   prefs: []
   type: TYPE_NORMAL
 - en: As presented in [Example 11-15](#code-overuse-mem), the overuse of memory is
     more common than we might think. However, we don’t need such specific pooling
     to experience it. Subslicing and using clever zero copy functions like in [Example 10-4](ch10.html#code-sum3)
     (`zeroCopyToString`) are very much prone to this problem.^([15](ch11.html#idm45606814531920))
+  id: totrans-303
   prefs: []
   type: TYPE_NORMAL
 - en: This section is not to demotivate you from pre-allocating things, subslicing,
     or experimenting with reusing byte slices. Rather it’s a reminder to always keep
     in mind how Go manages memory (as discussed in [“Go Memory Management”](ch05.html#ch-hw-go-mem))
     when we attempt to do more advanced things with slices and underlying arrays.
+  id: totrans-304
   prefs: []
   type: TYPE_NORMAL
 - en: Remember that Go benchmarking does not cover memory usage characteristics, as
     mentioned in [“Microbenchmarks Versus Memory Management”](ch08.html#ch-obs-micro-mem).
     Move to the [“Macrobenchmarks”](ch08.html#ch-obs-macro) level to verify all efficiency
     aspects if you suspect you are affected by this problem.
+  id: totrans-305
   prefs: []
   type: TYPE_NORMAL
 - en: Since we mentioned pooling, let’s dive into the last section. What are the other
     ways to reuse and pool memory in Go? It turns out that sometimes not pooling anything
     might be better!
+  id: totrans-306
   prefs: []
   type: TYPE_NORMAL
 - en: Memory Reuse and Pooling
+  id: totrans-307
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -1534,18 +2150,22 @@
     If the operation we perform requires a bigger `struct` or `slice` and we perform
     a lot of them in a quick sequence, it’s wasteful to allocate a new memory block
     every time because:'
+  id: totrans-308
   prefs: []
   type: TYPE_NORMAL
 - en: Allocation of memory with guaranteed zero-ing of the memory block takes CPU
     time.
+  id: totrans-309
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: We put more work into the GC, so more CPU cycles are used.
+  id: totrans-310
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: The GC is eventual, so our maximum heap size can grow uncontrollably.
+  id: totrans-311
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -1553,6 +2173,7 @@
     using a small buffer to process files chunk by chunk. Then, in [Example 11-14](#code-prea5),
     I showed how we could allocate one bigger memory block at once and use that as
     our pool of objects.
+  id: totrans-312
   prefs: []
   type: TYPE_NORMAL
 - en: The logic of reusing objects, especially byte slices, is often enabled by many
@@ -1560,45 +2181,57 @@
     ⁠io.Reader, buf []byte)` from [Example 10-8](ch10.html#code-sum6) allows further
     reuse of the buffer. However, memory reuse is not always so easy. Consider the
     following example of byte slice reuse in [Example 11-17](#code-reuse1).
+  id: totrans-313
   prefs: []
   type: TYPE_NORMAL
 - en: Example 11-17\. Simple buffering or byte slice
+  id: totrans-314
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
 - en: '[PRE16]'
+  id: totrans-315
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE16]'
 - en: '[![1](assets/1.png)](#co_optimization_patterns_CO16-1)'
+  id: totrans-316
   prefs: []
   type: TYPE_NORMAL
 - en: Because our logic uses `append`, we need to zero the length of the slice while
     reusing the same underlying array for efficiency.
+  id: totrans-317
   prefs: []
   type: TYPE_NORMAL
 - en: '[![2](assets/2.png)](#co_optimization_patterns_CO16-2)'
+  id: totrans-318
   prefs: []
   type: TYPE_NORMAL
 - en: We can simulate no buffer by simply passing `nil`. Fortunately, Go handles nil
     slices in the operations like `buf[:0]` or `append([]byte(nil), 'a')`.
+  id: totrans-319
   prefs: []
   type: TYPE_NORMAL
 - en: '[![3](assets/3.png)](#co_optimization_patterns_CO16-3)'
+  id: totrans-320
   prefs: []
   type: TYPE_NORMAL
 - en: Reusing the buffer is better in this case. On my machine, benchmarks show that
     each operation with reused buffer is almost two times faster and allocates zero
     bytes.
+  id: totrans-321
   prefs: []
   type: TYPE_NORMAL
 - en: 'The preceding example looks excellent, but the real code contains complications
     and edge cases. Two main problems sometimes block us from implementing such naive
     memory reuse, as in [Example 11-17](#code-reuse1):'
+  id: totrans-322
   prefs: []
   type: TYPE_NORMAL
 - en: We know the buffer size will be similar for most operations, but we don’t know
     the exact number. This can be easily fixed by passing an empty buffer and reusing
     the grown underlying array from the first operation.
+  id: totrans-323
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -1608,12 +2241,14 @@
     could be the maximum goroutines we want to run concurrently or less with some
     locking. This obviously can have a lot of waste if the number of goroutines is
     dynamically changing and is sometimes zero.
+  id: totrans-324
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: For those reasons, the Go team came up with the [`sync.Pool`](https://oreil.ly/BAQwU)
     structure that performs a particular form of memory pooling. It’s important to
     understand that memory pooling is not the same as typical caching.
+  id: totrans-325
   prefs: []
   type: TYPE_NORMAL
 - en: 'The type that Brad Fitzpatrick requested [`sync.Pool`] is actually a pool:
@@ -1621,14 +2256,17 @@
     get out, because they’re all identical. You wouldn’t even notice when, instead
     of getting a value from the pool, you get a newly created one. Caches, on the
     other hand, map keys to concrete values.'
+  id: totrans-326
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: ''
+  id: totrans-327
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: Dominik Honnef, [“What’s Happening in Go Tip”](https://oreil.ly/z6AUf)
+  id: totrans-328
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
@@ -1640,42 +2278,54 @@
     those memory blocks around until eventual GC, why not make them accessible and
     useful? The example of using `sync.Pool` in [Example 11-17](#code-reuse1) is presented
     in [Example 11-18](#code-reuse2).
+  id: totrans-329
   prefs: []
   type: TYPE_NORMAL
 - en: Example 11-18\. Simple buffering using `sync.Pool`
+  id: totrans-330
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
 - en: '[PRE17]'
+  id: totrans-331
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE17]'
 - en: '[![1](assets/1.png)](#co_optimization_patterns_CO17-1)'
+  id: totrans-332
   prefs: []
   type: TYPE_NORMAL
 - en: '`sync.Pool` pools an object of the given type, so we must cast it to the type
     we put or create. When `Get` is involved, we either allocate a new object or use
     one of the pooled ones.'
+  id: totrans-333
   prefs: []
   type: TYPE_NORMAL
 - en: '[![2](assets/2.png)](#co_optimization_patterns_CO17-2)'
+  id: totrans-334
   prefs: []
   type: TYPE_NORMAL
 - en: To use the pool effectively, we need to put back the object to reuse. Remember
     to never put back the object you are still using to avoid races!
+  id: totrans-335
   prefs: []
   type: TYPE_NORMAL
 - en: '[![3](assets/3.png)](#co_optimization_patterns_CO17-3)'
+  id: totrans-336
   prefs: []
   type: TYPE_NORMAL
 - en: The `New` closure specifies how a new object will be created.
+  id: totrans-337
   prefs: []
   type: TYPE_NORMAL
 - en: '[![4](assets/4.png)](#co_optimization_patterns_CO17-4)'
+  id: totrans-338
   prefs: []
   type: TYPE_NORMAL
 - en: For our example, the implementation with `sync.Pool` is very efficient. It’s
     over 2 times faster than without reuse, with an average of 2 KB of space allocated
     versus 5 MB allocated per operation from code that does not reuse the buffer.
+  id: totrans-339
   prefs: []
   type: TYPE_NORMAL
 - en: While results look very promising, pooling using `sync.Pool` is a more advanced
@@ -1683,52 +2333,66 @@
     wrongly used. The first problem is that, as with any other complex structure that
     works with slices, using it is prone to errors. Consider the code with benchmark
     in [Example 11-19](#code-reuse3).
+  id: totrans-340
   prefs: []
   type: TYPE_NORMAL
 - en: Example 11-19\. Common, hard-to-spot bug while using `sync.Pool` and `defer`
+  id: totrans-341
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
 - en: '[PRE18]'
+  id: totrans-342
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE18]'
 - en: '[![1](assets/1.png)](#co_optimization_patterns_CO18-1)'
+  id: totrans-343
   prefs: []
   type: TYPE_NORMAL
 - en: There is a bug in this function that defies the point of using `sync.Pool`—`Get`
     will always allocate an object in our case. Can you spot it?
+  id: totrans-344
   prefs: []
   type: TYPE_NORMAL
 - en: The problem is that the `Put` might be deferred to the correct time, but its
     argument is evaluated at the moment of the `defer` schedule. As a result, the
     `buf` variable we are putting might point to a different slice if `append` will
     have to grow it.
+  id: totrans-345
   prefs: []
   type: TYPE_NORMAL
 - en: '[![2](assets/2.png)](#co_optimization_patterns_CO18-2)'
+  id: totrans-346
   prefs: []
   type: TYPE_NORMAL
 - en: As a result, the benchmark will show that this `processUsingPool_Wrong` operation
     is twice as slow as the `alloc` case in [Example 11-17](#code-reuse1) that always
     allocates. Using `sync.Pool` to only `Get` and never `Put` is slower than straight
     allocation (`make([]byte)` in our case).
+  id: totrans-347
   prefs: []
   type: TYPE_NORMAL
 - en: 'However, the real difficulty comes from the specific `sync.Pool` characteristic:
     it only pools objects for a short duration, which is not reflected by our typical
     microbenchmark like in [Example 11-18](#code-reuse2). We can see the difference
     if we trigger GC manually in our benchmark, done for demonstration in [Example 11-20](#code-reuse3-gc).'
+  id: totrans-348
   prefs: []
   type: TYPE_NORMAL
 - en: Example 11-20\. Common, hard-to-spot bug while using `sync.Pool` and `defer`,
     triggering GC manually
+  id: totrans-349
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
 - en: '[PRE19]'
+  id: totrans-350
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE19]'
 - en: '[![1](assets/1.png)](#co_optimization_patterns_CO19-1)'
+  id: totrans-351
   prefs: []
   type: TYPE_NORMAL
 - en: The second surprise comes from the fact that in our initial benchmarks, the
@@ -1738,14 +2402,17 @@
     allocation and latency (adjusted with GC latency) stay the same because we keep
     the memory references in our `buf` variable. The next `processUsingBuffer` will
     be as fast as always.
+  id: totrans-352
   prefs: []
   type: TYPE_NORMAL
 - en: '[![2](assets/2.png)](#co_optimization_patterns_CO19-2)'
+  id: totrans-353
   prefs: []
   type: TYPE_NORMAL
 - en: This is not the case for the standard pool. After two GC runs, the `sync.Pool`
     is, by design, fully cleaned from all objects,^([16](ch11.html#idm45606813445248))
     which results in performance worse than `alloc` in [Example 11-17](#code-reuse1).
+  id: totrans-354
   prefs: []
   type: TYPE_NORMAL
 - en: As you can see, it’s fairly easy to make mistakes using `sync.Pool`. The fact
@@ -1754,38 +2421,48 @@
     in my experience, it makes it very hard to work with due to nondeterministic behavior
     caused by the combination of nontrivial `sync.Pool` implementation with an even
     more complex GC schedule.
+  id: totrans-355
   prefs: []
   type: TYPE_NORMAL
 - en: 'To show the potential damage when `sync.Pool` is applied to the wrong workloads,
     let’s try to optimize the memory use of the `labeler` service from [“Go e2e Framework”](ch08.html#ch-obs-macro-example)
     using optimized buffered code from [Example 10-8](ch10.html#code-sum6) and four
     different buffering techniques:'
+  id: totrans-356
   prefs: []
   type: TYPE_NORMAL
 - en: '`no-buffering`'
+  id: totrans-357
   prefs: []
   type: TYPE_NORMAL
 - en: '`Sum6Reader` without buffering—always allocates a new buffer.'
+  id: totrans-358
   prefs: []
   type: TYPE_NORMAL
 - en: '`sync-pool`'
+  id: totrans-359
   prefs: []
   type: TYPE_NORMAL
 - en: With `sync.Pool`.
+  id: totrans-360
   prefs: []
   type: TYPE_NORMAL
 - en: '`gobwas-pool`'
+  id: totrans-361
   prefs: []
   type: TYPE_NORMAL
 - en: With [`gobwas/pool`](https://oreil.ly/VZjYW) that maintains multiple buckets
     of `sync.Pool`. In theory, it should work well for byte slices that might require
     different buffer sizes.
+  id: totrans-362
   prefs: []
   type: TYPE_NORMAL
 - en: '`static-buffers`'
+  id: totrans-363
   prefs: []
   type: TYPE_NORMAL
 - en: With four static buffers that offer a buffer for a maximum of four goroutines.
+  id: totrans-364
   prefs: []
   type: TYPE_NORMAL
 - en: The main problem is that the [Example 10-8](ch10.html#code-sum6) workload might
@@ -1795,28 +2472,35 @@
     shows amazing results. The benchmarks perform sequential `Sum6` operations on
     two different files (50% of the time, we use files with 10 million numbers, 50%
     with 100 million). The results are shown in [Example 11-21](#code-labeler2-micro).
+  id: totrans-365
   prefs: []
   type: TYPE_NORMAL
 - en: Example 11-21\. The microbenchmark results with one hundred iterations that
     compare labeler `labelObject` logic using [Example 10-8](ch10.html#code-sum6)
     and four different buffering versions
+  id: totrans-366
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
 - en: '[PRE20]'
+  id: totrans-367
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE20]'
 - en: '[![1](assets/1.png)](#co_optimization_patterns_CO20-1)'
+  id: totrans-368
   prefs: []
   type: TYPE_NORMAL
 - en: The bucketed pool is slightly more memory intensive, but this is expected, as
     two separate pools are maintained. However, ideally, we expect to see larger benefits
     from that split on a larger scale.
+  id: totrans-369
   prefs: []
   type: TYPE_NORMAL
 - en: We see that the `sync.Pool` version and static buffer are winning in terms of
     memory allocations. The latency is more or less similar, given most of [Example 10-8](ch10.html#code-sum6)
     is spent on integer parsing, not allocating the buffer.
+  id: totrans-370
   prefs: []
   type: TYPE_NORMAL
 - en: Unfortunately, on the macro level, for a 5-minute test per version with 2 virtual
@@ -1825,14 +2509,17 @@
     showed. What’s good is that the `labeler` without buffering allocates significantly
     more (3.3 GB in total) during that load than other versions (500 MB on average),
     as visible in [Figure 11-2](#img-labeler2-alloc).
+  id: totrans-371
   prefs: []
   type: TYPE_NORMAL
 - en: '![efgo 1102](assets/efgo_1102.png)'
+  id: totrans-372
   prefs: []
   type: TYPE_IMG
 - en: 'Figure 11-2\. The Parca Graph for the total memory allocated during macrobenchmark
     from heap profiles. Four lines indicate runs of four different versions in order:
     `no-buffering`, `sync-pool`, `gobwas-pool`, and `static-buffers`.'
+  id: totrans-373
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
@@ -1840,20 +2527,24 @@
     the simplest, no buffering solution `labelObject1` has similar average latency
     to others (same CPU usage as well), but also the lowest maximum heap usage, as
     visible in [Figure 11-3](#img-labeler2-use).
+  id: totrans-374
   prefs: []
   type: TYPE_NORMAL
 - en: '![efgo 1103](assets/efgo_1103.png)'
+  id: totrans-375
   prefs: []
   type: TYPE_IMG
 - en: 'Figure 11-3\. The Prometheus Graph for the heap size during the macrobenchmark.
     Four lines indicate runs of four different versions in order: `no-buffering`,
     `sync-pool`, `gobwas-pool`, and `static-buffers`.'
+  id: totrans-376
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
 - en: 'You can reproduce the whole experiment thanks to [the `e2e` framework code
     in the example repo](https://oreil.ly/9vDNZ). The results were not satisfying,
     but the experiment can give us a lot of lessons:'
+  id: totrans-377
   prefs: []
   type: TYPE_NORMAL
 - en: Reducing allocations might be the easiest way to improve latency and memory
@@ -1863,20 +2554,24 @@
     clearly shows that allocation is not a latency bottleneck. Secondly, the slower
     allocation pace caused the GC to kick in less often, allowing generally higher
     maximum memory usage. Additional `GOGC` tuning might have helped here.
+  id: totrans-378
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: The microbenchmarking does not always show the full picture. So always assess
     efficiency on multiple levels to be sure.
+  id: totrans-379
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: The `sync.Pool` helps the most with allocation latency, not with maximum memory
     usage, as our goal here.
+  id: totrans-380
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: The Optimization Journey Can Be a Roller Coaster!
+  id: totrans-381
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -1884,29 +2579,35 @@
     that can’t be merged. We all learn every day, try things, and sometimes fail.
     What’s most important is to fail early, so the less efficient version is not accidentally
     released to our users!
+  id: totrans-382
   prefs: []
   type: TYPE_NORMAL
 - en: 'The main issue of this experiment is that the `sync.Pool` is not designed for
     the type of workload that `labeler` represents. The `sync.Pool` have very specific
     use cases. Use it when:'
+  id: totrans-383
   prefs: []
   type: TYPE_NORMAL
 - en: You want to reuse large or extreme amounts of objects to reduce the latency
     of those allocations.
+  id: totrans-384
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: You don’t care about the object content, just its memory blocks.
+  id: totrans-385
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: You want to reuse those objects from multiple goroutines, which can vary in
     number.
+  id: totrans-386
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: You want to reuse objects between quick computations that frequently happen
     (maximum one GC cycle away).
+  id: totrans-387
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -1914,12 +2615,14 @@
     fast pseudorandom generator](https://oreil.ly/9mvAE). The HTTP servers use [many
     different pools of bytes](https://oreil.ly/TpzMN) to reuse bytes for reading from
     the network.
+  id: totrans-388
   prefs: []
   type: TYPE_NORMAL
 - en: Unfortunately, in my experience, the `sync.Pool` is overused. The perception
     is that the `sync.Pool` is in the standard library, so it must be handy, but that
     isn’t always true. The `sync.Pool` has a very narrow use case, and there are high
     chances it’s not what we want.
+  id: totrans-389
   prefs: []
   type: TYPE_NORMAL
 - en: To sum up, I prefer simple optimization first. The more clever the optimization
@@ -1930,14 +2633,17 @@
     `sync.Pool` until you are sure your workloads match the use cases mentioned previously.
     In most cases, after reduced work and allocations, adding `sync.Pool` will only
     make your code less efficient, brittle, and harder to assess its efficiency.
+  id: totrans-390
   prefs: []
   type: TYPE_NORMAL
 - en: Summary
+  id: totrans-391
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
 - en: That’s it. You made it to the end of this book, congratulations! I hope it was
     a fantastic and valuable journey. I know it was for me!
+  id: totrans-392
   prefs: []
   type: TYPE_NORMAL
 - en: Perhaps, if you have made it this far, the world of pragmatic, efficient software
@@ -1945,6 +2651,7 @@
     you see how all the details on how we write our code and design our algorithms
     can impact the software efficiency, which can translate to real cost in the long
     run.
+  id: totrans-393
   prefs: []
   type: TYPE_NORMAL
 - en: In some ways, this is extremely exciting. With one deliberate change and the
@@ -1953,6 +2660,7 @@
     But, on the other hand, it is quite scary how easy it is to waste that money on
     silly mistakes like leaking a few goroutines or not pre-allocating some slices
     on critical paths.
+  id: totrans-394
   prefs: []
   type: TYPE_NORMAL
 - en: My advice for you, if you are more on the “scared” side, is…​to relax! Remember
@@ -1964,6 +2672,7 @@
     teach you here and Donald Knuth’s “premature optimization is the root of all evil”
     world. This is also why my book is called *Efficient Go* and not *Ultra-Performance,
     Super Fast Go*.
+  id: totrans-395
   prefs: []
   type: TYPE_NORMAL
 - en: I think the pragmatic car mechanic profession could be a good comparison to
@@ -1979,12 +2688,14 @@
     satisfied. Better car performance would probably make the customer happy, but
     this always comes with an extreme bill for work hours, expensive parts, and delayed
     time to repair.
+  id: totrans-396
   prefs: []
   type: TYPE_NORMAL
 - en: Follow the same rules as you would expect from your mechanic. Do what’s needed
     to be done to satisfy functional and efficiency goals. This is not being lazy;
     it’s being pragmatic and professional. No optimization is premature if we do this
     within the premise of requirements.
+  id: totrans-397
   prefs: []
   type: TYPE_NORMAL
 - en: That’s why my second piece of advice is to always set some goals. Look how (in
@@ -1994,6 +2705,7 @@
     goals for the project’s expected efficiency. Even if it’s obvious, note, “I expect
     this functionality to finish in one minute.” You can iterate on better requirements
     later on! Without clear goals, every optimization is potentially premature.
+  id: totrans-398
   prefs: []
   type: TYPE_NORMAL
 - en: Finally, my third bit of advice is to invest in good observability tools. I
@@ -2001,6 +2713,7 @@
     with delivered observability software. Furthermore, those observability tools
     are *free* in open source, and every reader of this book can install them right
     now. I can’t imagine not having the tools mentioned in [Chapter 6](ch06.html#ch-observability).
+  id: totrans-399
   prefs: []
   type: TYPE_NORMAL
 - en: On the other hand, I also see, as a tech leader of [the CNCF interest group
@@ -2009,6 +2722,7 @@
     They either don’t observe their software or don’t use those tools correctly! That
     is why it’s very hard for those individuals or organizations to pragmatically
     improve the efficiency of their programs.
+  id: totrans-400
   prefs: []
   type: TYPE_NORMAL
 - en: Don’t get distracted by overhyped solutions and vendors who promise shiny observability
@@ -2016,57 +2730,70 @@
     recommend starting small with open source monitoring and observability solutions
     like [Prometheus](https://oreil.ly/2Sa3P), [Loki](https://oreil.ly/Fw9I3), [OpenSearch](https://oreil.ly/RohpZ),
     [Tempo](https://oreil.ly/eZ2Gy), or [Jaeger](https://oreil.ly/q5O8u)!
+  id: totrans-401
   prefs: []
   type: TYPE_NORMAL
 - en: Next Steps
+  id: totrans-402
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
 - en: 'Throughout this book, we went through all the elements required to become effective
     with the efficiency development of Go if required. Particularly:'
+  id: totrans-403
   prefs: []
   type: TYPE_NORMAL
 - en: We discussed motivation for efficient programs and introduction in [Chapter 1](ch01.html#ch-efficiency-matters).
+  id: totrans-404
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: We walked through the foundational aspects of Go in [Chapter 2](ch02.html#ch-go).
+  id: totrans-405
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: We discussed challenges, optimizations, RAER, and TFBO in [Chapter 3](ch03.html#ch-efficiency).
+  id: totrans-406
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: 'I explained the two most important resources we optimize for: the CPU in [Chapter 4](ch04.html#ch-hardware)
     and memory in [Chapter 5](ch05.html#ch-hardware2). I also mentioned latency.'
+  id: totrans-407
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: We discussed observability and common instrumentation in [Chapter 6](ch06.html#ch-observability).
+  id: totrans-408
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: We walked through data-driven efficiency analysis, complexities, and reliability
     of experiments in [Chapter 7](ch07.html#ch-observability2).
+  id: totrans-409
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: We discussed benchmarking in [Chapter 8](ch08.html#ch-benchmarking).
+  id: totrans-410
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: I introduced the topic of profiling, which helps with bottleneck analysis in
     [Chapter 9](ch09.html#ch-observability3).
+  id: totrans-411
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Finally, we optimized various code examples in [Chapter 10](ch10.html#ch-opt)
     and summarized common patterns in [Chapter 11](#ch-opt2).
+  id: totrans-412
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: However, as with everything, there is always more to learn if you are interested!
+  id: totrans-413
   prefs: []
   type: TYPE_NORMAL
 - en: First, I skipped some aspects of the Go language that were not strictly related
@@ -2074,15 +2801,18 @@
     [“Practical Go Lessons”](https://oreil.ly/VnFms) authored by Maximilien Andile
     and…​practicing writing Go programs for realistic goals for work or as a fun side
     project.^([19](ch11.html#idm45606813255952))
+  id: totrans-414
   prefs: []
   type: TYPE_NORMAL
 - en: 'Secondly, hopefully, I enabled you to understand the underlying mechanisms
     of the resources you are optimizing for. One of the next steps to becoming better
     at software efficiency is to learn more about other resources we commonly optimize
     for, for example:'
+  id: totrans-415
   prefs: []
   type: TYPE_NORMAL
 - en: Disk
+  id: totrans-416
   prefs: []
   type: TYPE_NORMAL
 - en: We use disk storage every day in our Go programs. The way OS handles reads or
@@ -2093,60 +2823,73 @@
     that comes with the new Linux kernels](https://oreil.ly/Sxagc). It might allow
     you to build even better concurrency for your Go programs using a lot of disk
     access.
+  id: totrans-417
   prefs: []
   type: TYPE_NORMAL
 - en: Network
+  id: totrans-418
   prefs: []
   type: TYPE_NORMAL
 - en: Reading more about the network constraints like latency, bandwidth, and different
     protocols will make you more aware of how to optimize your Go code that is constrained
     by network limitations.
+  id: totrans-419
   prefs: []
   type: TYPE_NORMAL
 - en: GPUs and FPGA
+  id: totrans-420
   prefs: []
   type: TYPE_NORMAL
 - en: For more on offloading some computations to external devices like [GPUs](https://oreil.ly/yEi43)
     or [programmable hardware](https://oreil.ly/1dPXO), I would recommend [cu](https://oreil.ly/T8q9A),
     which uses the popular [CUDA API](https://oreil.ly/PXZhH) for the NVIDIA GPUs,
     or this [guide](https://oreil.ly/v3dty) to run Go on Apple M1 GPUs.
+  id: totrans-421
   prefs: []
   type: TYPE_NORMAL
 - en: 'Thirdly, while I might add more optimization examples in the next editions
     of this book, the list will never be complete. This is because some developers
     might want to try many more or less extreme optimizations for some specific part
     of their programs. For example:'
+  id: totrans-422
   prefs: []
   type: TYPE_NORMAL
 - en: Something I wanted to talk about but could not fit into this book is the importance
     of error path and [instrumentation efficiency](https://oreil.ly/2IoAP). Choosing
     efficient interfaces for your metrics, logging, tracing, and profiling instrumentations
     can be important.
+  id: totrans-423
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Memory alignment and [struct padding optimizations](https://oreil.ly/r1aJn)
     with tools like [`structslop`](https://oreil.ly/IuWGN).
+  id: totrans-424
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Using more efficient [string encodings](https://oreil.ly/ALPOm).
+  id: totrans-425
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Partial encoding and decoding of common formats like [protobuf](https://oreil.ly/gzswU).
+  id: totrans-426
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Removal of bound checks (BCE), e.g., from [arrays](https://oreil.ly/uOHmo).
+  id: totrans-427
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Branchless Go coding, optimizing for [the CPU branch predictions](https://oreil.ly/v9eNk).
+  id: totrans-428
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: '[Array of structs versus structs of arrays and loop fusion and fission](https://oreil.ly/SxPUA).'
+  id: totrans-429
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -2155,99 +2898,120 @@
     future, [Carbon](https://oreil.ly/ZO3Zn) from Go! Let’s not forget about something
     much more common: running [Assembly from Go](https://oreil.ly/eLZKW) for efficiency
     reasons.'
+  id: totrans-430
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Finally, all examples in this book are available at the [*https://github.com/efficientgo/examples*](https://github.com/efficientgo/examples)
     open source repository. Give feedback, contribute, and learn together with others.
+  id: totrans-431
   prefs: []
   type: TYPE_NORMAL
 - en: Everybody learns differently, so try what helps you the most. However, I strongly
     recommend practicing the software of your choice using the practices you learned
     in this book. Try to set reasonable efficiency goals and try to optimize them.^([20](ch11.html#idm45606813221312))
+  id: totrans-432
   prefs: []
   type: TYPE_NORMAL
 - en: 'You are also welcome to use and contribute to other Go tools I maintain in
     the open source: [*https://github.com/efficientgo/core*](https://github.com/efficientgo/core),
     [*https://github.com/efficientgo/e2e*](https://github.com/efficientgo/e2e), [*https://github.com/prometheus/prometheus*](https://github.com/prometheus/prometheus),
     and more!^([21](ch11.html#idm45606813214720))'
+  id: totrans-433
   prefs: []
   type: TYPE_NORMAL
 - en: Join our [“Efficient Go” Discord Community](https://oreil.ly/cNnt2), and feel
     free to give feedback on the book, ask additional questions, or find new friends!
+  id: totrans-434
   prefs: []
   type: TYPE_NORMAL
 - en: Massive thanks to all (see [“Acknowledgments”](preface01.html#thanks)) who directly
     or indirectly helped to create this book. Thanks to those who mentored me to where
     I am now!
+  id: totrans-435
   prefs: []
   type: TYPE_NORMAL
 - en: Thank you for buying and reading my book. See you in the open source! :)
+  id: totrans-436
   prefs: []
   type: TYPE_NORMAL
 - en: ^([1](ch11.html#idm45606819377840-marker)) I spoke about this problem at the
     [GitHub Global Maintainers Summit](https://oreil.ly/z6YHe).
+  id: totrans-437
   prefs: []
   type: TYPE_NORMAL
 - en: ^([2](ch11.html#idm45606819373392-marker)) This list was inspired by Chapter
     4 in *Writing Efficient Programs* by Jon Louis Bentley.
+  id: totrans-438
   prefs: []
   type: TYPE_NORMAL
 - en: ^([3](ch11.html#idm45606819974288-marker)) There’s a reason some people call
     caches [“a memory leak you don’t know about yet”](https://oreil.ly/KNQP3).
+  id: totrans-439
   prefs: []
   type: TYPE_NORMAL
 - en: ^([4](ch11.html#idm45606819332528-marker)) See a nice blog post about those
     [here](https://oreil.ly/KrVnG).
+  id: totrans-440
   prefs: []
   type: TYPE_NORMAL
 - en: ^([5](ch11.html#idm45606819295376-marker)) For example, in [the Prometheus project
     we removed](https://oreil.ly/WFbrk) the manual GC trigger when code conditions
     changed a little. That decision was based on micro- and macrobenchmarks discussed
     in [Chapter 7](ch07.html#ch-observability2).
+  id: totrans-441
   prefs: []
   type: TYPE_NORMAL
 - en: ^([6](ch11.html#idm45606819276864-marker)) The reason is that we might reuse
     the same code in a more long-living scenario, where a leak might have much bigger
     consequences.
+  id: totrans-442
   prefs: []
   type: TYPE_NORMAL
 - en: ^([7](ch11.html#idm45606819271728-marker)) Unless we disabled it using the `GOGC=off`
     environment variable.
+  id: totrans-443
   prefs: []
   type: TYPE_NORMAL
 - en: ^([8](ch11.html#idm45606819262800-marker)) For that, we could use tools that
     [analyze the dumped core](https://oreil.ly/iTXhz), but they aren’t very accessible
     at the moment, so I would not recommend them.
+  id: totrans-444
   prefs: []
   type: TYPE_NORMAL
 - en: ^([9](ch11.html#idm45606817523552-marker)) Yes! If we don’t invoke the returned
     `context.CancelContext` function, it will keep a goroutine running forever (when
     `WithContext` was used) or until the timeout (`WithTimeout`).
+  id: totrans-445
   prefs: []
   type: TYPE_NORMAL
 - en: ^([10](ch11.html#idm45606817514192-marker)) I have only seen linters that check
     some basic things like if the code closed [request body](https://oreil.ly/DpSLY),
     or [sql statements](https://oreil.ly/EVB8M). There is room to contribute more
     of those, e.g., [in the `semgrep-go` project](https://oreil.ly/WfmyC).
+  id: totrans-446
   prefs: []
   type: TYPE_NORMAL
 - en: ^([11](ch11.html#idm45606816330528-marker)) Which is quite interesting, considering
     we do more work in our code. We read through all bytes of the HTML returned by
     Google. Yet, it’s faster as we create fewer TCP connections.
+  id: totrans-447
   prefs: []
   type: TYPE_NORMAL
 - en: ^([12](ch11.html#idm45606816088384-marker)) This is often used when we know
     only the worst-case `size`. Sometimes it’s worth growing it to the worst case,
     even if we use less in the end. See [“Overusing Memory with Arrays”](#ch-basic-subslice).
+  id: totrans-448
   prefs: []
   type: TYPE_NORMAL
 - en: ^([13](ch11.html#idm45606815217568-marker)) For example, this is what we did
     in [Thanos](https://oreil.ly/8nWCH) some time ago.
+  id: totrans-449
   prefs: []
   type: TYPE_NORMAL
 - en: ^([14](ch11.html#idm45606814784544-marker)) This is great as a quick showcase,
     but does not work well as a reliable efficiency assessment.
+  id: totrans-450
   prefs: []
   type: TYPE_NORMAL
 - en: ^([15](ch11.html#idm45606814531920-marker)) In the Prometheus project ecosystem,
@@ -2258,33 +3022,40 @@
     for metric labels. It turned out to be beneficial for cases when we were not keeping
     the label strings for longer. For example, it was better to perform when we did
     [a lazy copy](https://oreil.ly/5o6sH).
+  id: totrans-451
   prefs: []
   type: TYPE_NORMAL
 - en: ^([16](ch11.html#idm45606813445248-marker)) If you are interested in the specific
     implementation details, check out [this amazing blog post](https://oreil.ly/oMh6I).
+  id: totrans-452
   prefs: []
   type: TYPE_NORMAL
 - en: ^([17](ch11.html#idm45606813301392-marker)) Interestingly enough, `sync.Pool`
     was proposed to be named `sync.Cache` initially and have cache semantics.
+  id: totrans-453
   prefs: []
   type: TYPE_NORMAL
 - en: ^([18](ch11.html#idm45606813281824-marker)) And be vigilant when someone offers
     shiny observability for a low price. It is often less cheap in practice, given
     how much data we usually have to pass through those systems.
+  id: totrans-454
   prefs: []
   type: TYPE_NORMAL
 - en: ^([19](ch11.html#idm45606813255952-marker)) My recommendation is to [avoid following
     only tutorials](https://oreil.ly/5YDe6). If you are out of your comfort zone and
     have to think on your own, you learn.
+  id: totrans-455
   prefs: []
   type: TYPE_NORMAL
 - en: ^([20](ch11.html#idm45606813221312-marker)) If you are interested, I would like
     to invite you to our yearly [efficiency-coding-advent](https://oreil.ly/OPPXh),
     where we try to solve [coding challenges around Christmas time](https://oreil.ly/10gGv)
     with an efficient approach.
+  id: totrans-456
   prefs: []
   type: TYPE_NORMAL
 - en: ^([21](ch11.html#idm45606813214720-marker)) You can find all the projects I
     maintain (or used to maintain) on [my website](https://oreil.ly/0af14).
+  id: totrans-457
   prefs: []
   type: TYPE_NORMAL
