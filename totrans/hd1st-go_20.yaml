@@ -1,623 +1,944 @@
 - en: 'Appendix A. understanding os.openfile: Opening Files'
+  id: totrans-0
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 附录A. 理解 os.openfile：打开文件
 - en: '![image](assets/f0481-01.png)'
+  id: totrans-1
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0481-01.png)'
 - en: '**Some programs need to write data to files, not just read data.** Throughout
     the book, when we’ve wanted to work with files, you had to create them in your
     text editor for your programs to read. But some programs *generate* data, and
     when they do, they need to be able to *write* data to a file.'
+  id: totrans-2
   prefs: []
   type: TYPE_NORMAL
+  zh: '-   **有些程序需要向文件写入数据，而不仅仅是读取数据。** 在本书中，当我们想要处理文件时，你必须在文本编辑器中创建它们以供你的程序读取。但有些程序会*生成*数据，当它们这样做时，它们需要能够*写入*文件。'
 - en: We used the `os.OpenFile` function to open a file for writing earlier in the
     book. But we didn’t have space then to fully explore how it worked. In this appendix,
     we’ll show you everything you need to know in order to use `os.OpenFile` effectively!
+  id: totrans-3
   prefs: []
   type: TYPE_NORMAL
+  zh: 本书前面曾使用 `os.OpenFile` 函数来打开文件进行写入。但当时我们没有足够的空间来详细探讨它的工作原理。在这个附录中，我们将展示你在使用 `os.OpenFile`
+    时需要了解的一切！
 - en: Understanding os.OpenFile
+  id: totrans-4
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 理解 `os.OpenFile`
 - en: 'In [Chapter 16](ch16_split_000.html#a_pattern_to_follow_html_templates), we
     had to use the `os.OpenFile` function to open a file for writing, which required
     some rather strange-looking code:'
+  id: totrans-5
   prefs: []
   type: TYPE_NORMAL
+  zh: 在[第16章](ch16_split_000.html#a_pattern_to_follow_html_templates)中，我们必须使用 `os.OpenFile`
+    函数来打开一个文件进行写入，这要求一些看起来相当奇怪的代码：
 - en: '![image](assets/f0482-01.png)'
+  id: totrans-6
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0482-01.png)'
 - en: Back then, we were focused on writing a web app, so we didn’t want to take too
     much time out to fully explain `os.OpenFile`. But you’ll almost certainly need
     to use this function again in your Go-writing career, so we added this appendix
     to take a closer look at it.
+  id: totrans-7
   prefs: []
   type: TYPE_NORMAL
+  zh: 当时，我们专注于编写 web 应用，所以我们没有太多时间来充分解释 `os.OpenFile`。但你在编写 Go 代码时几乎肯定会再次用到这个函数，因此我们添加了这个附录来更仔细地研究它。
 - en: When you’re trying to figure out how a function works, it’s always good to start
     with its documentation. In your terminal, run **`go doc os OpenFile`** (or search
     for the `"os"` package documentation in your browser).
+  id: totrans-8
   prefs: []
   type: TYPE_NORMAL
+  zh: 当你试图弄清楚一个函数如何工作时，最好从它的文档开始。在你的终端中运行 **`go doc os OpenFile`**（或者在浏览器中搜索 `"os"`
+    包的文档）。
 - en: '![image](assets/f0482-02.png)'
+  id: totrans-9
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0482-02.png)'
 - en: Its arguments are a `string` filename, an `int` “flag,” and an `os.FileMode`
     “perm.” It’s pretty clear that the filename is just the name of the file we want
     to open. Let’s figure out what this “flag” means first, then come back to the
     `os.FileMode`.
+  id: totrans-10
   prefs: []
   type: TYPE_NORMAL
+  zh: 它的参数是一个 `string` 文件名，一个 `int` “flag”，以及一个 `os.FileMode` “perm”。很明显，文件名只是我们要打开的文件的名称。让我们先弄清楚这个“flag”意味着什么，然后再回头看
+    `os.FileMode`。
 - en: To help keep our code samples in this appendix short, assume that all our programs
     include a `check` function, just like the one we showed you in [Chapter 16](ch16_split_000.html#a_pattern_to_follow_html_templates).
     It accepts an `error` value, checks whether it’s `nil`, and if not, reports the
     error and exits the program.
+  id: totrans-11
   prefs: []
   type: TYPE_NORMAL
+  zh: 为了帮助保持附录中的代码示例简短，假设我们的所有程序都包含一个 `check` 函数，就像我们在[第16章](ch16_split_000.html#a_pattern_to_follow_html_templates)中展示的那样。它接受一个
+    `error` 值，检查是否为 `nil`，如果不是，则报告错误并退出程序。
 - en: '![image](assets/f0482-03.png)'
+  id: totrans-12
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0482-03.png)'
 - en: Passing flag constants to os.OpenFile
+  id: totrans-13
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 向 `os.OpenFile` 传递 flag 常量
 - en: The description mentions that one possible value for the flag is `os.O_RDONLY`.
     Let’s look that up and see what it means...
+  id: totrans-14
   prefs: []
   type: TYPE_NORMAL
+  zh: 描述中提到，flag 的一个可能值是 `os.O_RDONLY`。让我们查一下它的含义是什么...
 - en: '![image](assets/f0483-01.png)'
+  id: totrans-15
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0483-01.png)'
 - en: From the documentation, it looks like `os.O_RDONLY` is one of several `int`
     constants intended for passing to the `os.OpenFile` function, which change the
     function’s behavior.
+  id: totrans-16
   prefs: []
   type: TYPE_NORMAL
+  zh: 根据文档，`os.O_RDONLY` 是几个 `int` 常量之一，用于传递给 `os.OpenFile` 函数，这些常量会改变函数的行为。
 - en: Let’s try calling `os.OpenFile` with some of these constants, and see what happens.
+  id: totrans-17
   prefs: []
   type: TYPE_NORMAL
+  zh: 让我们尝试使用一些这些常量调用 `os.OpenFile`，看看会发生什么。
 - en: First, we’ll need a file to work with. Create a plain-text file with a single
     line of text. Save it in any directory you want, with the name *aardvark.txt*.
+  id: totrans-18
   prefs: []
   type: TYPE_NORMAL
+  zh: 首先，我们需要一个要处理的文件。创建一个只有一行文本的纯文本文件。你可以将其保存在任何目录下，命名为 *aardvark.txt*。
 - en: '![image](assets/f0483-02.png)'
+  id: totrans-19
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0483-02.png)'
 - en: Then, in the same directory, create a Go program that includes the `check` function
     from the previous page, and the following `main` function. In `main`, we call
     `os.OpenFile` with the `os.O_RDONLY` constant as the second argument. (Ignore
     the third argument for now; we’ll talk about that later.) Then we create a `bufio.Scanner`
     and use it to print the contents of the file.
+  id: totrans-20
   prefs: []
   type: TYPE_NORMAL
+  zh: 然后，在相同的目录中，创建一个包含前一页的`check`函数和以下`main`函数的Go程序。在`main`中，我们使用`os.O_RDONLY`常量作为第二个参数调用`os.OpenFile`。（现在忽略第三个参数；稍后我们会讨论它。）然后我们创建一个`bufio.Scanner`并使用它来打印文件的内容。
 - en: '![image](assets/f0483-03.png)'
+  id: totrans-21
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0483-03.png)'
 - en: In your terminal, change to the directory where you saved the *aardvark.txt*
     file and your program, and use **`go run`** to run the program. It will open *aardvark.txt*
     and print out its contents.
+  id: totrans-22
   prefs: []
   type: TYPE_NORMAL
+  zh: 在你的终端中，切换到保存了*aardvark.txt*文件和你的程序的目录，并使用**`go run`**来运行程序。它会打开*aardvark.txt*并输出其内容。
 - en: '![image](assets/f0483-04.png)'
+  id: totrans-23
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0483-04.png)'
 - en: Now let’s try writing to the file instead. Update your `main` function with
     the code below. (You’ll also need to remove unused packages from the `import`
     statement.) This time, we’ll pass the `os.O_WRONLY` constant to `os.OpenFile`,
     so that it opens the file for writing. Then we’ll call the `Write` method on the
     file with a slice of bytes to write to the file.
+  id: totrans-24
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在让我们尝试写入文件。更新你的`main`函数如下所示。（你还需要从`import`语句中删除未使用的包。）这次，我们将`os.O_WRONLY`常量传递给`os.OpenFile`，以便它打开文件进行写入。然后，我们将调用文件的`Write`方法，并传入要写入文件的字节片段。
 - en: '![image](assets/f0484-01.png)'
+  id: totrans-25
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0484-01.png)'
 - en: If we run the program, it will produce no output, but it will update the *aardvark.txt*
     file. But if we open *aardvark.txt*, we’ll see that instead of appending the text
     to the end, the program overwrote part of the file!
+  id: totrans-26
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果运行程序，不会产生任何输出，但会更新*aardvark.txt*文件。但如果打开*aardvark.txt*，会发现程序不是在文件末尾追加文本，而是覆盖了文件的一部分！
 - en: '![image](assets/f0484-02.png)'
+  id: totrans-27
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0484-02.png)'
 - en: That’s not how we wanted the program to work. What can we do?
+  id: totrans-28
   prefs: []
   type: TYPE_NORMAL
+  zh: 这不是我们希望程序工作的方式。我们能做些什么？
 - en: Well, the `os` package has some other constants that might help. This includes
     an `os.O_APPEND` flag that should cause the program to append data to the file
     instead of overwriting it.
+  id: totrans-29
   prefs: []
   type: TYPE_NORMAL
+  zh: 哦，`os`包中还有一些其他可能会有所帮助的常量。这包括一个`os.O_APPEND`标志，应该会使程序将数据追加到文件末尾，而不是覆盖它。
 - en: '![image](assets/f0484-03.png)'
+  id: totrans-30
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0484-03.png)'
 - en: But you can’t just pass `os.O_APPEND` to `os.OpenFile` by itself; you’ll get
     an error if you try.
+  id: totrans-31
   prefs: []
   type: TYPE_NORMAL
+  zh: 但你不能单独将`os.O_APPEND`传递给`os.OpenFile`；如果尝试，会收到错误。
 - en: '![image](assets/f0484-04.png)'
+  id: totrans-32
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0484-04.png)'
 - en: The documentation says something about how `os.O_APPEND` and `os.O_CREATE` “may
     be or’ed in.” This is referring to the *binary OR* operator. We’ll need to take
     a few pages to explain how that works...
+  id: totrans-33
   prefs: []
   type: TYPE_NORMAL
+  zh: 文档中提到了`os.O_APPEND`和`os.O_CREATE`“可以进行或操作”。这是指*二进制或*运算符。我们需要花几页的时间来解释它是如何工作的……
 - en: Binary notation
+  id: totrans-34
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 二进制表示法
 - en: At the lowest level, computers have to represent information using simple switches,
     which can be either on or off. If one switch were used to represent a number,
     you could only represent the values `0` (switch “off”) or `1` (switch “on”). Computer
     scientists call this a *bit*.
+  id: totrans-35
   prefs: []
   type: TYPE_NORMAL
+  zh: 在最低级别上，计算机必须使用简单的开关来表示信息，这些开关可以是开或关。如果使用一个开关来表示一个数字，你只能表示值`0`（开关“关闭”）或`1`（开关“打开”）。计算机科学家称之为*比特*。
 - en: If you combine multiple bits, you can represent larger numbers. This is the
     idea behind *binary* notation. In everyday life, we have the most experience with
     decimal notation, which uses the digits 0 through 9\. But binary notation uses
     only the digits 0 and 1 to represent numbers.
+  id: totrans-36
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果将多个位组合起来，就能表示更大的数。这就是*二进制*表示法的思想。在日常生活中，我们最熟悉的是十进制表示法，它使用数字0到9。但是二进制表示法只使用数字0和1来表示数值。
 - en: Note
+  id: totrans-37
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: (If you’d like to know more, just type “binary” into your favorite web search
     engine.)
+  id: totrans-38
   prefs: []
   type: TYPE_NORMAL
+  zh: （如果你想了解更多，请在你喜爱的网络搜索引擎中输入“二进制”。）
 - en: 'You can view the binary representation of various numbers (the bits the numbers
     are composed of) using `fmt.Printf` with the `%b` formatting verb:'
+  id: totrans-39
   prefs: []
   type: TYPE_NORMAL
+  zh: 你可以使用`fmt.Printf`和`%b`格式化动词查看各种数值的二进制表示（这些数值由位组成）：
 - en: '![image](assets/f0485-01.png)'
+  id: totrans-40
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0485-01.png)'
 - en: Bitwise operators
+  id: totrans-41
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 位运算符
 - en: We’ve seen operators like `+`, `-`, `*`, and `/` that allow you to do math operations
     on entire numbers. But Go also has **bitwise operators**, which allow you to manipulate
     the individual bits a number is composed of. Two of the most common ones are the
     `&` bitwise AND operator, and the `|` bitwise OR operator.
+  id: totrans-42
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们已经看到了`+`、`-`、`*`和`/`等运算符，它们允许你对整数进行数学运算。但Go语言还有**按位运算符**，允许你操作一个数字由哪些位组成。其中两个最常见的是按位与运算符`&`和按位或运算符`|`。
 - en: '| Operator | Name |'
+  id: totrans-43
   prefs: []
   type: TYPE_TB
+  zh: '| 运算符 | 名称 |'
 - en: '| --- | --- |'
+  id: totrans-44
   prefs: []
   type: TYPE_TB
+  zh: '| --- | --- |'
 - en: '| `&` | Bitwise AND |'
+  id: totrans-45
   prefs: []
   type: TYPE_TB
+  zh: '| `&` | 按位与 |'
 - en: '| `&#124;` | Bitwise OR |'
+  id: totrans-46
   prefs: []
   type: TYPE_TB
+  zh: '| `|` | 按位或 |'
 - en: The bitwise AND operator
+  id: totrans-47
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 按位与运算符
 - en: 'We’ve seen the `&&` operator. It’s a Boolean operator that gives a `true` value
     only if both the values to its left *and* its right are `true`:'
+  id: totrans-48
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们已经看到了`&&`运算符。它是一个布尔运算符，只有在其左边和右边的值都为`true`时才返回`true`：
 - en: '![image](assets/f0486-01.png)'
+  id: totrans-49
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0486-01.png)'
 - en: 'The `&` operator (with just one ampersand), however, is a *bitwise* operator.
     It sets a bit to `1` only if the corresponding bit in the value to its left *and*
     the bit in the value to its right are both `1`. For the numbers `0` and `1`, which
     require only one bit to represent, this is fairly straightforward:'
+  id: totrans-50
   prefs: []
   type: TYPE_NORMAL
+  zh: 然而，`&`运算符（只有一个和号）是一个*按位*运算符。它仅在其左侧值和右侧值的对应位都为`1`时才将该位设置为`1`。对于只需一个位表示的数字`0`和`1`来说，这是相当直接的：
 - en: '![image](assets/f0486-02.png)'
+  id: totrans-51
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0486-02.png)'
 - en: For larger numbers, however, it can seem like nonsense!
+  id: totrans-52
   prefs: []
   type: TYPE_NORMAL
+  zh: 然而，对于更大的数字，这可能看起来像是胡言乱语！
 - en: '![image](assets/f0486-03.png)'
+  id: totrans-53
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0486-03.png)'
 - en: It’s only when you look at the values of individual bits that bitwise operations
     make sense. The `&` operator only sets a bit to `1` in the result if the bit in
     the same place in the left number *and* the bit in the same place in the right
     number are both `1`.
+  id: totrans-54
   prefs: []
   type: TYPE_NORMAL
+  zh: 只有当你查看单个位的值时，按位操作才有意义。`&`运算符仅在左侧数字和右侧数字中相同位置的位都为`1`时，结果中的位才设置为`1`。
 - en: '![image](assets/f0486-04.png)'
+  id: totrans-55
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0486-04.png)'
 - en: This is true for numbers of any size. The bits of the two values the `&` operator
     is used on determine the bits at the same places in the resulting value.
+  id: totrans-56
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于任意大小的数字都是如此。用于`&`运算符的两个值的位决定了结果值中相同位置的位。
 - en: '![image](assets/f0486-05.png)'
+  id: totrans-57
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0486-05.png)'
 - en: The bitwise OR operator
+  id: totrans-58
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 按位或运算符
 - en: We’ve also seen the `||` operator. It’s a Boolean operator that gives a `true`
     value if the value to its left *or* the value to its right is `true`.
+  id: totrans-59
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们还看到了`||`运算符。它是一个布尔运算符，如果其左侧值或右侧值为`true`，则返回`true`。
 - en: '![image](assets/f0487-01.png)'
+  id: totrans-60
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0487-01.png)'
 - en: The `|` operator sets a bit to `1` in the result if the corresponding bit in
     the value to its left *or* the bit in the value to its right has a value of `1`.
+  id: totrans-61
   prefs: []
   type: TYPE_NORMAL
+  zh: '`|`运算符会在结果中的位上设置为`1`，如果其左侧值或右侧值的相应位有一个为`1`。'
 - en: '![image](assets/f0487-02.png)'
+  id: totrans-62
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0487-02.png)'
 - en: Just as with bitwise AND, the bitwise OR operator looks at the bits at a given
     position in the two values it’s operating on to decide the value of the bit at
     the same position in the result.
+  id: totrans-63
   prefs: []
   type: TYPE_NORMAL
+  zh: 就像按位与运算一样，按位或运算符也会查看它操作的两个值在特定位置的位，以决定结果中相同位置的位的值。
 - en: '![image](assets/f0487-03.png)'
+  id: totrans-64
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0487-03.png)'
 - en: This is true for numbers of any size. The bits of the two values the `|` operator
     is used on determine the bits at the same places in the resulting value.
+  id: totrans-65
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于任意大小的数字都是如此。用于`|`运算符的两个值的位决定了结果值中相同位置的位。
 - en: '![image](assets/f0487-04.png)'
+  id: totrans-66
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0487-04.png)'
 - en: Using bitwise OR on the “os” package constants
+  id: totrans-67
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 在“os”包常量上使用按位或
 - en: '![image](assets/f0488-01.png)'
+  id: totrans-68
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0488-01.png)'
 - en: '**We showed you all this because you’ll need to use the bitwise OR operator
     to combine the constant values together!**'
+  id: totrans-69
   prefs: []
   type: TYPE_NORMAL
+  zh: '**我们向你展示所有这些是因为你将需要使用按位或运算符来组合这些常量值！**'
 - en: When the documentation says that the `os.O_APPEND` and `os.O_CREATE` values
     “may be or’ed in” with the `os.O_RDONLY`, `os.O_WRONLY`, or `os.O_RDWR` values,
     it means that you should use the bitwise OR operator on them.
+  id: totrans-70
   prefs: []
   type: TYPE_NORMAL
+  zh: 当文档说`os.O_APPEND`和`os.O_CREATE`值可以与`os.O_RDONLY`、`os.O_WRONLY`或`os.O_RDWR`值进行“或操作”时，意味着你应该在它们上面使用按位或运算符。
 - en: 'Behind the scenes, these constants are all just `int` values:'
+  id: totrans-71
   prefs: []
   type: TYPE_NORMAL
+  zh: 在幕后，这些常量实际上都是`int`值：
 - en: '![image](assets/f0488-02.png)'
+  id: totrans-72
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0488-02.png)'
 - en: 'If we look at the binary representation of these values, we’ll see that just
     one bit is set to `1` for each, and all the other bits are `0`:'
+  id: totrans-73
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果我们看一下这些值的二进制表示，我们会发现每个值只有一个位为`1`，而其他位都为`0`：
 - en: '![image](assets/f0488-03.png)'
+  id: totrans-74
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0488-03.png)'
 - en: 'That means we can combine the values with the bitwise OR operator, and none
     of the bits will interfere with each other:'
+  id: totrans-75
   prefs: []
   type: TYPE_NORMAL
+  zh: 这意味着我们可以使用位或运算符结合这些值，而这些位不会互相干扰：
 - en: '![image](assets/f0488-04.png)'
+  id: totrans-76
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0488-04.png)'
 - en: The `os.OpenFile` function can check whether the first bit is a `1` to determine
     whether the file should be write-only. If the seventh bit is a `1`, `OpenFile`
     will know to create the file if it doesn’t exist. And if the 11th bit is a `1`,
     `OpenFile` will append to the file.
+  id: totrans-77
   prefs: []
   type: TYPE_NORMAL
+  zh: '`os.OpenFile`函数可以检查第一位是否为`1`，以确定文件是否应为仅写入。如果第七位为`1`，`OpenFile`将知道在需要时创建文件。如果第十一位为`1`，`OpenFile`将在文件末尾追加。'
 - en: Using bitwise OR to fix our os.OpenFile options
+  id: totrans-78
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 使用位或修复我们的os.OpenFile选项
 - en: Previously, when we passed only the `os.O_WRONLY` option to `os.OpenFile`, it
     wrote over part of the data that was already in the file. Let’s see if we can
     combine options so that it appends new data to the end of the file instead.
+  id: totrans-79
   prefs: []
   type: TYPE_NORMAL
+  zh: 之前，当我们只传递`os.O_WRONLY`选项给`os.OpenFile`时，它覆盖了文件中已有数据的部分。让我们看看是否可以结合选项，使其追加新数据到文件末尾。
 - en: Start by editing the *aardvark.txt* file so that it consists of a single line
     again.
+  id: totrans-80
   prefs: []
   type: TYPE_NORMAL
+  zh: 首先编辑*aardvark.txt*文件，使其再次只包含一行。
 - en: '![image](assets/f0489-01.png)'
+  id: totrans-81
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0489-01.png)'
 - en: Next, update our program to use the bitwise OR operator to combine the `os.O_WRONLY`
     and `os.O_APPEND` constant values into a single value. Pass the result to `os.OpenFile`.
+  id: totrans-82
   prefs: []
   type: TYPE_NORMAL
+  zh: 接下来，更新我们的程序，使用位或运算符将`os.O_WRONLY`和`os.O_APPEND`常量值组合成一个单独的值。将结果传递给`os.OpenFile`。
 - en: '![image](assets/f0489-02.png)'
+  id: totrans-83
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0489-02.png)'
 - en: Run the program again and take another look at the file’s contents. You should
     see the new line of text appended at the end.
+  id: totrans-84
   prefs: []
   type: TYPE_NORMAL
+  zh: 再次运行程序并查看文件的内容。你应该看到新添加的文本行追加到末尾。
 - en: '![image](assets/f0489-03.png)'
+  id: totrans-85
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0489-03.png)'
 - en: Let’s also try using the `os.O_CREATE` option, which causes `os.OpenFile` to
     create the specified file if it doesn’t exist. Start by deleting the *aardvark.txt*
     file.
+  id: totrans-86
   prefs: []
   type: TYPE_NORMAL
+  zh: 让我们还尝试使用`os.O_CREATE`选项，这会导致`os.OpenFile`在文件不存在时创建指定的文件。首先删除*aardvark.txt*文件。
 - en: '![image](assets/f0489-04.png)'
+  id: totrans-87
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0489-04.png)'
 - en: Now update the program to add `os.O_CREATE` to the options being passed to `os.OpenFile`.
+  id: totrans-88
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在更新程序，将`os.O_CREATE`添加到传递给`os.OpenFile`的选项中。
 - en: '![image](assets/f0489-05.png)'
+  id: totrans-89
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0489-05.png)'
 - en: When we run the program, it will create a new *aardvark.txt* file and then write
     the data to it.
+  id: totrans-90
   prefs: []
   type: TYPE_NORMAL
+  zh: 当我们运行程序时，它将创建一个新的*aardvark.txt*文件，然后将数据写入其中。
 - en: '![image](assets/f0489-06.png)'
+  id: totrans-91
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0489-06.png)'
 - en: Unix-style file permissions
+  id: totrans-92
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 类 Unix 风格的文件权限
 - en: 'We’ve been focusing on the second argument to `os.OpenFile`, which controls
     reading, writing, creating, and appending files. Up until now, we’ve been ignoring
     the third argument, which controls the file’s *permissions*: which users will
     be permitted to read from and write to the file after your program creates it.'
+  id: totrans-93
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们一直在关注`os.OpenFile`的第二个参数，它控制文件的读取、写入、创建和追加。到目前为止，我们忽略了第三个参数，它控制文件的*权限*：即在程序创建文件后，哪些用户将被允许读取和写入该文件。
 - en: '![image](assets/f0490-01.png)'
+  id: totrans-94
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0490-01.png)'
 - en: 'When developers talk about file permissions, they usually mean permissions
     as they’re implemented on Unix-like systems like macOS and Linux. Under Unix,
     there are three major permissions a user can have on a file:'
+  id: totrans-95
   prefs: []
   type: TYPE_NORMAL
+  zh: 当开发人员谈论文件权限时，他们通常指的是类似 macOS 和 Linux 等类 Unix 系统上实现的权限。在 Unix 下，用户对文件可以有三种主要权限：
 - en: '| Abbreviation | Permission |'
+  id: totrans-96
   prefs: []
   type: TYPE_TB
+  zh: '| 缩写 | 权限 |'
 - en: '| --- | --- |'
+  id: totrans-97
   prefs: []
   type: TYPE_TB
+  zh: '| --- | --- |'
 - en: '| `r` | The user can **r**ead the file’s contents. |'
+  id: totrans-98
   prefs: []
   type: TYPE_TB
+  zh: '| `r` | 用户可以**读取**文件的内容。 |'
 - en: '| `w` | The user can **w**rite the file’s contents. |'
+  id: totrans-99
   prefs: []
   type: TYPE_TB
+  zh: '| `w` | 用户可以**写入**文件的内容。 |'
 - en: '| `x` | The user can e**x**ecute the file. (This is only appropriate for files
     that contain program code.) |'
+  id: totrans-100
   prefs: []
   type: TYPE_TB
+  zh: '| `x` | 用户可以执行文件。 （这仅适用于包含程序代码的文件。） |'
 - en: 'If a user doesn’t have read permissions on a file, for example, any program
     they run that tries to access the file’s contents will get an error from the operating
     system:'
+  id: totrans-101
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果用户对文件没有读取权限，例如，他们运行试图访问文件内容的任何程序将从操作系统获取错误：
 - en: '![image](assets/f0490-02.png)'
+  id: totrans-102
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0490-02.png)'
 - en: If a user doesn’t have execute permissions on a file, they won’t be able to
     execute any code it contains. (Files that don’t contain executable code should
     *not* be marked executable, because attempting to run them could produce unpredictable
     results.)
+  id: totrans-103
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果用户对文件没有执行权限，他们将无法执行其中包含的任何代码。（不包含可执行代码的文件应*不*标记为可执行，因为试图运行它们可能会产生不可预测的结果。）
 - en: '![image](assets/f0490-03.png)'
+  id: totrans-104
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0490-03.png)'
 - en: Representing permissions with the os.FileMode type
+  id: totrans-105
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 使用`os.FileMode`类型表示权限
 - en: Go’s `os` package uses the `FileMode` type to represent file permissions. If
     a file doesn’t already exist, the `FileMode` you pass to `os.OpenFile` determines
     what permissions the file will be created with, and therefore what kinds of access
     users will have to it.
+  id: totrans-106
   prefs: []
   type: TYPE_NORMAL
+  zh: Go语言的`os`包使用`FileMode`类型来表示文件权限。如果文件不存在，你在调用`os.OpenFile`时传递给`FileMode`的值将决定文件创建时的权限，从而决定用户对文件的访问权限。
 - en: '`FileMode` values have a `String` method, so if you pass a `FileMode` to functions
     in the `fmt` package like `fmt.Println`, you’ll get a special string representation
     of the value. That string shows the permissions the `FileMode` represents, in
     a format similar to the one you might see in the Unix `ls` utility.'
+  id: totrans-107
   prefs: []
   type: TYPE_NORMAL
+  zh: '`FileMode`值有一个`String`方法，所以如果你将`FileMode`传递给`fmt.Println`等`fmt`包中的函数，你将得到该值的特殊字符串表示。该字符串显示了`FileMode`表示的权限，格式类似于你可能在Unix的`ls`实用程序中看到的格式。'
 - en: '![image](assets/f0491-01.png)'
+  id: totrans-108
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0491-01.png)'
 - en: '[PRE0]'
+  id: totrans-109
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE0]'
 - en: Note
+  id: totrans-110
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: (Look for “Unix file permissions” in a search engine if you’d like more info.)
+  id: totrans-111
   prefs: []
   type: TYPE_NORMAL
+  zh: （如果你想了解更多信息，请在搜索引擎中搜索“Unix文件权限”）
 - en: Each file has three sets of permissions, affecting three different classes of
     users. The first set of permissions applies only to the user that owns the file.
     (By default, your user account is the owner of any files you create.) The second
     set of permissions is for the group of users that the file is assigned to. And
     the third set applies to other users on the system that are neither the file owner
     nor part of the file’s assigned group.
+  id: totrans-112
   prefs: []
   type: TYPE_NORMAL
+  zh: 每个文件有三组权限，分别影响三类不同的用户。第一组权限仅适用于拥有文件的用户。（默认情况下，你创建的任何文件都属于你自己的用户帐户。）第二组权限适用于文件所分配的用户组。第三组权限适用于系统中既不是文件所有者也不是文件分配组的其他用户。
 - en: '![image](assets/f0491-02.png)'
+  id: totrans-113
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0491-02.png)'
 - en: '`FileMode` has an underlying type of `uint32`, which stands for “32-bit unsigned
     integer.” It’s a basic type that we haven’t talked about previously. Because it’s
     unsigned, it can’t hold any negative numbers, but it can hold larger numbers within
     its 32 bits of memory than it would otherwise be able to.'
+  id: totrans-114
   prefs: []
   type: TYPE_NORMAL
+  zh: '`FileMode`的底层类型是`uint32`，表示“32位无符号整数”。这是一个我们之前没有讨论过的基本类型。因为它是无符号的，所以它不能表示任何负数，但是它可以在它的32位内存中表示比它能表示的更大的数值。'
 - en: 'Because `FileMode` is based on `uint32`, you can use a type conversion to convert
     (almost) any non-negative integer to a `FileMode` value. The results may be a
     little hard to understand, though:'
+  id: totrans-115
   prefs: []
   type: TYPE_NORMAL
+  zh: 由于`FileMode`基于`uint32`，你可以使用类型转换将（几乎）任何非负整数转换为`FileMode`值。但是结果可能有点难以理解：
 - en: '![image](assets/f0491-03.png)'
+  id: totrans-116
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0491-03.png)'
 - en: Octal notation
+  id: totrans-117
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 八进制表示法
 - en: 'Instead, it’s easier to specify integers for conversion to `FileMode` values
     using **octal notation**. We’ve seen decimal notation, which uses 10 digits: 0
     through 9\. We’ve seen binary notation, which uses just two digits: 0 and 1\.
     Octal notation uses eight digits: 0 through 7.'
+  id: totrans-118
   prefs: []
   type: TYPE_NORMAL
+  zh: 实际上，指定整数转换为`FileMode`值时使用八进制表示法会更容易。我们已经看过十进制表示法，使用了10个数字：0到9。我们也看过二进制表示法，只使用了两个数字：0和1。八进制表示法使用了八个数字：0到7。
 - en: 'You can view the octal representation of various numbers using `fmt.Printf`
     with the `%0` formatting verb:'
+  id: totrans-119
   prefs: []
   type: TYPE_NORMAL
+  zh: 你可以使用`fmt.Printf`和`%o`格式化动词查看各种数字的八进制表示：
 - en: '![image](assets/f0492-01.png)'
+  id: totrans-120
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0492-01.png)'
 - en: Unlike with binary notation, Go lets you write numbers using octal notation
     in your program code. Any series of digits preceded by a `0` will be treated as
     an octal number.
+  id: totrans-121
   prefs: []
   type: TYPE_NORMAL
+  zh: 与二进制表示法不同，Go语言允许你在程序代码中使用八进制表示法写入数字。任何以`0`开头的数字序列都会被视为八进制数。
 - en: This can be confusing if you’re not prepared for it. Decimal `10` is not at
     all the same as octal `010`, and decimal `100` isn’t at all like octal `0100`!
+  id: totrans-122
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果你没有做好准备，这可能会让人感到困惑。十进制的`10`和八进制的`010`完全不同，十进制的`100`和八进制的`0100`也完全不同！
 - en: '![image](assets/f0492-02.png)'
+  id: totrans-123
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0492-02.png)'
 - en: Only the digits 0 through 7 are valid in octal numbers. If you include an 8
     or a 9, you’ll get a compile error.
+  id: totrans-124
   prefs: []
   type: TYPE_NORMAL
+  zh: 在八进制数中只有数字0到7是有效的。如果包含了8或9，你将会得到编译错误。
 - en: '![image](assets/f0492-03.png)'
+  id: totrans-125
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0492-03.png)'
 - en: Converting octal values to FileMode values
+  id: totrans-126
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 将八进制值转换为FileMode值
 - en: 'So why use this (arguably strange) octal notation for file permissions? Because
     each digit of an octal number can be represented using just 3 bits of memory:'
+  id: totrans-127
   prefs: []
   type: TYPE_NORMAL
+  zh: 那么为什么要使用这种（可以说有些奇怪的）八进制表示法来表示文件权限呢？因为八进制数的每一位可以用内存中的3位来表示：
 - en: '![image](assets/f0493-01.png)'
+  id: totrans-128
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0493-01.png)'
 - en: Three bits is also the exact amount of data needed to store the permissions
     for one user class (“user,” “group,” or “other”). Any combination of permissions
     you need for a user class can be represented using one octal digit!
+  id: totrans-129
   prefs: []
   type: TYPE_NORMAL
+  zh: 三个位也正是存储一个用户类别（“用户”、“组”或“其他”）权限所需的确切数据量。您需要的任何用户类别的权限组合都可以用一个八进制数字表示！
 - en: '![image](assets/f0493-02.png)'
+  id: totrans-130
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0493-02.png)'
 - en: Notice the similarity between the binary representation of the octal numbers
     below and the `FileMode` conversion for the same number. If a bit in the binary
     representation is `1`, then the corresponding permission is enabled.
+  id: totrans-131
   prefs: []
   type: TYPE_NORMAL
+  zh: 注意下面的八进制数的二进制表示与相同数字的`FileMode`转换之间的相似性。如果二进制表示中的某位为`1`，则对应的权限被启用。
 - en: '![image](assets/f0493-03.png)'
+  id: totrans-132
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0493-03.png)'
 - en: For this reason, the Unix `chmod` utility (short for “change mode”) has used
     octal digits to set file permissions for decades now.
+  id: totrans-133
   prefs: []
   type: TYPE_NORMAL
+  zh: 正因如此，Unix的`chmod`实用程序（简称“change mode”）已经几十年来使用八进制数字设置文件权限。
 - en: '![image](assets/f0493-04.png)'
+  id: totrans-134
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0493-04.png)'
 - en: '| Octal digit | Permission |'
+  id: totrans-135
   prefs: []
   type: TYPE_TB
+  zh: '| 八进制数字 | 权限 |'
 - en: '| --- | --- |'
+  id: totrans-136
   prefs: []
   type: TYPE_TB
+  zh: '| --- | --- |'
 - en: '| `0` | no permissions |'
+  id: totrans-137
   prefs: []
   type: TYPE_TB
+  zh: '| `0` | 没有权限 |'
 - en: '| `1` | execute |'
+  id: totrans-138
   prefs: []
   type: TYPE_TB
+  zh: '| `1` | 执行 |'
 - en: '| `2` | write |'
+  id: totrans-139
   prefs: []
   type: TYPE_TB
+  zh: '| `2` | 写入 |'
 - en: '| `3` | write, execute |'
+  id: totrans-140
   prefs: []
   type: TYPE_TB
+  zh: '| `3` | 写入、执行 |'
 - en: '| `4` | read |'
+  id: totrans-141
   prefs: []
   type: TYPE_TB
+  zh: '| `4` | 读取 |'
 - en: '| `5` | read, execute |'
+  id: totrans-142
   prefs: []
   type: TYPE_TB
+  zh: '| `5` | 读取、执行 |'
 - en: '| `6` | read, write |'
+  id: totrans-143
   prefs: []
   type: TYPE_TB
+  zh: '| `6` | 读取、写入 |'
 - en: '| `7` | read, write, execute |'
+  id: totrans-144
   prefs: []
   type: TYPE_TB
+  zh: '| `7` | 读取、写入、执行 |'
 - en: Go’s support for octal notation allows you to follow the same convention in
     your code!
+  id: totrans-145
   prefs: []
   type: TYPE_NORMAL
+  zh: Go对八进制表示法的支持允许您在代码中遵循相同的约定！
 - en: Calls to os.OpenFile, explained
+  id: totrans-146
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 对os.OpenFile的调用，解释
 - en: Now that we understand both bitwise operators and octal notation, we can finally
     understand just what calls to `os.OpenFile` do!
+  id: totrans-147
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在我们理解了位操作符和八进制表示法，我们终于能够理解`os.OpenFile`的调用所做的事情！
 - en: This code, for example, will append new data to an existing logfile. The user
     that owns the file will be able to read from and write to the file. All other
     users will only be able to read from it.
+  id: totrans-148
   prefs: []
   type: TYPE_NORMAL
+  zh: 例如，这段代码将在现有的日志文件中追加新数据。拥有该文件的用户将能够从中读取和写入文件。所有其他用户只能从中读取。
 - en: '![image](assets/f0494-01.png)'
+  id: totrans-149
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0494-01.png)'
 - en: And this code will create a file if it doesn’t exist, then append data to it.
     The resulting file will be readable and writable by its owner, but no other user
     will have access to it.
+  id: totrans-150
   prefs: []
   type: TYPE_NORMAL
+  zh: 并且这段代码将在文件不存在时创建一个文件，然后将数据追加到文件中。生成的文件将由其所有者可读和可写，但其他用户将无法访问它。
 - en: '![image](assets/f0494-02.png)'
+  id: totrans-151
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0494-02.png)'
 - en: there are no Dumb Questions
+  id: totrans-152
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 没有蠢问题
 - en: '**Q: Octal notation and bitwise operators are a pain! Why is it done this way?**'
+  id: totrans-153
   prefs: []
   type: TYPE_NORMAL
+  zh: '**Q: 八进制表示法和位操作符太麻烦了！为什么要这样做？**'
 - en: '**A:** To save computer memory! These conventions for handling files have their
     roots in Unix, which was developed when RAM and disk space were both smaller and
     more expensive. But even now, when a hard disk can contain millions of files,
     packing file permissions into a few bits instead of several bytes can save a lot
     of space (and make your system run faster). Trust us, the effort is worth it!'
+  id: totrans-154
   prefs: []
   type: TYPE_NORMAL
+  zh: '**A:** 为了节省计算机内存！处理文件的这些约定根源于Unix，在那时RAM和磁盘空间都更小更昂贵。但即使现在，当硬盘可以包含数百万个文件时，将文件权限压缩到几个位而不是几个字节可以节省大量空间（并使您的系统运行更快）。相信我们，这种努力是值得的！'
 - en: '**Q: What’s that extra dash at the front of a `FileMode` string?**'
+  id: totrans-155
   prefs: []
   type: TYPE_NORMAL
+  zh: '**Q: `FileMode`字符串开头的那个额外的破折号是什么？**'
 - en: '**A:** A dash in that position indicates that a file is just an ordinary file,
     but it can show several other values. For example, if the `FileMode` value represents
     a directory, it will be a `d` instead.'
+  id: totrans-156
   prefs: []
   type: TYPE_NORMAL
+  zh: '**A:** 该位置上的破折号表示文件只是普通文件，但它可以显示几个其他值。例如，如果`FileMode`值表示一个目录，那么它将是`d`。'
 - en: '![image](assets/f0494-03.png)'
+  id: totrans-157
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0494-03.png)'

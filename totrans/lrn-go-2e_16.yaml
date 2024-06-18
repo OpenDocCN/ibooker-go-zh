@@ -1,14 +1,19 @@
 - en: 'Chapter 16\. Here Be Dragons: Reflect, Unsafe, and Cgo'
+  id: totrans-0
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 第 16 章。这里有龙：反射、不安全操作和 Cgo
 - en: The edges of the known world are scary. Ancient maps would fill in the unexplored
     areas with pictures of dragons and lions. In the previous sections, I have emphasized
     that Go is a safe language, with typed variables to make clear what sort of data
     you are using and garbage collection to manage memory. Even the pointers are tame;
     you can’t abuse them in the way that C and C++ do.
+  id: totrans-1
   prefs: []
   type: TYPE_NORMAL
+  zh: 已知世界的边缘是可怕的。古代的地图会在未探索的区域填上龙和狮子的图片。在前面的章节中，我强调过 Go 是一种安全的语言，有类型变量可以清楚地表明您使用的数据类型，有垃圾回收来管理内存。即使是指针也是温顺的；您无法像
+    C 和 C++ 那样滥用它们。
 - en: All those things are true, and for the vast majority of the Go code that you’ll
     write, you can be assured that the Go runtime will protect you. But there are
     escape hatches. Sometimes your Go programs need to venture out into less defined
@@ -19,8 +24,12 @@
     of the memory layout of data types in Go, you can use the `unsafe` package. And
     if there is functionality that can be provided only by libraries written in C,
     you can call into C code with `cgo`.
+  id: totrans-2
   prefs: []
   type: TYPE_NORMAL
+  zh: 所有这些都是真实的，对于您将编写的大多数 Go 代码，您可以确信 Go 运行时会保护您。但是有逃逸通道。有时，您的 Go 程序需要涉足定义较少的领域。在本章中，您将了解如何处理无法通过普通
+    Go 代码解决的情况。例如，当编译时无法确定数据类型时，您可以使用 `reflect` 包中的反射支持来交互甚至构造数据。当您需要利用 Go 中数据类型的内存布局时，您可以使用
+    `unsafe` 包。如果只有使用 C 编写的库才能提供的功能，您可以使用 `cgo` 调用 C 代码。
 - en: You might be wondering why these advanced concepts appear in a book targeted
     at those new to Go. There are two reasons. First, developers searching for a solution
     to a problem sometimes discover (and copy and paste) techniques they don’t fully
@@ -28,21 +37,30 @@
     before you add them to your codebase. Second, these tools are fun. Because they
     allow you to do things that aren’t normally possible with Go, it feels a bit exciting
     to play with them and see what you can do.
+  id: totrans-3
   prefs: []
   type: TYPE_NORMAL
+  zh: 您可能会想为什么这些高级概念会出现在一个针对 Go 初学者的书籍中。有两个原因。首先，寻找问题解决方案的开发人员有时会发现（并复制粘贴）他们不完全理解的技术。在将它们添加到代码库之前，最好了解一些可能会导致问题的高级技术。其次，这些工具很有趣。因为它们允许您使用
+    Go 通常不可能的功能，所以玩起来有点激动人心，看看您能做什么。
 - en: Reflection Lets You Work with Types at Runtime
+  id: totrans-4
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 使用反射（reflection）允许您在运行时处理类型
 - en: 'One of the things that people who use Go like about it is that it is a statically
     typed language. Most of the time, declaring variables, types, and functions in
     Go is pretty straightforward. When you need a type, a variable, or a function,
     you define it:'
+  id: totrans-5
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用 Go 的人喜欢它的一个原因是它是一种静态类型语言。大多数情况下，在 Go 中声明变量、类型和函数都很简单。当您需要一个类型、一个变量或一个函数时，您定义它：
 - en: '[PRE0]'
+  id: totrans-6
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE0]'
 - en: You use types to represent the data structures you know you need when you write
     your programs. Since types are a core part of Go, the compiler uses them to make
     sure that your code is correct. But sometimes, relying on only compilation-time
@@ -52,51 +70,70 @@
     you need to use *reflection*. Reflection allows you to examine types at runtime.
     It also provides the ability to examine, modify, and create variables, functions,
     and structs at runtime.
+  id: totrans-7
   prefs: []
   type: TYPE_NORMAL
+  zh: 您在编写程序时使用类型来表示您知道需要的数据结构。由于类型是 Go 的核心部分，编译器使用它们来确保您的代码正确。但有时，仅依赖编译时信息是有限制的。您可能需要使用在程序编写时不存在的信息，在运行时使用变量。也许您正在尝试将文件或网络请求中的数据映射到变量中。在这些情况下，您需要使用
+    *反射*。反射允许您在运行时检查类型。它还提供了在运行时检查、修改和创建变量、函数和结构体的能力。
 - en: 'This leads to the question of when this functionality is needed. If you look
     at the Go standard library, you can get an idea. Its uses fall into one of a few
     general categories:'
+  id: totrans-8
   prefs: []
   type: TYPE_NORMAL
+  zh: 这引出了这种功能何时需要的问题。如果您查看 Go 标准库，您可以得到一个想法。它的用途分为几个一般类别之一：
 - en: Reading and writing from a database. The `database/sql` package uses reflection
     to send records to databases and read data back.
+  id: totrans-9
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 从数据库读写数据。`database/sql` 包使用反射将记录发送到数据库并读取数据。
 - en: Go’s built-in templating libraries, `text/template` and `html/template`, use
     reflection to process the values that are passed to the templates.
+  id: totrans-10
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: Go 内置的模板库 `text/template` 和 `html/template` 使用反射来处理传递给模板的值。
 - en: The `fmt` package uses reflection heavily, as all those calls to `fmt.Println`
     and friends rely on reflection to detect the type of the provided parameters.
+  id: totrans-11
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '`fmt` 包大量使用反射，因为所有对 `fmt.Println` 和其它友元函数的调用都依赖于反射来检测提供参数的类型。'
 - en: The `errors` package uses reflection to implement `errors.Is` and `errors.As`.
+  id: totrans-12
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '`errors` 包使用反射来实现 `errors.Is` 和 `errors.As`。'
 - en: 'The `sort` package uses reflection to implement functions that sort and evaluate
     slices of any type: `sort.Slice`, `sort.SliceStable`, and `sort.SliceIsSorted`.'
+  id: totrans-13
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '`sort` 包使用反射来实现对任何类型的切片进行排序和评估的函数：`sort.Slice`、`sort.SliceStable` 和 `sort.SliceIsSorted`。'
 - en: The last main usage of reflection in the Go standard library is for marshaling
     and unmarshaling data into JSON and XML, along with the other data formats defined
     in the various `encoding` packages. Struct tags (which I will talk about soon)
     are accessed via reflection, and the fields in structs are read and written using
     reflection as well.
+  id: totrans-14
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: Go 标准库中反射的最后一个主要用途是将数据编组为 JSON 和 XML，以及在各种 `encoding` 包中定义的其他数据格式。结构标签（我将很快讨论）通过反射访问，并且结构体中的字段也使用反射进行读取和写入。
 - en: 'Most of these examples have one thing in common: they involve accessing and
     formatting data that is being imported into or exported out of a Go program. You’ll
     often see reflection used at the boundaries between your program and the outside
     world.'
+  id: totrans-15
   prefs: []
   type: TYPE_NORMAL
+  zh: 这些示例大多数有一个共同点：它们涉及访问和格式化导入到或导出出 Go 程序的数据。你经常会看到反射在你的程序和外部世界之间的边界处使用。
 - en: As you take a look at the techniques you can implement with reflection, keep
     in mind that this power has a price. Using reflection is quite a bit slower than
     performing the identical operation without it. I’ll talk more about this in [“Use
@@ -105,12 +142,17 @@
     and methods in the `reflect` package panic when passed the wrong type of data.
     Be sure to leave comments in your code to explain what you are doing so that it’s
     clear to future reviewers (including yourself).
+  id: totrans-16
   prefs: []
   type: TYPE_NORMAL
+  zh: 当你看看可以用反射实现的技术时，请记住这种力量是有代价的。使用反射比不使用它执行相同操作要慢得多。我将在 [“仅在值得时使用反射”](#slow_reflection)
+    中进一步讨论这一点。更重要的是，使用反射的代码更加脆弱和冗长。`reflect` 包中的许多函数和方法在传递错误类型的数据时会导致 panic。请确保在代码中留下注释，解释你正在做什么，以便将来的审阅者（包括你自己）能够清楚地理解。
 - en: Note
+  id: totrans-17
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: Another use of the `reflect` package in the Go standard library is testing.
     In [“Slices”](ch03.html#slice_info), I mentioned a function that you can find
     in the `reflect` package called `DeepEqual`. It’s in the `reflect` package because
@@ -121,62 +163,89 @@
     things that can’t be compared using `==`, like slices and maps. Most of the time,
     you don’t need `DeepEqual`. Since the release of Go 1.21, it’s faster to use `slices.Equal`
     and `maps.Equal` to check for equality in slices and maps.
+  id: totrans-18
   prefs: []
   type: TYPE_NORMAL
+  zh: Go 标准库中 `reflect` 包的另一个用途是测试。在 [“Slices”](ch03.html#slice_info) 中，我提到了一个在 `reflect`
+    包中可以找到的函数 `DeepEqual`。它在 `reflect` 包中是因为它利用反射来完成工作。`reflect.DeepEqual` 函数检查两个值是否“深度相等”。这比使用
+    `==` 进行比较得到的更彻底，它被用作标准库中验证测试结果的一种方式。它还可以比较使用 `==` 无法比较的东西，如切片和映射。大多数情况下，你不需要 `DeepEqual`。自
+    Go 1.21 发布以来，使用 `slices.Equal` 和 `maps.Equal` 来检查切片和映射的相等性更快。
 - en: Types, Kinds, and Values
+  id: totrans-19
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 类型、种类和值
 - en: 'Now that you know what reflection is and when you might need it, let’s see
     how it works. The `reflect` package in the standard library is the home for the
     types and functions that implement reflection in Go. Reflection is built around
     three core concepts: types, kinds, and values.'
+  id: totrans-20
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在你知道什么是反射及何时需要它了，让我们看看它是如何工作的。标准库中的 `reflect` 包是实现 Go 中反射的类型和函数的家园。反射围绕三个核心概念构建：类型、种类和值。
 - en: Types and kinds
+  id: totrans-21
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 类型和种类
 - en: A *type* is exactly what it sounds like. It defines the properties of a variable,
     what it can hold, and how you can interact with it. With reflection, you are able
     to query a type to find out about these properties using code.
+  id: totrans-22
   prefs: []
   type: TYPE_NORMAL
+  zh: '*类型*就是它听起来的样子。它定义了变量的属性，它可以持有什么，以及你如何与它交互。通过反射，您可以使用代码查询类型以了解这些属性。'
 - en: 'You get the reflection representation of the type of a variable with the `TypeOf`
     function in the `reflect` package:'
+  id: totrans-23
   prefs: []
   type: TYPE_NORMAL
+  zh: 您可以使用`reflect`包中的`TypeOf`函数获取变量类型的反射表示：
 - en: '[PRE1]'
+  id: totrans-24
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE1]'
 - en: The `reflect.TypeOf` function returns a value of type `reflect.Type`, which
     represents the type of the variable passed into the `TypeOf` function. The `reflect.Type`
     type defines methods with information about a variable’s type. I can’t cover all
     the methods, but here are a few.
+  id: totrans-25
   prefs: []
   type: TYPE_NORMAL
+  zh: '`reflect.TypeOf`函数返回一个类型为`reflect.Type`的值，表示传递给`TypeOf`函数的变量的类型。`reflect.Type`类型定义了有关变量类型信息的方法。我不能覆盖所有方法，但这里有一些。'
 - en: 'The `Name` method returns, not surprisingly, the name of the type. Here is
     a quick example:'
+  id: totrans-26
   prefs: []
   type: TYPE_NORMAL
+  zh: '`Name`方法返回的是类型的名称，毫不奇怪，这里有一个快速示例：'
 - en: '[PRE2]'
+  id: totrans-27
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE2]'
 - en: You start with a variable `x` of type `int`. You pass it to `reflect.TypeOf`
     and get back a `reflect.Type` instance. For primitive types like `int`, `Name`
     returns the name of the type, in this case the string “int” for your `int`. For
     a struct, the name of the struct is returned. Some types, like a slice or a pointer,
     don’t have names; in those cases, `Name` returns an empty string.
+  id: totrans-28
   prefs: []
   type: TYPE_NORMAL
+  zh: 你从一个类型为`int`的变量`x`开始。你将它传递给`reflect.TypeOf`，然后得到一个`reflect.Type`实例。对于像`int`这样的原始类型，`Name`返回类型的名称，在这种情况下是字符串“int”对于你的`int`。对于结构体，返回结构体的名称。某些类型，如切片或指针，没有名称；在这些情况下，`Name`返回一个空字符串。
 - en: 'The `Kind` method on `reflect.Type` returns a value of type `reflect.Kind`,
     which is a constant that says what the type is made of—a slice, a map, a pointer,
     a struct, an interface, a string, an array, a function, an int, or some other
     primitive type. The difference between the kind and the type can be tricky to
     understand. Remember this rule: if you define a struct named Foo, the kind is
     `reflect.Struct` and the type is “Foo.”'
+  id: totrans-29
   prefs: []
   type: TYPE_NORMAL
+  zh: '`reflect.Type`上的`Kind`方法返回一个`reflect.Kind`类型的值，它是一个常量，指示类型由切片、映射、指针、结构体、接口、字符串、数组、函数、整数或其他一些原始类型组成。种类和类型之间的差异可能会令人困惑。记住这个规则：如果您定义了一个名为`Foo`的结构体，则种类是`reflect.Struct`，类型是“Foo”。'
 - en: The kind is very important. One thing to be aware of when using reflection is
     that almost everything in the `reflect` package assumes that you know what you
     are doing. Some of the methods defined on `reflect.Type` and other types in the
@@ -184,94 +253,133 @@
     on `reflect.Type` called `NumIn`. If your `reflect.Type` instance represents a
     function, it returns the number of input parameters for the function. If your
     `reflect.Type` instance isn’t a function, calling `NumIn` will panic your program.
+  id: totrans-30
   prefs: []
   type: TYPE_NORMAL
+  zh: 种类非常重要。在使用反射时需要注意的一件事是，几乎`reflect`包中的所有内容都假设您知道自己在做什么。在`reflect.Type`和其他`reflect`包中定义的某些方法仅对特定种类有效。例如，在`reflect.Type`上有一个名为`NumIn`的方法。如果您的`reflect.Type`实例表示一个函数，则返回函数的输入参数数量。如果您的`reflect.Type`实例不是函数，则调用`NumIn`将导致程序恐慌。
 - en: Warning
+  id: totrans-31
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 警告
 - en: In general, if you call a method that doesn’t make sense for the kind of the
     type, the method call panics. Always remember to use the kind of the reflected
     type to know which methods will work and which ones will panic.
+  id: totrans-32
   prefs: []
   type: TYPE_NORMAL
+  zh: 一般来说，如果您调用对类型的种类无意义的方法，方法调用会引发恐慌。始终记住使用反射类型的种类来知道哪些方法可以工作，哪些方法会引发恐慌。
 - en: 'Another important method on `reflect.Type` is `Elem`. Some types in Go have
     references to other types and `Elem` is how to find out the contained type. For
     example, let’s use `reflect.TypeOf` on a pointer to an `int`:'
+  id: totrans-33
   prefs: []
   type: TYPE_NORMAL
+  zh: 另一个`reflect.Type`上的重要方法是`Elem`。Go中的一些类型具有对其他类型的引用，`Elem`是查找包含类型的方法。例如，让我们使用`reflect.TypeOf`来指向一个`int`的指针：
 - en: '[PRE3]'
+  id: totrans-34
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE3]'
 - en: That gives you a `reflect.Type` instance with a blank name and a kind of `reflect.Pointer`.
     When the `reflect.Type` represents a pointer, `Elem` returns the `reflect.Type`
     for the type the pointer points to. In this case, the `Name` method returns “int,”
     and `Kind` returns `reflect.Int`. The `Elem` method also works for slices, maps,
     channels, and arrays.
+  id: totrans-35
   prefs: []
   type: TYPE_NORMAL
+  zh: 这给您一个带有空名称和`reflect.Pointer`种类的`reflect.Type`实例。当`reflect.Type`表示指针时，`Elem`返回指针指向的类型的`reflect.Type`。在这种情况下，`Name`方法返回“int”，`Kind`返回`reflect.Int`。`Elem`方法还适用于切片、映射、通道和数组。
 - en: 'There are methods on `reflect.Type` for reflecting on structs. Use the `NumField`
     method to get the number of fields in the struct, and get the fields in a struct
     by index with the `Field` method. That returns each field’s structure described
     in a `reflect.StructField`, which has the name, order, type, and struct tags on
     a field. Let’s look at a quick example, which you can run on [The Go Playground](https://oreil.ly/Ynv_4)
     or in the *sample_code/struct_tag* directory in the [Chapter 16 repository](https://oreil.ly/jAIdQ):'
+  id: totrans-36
   prefs: []
   type: TYPE_NORMAL
+  zh: '`reflect.Type`上有一些用于反射结构体的方法。使用`NumField`方法获取结构体中字段的数量，并使用`Field`方法按索引获取结构体中的字段。该方法返回一个`reflect.StructField`，它描述了每个字段的名称、顺序、类型和结构标签。让我们看一个快速示例，您可以在[Go
+    Playground](https://oreil.ly/Ynv_4)上运行它，或者在[第16章仓库](https://oreil.ly/jAIdQ)的*sample_code/struct_tag*目录中运行它：'
 - en: '[PRE4]'
+  id: totrans-37
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE4]'
 - en: 'You create an instance of type `Foo` and use `reflect.TypeOf` to get the `reflect.Type`
     for `f`. Next you use the `NumField` method to set up a `for` loop to get the
     index of each field in `f`. Then you use the `Field` method to get the `reflect.StructField`
     struct that represents the field, and then you can use the fields on `reflect.StructField`
     to get more information about the field. This code prints out the following:'
+  id: totrans-38
   prefs: []
   type: TYPE_NORMAL
+  zh: 您创建了一个`Foo`类型的实例，并使用`reflect.TypeOf`获取`f`的`reflect.Type`。接下来，使用`NumField`方法设置一个`for`循环以获取`f`中每个字段的索引。然后使用`Field`方法获取表示字段的`reflect.StructField`结构体，然后可以使用`reflect.StructField`上的字段获取有关字段的更多信息。此代码打印如下内容：
 - en: '[PRE5]'
+  id: totrans-39
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE5]'
 - en: There are many more methods in `reflect.Type`, but they all follow the same
     pattern, allowing you to access the information that describes the type of a variable.
     You can look at the [`reflect.Type` documentation](https://oreil.ly/p4AZ6) in
     the standard library for more information.
+  id: totrans-40
   prefs: []
   type: TYPE_NORMAL
+  zh: '`reflect.Type`中还有许多其他方法，但它们都遵循相同的模式，允许您访问描述变量类型的信息。您可以查看标准库中的[`reflect.Type`文档](https://oreil.ly/p4AZ6)以获取更多信息。'
 - en: Values
+  id: totrans-41
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 值
 - en: In addition to examining the types of variables, you can also use reflection
     to read a variable’s value, set its value, or create a new value from scratch.
+  id: totrans-42
   prefs: []
   type: TYPE_NORMAL
+  zh: 除了检查变量的类型外，您还可以使用反射来读取变量的值、设置其值或从头开始创建新值。
 - en: 'You use the `reflect.ValueOf` function to create a `reflect.Value` instance
     that represents the value of a variable:'
+  id: totrans-43
   prefs: []
   type: TYPE_NORMAL
+  zh: 您使用`reflect.ValueOf`函数创建一个表示变量值的`reflect.Value`实例：
 - en: '[PRE6]'
+  id: totrans-44
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE6]'
 - en: Since every variable in Go has a type, `reflect.Value` has a method called `Type`
     that returns the `reflect.Type` of the `reflect.Value`. There’s also a `Kind`
     method, just as there is on `reflect.Type`.
+  id: totrans-45
   prefs: []
   type: TYPE_NORMAL
+  zh: 由于Go语言中的每个变量都有一个类型，`reflect.Value`有一个叫做`Type`的方法，用于返回`reflect.Value`的`reflect.Type`。`reflect.Type`上也有一个`Kind`方法，就像在`reflect.Type`上一样。
 - en: Just as `reflect.Type` has methods for finding out information about the type
     of a variable, `reflect.Value` has methods for finding out information about the
     value of a variable. I’m not going to cover all of them, but let’s take a look
     at how to use a `reflect.Value` to get the value of the variable.
+  id: totrans-46
   prefs: []
   type: TYPE_NORMAL
+  zh: 就像`reflect.Type`有用于查找关于变量类型信息的方法一样，`reflect.Value`也有用于查找关于变量值信息的方法。我不会覆盖所有方法，但让我们看一下如何使用`reflect.Value`来获取变量的值。
 - en: 'I’ll start by demonstrating how to read your values back out of a `reflect.Value`.
     The `Interface` method returns the value of the variable as `any`. When you put
     the value returned by `Interface` into a variable, you have to use a type assertion
     to get back to a usable type:'
+  id: totrans-47
   prefs: []
   type: TYPE_NORMAL
+  zh: 我将从演示如何从`reflect.Value`中读取您的值开始。`Interface`方法将变量的值作为`any`返回。当您将`Interface`返回的值放入变量中时，您必须使用类型断言返回可用类型：
 - en: '[PRE7]'
+  id: totrans-48
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE7]'
 - en: 'While `Interface` can be called for `reflect.Value` instances that contain
     values of any kind, you can use special case methods if the kind of the variable
     is one of the built-in, primitive types: `Bool`, `Complex`, `Int`, `Uint`, `Float`,
@@ -281,103 +389,145 @@
     can preemptively check: the `CanComplex`, `CanFloat`, `CanInt`, and `CanUint`
     methods validate that the `Value` is of one of the numeric types, and `CanConvert`
     checks for other types.'
+  id: totrans-49
   prefs: []
   type: TYPE_NORMAL
+  zh: 虽然`Interface`可以用于包含任何类型值的`reflect.Value`实例，但如果变量的类型是内置的基本类型之一：`Bool`、`Complex`、`Int`、`Uint`、`Float`和`String`，则可以使用特殊的方法。如果变量的类型是字节切片，则`Bytes`方法也适用。如果使用不匹配`reflect.Value`类型的方法，您的代码将会恐慌。如果您不确定`Value`的类型，方法可以预先检查：`CanComplex`、`CanFloat`、`CanInt`和`CanUint`方法验证`Value`是否属于数值类型之一，`CanConvert`检查其他类型。
 - en: You can use reflection to set the value of a variable as well, but it’s a three-step
     process.
+  id: totrans-50
   prefs: []
   type: TYPE_NORMAL
+  zh: 您也可以使用反射来设置变量的值，但这是一个三步过程。
 - en: 'First, you pass a pointer to the variable into `reflect.ValueOf`. This returns
     a `reflect.Value` that represents the pointer:'
+  id: totrans-51
   prefs: []
   type: TYPE_NORMAL
+  zh: 首先，您将变量的指针传递给`reflect.ValueOf`。这将返回一个代表指针的`reflect.Value`：
 - en: '[PRE8]'
+  id: totrans-52
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE8]'
 - en: 'Next, you need to get to the actual value to set it. You use the `Elem` method
     on `reflect.Value` to get to the value pointed to by the pointer that was passed
     into `reflect.ValueOf`. Just as `Elem` on `reflect.Type` returns the type that’s
     pointed to by a containing type, `Elem` on `reflect.Value` returns the value that’s
     pointed to by a pointer or the value that’s stored in an interface:'
+  id: totrans-53
   prefs: []
   type: TYPE_NORMAL
+  zh: 接下来，您需要获取要设置的实际值。您使用`reflect.Value`上的`Elem`方法来获取由传递给`reflect.ValueOf`的指针指向的值。正如`reflect.Type`上的`Elem`返回包含类型指向的类型一样，`reflect.Value`上的`Elem`返回由指针指向的值或存储在接口中的值：
 - en: '[PRE9]'
+  id: totrans-54
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE9]'
 - en: 'Finally, you get to the actual method that’s used to set the value. Just as
     there are special-case methods for reading primitive types, there are special-case
     methods for setting primitive types: `SetBool`, `SetInt`, `SetFloat`, `SetString`,
     and `SetUint`. In the example, calling `ivv.SetInt(20)` changes the value of `i`.
     If you print out `i` now, you will get 20:'
+  id: totrans-55
   prefs: []
   type: TYPE_NORMAL
+  zh: 最后，您可以到达用于设置值的实际方法。正如有用于读取原始类型的特殊情况方法一样，还有用于设置原始类型的特殊情况方法：`SetBool`、`SetInt`、`SetFloat`、`SetString`和`SetUint`。在示例中，调用`ivv.SetInt(20)`会更改`i`的值。如果现在打印出`i`，您将得到20：
 - en: '[PRE10]'
+  id: totrans-56
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE10]'
 - en: For all other types, you need to use the `Set` method, which takes a variable
     of type `reflect.Value`. The value that you are setting it to doesn’t need to
     be a pointer, because you are just reading this value, not changing it. And just
     as you can use `Interface()` to read primitive types, you can use `Set` to write
     primitive types.
+  id: totrans-57
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于所有其他类型，您需要使用`Set`方法，该方法接受`reflect.Value`类型的变量。您设置的值不需要是指针，因为您只是读取该值，而不是更改它。正如您可以使用`Interface()`读取原始类型一样，您可以使用`Set`写入原始类型。
 - en: 'The reason you need to pass a pointer to `reflect.ValueOf` to change the value
     of the input parameter is that it is just like any other function in Go. As I
     discussed in [“Pointers Indicate Mutable Parameters”](ch06.html#pointer_mutable),
     you use a parameter of a pointer type to indicate that you want to modify the
     value of the parameter. When you modify the value, you dereference the pointer
     and then set the value. The following two functions follow the same process:'
+  id: totrans-58
   prefs: []
   type: TYPE_NORMAL
+  zh: 将`reflect.ValueOf`传递给指针以更改输入参数的值的原因与Go语言中的任何其他函数类似。正如我在[“指针指示可变参数”](ch06.html#pointer_mutable)中讨论的那样，您使用指针类型的参数来指示您希望修改参数的值。当您修改该值时，您对指针进行取消引用，然后设置该值。以下两个函数遵循相同的过程：
 - en: '[PRE11]'
+  id: totrans-59
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE11]'
 - en: Attempting to set a `reflect.Value` to a value of the wrong type will produce
     a panic.
+  id: totrans-60
   prefs: []
   type: TYPE_NORMAL
+  zh: 尝试将`reflect.Value`设置为错误类型的值将导致恐慌。
 - en: Tip
+  id: totrans-61
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 提示
 - en: If you don’t pass a pointer to a variable to `reflect.ValueOf`, you can still
     read the value of the variable using reflection. But if you try to use any of
     the methods that can change the value of a variable, the method calls will (not
     surprisingly) panic. The `CanSet` method on `reflect.Value` will tell you if calling
     `Set` will produce a panic.
+  id: totrans-62
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果未将变量的指针传递给`reflect.ValueOf`，您仍然可以使用反射读取变量的值。但是，如果尝试使用任何可以更改变量值的方法，方法调用将（不出所料地）导致恐慌。`reflect.Value`上的`CanSet`方法将告诉您调用`Set`是否会导致恐慌。
 - en: Make New Values
+  id: totrans-63
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 创建新值
 - en: 'Before you learn how to best use reflection, there’s one more thing to cover:
     how to create a value. The `reflect.New` function is the reflection analogue of
     the `new` function. It takes in a `reflect.Type` and returns a `reflect.Value`
     that’s a pointer to a `reflect.Value` of the specified type. Since it’s a pointer,
     you can modify it and then assign the modified value to a variable by using the
     `Interface` method.'
+  id: totrans-64
   prefs: []
   type: TYPE_NORMAL
+  zh: 在学习如何最佳使用反射之前，还有一件事需要介绍：如何创建值。`reflect.New`函数是`new`函数的反射模拟。它接受一个`reflect.Type`并返回一个指向指定类型的`reflect.Value`的指针。由于它是指针，您可以修改它，然后使用`Interface`方法将修改后的值分配给变量。
 - en: 'Just as `reflect.New` creates a pointer to a scalar type, you can also use
     reflection to do the same thing as the `make` keyword with the following functions:'
+  id: totrans-65
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如`reflect.New`创建标量类型的指针一样，您还可以使用反射来执行与`make`关键字相同的操作，具体方法如下：
 - en: '[PRE12]'
+  id: totrans-66
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE12]'
 - en: Each of these functions takes in a `reflect.Type` that represents the compound
     type, not the contained type.
+  id: totrans-67
   prefs: []
   type: TYPE_NORMAL
+  zh: 每个函数都接受一个代表复合类型而不是包含类型的`reflect.Type`。
 - en: 'You must always start from a value when constructing a `reflect.Type`. However,
     a trick lets you create a variable to represent a `reflect.Type` if you don’t
     have a value handy:'
+  id: totrans-68
   prefs: []
   type: TYPE_NORMAL
+  zh: 在构建`reflect.Type`时，必须始终从一个值开始。但是，有一个技巧可以让你创建一个变量来表示`reflect.Type`，如果没有现成的值的话：
 - en: '[PRE13]'
+  id: totrans-69
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE13]'
 - en: The variable `stringType` contains a `reflect.Type` that represents a `string`,
     and the variable `stringSliceType` contains a `reflect.Type` that represents a
     `[]string`. That first line can take a bit of effort to decode. What you are doing
@@ -386,60 +536,84 @@
     `reflect.Type` to get the underlying type. You have to put `*string` in parentheses
     because of the Go order of operations; without the parentheses, the compiler thinks
     that you are converting `nil` to `string`, which is illegal.
+  id: totrans-70
   prefs: []
   type: TYPE_NORMAL
+  zh: 变量`stringType`包含一个表示`string`的`reflect.Type`，而变量`stringSliceType`包含一个表示`[]string`的`reflect.Type`。第一行可能需要花些功夫来理解。你所做的是将`nil`转换为指向`string`的指针，使用`reflect.TypeOf`来创建该指针类型的`reflect.Type`，然后在该指针的`reflect.Type`上调用`Elem`以获取底层类型。你必须将`*string`放在括号中，因为在Go的运算顺序中，没有括号的话，编译器会认为你正在将`nil`转换为`string`，这是非法的。
 - en: For the `stringSliceType`, it’s a bit simpler since `nil` is a valid value for
     a slice. All you have to do is type conversion of `nil` to a `[]string` and pass
     that to `reflect.Type`.
+  id: totrans-71
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于`stringSliceType`来说，情况稍微简单一些，因为`nil`是切片的有效值。你只需将`nil`转换为`[]string`类型并传递给`reflect.Type`即可。
 - en: 'Now that you have these types, you can see how to use `reflect.New` and `reflect.MakeSlice`:'
+  id: totrans-72
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在你有了这些类型，可以看看如何使用`reflect.New`和`reflect.MakeSlice`：
 - en: '[PRE14]'
+  id: totrans-73
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE14]'
 - en: You can try out this code for yourself on [The Go Playground](https://oreil.ly/ak2PG)
     or in the *sample_code/reflect_string_slice* directory in the [Chapter 16 repository](https://oreil.ly/jAIdQ).
+  id: totrans-74
   prefs: []
   type: TYPE_NORMAL
+  zh: 你可以在[Go Playground](https://oreil.ly/ak2PG)或[第16章存储库](https://oreil.ly/jAIdQ)的*sample_code/reflect_string_slice*目录中自行尝试此代码。
 - en: Use Reflection to Check If an Interface’s Value Is nil
+  id: totrans-75
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 使用反射检查接口值是否为nil
 - en: 'As I talked about in [“Interfaces and nil”](ch07.html#interface_nil), if a
     `nil` variable of a concrete type is assigned to a variable of an interface type,
     the variable of the interface type is not `nil`. This is because a type is associated
     with the interface variable. If you want to check whether the value associated
     with an interface is `nil`, you can do so with reflection by using two methods—`IsValid`
     and `IsNil`:'
+  id: totrans-76
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如我在[“接口和nil”](ch07.html#interface_nil)中所讨论的，如果将具体类型的`nil`变量赋给接口类型的变量，则接口类型的变量不是`nil`。这是因为接口变量与类型相关联。如果要检查与接口关联的值是否为`nil`，可以使用反射的`IsValid`和`IsNil`两种方法进行检查：
 - en: '[PRE15]'
+  id: totrans-77
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE15]'
 - en: The `IsValid` method returns `true` if `reflect.Value` holds anything other
     than a `nil` interface. You need to check this first because calling any other
     method on `reflect.Value` will (unsurprisingly) panic if `IsValid` is `false`.
     The `IsNil` method returns `true` if the value of the `reflect.Value` is `nil`,
     but it can be called only if the `reflect.Kind` is something that *can* be `nil`.
     If you call it on a type whose zero value isn’t `nil`, it (you guessed it) panics.
+  id: totrans-78
   prefs: []
   type: TYPE_NORMAL
+  zh: '`IsValid`方法返回`true`，如果`reflect.Value`包含的是除`nil`接口之外的任何东西。你需要首先检查这一点，因为如果`IsValid`为`false`，在`reflect.Value`上调用任何其他方法都会（毫不意外地）导致恐慌。`IsNil`方法返回`true`，如果`reflect.Value`的值是`nil`，但只能在`reflect.Kind`可以是`nil`的情况下调用。如果在其零值不是`nil`的类型上调用它，会（你猜对了）导致恐慌。'
 - en: You can see this function in use on [The Go Playground](https://oreil.ly/D-HR9)
     or in the *sample_code/no_value* directory in the [Chapter 16 repository](https://oreil.ly/jAIdQ).
+  id: totrans-79
   prefs: []
   type: TYPE_NORMAL
+  zh: 你可以在[Go Playground](https://oreil.ly/D-HR9)或[第16章存储库](https://oreil.ly/jAIdQ)的*sample_code/no_value*目录中看到此函数的使用。
 - en: Even though it is possible to detect an interface with a `nil` value, strive
     to write your code so that it performs correctly even when the value associated
     with an interface is `nil`. Reserve this code for situations where you have no
     other options.
+  id: totrans-80
   prefs: []
   type: TYPE_NORMAL
+  zh: 即使可以检测到带有`nil`值的接口，也应努力编写代码，确保在与接口关联的值为`nil`时也能正常运行。仅在没有其他选择时使用此代码。
 - en: Use Reflection to Write a Data Marshaler
+  id: totrans-81
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 使用反射编写数据编组器
 - en: As mentioned earlier, reflection is what the standard library uses to implement
     marshaling and unmarshaling. Let’s see how it’s done by building a data marshaler
     for ourselves. Go provides the `csv.NewReader` and `csv.NewWriter` functions to
@@ -447,134 +621,196 @@
     of strings out to a CSV file, but nothing in the standard library can automatically
     map that data to the fields in a struct. The following code is going to add that
     missing functionality.
+  id: totrans-82
   prefs: []
   type: TYPE_NORMAL
+  zh: 如前所述，反射是标准库用于实现编组和解组的方法。让我们看看通过构建自己的数据编组器来实现它的方法。Go提供`csv.NewReader`和`csv.NewWriter`函数来将CSV文件读取到字符串的切片的切片中，并将字符串的切片的切片写入CSV文件，但是标准库中没有任何内容可以自动将该数据映射到结构体中的字段。以下代码将添加此缺失的功能。
 - en: Note
+  id: totrans-83
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: The examples here have been cut down a bit to fit, reducing the number of supported
     types. You can find the complete code on [The Go Playground](https://oreil.ly/VDytK)
     or in the *sample_code/csv* directory in the [Chapter 16 repository](https://oreil.ly/jAIdQ).
+  id: totrans-84
   prefs: []
   type: TYPE_NORMAL
+  zh: 此处的示例已经削减了一些内容以适应，减少了支持的类型数量。您可以在[The Go Playground](https://oreil.ly/VDytK)或[第16章代码示例/csv](https://oreil.ly/jAIdQ)目录中找到完整的代码。
 - en: 'You’ll start by defining your API. As with other marshalers, you’ll define
     a struct tag that specifies the name of a field in the data to map it to a field
     in a struct:'
+  id: totrans-85
   prefs: []
   type: TYPE_NORMAL
+  zh: 首先定义您的API。与其他编组器一样，您将定义一个结构标签，指定要映射到结构体中字段的数据字段的名称：
 - en: '[PRE16]'
+  id: totrans-86
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE16]'
 - en: 'The public API consists of two functions:'
+  id: totrans-87
   prefs: []
   type: TYPE_NORMAL
+  zh: 公共API包括两个函数：
 - en: '[PRE17]'
+  id: totrans-88
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE17]'
 - en: 'You’ll start with `Marshal`, writing the function and then looking at the two
     helper functions it uses:'
+  id: totrans-89
   prefs: []
   type: TYPE_NORMAL
+  zh: 首先，您将从`Marshal`开始，编写该函数，然后查看它使用的两个辅助函数：
 - en: '[PRE18]'
+  id: totrans-90
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE18]'
 - en: Since you can marshal a struct of any type, you need to use a parameter of type
     `any`. This isn’t a pointer to a slice of structs, because you are only reading
     from your slice, not modifying it.
+  id: totrans-91
   prefs: []
   type: TYPE_NORMAL
+  zh: 由于可以编组任何类型的结构体，因此需要使用`any`类型的参数。这不是指向结构体切片的指针，因为您只是从您的切片中读取，而不是修改它。
 - en: The first row of your CSV is going to be the header with the column names, so
     you get those column names from the struct tags on fields in the struct’s type.
     You use the `Type` method to get the `reflect.Type` of the slice from the `reflect.Value`,
     and then call the `Elem` method to get the `reflect.Type` of the elements of the
     slice. You then pass this to `marshalHeader` and append the response to your output.
+  id: totrans-92
   prefs: []
   type: TYPE_NORMAL
+  zh: 您的CSV的第一行将是包含列名的标题，因此您从结构体的字段中的结构标签获取这些列名。您使用`Type`方法从`reflect.Value`获取切片的`reflect.Type`，然后调用`Elem`方法获取切片元素的`reflect.Type`。然后将其传递给`marshalHeader`并将响应追加到您的输出。
 - en: Next, you iterate through each element in the struct slice using reflection,
     passing the `reflect.Value` of each element to `marshalOne`, appending the result
     to your output. When you finish iterating, you return your slice of slice of `string`.
+  id: totrans-93
   prefs: []
   type: TYPE_NORMAL
+  zh: 接下来，您通过反射迭代每个结构切片中的每个元素，将每个元素的`reflect.Value`传递给`marshalOne`，并将结果追加到您的输出中。完成迭代后，返回您的`string`切片的切片。
 - en: 'Look at the implementation of your first helper function, `marshalHeader`:'
+  id: totrans-94
   prefs: []
   type: TYPE_NORMAL
+  zh: 查看您的第一个辅助函数`marshalHeader`的实现：
 - en: '[PRE19]'
+  id: totrans-95
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE19]'
 - en: This function simply loops over the fields of the `reflect.Type`, reads the
     `csv` tag on each field, appends it into a `string` slice, and returns the slice.
+  id: totrans-96
   prefs: []
   type: TYPE_NORMAL
+  zh: 此函数简单地循环遍历`reflect.Type`的字段，读取每个字段上的`csv`标签，将其追加到`string`切片中，并返回该切片。
 - en: 'The second helper function is `marshalOne`:'
+  id: totrans-97
   prefs: []
   type: TYPE_NORMAL
+  zh: 第二个辅助函数是`marshalOne`：
 - en: '[PRE20]'
+  id: totrans-98
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE20]'
 - en: This function takes in a `reflect.Value` and returns a `string` slice. You create
     the `string` slice, and for each field in the struct, you switch on its `reflect.Kind`
     to determine how to convert it to a `string`, and append it to the output.
+  id: totrans-99
   prefs: []
   type: TYPE_NORMAL
+  zh: 此函数接受一个`reflect.Value`并返回一个`string`切片。您创建`string`切片，并针对结构体中的每个字段，使用其`reflect.Kind`进行切换以确定如何将其转换为`string`，并将其追加到输出中。
 - en: 'Your simple marshaler is now complete. Let’s see what you have to do to unmarshal:'
+  id: totrans-100
   prefs: []
   type: TYPE_NORMAL
+  zh: 您的简单编组器现在已经完成。让我们看看您需要做什么来解组：
 - en: '[PRE21]'
+  id: totrans-101
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE21]'
 - en: Since you are copying data into a slice of any kind of struct, you need to use
     a parameter of type `any`. Furthermore, because you are modifying the value stored
     in this parameter, you *must* pass in a pointer to a slice of structs. The `Unmarshal`
     function converts that slice of structs pointer to a `reflect.Value`, then gets
     the underlying slice, and then gets the type of the structs in the underlying
     slice.
+  id: totrans-102
   prefs: []
   type: TYPE_NORMAL
+  zh: 由于您正在将数据复制到任意类型的结构体切片中，因此需要使用`any`类型的参数。此外，由于您正在修改存储在此参数中的值，*必须*传递指向结构体切片的指针。`Unmarshal`函数将该结构体切片指针转换为`reflect.Value`，然后获取底层切片，并获取底层切片中结构体的类型。
 - en: As I said earlier, the code assumes that the first row of data is a header with
     the names of the columns. You use this information to build up a map, so you can
     associate the `csv` struct tag value with the correct data element.
+  id: totrans-103
   prefs: []
   type: TYPE_NORMAL
+  zh: 如我先前所说，该代码假定数据的第一行是包含列名的标题。您可以利用这些信息构建映射，从而将`csv`结构标签的值与正确的数据元素关联起来。
 - en: You then loop through all the remaining `string` slices, creating a new `reflect.Value`
     using the `reflect.Type` of the struct, call `unmarshalOne` to copy the data in
     the current `string` slice into the struct, and then add the struct to your slice.
     After iterating through all the rows of data, you return.
+  id: totrans-104
   prefs: []
   type: TYPE_NORMAL
+  zh: 然后，您循环遍历所有剩余的`string`切片，使用结构体的`reflect.Type`创建一个新的`reflect.Value`，调用`unmarshalOne`将当前`string`切片中的数据复制到结构体中，然后将结构体添加到您的切片中。在遍历完所有数据行后，返回。
 - en: 'All that remains is looking at the implementation of `unmarshalOne`:'
+  id: totrans-105
   prefs: []
   type: TYPE_NORMAL
+  zh: 唯一剩下的是查看`unmarshalOne`的实现：
 - en: '[PRE22]'
+  id: totrans-106
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE22]'
 - en: This function iterates over each field in the newly created `reflect.Value`,
     uses the `csv` struct tag on the current field to find its name, looks up the
     element in the `data` slice by using the `namePos` map, converts the value from
     a `string` to the correct type, and sets the value on the current field. After
     all fields have been populated, the function returns.
+  id: totrans-107
   prefs: []
   type: TYPE_NORMAL
+  zh: 此函数迭代新创建的`reflect.Value`中的每个字段，使用当前字段上的`csv`结构标签查找其名称，在`data`切片中使用`namePos`映射查找元素，将值从`string`转换为正确的类型，并设置当前字段的值。在填充完所有字段后，函数返回。
 - en: 'Now that you have written your marshaler and unmarshaler, you can integrate
     with the existing CSV support in the Go standard library:'
+  id: totrans-108
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在您已经编写了自己的编组器和解组器，可以与Go标准库中现有的CSV支持集成：
 - en: '[PRE23]'
+  id: totrans-109
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE23]'
 - en: Build Functions with Reflection to Automate Repetitive Tasks
+  id: totrans-110
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 使用反射构建函数以自动化重复任务
 - en: 'Another thing that Go lets you do with reflection is create a function. You
     can use this technique to wrap existing functions with common functionality without
     writing repetitive code. For example, here’s a factory function that adds timing
     to any function that’s passed into it:'
+  id: totrans-111
   prefs: []
   type: TYPE_NORMAL
+  zh: Go 另一个使用反射的功能是创建函数。您可以使用此技术来为任何传入的函数添加常见功能，而无需编写重复的代码。例如，这是一个工厂函数的示例，它为任何传入的函数添加计时功能：
 - en: '[PRE24]'
+  id: totrans-112
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE24]'
 - en: 'This function takes in any function, so the parameter is of type `any`. It
     then passes the `reflect.Type` that represents the function into `reflect.MakeFunc`,
     along with a closure that captures the start time, calls the original function
@@ -582,15 +818,21 @@
     the value calculated by the original function. The value returned from `reflect.MakeFunc`
     is a `reflect.Value`, and you call its `Interface` method to get the value to
     return. Here’s how you use it:'
+  id: totrans-113
   prefs: []
   type: TYPE_NORMAL
+  zh: 此函数接受任何函数作为参数，因此参数的类型是`any`。然后，它将代表该函数的`reflect.Type`传递给`reflect.MakeFunc`，还传递一个捕获了起始时间的闭包，使用反射调用原始函数，捕获结束时间，打印出差异，并返回原始函数计算的值。从`reflect.MakeFunc`返回的值是一个`reflect.Value`，您调用其`Interface`方法以获取要返回的值。以下是如何使用它的示例：
 - en: '[PRE25]'
+  id: totrans-114
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE25]'
 - en: You can run a more complete version of this program on [The Go Playground](https://oreil.ly/NDfp1)
     or in the *sample_code/timed_function* directory in the [Chapter 16 repository](https://oreil.ly/jAIdQ).
+  id: totrans-115
   prefs: []
   type: TYPE_NORMAL
+  zh: 您可以在[Go Playground](https://oreil.ly/NDfp1)上或在[第16章存储库](https://oreil.ly/jAIdQ)的*sample_code/timed_function*目录中运行此程序的更完整版本。
 - en: While generating functions is clever, be careful when using this feature. Make
     sure that it’s clear when you are using a generated function and what functionality
     it is adding. Otherwise, you will be making it harder to understand the flow of
@@ -600,142 +842,208 @@
     the code you are generating is already performing a slow operation, like a network
     call. Remember, reflection works best when it’s used to map data in and out of
     the edge of your programs.
+  id: totrans-116
   prefs: []
   type: TYPE_NORMAL
+  zh: 尽管生成函数很聪明，但在使用此功能时要小心。确保清楚您何时使用生成的函数以及它添加了什么功能。否则，您将使程序中数据流的理解变得更加困难。此外，正如我将在[“仅在值得时使用反射”](#slow_reflection)中讨论的那样，反射会使您的程序变慢，因此，除非您正在生成的代码已经执行缓慢操作（如网络调用），否则使用它来生成和调用函数会严重影响性能。请记住，反射在最佳情况下用于将数据映射到程序的边缘。
 - en: 'One project that follows these rules for generated functions is my SQL mapping
     library Proteus. It creates a type-safe database API by generating a function
     from a SQL query and a function field or variable. You can learn more about Proteus
     in my GopherCon 2017 talk, [“Runtime Generated, Typesafe, and Declarative: Pick
     Any Three,”](https://oreil.ly/ZUE47) and you can find the source code on [GitHub](https://oreil.ly/KtFyj).'
+  id: totrans-117
   prefs: []
   type: TYPE_NORMAL
+  zh: '遵循这些规则生成函数的一个项目是我的 SQL 映射库 Proteus。它通过从 SQL 查询和函数字段或变量生成函数来创建类型安全的数据库 API。你可以在我的
+    GopherCon 2017 演讲中了解更多关于 Proteus 的信息，[“Runtime Generated, Typesafe, and Declarative:
+    Pick Any Three,”](https://oreil.ly/ZUE47)，并且你可以在 [GitHub](https://oreil.ly/KtFyj)
+    上找到源代码。'
 - en: You Can Build Structs with Reflection, but Don’t
+  id: totrans-118
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 你可以使用反射构建结构体，但最好不要这样做
 - en: You can make one more thing with reflection, and it’s weird. The `reflect.StructOf`
     function takes in a slice of `reflect.StructField` and returns a `reflect.Type`
     that represents a new struct type. These structs can be assigned only to variables
     of type `any`, and their fields can only be read and written using reflection.
+  id: totrans-119
   prefs: []
   type: TYPE_NORMAL
+  zh: 你可以用反射做一件更怪异的事情。`reflect.StructOf` 函数接受 `reflect.StructField` 切片并返回代表新结构体类型的
+    `reflect.Type`。这些结构体只能分配给 `any` 类型的变量，并且只能使用反射读取和写入它们的字段。
 - en: For the most part, this is a feature of academic interest only. To see a demo
     of how `reflect.StructOf` works, look at the memoizer function on [The Go Playground](https://oreil.ly/iJwqv)
     or in the *sample_code/memoizer* directory in the [Chapter 16 repository](https://oreil.ly/jAIdQ).
     It uses dynamically generated structs as the keys to a map that caches the output
     of a function.
+  id: totrans-120
   prefs: []
   type: TYPE_NORMAL
+  zh: 大多数情况下，这只是学术兴趣的一个特性。要查看 `reflect.StructOf` 如何工作的演示，请查看 [The Go Playground](https://oreil.ly/iJwqv)
+    上的记忆函数或 [Chapter 16 repository](https://oreil.ly/jAIdQ) 的 *sample_code/memoizer*
+    目录。它使用动态生成的结构体作为映射的键来缓存函数的输出。
 - en: Reflection Can’t Make Methods
+  id: totrans-121
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 反射无法创建方法
 - en: You’ve seen all the things that you can do with reflection, but there’s one
     thing you can’t make. While you can use reflection to create new functions and
     new struct types, there’s no way to use reflection to add methods to a type. This
     means you cannot use reflection to create a new type that implements an interface.
+  id: totrans-122
   prefs: []
   type: TYPE_NORMAL
+  zh: 你已经看到反射可以做的所有事情，但有一件事情它做不到。虽然你可以使用反射来创建新函数和新的结构体类型，但没有办法使用反射向类型添加方法。这意味着你不能使用反射来创建一个实现接口的新类型。
 - en: Use Reflection Only if It’s Worthwhile
+  id: totrans-123
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 只有在值得时才使用反射
 - en: 'Although reflection is essential when converting data at the boundaries of
     Go, be careful using it in other situations. Reflection isn’t free. To demonstrate,
     let’s implement `Filter` by using reflection. You looked at a generic implementation
     in [“Generic Functions Abstract Algorithms”](ch08.html#generic_functions), but
     let’s see what a reflection-based version looks like:'
+  id: totrans-124
   prefs: []
   type: TYPE_NORMAL
+  zh: 虽然反射在转换 Go 边界处的数据时至关重要，但在其他情况下使用时要小心。反射并非免费。为了演示，让我们使用反射来实现 `Filter`。你在 [“Generic
+    Functions Abstract Algorithms”](ch08.html#generic_functions) 中看过一个通用实现，但现在让我们看看基于反射的版本是什么样子：
 - en: '[PRE26]'
+  id: totrans-125
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE26]'
 - en: 'You use it like this:'
+  id: totrans-126
   prefs: []
   type: TYPE_NORMAL
+  zh: 你可以像这样使用它：
 - en: '[PRE27]'
+  id: totrans-127
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE27]'
 - en: 'This prints out the following:'
+  id: totrans-128
   prefs: []
   type: TYPE_NORMAL
+  zh: 这将打印出以下内容：
 - en: '[PRE28]'
+  id: totrans-129
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE28]'
 - en: 'Your reflection-using filter function isn’t difficult to understand, but it’s
     certainly longer than a custom-written or generic function. Let’s see how it performs
     on an Apple Silicon M1 with 16 GB of RAM on Go 1.20 when filtering 1,000 element
     slices of strings and `int`s, compared to custom-written functions:'
+  id: totrans-130
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用反射的过滤函数并不难理解，但它肯定比自定义编写的或通用函数更长。让我们看看在 Go 1.20 上，使用 16 GB RAM 的 Apple Silicon
+    M1，当过滤包含 1,000 个字符串和`int`元素的切片时，与自定义编写的函数相比它的表现如何：
 - en: '[PRE29]'
+  id: totrans-131
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE29]'
 - en: You can find this code in the *sample_code/reflection_filter* directory in the
     [Chapter 16 repository](https://oreil.ly/jAIdQ) so you can run it yourself.
+  id: totrans-132
   prefs: []
   type: TYPE_NORMAL
+  zh: 你可以在 [Chapter 16 repository](https://oreil.ly/jAIdQ) 的 *sample_code/reflection_filter*
+    目录中找到此代码，因此你可以自行运行它。
 - en: This benchmark demonstrates the value of using generics when you can. Reflection
     is over 50 times slower than a custom or generic function for string filtering
     and roughly 75 times slower for `int`s. It uses significantly more memory and
     performs thousands of allocations, which creates additional work for the garbage
     collector. The generic version provides the same performance as the custom-written
     functions without having to write multiple versions.
+  id: totrans-133
   prefs: []
   type: TYPE_NORMAL
+  zh: 此基准测试展示了在可以使用泛型时使用泛型的价值。反射的性能比自定义或通用函数慢 50 多倍，对于 `int` 来说大约慢 75 倍。它使用的内存显著更多，并执行数千次分配，这为垃圾收集器创建了额外工作。泛型版本提供了与自定义编写的函数相同的性能，而无需编写多个版本。
 - en: A more serious downside to the reflection implementation is that the compiler
     can’t stop you from passing in a wrong type for either the `slice` or the `filter`
     parameter. You might not mind a few thousand nanoseconds of CPU time, but if someone
     passes in a function or slice of the wrong type to `Filter`, your program will
     crash in production. The maintenance cost might be too high to accept.
+  id: totrans-134
   prefs: []
   type: TYPE_NORMAL
+  zh: 反射实现的一个更严重的缺点是，编译器无法阻止您为“切片”或“过滤器”参数传递错误类型。您可能不介意花费几千个纳秒的CPU时间，但如果有人向“过滤器”传递错误类型的函数或切片，则您的程序将在生产中崩溃。维护成本可能太高以致接受。
 - en: Some things can’t be written using generics, and you’ll need to fall back to
     reflection. CSV marshaling and unmarshaling requires reflection, as does the memoizing
     program. In both cases, you need to work with an unknown number of values of different
     (and unknown) types. But do make sure that reflection is essential before employing
     it.
+  id: totrans-135
   prefs: []
   type: TYPE_NORMAL
+  zh: 有些东西无法使用泛型编写，你需要回退到反射（reflection）机制。CSV的编组和解组需要反射，内存化程序也需要。在这两种情况下，你需要处理不同（和未知）类型的未知数量的值。但在使用反射之前，请确保它是必不可少的。
 - en: unsafe Is Unsafe
+  id: totrans-136
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: '`unsafe`即不安全'
 - en: Just as the `reflect` package allows you to manipulate types and values, the
     `unsafe` package allows you to manipulate memory. The `unsafe` package is very
     small and very odd. It defines several functions and one type, none of which act
     like the types and functions found in other packages.
+  id: totrans-137
   prefs: []
   type: TYPE_NORMAL
+  zh: 就像`reflect`包允许您操纵类型和值一样，`unsafe`包允许您操纵内存。`unsafe`包非常小，也非常奇怪。它定义了几个函数和一个类型，都不像其他包中的类型和函数。
 - en: 'Given Go’s focus on memory safety, you might wonder why `unsafe` even exists.
     Just as you used `reflect` to translate text data between the outside world and
     Go code, you use `unsafe` to translate binary data. There are two main reasons
     for using `unsafe`. A 2020 paper by Diego Elias Costa et al. called [“Breaking
     Type-Safety in Go: An Empirical Study on the Usage of the unsafe Package”](https://oreil.ly/N_6JX)
     surveyed 2,438 popular Go open source projects and found the following:'
+  id: totrans-138
   prefs: []
   type: TYPE_NORMAL
+  zh: '鉴于Go对内存安全的重视，你可能会想为什么`unsafe`还存在。就像你使用`reflect`在外部世界和Go代码之间转换文本数据一样，你使用`unsafe`来转换二进制数据。使用`unsafe`的两个主要原因。Diego
+    Elias Costa等人2020年的一篇论文名为[“Breaking Type-Safety in Go: An Empirical Study on the
+    Usage of the unsafe Package”](https://oreil.ly/N_6JX)调查了2,438个流行的Go开源项目，并发现了以下问题：'
 - en: 24% of the studied Go projects use `unsafe` at least once in their codebase.
+  id: totrans-139
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 在研究的Go项目中，有24%的项目至少在其代码库中使用了`unsafe`。
 - en: The majority of `unsafe` usages were motivated by integration with operating
     systems and C code.
+  id: totrans-140
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 大多数`unsafe`用途是为了与操作系统和C代码集成。
 - en: Developers frequently use `unsafe` to write more efficient Go code.
+  id: totrans-141
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 开发者经常使用`unsafe`来编写更高效的Go代码。
 - en: The plurality of the uses of `unsafe` are for system interoperability. The Go
     standard library uses `unsafe` to read data from and write data to the operating
     system. You can see examples in the `syscall` package in the standard library
     or in the higher-level [`sys` package](https://oreil.ly/ueHY3). You can learn
     more about how to use `unsafe` to communicate with the operating system in [a
     great blog post](https://oreil.ly/VtE1t) written by Matt Layher.
+  id: totrans-142
   prefs: []
   type: TYPE_NORMAL
+  zh: '`unsafe`的多数用途是用于系统互操作性。Go标准库使用`unsafe`从操作系统读取数据和向其写入数据。您可以在标准库的`syscall`包或更高级别的[`sys`包](https://oreil.ly/ueHY3)中看到示例。您可以通过Matt
+    Layher撰写的[一篇很棒的博文](https://oreil.ly/VtE1t)了解如何使用`unsafe`与操作系统通信的更多信息。'
 - en: 'The `unsafe.Pointer` type is a special type that exists for a single purpose:
     a pointer of any type can be converted to or from `unsafe.Pointer`. In addition
     to pointers, `unsafe.Pointer` can also be converted to or from a special integer
@@ -743,8 +1051,10 @@
     This allows you to walk into an instance of a type, extracting individual bytes.
     You can also perform pointer arithmetic, just as you can with pointers in C and
     C++. This byte manipulation changes the value of the variable.'
+  id: totrans-143
   prefs: []
   type: TYPE_NORMAL
+  zh: '`unsafe.Pointer`类型是一个特殊类型，只有一个目的：可以将任何类型的指针转换为或从`unsafe.Pointer`。除了指针之外，`unsafe.Pointer`还可以转换为或从特殊整数类型`uintptr`。与任何其他整数类型一样，您可以对其进行数学运算。这允许您进入类型的实例，提取单个字节。您还可以执行指针算术运算，就像在C和C++中可以对指针进行的一样。这种字节操作会改变变量的值。'
 - en: There are two common patterns in `unsafe` code. The first is a conversion between
     two types of variables that are normally not convertible. This is performed using
     a series of type conversions with `unsafe.Pointer` in the middle. The second is
@@ -753,17 +1063,23 @@
     the underlying bytes. Both of these techniques require you to know the size (and
     possibly the location) of the data being manipulated. The `Sizeof` and `Offsetof`
     functions in the `unsafe` package provide this information.
+  id: totrans-144
   prefs: []
   type: TYPE_NORMAL
+  zh: 在`unsafe`代码中存在两种常见模式。第一种是在通常不可转换的两种变量类型之间进行转换。这通过在中间使用`unsafe.Pointer`进行一系列类型转换来完成。第二种是通过将变量转换为`unsafe.Pointer`，然后将`unsafe.Pointer`转换为指针，以读取或修改变量中的字节，并复制或操作其基础字节。这两种技术都要求你了解正在操作的数据的大小（以及可能的位置）。`unsafe`包中的`Sizeof`和`Offsetof`函数提供了这些信息。
 - en: Using Sizeof and Offsetof
+  id: totrans-145
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 使用 `Sizeof` 和 `Offsetof`
 - en: Some of the functions in `unsafe` reveal how the bytes in various types are
     laid out in memory. The first one you’ll look at is `Sizeof`. As the name implies,
     it returns the size in bytes of whatever is passed into it.
+  id: totrans-146
   prefs: []
   type: TYPE_NORMAL
+  zh: '`unsafe`中的一些函数揭示了各种类型在内存中的布局方式。你将首先看到的是`Sizeof`。顾名思义，它返回传递给它的任何内容的字节大小。'
 - en: While the sizes for numeric types are fairly obvious (an `int16` is 16 bits
     or 2 bytes, a `byte` is 1 byte, and so on), other types are a bit more complicated.
     For a pointer, you get the size of the memory to store the pointer (usually 8
@@ -774,12 +1090,17 @@
     for length and a pointer to the contents of the string). Any `map` on a 64-bit
     system is 8 bytes, since within the Go runtime, a `map` is implemented as a pointer
     to a rather complicated data structure.
+  id: totrans-147
   prefs: []
   type: TYPE_NORMAL
+  zh: 尽管数值类型的大小相对明显（比如`int16`是16位或2字节，`byte`是1字节等），其他类型就复杂一些了。对于指针而言，你得到的是用于存储指针的内存大小（在64位系统上通常为8字节），而不是指针指向的数据的大小。这就是为什么在64位系统上，`Sizeof`
+    认为任何切片的长度为24字节；它实际上由两个`int`字段（用于长度和容量）和指向切片数据的指针组成。在64位系统上，任何字符串的长度为16字节（包括一个长度`int`和指向字符串内容的指针）。在64位系统上，任何`map`都是8字节，因为在Go运行时中，`map`被实现为指向一个相当复杂的数据结构的指针。
 - en: Arrays are value types, so their size is calculated by multiplying the length
     of the array by the size of each element in the array.
+  id: totrans-148
   prefs: []
   type: TYPE_NORMAL
+  zh: 数组是值类型，因此其大小通过将数组长度乘以数组中每个元素的大小来计算。
 - en: For a struct, the size is the sum of the sizes of the fields, plus some adjustments
     for *alignment*. Computers like to read and write data in regular-sized chunks
     and they really don’t want a value to start in one chunk and end in another. To
@@ -787,146 +1108,220 @@
     The compiler also wants the entire struct to be properly aligned. On a 64-bit
     system, it will add padding at the end of the struct to bring its size up to a
     multiple of 8 bytes.
+  id: totrans-149
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于结构体而言，其大小是字段大小的总和，加上*对齐*的一些调整。计算机喜欢以固定大小的块读写数据，而且它们确实不希望一个值从一个块开始到另一个块结束。为了实现这一点，编译器在字段之间添加填充，以便它们正确对齐。编译器还希望整个结构体能够正确对齐。在64位系统上，它将在结构体末尾添加填充，使其大小达到8字节的倍数。
 - en: 'Another function in `unsafe`, `Offsetof`, tells you the position of a field
     within a struct. Let’s use `Sizeof` and `Offsetof` to look at the effects of field
     order on the size of a struct. Say you have two structs:'
+  id: totrans-150
   prefs: []
   type: TYPE_NORMAL
+  zh: '`unsafe`中的另一个函数`Offsetof`告诉您结构体中字段的位置。让我们使用`Sizeof`和`Offsetof`来看看字段顺序对结构体大小的影响。假设你有两个结构体：'
 - en: '[PRE30]'
+  id: totrans-151
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE30]'
 - en: Running this code
+  id: totrans-152
   prefs: []
   type: TYPE_NORMAL
+  zh: 运行这段代码
 - en: '[PRE31]'
+  id: totrans-153
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE31]'
 - en: 'produces the following output:'
+  id: totrans-154
   prefs: []
   type: TYPE_NORMAL
+  zh: 产生以下输出：
 - en: '[PRE32]'
+  id: totrans-155
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE32]'
 - en: The size of both types is 16 bytes. When the `bool` comes first, the compiler
     puts 7 bytes of padding between `b` and `i`. When the `int64` comes first, the
     compiler puts 7 bytes of padding after `b` to make the struct’s size a multiple
     of 8 bytes.
+  id: totrans-156
   prefs: []
   type: TYPE_NORMAL
+  zh: 两种类型的大小都是16字节。当`bool`放在前面时，编译器在`b`和`i`之间放置7字节的填充。当`int64`放在前面时，编译器在`b`后面放置7字节的填充，以使结构体的大小成为8字节的倍数。
 - en: 'You can see the effect of field order when there are more fields:'
+  id: totrans-157
   prefs: []
   type: TYPE_NORMAL
+  zh: 当存在更多字段时，你可以看到字段顺序的影响：
 - en: '[PRE33]'
+  id: totrans-158
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE33]'
 - en: 'Printing out the sizes and offsets for these types produces the following output:'
+  id: totrans-159
   prefs: []
   type: TYPE_NORMAL
+  zh: 打印出这些类型的大小和偏移量将产生以下输出：
 - en: '[PRE34]'
+  id: totrans-160
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE34]'
 - en: Putting the `int64` field between the two `bool` fields produces a struct that’s
     24 bytes long, since both `bool` fields need to be padded to 8 bytes. Meanwhile,
     grouping the `bool` fields together produces a struct that’s 16 bytes long, the
     same as the structs with only two fields. You can validate this on [The Go Playground](https://oreil.ly/1X9--)
     or in the *sample_code/sizeof_offsetof* directory in the [Chapter 16 repository](https://oreil.ly/jAIdQ).
+  id: totrans-161
   prefs: []
   type: TYPE_NORMAL
+  zh: 将`int64`字段放在两个`bool`字段之间会产生一个24字节长的结构体，因为两个`bool`字段需要填充为8字节。而将`bool`字段分组在一起会产生一个16字节长的结构体，与仅有两个字段的结构体相同。你可以在[The
+    Go Playground](https://oreil.ly/1X9--)或[第16章代码库](https://oreil.ly/jAIdQ)的*sample_code/sizeof_offsetof*目录中验证这一点。
 - en: Although only of academic interest most of the time, this information is useful
     in two situations. The first is in programs that manage large amounts of data.
     You can sometimes achieve significant savings in memory usage simply by reordering
     the fields in heavily used structs in order to minimize the amount of padding
     needed for alignment.
+  id: totrans-162
   prefs: []
   type: TYPE_NORMAL
+  zh: 虽然大部分时间仅仅是学术兴趣，但这些信息在两种情况下都很有用。第一种情况是在管理大量数据的程序中。有时，通过重新排列结构体中经常使用的字段的顺序，以尽量减少对齐所需的填充量，可以显著节省内存使用。
 - en: The second situation occurs when you want to map a sequence of bytes directly
     into a struct. You’ll look at that next.
+  id: totrans-163
   prefs: []
   type: TYPE_NORMAL
+  zh: 第二种情况发生在你想要直接将一系列字节映射到一个结构体时。接下来你会看到这个情况。
 - en: Using unsafe to Convert External Binary Data
+  id: totrans-164
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 使用unsafe转换外部二进制数据
 - en: 'As was mentioned earlier, one of the main reasons people use `unsafe` is for
     performance, especially when reading data from a network. If you want to map the
     data into or out of a Go data structure, `unsafe.Pointer` gives you a very fast
     way to do so. You can explore this with a contrived example. Imagine a *wire protocol*
     (a specification indicating which bytes are written in which order when communicating
     over a network) with the following structure:'
+  id: totrans-165
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如前面提到的，人们使用`unsafe`的主要原因之一是为了性能，特别是在从网络读取数据时。如果你想将数据映射到或从Go数据结构中映射出来，`unsafe.Pointer`提供了一种非常快速的方式。你可以通过一个构造的例子来探索这一点。想象一个*wire
+    protocol*（一个规范，指示在网络通信时以哪种顺序写入哪些字节）具有以下结构：
 - en: 'Value: 4 bytes, representing an unsigned, big-endian 32-bit int'
+  id: totrans-166
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 'Value: 4 字节，表示无符号的大端 32 位整数'
 - en: 'Label: 10 bytes, ASCII name for the value'
+  id: totrans-167
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 'Label: 10 字节，值的ASCII名称'
 - en: 'Active: 1 byte, boolean flag to indicate whether the field is active'
+  id: totrans-168
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 'Active: 1 字节，布尔标志，指示字段是否激活'
 - en: 'Padding: 1 byte, because you want everything to fit into 16 bytes'
+  id: totrans-169
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 'Padding: 1 字节，因为你希望所有内容都适应16字节'
 - en: Note
+  id: totrans-170
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: Data sent over a network is usually sent in big-endian format (most significant
     bytes first), often called *network byte order*. Since most CPUs in use today
     are little-endian (or bi-endian running in little-endian mode), you need to be
     careful when reading or writing data to a network.
+  id: totrans-171
   prefs: []
   type: TYPE_NORMAL
+  zh: 通过网络发送的数据通常以大端格式发送（最重要的字节先），通常称为*network byte order*。由于今天使用的大多数CPU都是小端（或以小端模式运行的双端），因此在读取或写入数据到网络时需要小心。
 - en: The code for this example is in the *sample_code/unsafe_data* directory in the
     [Chapter 16 repository](https://oreil.ly/jAIdQ).
+  id: totrans-172
   prefs: []
   type: TYPE_NORMAL
+  zh: 这个例子的代码位于[第16章代码库](https://oreil.ly/jAIdQ)中的*sample_code/unsafe_data*目录中。
 - en: 'You define a data structure whose in-memory layout matches the wire protocol:'
+  id: totrans-173
   prefs: []
   type: TYPE_NORMAL
+  zh: 你定义一个数据结构，其内存布局与wire protocol匹配：
 - en: '[PRE35]'
+  id: totrans-174
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE35]'
 - en: 'You use `unsafe.Sizeof` to define a constant that represents its size:'
+  id: totrans-175
   prefs: []
   type: TYPE_NORMAL
+  zh: 你可以使用`unsafe.Sizeof`定义一个代表其大小的常量：
 - en: '[PRE36]'
+  id: totrans-176
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE36]'
 - en: (One of the weird things about `unsafe.Sizeof` and `Offsetof` is that you can
     use them in `const` expressions. The size and layout of a data structure in memory
     is known at compile time, so the results of these functions are calculated at
     compile time, just like a constant expression.)
+  id: totrans-177
   prefs: []
   type: TYPE_NORMAL
+  zh: （关于`unsafe.Sizeof`和`Offsetof`的奇怪之处之一是，你可以在`const`表达式中使用它们。数据结构在内存中的大小和布局在编译时已知，因此这些函数的结果在编译时计算，就像一个常量表达式一样。）
 - en: 'Say you just read the following bytes off the network:'
+  id: totrans-178
   prefs: []
   type: TYPE_NORMAL
+  zh: 假设你刚刚从网络上读取了以下字节：
 - en: '[PRE37]'
+  id: totrans-179
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE37]'
 - en: You’re going to read these bytes into an array of length 16 and then convert
     that array into the `struct` described previously.
+  id: totrans-180
   prefs: []
   type: TYPE_NORMAL
+  zh: 你将把这些字节读入长度为16的数组中，然后将该数组转换为前面描述的`struct`。
 - en: 'With safe Go code, you could map it like this:'
+  id: totrans-181
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用安全的Go代码，你可以这样映射它：
 - en: '[PRE38]'
+  id: totrans-182
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE38]'
 - en: 'Or, you could use `unsafe.Pointer` instead:'
+  id: totrans-183
   prefs: []
   type: TYPE_NORMAL
+  zh: 或者，你可以使用`unsafe.Pointer`代替：
 - en: '[PRE39]'
+  id: totrans-184
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE39]'
 - en: The first line is a little confusing, but you can take it apart and understand
     what’s going on. First, you take the address of the byte array and convert it
     to an `unsafe.Pointer`. Then you convert the `unsafe.Pointer` to a `(*Data)` (you
@@ -934,114 +1329,164 @@
     want to return the struct, not a pointer to it, so you dereference the pointer.
     Next, you check your flag to see if you are on a little-endian platform. If so,
     you reverse the bytes in the `Value` field. Finally, you return the value.
+  id: totrans-185
   prefs: []
   type: TYPE_NORMAL
+  zh: 第一行有点令人困惑，但你可以分开来理解发生了什么。首先，你获取字节数组的地址并将其转换为`unsafe.Pointer`。然后将`unsafe.Pointer`转换为`(*Data)`（由于Go的操作顺序，你必须将`(*Data)`放在括号中）。你想要返回结构体而不是指向它的指针，因此你对指针进行解引用。接下来，你检查标志来看你是否处于小端平台。如果是，你会反转`Value`字段中的字节。最后，你返回该值。
 - en: Note
+  id: totrans-186
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注
 - en: 'Why did you use an array instead of a slice for the parameter? Remember, arrays,
     like structs, are value types; the bytes are allocated directly. That means you
     can map the values in `b` directly into the `data` struct. A slice is composed
     of three parts: a length, a capacity, and a pointer to the actual values. You’ll
     see how to map a slice into a struct using `unsafe` in a bit.'
+  id: totrans-187
   prefs: []
   type: TYPE_NORMAL
+  zh: 为什么你在参数上使用数组而不是切片？记住，数组和结构体一样，都是值类型；字节直接分配。这意味着你可以直接将`b`中的值映射到`data`结构体中。切片由三部分组成：长度、容量和指向实际值的指针。稍后你会看到如何使用`unsafe`将切片映射到结构体中。
 - en: 'How do you know if you are on a little-endian platform? Here’s the code you’re
     using:'
+  id: totrans-188
   prefs: []
   type: TYPE_NORMAL
+  zh: 你怎么知道你在小端平台上？这是你正在使用的代码：
 - en: '[PRE40]'
+  id: totrans-189
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE40]'
 - en: As I discussed in [“Avoiding the init Function if Possible”](ch10.html#pkg_init),
     you should avoid using `init` functions, except when initializing a package-level
     value whose value is effectively immutable. Since the endianness of your processor
     isn’t going to change while your program is running, this is a good use case.
+  id: totrans-190
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如我在[“尽可能避免使用init函数”](ch10.html#pkg_init)中所讨论的，除了初始化包级别的值（其值实际上是不可变的）之外，你应该避免使用`init`函数。由于处理器的字节序在程序运行时不会改变，这是一个很好的使用情况。
 - en: On a little-endian platform, the bytes that represent `x` will be stored as
     [00 FF]. On a big-endian platform, `x` is stored in memory as [FF 00]. You use
     `unsafe.Pointer` to convert a number to an array of bytes, and you check what
     the first byte is to determine the value of `isLE`.
+  id: totrans-191
   prefs: []
   type: TYPE_NORMAL
+  zh: 在小端平台上，表示`x`的字节将存储为[00 FF]。在大端平台上，`x`存储在内存中为[FF 00]。你使用`unsafe.Pointer`将数字转换为字节数组，并检查第一个字节来确定`isLE`的值。
 - en: 'Likewise, if you wanted to write your `Data` back to the network, you could
     use safe Go:'
+  id: totrans-192
   prefs: []
   type: TYPE_NORMAL
+  zh: 同样，如果你想将你的`Data`写回网络，你可以使用安全的Go：
 - en: '[PRE41]'
+  id: totrans-193
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE41]'
 - en: 'Or you could use `unsafe`:'
+  id: totrans-194
   prefs: []
   type: TYPE_NORMAL
+  zh: 或者你可以使用`unsafe`：
 - en: '[PRE42]'
+  id: totrans-195
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE42]'
 - en: 'If the bytes are stored in a slice, you can use the `unsafe.Slice` function
     to create a slice from the contents of `Data`. The `unsafe.SliceData` function
     is used to create a `Data` instance from the data stored in a slice:'
+  id: totrans-196
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果字节存储在切片中，你可以使用`unsafe.Slice`函数从`Data`的内容创建一个切片。`unsafe.SliceData`函数用于从切片中存储的数据创建`Data`实例：
 - en: '[PRE43]'
+  id: totrans-197
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE43]'
 - en: The first parameter to `unsafe.Slice` requires two casts. The first cast converts
     a pointer of the `Data` instance to an `unsafe.Pointer`. Then you need to cast
     again to a pointer of the type of data that you want the slice to hold. For a
     slice of bytes, you use `*byte`. The second parameter is the length of the data.
+  id: totrans-198
   prefs: []
   type: TYPE_NORMAL
+  zh: '`unsafe.Slice`的第一个参数需要两次转换。第一次转换将`Data`实例的指针转换为`unsafe.Pointer`。然后你需要再次转换为你想要切片保存的数据类型的指针。对于字节切片，你使用`*byte`。第二个参数是数据的长度。'
 - en: The `unsafe.SliceData` function takes in a slice and returns a pointer to the
     type of the data contained in the slice. In this case, you passed in a `[]byte`,
     so it returned a `*byte`. You then use `unsafe.Pointer` as a bridge between `*byte`
     and `*Data` to convert the contents of the slice into a `Data` instance.
+  id: totrans-199
   prefs: []
   type: TYPE_NORMAL
+  zh: '`unsafe.SliceData`函数接受一个切片并返回指向切片中数据类型的指针。在本例中，你传入了`[]byte`，它返回一个`*byte`。然后你使用`unsafe.Pointer`作为`*byte`和`*Data`之间的桥梁，将切片的内容转换为`Data`实例。'
 - en: 'Is this worth it? Here are the timings on an Apple Silicon M1 (which is little-endian):'
+  id: totrans-200
   prefs: []
   type: TYPE_NORMAL
+  zh: 在 Apple Silicon M1（小端）上的计时情况如何？
 - en: '[PRE44]'
+  id: totrans-201
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE44]'
 - en: Two things stand out in this chart. First, the conversion from a struct to a
     slice is by far the slowest operation, and it’s the only one that allocates memory.
     This isn’t surprising, since the slice’s data needs to escape to the heap when
     it is returned from the function. Allocating memory on the heap is almost always
     slower than using memory on the stack. Converting from a slice to a struct is
     very fast, though.
+  id: totrans-202
   prefs: []
   type: TYPE_NORMAL
+  zh: 这张图中有两件事情很突出。首先，从结构体到切片的转换明显是最慢的操作，而且它是唯一分配内存的操作。这并不奇怪，因为切片的数据需要在返回函数时逃逸到堆上。在堆上分配内存几乎总是比在栈上使用内存慢。不过，从切片到结构体的转换非常快。
 - en: If you are working with arrays, using `unsafe` is about 2–2.5 times faster than
     the standard approach. If you have a program with many of these kinds of conversions,
     or if you are trying to map a very large and complicated data structure, using
     these low-level techniques is worthwhile. But for the vast majority of programs,
     stick with the safe code.
+  id: totrans-203
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果你正在处理数组，使用`unsafe`比标准方法快约2到2.5倍。如果你的程序有许多这种类型的转换，或者你尝试映射一个非常大且复杂的数据结构，使用这些低级技术是值得的。但对于绝大多数程序来说，请坚持使用安全的代码。
 - en: Accessing Unexported Fields
+  id: totrans-204
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 访问未导出的字段
 - en: Here’s another bit of magic you can do with `unsafe`, but it’s something to
     use only as a last resort. You can combine reflection and `unsafe` to read and
     modify unexported fields in structs. Let’s see how.
+  id: totrans-205
   prefs: []
   type: TYPE_NORMAL
+  zh: 这里有另一种你可以使用`unsafe`的魔法，但这只能作为最后的手段使用。你可以结合反射和`unsafe`来读取和修改结构体中未导出的字段。让我们看看怎么做。
 - en: 'First, define a struct in one package:'
+  id: totrans-206
   prefs: []
   type: TYPE_NORMAL
+  zh: 首先，在一个包中定义一个结构体：
 - en: '[PRE45]'
+  id: totrans-207
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE45]'
 - en: 'Normally, code outside this package is unable to access `b`. However, let’s
     see what you can do from another package by using `unsafe`:'
+  id: totrans-208
   prefs: []
   type: TYPE_NORMAL
+  zh: 通常，该包外的代码无法访问`b`。然而，让我们看看通过使用`unsafe`你能从另一个包中做些什么：
 - en: '[PRE46]'
+  id: totrans-209
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE46]'
 - en: You use reflection to access type information about field `b`. The `FieldByName`
     method returns a `reflect.StructField` instance for any field on a struct, even
     unexported ones. The instance includes the offset of its associated field. You
@@ -1051,81 +1496,119 @@
     a `*bool`. Now you can read the value of `b` or set its value. You can try out
     this code in the *sample_code/unexported_field_access* directory in the [Chapter
     16 repository](https://oreil.ly/jAIdQ).
+  id: totrans-210
   prefs: []
   type: TYPE_NORMAL
+  zh: 你可以使用反射访问字段`b`的类型信息。`FieldByName`方法为结构体上的任何字段返回一个`reflect.StructField`实例，即使是未导出的字段也可以。该实例包括其关联字段的偏移量。然后，你将`huf`转换为`unsafe.Pointer`，并使用`unsafe.Add`方法将偏移量添加到指针中，以找到结构体中`b`的位置。最后，将`Add`返回的`unsafe.Pointer`强制转换为`*bool`。现在，你可以读取`b`的值或设置其值。你可以在[第16章的代码库](https://oreil.ly/jAIdQ)的*sample_code/unexported_field_access*目录中尝试此代码。
 - en: Using unsafe Tools
+  id: totrans-211
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 使用不安全工具
 - en: Go is a language that values tooling, and a compiler flag can help you find
     misuse of `Pointer` and `unsafe.Pointer`. Run your code with the flag `-gcflags=-d=checkptr`
     to add additional checks at runtime. Like the race checker, it’s not guaranteed
     to find every `unsafe` problem and it does slow your program. However, it’s a
     good practice while testing your code.
+  id: totrans-212
   prefs: []
   type: TYPE_NORMAL
+  zh: Go是一个重视工具的语言，编译器标志可以帮助你找到`Pointer`和`unsafe.Pointer`的误用。使用标志`-gcflags=-d=checkptr`在运行时添加额外的检查。与竞态检查器一样，它不能保证找到每一个`unsafe`问题，并且会减慢你的程序。然而，在测试代码时这是一个良好的实践。
 - en: If you want to learn more about `unsafe`, read through the package [documentation](https://oreil.ly/xmihF).
+  id: totrans-213
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果你想了解更多关于`unsafe`的内容，请阅读[文档](https://oreil.ly/xmihF)。
 - en: Warning
+  id: totrans-214
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 警告
 - en: The `unsafe` package is powerful and low-level! Avoid using it unless you know
     what you are doing and you need the performance improvements that it provides.
+  id: totrans-215
   prefs: []
   type: TYPE_NORMAL
+  zh: '`unsafe`包非常强大且底层！除非你知道你在做什么并且需要它提供的性能改进，否则请避免使用它。'
 - en: Cgo Is for Integration, Not Performance
+  id: totrans-216
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: Cgo是用于集成，而非性能优化
 - en: Just like reflection and `unsafe`, `cgo` is most useful at the border between
     Go programs and the outside world. Reflection helps integrate with external textual
     data, `unsafe` is best used with operating system and network data, and `cgo`
     is best for integrating with C libraries.
+  id: totrans-217
   prefs: []
   type: TYPE_NORMAL
+  zh: 就像反射和`unsafe`一样，`cgo`在Go程序与外界之间的边界上最为有用。反射帮助集成外部文本数据，`unsafe`最适用于操作系统和网络数据，而`cgo`则适合与C库集成。
 - en: Despite being nearly 50 years old, C is still the *lingua franca* of programming
     languages. All the major operating systems are primarily written in either C or
     C++, which means that they are bundled with libraries written in C. It also means
     that nearly every programming language provides a way to integrate with C libraries.
     Go calls its foreign function interface (FFI) to C `cgo`.
+  id: totrans-218
   prefs: []
   type: TYPE_NORMAL
+  zh: 尽管已经接近 50 年的历史，C 仍然是编程语言的*通用语言*。所有主要操作系统主要都是用 C 或 C++ 编写的，这意味着它们捆绑了用 C 编写的库。这也意味着几乎每种编程语言都提供了一种与
+    C 库集成的方式。Go 将其对 C 的外部函数接口（FFI）称为 `cgo`。
 - en: As you have seen many times, Go is a language that favors explicit specification.
     Go developers sometimes deride automatic behaviors in other languages as “magic.”
     However, using `cgo` feels a bit like spending time with Merlin. Let’s take a
     look at this magical glue code.
+  id: totrans-219
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如你已经多次看到的那样，Go 是一种偏爱显式规范的语言。Go 开发人员有时会嘲笑其他语言中的自动行为为“魔法”。然而，使用`cgo`有点像与梅林共度时光。让我们来看看这段神奇的粘合代码。
 - en: 'You’ll start with a very simple program that calls C code to do some math.
     The source code is in GitHub in the *sample_code/call_c_from_go* directory in
     the [Chapter 16 repository](https://oreil.ly/jAIdQ). First, here’s the code in
     *main.go*:'
+  id: totrans-220
   prefs: []
   type: TYPE_NORMAL
+  zh: 你将从一个非常简单的程序开始，调用 C 代码来进行一些数学运算。源代码在 GitHub 的 *sample_code/call_c_from_go* 目录中，在[第
+    16 章存储库](https://oreil.ly/jAIdQ)中。首先，这是 *main.go* 中的代码：
 - en: '[PRE47]'
+  id: totrans-221
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE47]'
 - en: 'The *mylib.h* header is in the same directory as your *main.go*:'
+  id: totrans-222
   prefs: []
   type: TYPE_NORMAL
+  zh: '*mylib.h* 头文件与你的 *main.go* 在同一个目录中：'
 - en: '[PRE48]'
+  id: totrans-223
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE48]'
 - en: 'There is also *mylib.c*:'
+  id: totrans-224
   prefs: []
   type: TYPE_NORMAL
+  zh: 还有一个 *mylib.c*：
 - en: '[PRE49]'
+  id: totrans-225
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE49]'
 - en: 'Assuming you have a C compiler installed on your computer, all you need to
     do is compile your program with `go build`:'
+  id: totrans-226
   prefs: []
   type: TYPE_NORMAL
+  zh: 假设你的计算机上已安装了 C 编译器，你只需使用`go build`编译你的程序：
 - en: '[PRE50]'
+  id: totrans-227
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE50]'
 - en: What’s going on here? The standard library doesn’t have a real package named
     `C`. Instead, `C` is an automatically generated package whose identifiers mostly
     come from the C code embedded in the comments that immediately precede it. In
@@ -1134,76 +1617,116 @@
     variables that are imported into the comment block from libraries via header files,
     as you can see when you call `C.sqrt` from `main` (imported from *math.h*) or
     `C.multiply` (imported from *mylib.h*).
+  id: totrans-228
   prefs: []
   type: TYPE_NORMAL
+  zh: 这里发生了什么？标准库中没有一个真正的名为`C`的包。相反，`C` 是一个自动生成的包，其标识符大多来自于紧随其后的注释中嵌入的 C 代码。在这个例子中，你声明了一个名为`add`的
+    C 函数，`cgo`将其作为`C.add`的名称提供给你的 Go 程序。你还可以调用通过头文件从库中导入到注释块中的函数或全局变量，就像你从`main`中调用`C.sqrt`（从
+    *math.h* 导入）或`C.multiply`（从 *mylib.h* 导入）时所看到的那样。
 - en: In addition to the identifier names that appear in the comment block (or are
     imported into the comment block), the `C` pseudopackage also defines types like
     `C.int` and `C.char` to represent the built-in C types and functions, such as
     `C.CString` to convert a Go string to a C string.
+  id: totrans-229
   prefs: []
   type: TYPE_NORMAL
+  zh: 除了出现在注释块中的标识符名称（或被导入到注释块中的名称）外，`C` 伪包还定义了像`C.int`和`C.char`这样的类型，用于表示内置的 C 类型和函数，比如`C.CString`用于将
+    Go 字符串转换为 C 字符串。
 - en: 'You can use more magic to call Go functions from C functions. Go functions
     can be exposed to C code by putting an `//export` comment before the function.
     You can see this in use in the *sample_code/call_go_from_c* directory in the [Chapter
     16 repository](https://oreil.ly/jAIdQ). In *main.go*, you export the doubler function:'
+  id: totrans-230
   prefs: []
   type: TYPE_NORMAL
+  zh: 你可以使用更多的魔法来从 C 函数调用 Go 函数。通过在函数前放置一个`//export`注释，可以将 Go 函数暴露给 C 代码。你可以在[第 16
+    章存储库](https://oreil.ly/jAIdQ)的 *sample_code/call_go_from_c* 目录中看到这种用法。在 *main.go*
+    中，你导出了 doubler 函数：
 - en: '[PRE51]'
+  id: totrans-231
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE51]'
 - en: 'When you export a Go function, you can no longer write C code directly in the
     comment before the `import "C"` statement. You can only list function headers:'
+  id: totrans-232
   prefs: []
   type: TYPE_NORMAL
+  zh: 当你导出一个 Go 函数时，在`import "C"`语句之前的注释中就不能再直接编写 C 代码了。你只能列出函数头部：
 - en: '[PRE52]'
+  id: totrans-233
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE52]'
 - en: 'Put your C code into a *.c* file in the same directory as your Go code and
     include the magic header `"cgo_export.h"`. You can see this in the *example.c*
     file:'
+  id: totrans-234
   prefs: []
   type: TYPE_NORMAL
+  zh: 将你的 C 代码放入与你的 Go 代码相同目录的一个 *.c* 文件中，并包含神奇的头文件`"cgo_export.h"`。你可以在 *example.c*
+    文件中看到这一点：
 - en: '[PRE53]'
+  id: totrans-235
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE53]'
 - en: 'Running this program with `go build` give the following output:'
+  id: totrans-236
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用`go build`运行这个程序会得到以下输出：
 - en: '[PRE54]'
+  id: totrans-237
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE54]'
 - en: 'So far, this seems pretty simple, but one major stumbling block arises when
     using `cgo`: Go is a garbage-collected language, and C is not. This makes it difficult
     to integrate nontrivial Go code with C. While you can pass a pointer into C code,
     you cannot directly pass something that contains a pointer. This is very limiting,
     as things like strings, slices, and functions are implemented with pointers and
     therefore cannot be contained in a struct passed into a C function.'
+  id: totrans-238
   prefs: []
   type: TYPE_NORMAL
+  zh: 到目前为止，这似乎很简单，但在使用`cgo`时会遇到一个主要的障碍：Go是一种垃圾收集语言，而C不是。这使得将复杂的Go代码与C集成变得困难。虽然你可以将指针传递给C代码，但不能直接传递包含指针的东西。这是非常限制性的，因为像字符串、切片和函数这样的东西都是用指针实现的，因此不能包含在传递给C函数的结构体中。
 - en: 'That’s not all: a C function cannot store a copy of a Go pointer that lasts
     after the function returns. If you break these rules, your program will compile
     and run, but it may crash or behave incorrectly at runtime when the memory pointed
     to by the pointer is garbage collected.'
+  id: totrans-239
   prefs: []
   type: TYPE_NORMAL
+  zh: 这还不是全部：C函数不能存储在函数返回后持续存在的Go指针的副本。如果你违反了这些规则，你的程序会编译和运行，但在指针指向的内存被垃圾收集时可能会崩溃或表现不正确。
 - en: If you find yourself needing to pass an instance of a type that contains a pointer
     from Go to C and then back into Go, you can use a `cgo.Handle` to wrap the instance.
     Here’s a short example. You can find the source code in the *sample_code/handle*
     directory in the [Chapter 16 repository](https://oreil.ly/jAIdQ).
+  id: totrans-240
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果你发现自己需要从Go向C传递包含指针的类型实例，然后再次返回到Go，你可以使用`cgo.Handle`来包装该实例。这里有一个简短的示例。你可以在[第16章的代码库](https://oreil.ly/jAIdQ)的*sample_code/handle*目录中找到源代码。
 - en: 'First you have your Go code:'
+  id: totrans-241
   prefs: []
   type: TYPE_NORMAL
+  zh: 首先是你的Go代码：
 - en: '[PRE55]'
+  id: totrans-242
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE55]'
 - en: 'And this is the C code:'
+  id: totrans-243
   prefs: []
   type: TYPE_NORMAL
+  zh: 这是C代码：
 - en: '[PRE56]'
+  id: totrans-244
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE56]'
 - en: In the Go code, you’re passing a `Person` instance into the C function `in_c`.
     This function in turn calls the Go function `processor`. You can’t safely pass
     a `Person` into C via `cgo`, because one of its fields is a `string`, and every
@@ -1216,20 +1739,26 @@
     then uses a type assertion to convert the `Handle` to a `Person` instance. You
     print out the fields in `p`. Now that you are done using the `Handle`, you call
     the `Delete` method to delete it.
+  id: totrans-245
   prefs: []
   type: TYPE_NORMAL
+  zh: 在这段Go代码中，你将一个`Person`实例传递给C函数`in_c`。然后这个函数调用Go函数`processor`。通过`cgo`安全地将`Person`传递给C是不可能的，因为它的字段之一是一个`string`，而每个`string`都包含一个指针。为了使这个工作正常，使用`cgo.NewHandle`函数将`p`转换为`cgo.Handle`。然后将`Handle`转换为`C.uintptr_t`类型，以便将其传递给C函数`in_c`。该函数接受一个类型为`uintptr_t`的单一参数，这是一个类似于Go的`uintptr`类型的C类型。`in_c`函数调用Go函数`process`，也接受一个类型为`C.uintptr_t`的单一参数。它将此参数转换为`cgo.Handle`，然后使用类型断言将`Handle`转换为`Person`实例。你打印出`p`中的字段。现在你使用完`Handle`后，调用`Delete`方法来删除它。
 - en: In addition to working with pointers, other `cgo` limitations exist. For example,
     you cannot use `cgo` to call a variadic C function (such as `printf`). Union types
     in C are converted into byte arrays. And you cannot invoke a C function pointer
     (but you can assign it to a Go variable and pass it back into a C function).
+  id: totrans-246
   prefs: []
   type: TYPE_NORMAL
+  zh: 除了处理指针之外，还存在其他`cgo`的限制。例如，你不能使用`cgo`调用可变参数的C函数（比如`printf`）。C中的联合类型转换为字节数组。你不能调用C函数指针（但可以将其分配给一个Go变量并将其传递回C函数）。
 - en: These rules make using `cgo` nontrivial. If you have a background in Python
     or Ruby, you might think that using `cgo` is worth it for performance reasons.
     Those developers write the performance-critical parts of their programs in C.
     The speed of NumPy is due to the C libraries that are wrapped by Python code.
+  id: totrans-247
   prefs: []
   type: TYPE_NORMAL
+  zh: 这些规则使得使用`cgo`并不简单。如果你有Python或Ruby的背景，你可能认为出于性能原因使用`cgo`是值得的。这些开发者将其程序的性能关键部分写在C中。NumPy的速度归功于Python代码封装的C库。
 - en: In most cases, Go code is many times faster than Python or Ruby, so the need
     to rewrite algorithms in a lower-level language is greatly reduced. You might
     think that you could save `cgo` for those situations when you do need additional
@@ -1237,45 +1766,62 @@
     difficult. Because of the mismatches in the processing and memory models, calling
     a C function from Go is roughly 29 times slower than a C function calling another
     C function.
+  id: totrans-248
   prefs: []
   type: TYPE_NORMAL
+  zh: 在大多数情况下，Go 代码比Python或Ruby快几倍，因此大大减少了需要用低级语言重写算法的必要性。你可能会认为在需要额外性能提升时可以保存`cgo`，但不幸的是，使用`cgo`使代码加速并不容易。由于处理和内存模型的不匹配，从Go调用C函数比从C函数调用另一个C函数慢大约29倍。
 - en: At CapitalGo 2018, Filippo Valsorda gave a talk, called “Why cgo is slow.” Unfortunately,
     the talk wasn’t recorded, but [slides are available](https://oreil.ly/MLRFY).
     They explain why `cgo` is slow and why it will not be made appreciably faster
     in the future. In his blog post [“CGO Performance in Go 1.21,”](https://oreil.ly/AoCDG)
     Shane Hansen measured the overhead of a `cgo` call in Go 1.21 at roughly 40ns
     on an Intel Core i7-12700H.
+  id: totrans-249
   prefs: []
   type: TYPE_NORMAL
+  zh: 在CapitalGo 2018年，Filippo Valsorda发表了名为“为什么cgo很慢”的演讲。不幸的是，演讲没有录制，但[幻灯片可用](https://oreil.ly/MLRFY)。它们解释了为什么`cgo`很慢以及为什么未来不会显著加快其速度。在他的博客文章[“Go
+    1.21中CGO性能”](https://oreil.ly/AoCDG)中，Shane Hansen测量了在Intel Core i7-12700H上使用Go
+    1.21进行`cgo`调用的开销大约为40纳秒。
 - en: Tip
+  id: totrans-250
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 提示
 - en: Since `cgo` isn’t fast, and it isn’t easy to use for nontrivial programs, the
     only reason to use `cgo` is if you must use a C library and there is no suitable
     Go replacement. Rather than writing `cgo` yourself, see if a third-party module
     already provides the wrapper. For example, if you want to embed SQLite in a Go
     application, look at [GitHub](https://oreil.ly/IEskN). For ImageMagick, check
     out [this repository](https://oreil.ly/l58-1).
+  id: totrans-251
   prefs: []
   type: TYPE_NORMAL
+  zh: 由于`cgo`速度不快，且对于复杂程序不易使用，使用`cgo`的唯一理由是必须使用C库且没有适当的Go替代品。与其自己编写`cgo`，不如看看是否有第三方模块提供了包装器。例如，如果要在Go应用程序中嵌入SQLite，请查看[GitHub](https://oreil.ly/IEskN)。对于ImageMagick，请查看[此存储库](https://oreil.ly/l58-1)。
 - en: If you find yourself needing to use an internal C library or third-party library
     that doesn’t have a wrapper, you can find [additional details](https://oreil.ly/9JvNI)
     on how to write your integration in the Go documentation. For information on the
     sorts of performance and design trade-offs that you are likely to encounter when
     using `cgo`, read Tobias Grieger’s blog post called [“The Cost and Complexity
     of Cgo.”](https://oreil.ly/Oj9Tw)
+  id: totrans-252
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果你发现自己需要使用一个没有包装器的内部C库或第三方库，可以在Go文档中找到[更多详情](https://oreil.ly/9JvNI)。有关在使用`cgo`时可能遇到的性能和设计折衷的信息，请阅读Tobias
+    Grieger的博客文章[“Cgo的成本和复杂性”](https://oreil.ly/Oj9Tw)。
 - en: Exercises
+  id: totrans-253
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 练习
 - en: Now it’s time to test yourself to see if you can write small programs using
     reflection, `unsafe`, and `cgo`. Answers for the exercises are found in the *exercise_solutions*
     directory in the [Chapter 16 repository](https://oreil.ly/jAIdQ).
+  id: totrans-254
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在是时候测试你自己是否可以使用反射、`unsafe`和`cgo`编写小程序了。练习的答案可以在[第16章存储库](https://oreil.ly/jAIdQ)的*exercise_solutions*目录中找到。
 - en: Use reflection to create a simple minimal string-length validator for struct
     fields. Write a `ValidateStringLength` function that takes in a struct and returns
     an error if one or more of the fields is a string, has a struct tag called `minStrlen`,
@@ -1284,39 +1830,53 @@
     struct tag are ignored. Use `errors.Join` to report all invalid fields. Be sure
     to validate that a struct was passed in. Return `nil` if all fields are of the
     proper length.
+  id: totrans-255
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 使用反射创建一个简单的最小字符串长度验证器来验证结构字段。编写一个`ValidateStringLength`函数，接受一个结构体并在字段是字符串、具有名为`minStrlen`的结构标签且字段值长度小于结构标签中指定的值时返回错误。忽略非字符串字段和没有`minStrlen`结构标签的字符串字段。使用`errors.Join`报告所有无效字段。确保验证传递的是结构体。如果所有字段长度正确，则返回`nil`。
 - en: Use `unsafe.Sizeof` and `unsafe.Offsetof` to print out the size and offsets
     for the `OrderInfo` struct defined in [*ch16/tree/main/sample_code/orders*](https://oreil.ly/SrSpa).
     Create a new type, `SmallOrderInfo`, that has the same fields, but reordered to
     use as little memory as possible.
+  id: totrans-256
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 使用`unsafe.Sizeof`和`unsafe.Offsetof`打印出[*ch16/tree/main/sample_code/orders*](https://oreil.ly/SrSpa)中定义的`OrderInfo`结构体的大小和偏移量。创建一个新类型`SmallOrderInfo`，其字段相同，但重新排序以尽可能减少内存使用。
 - en: Copy the C code at [*ch16/tree/main/sample_code/mini_calc*](https://oreil.ly/E-PfQ)
     into your own module and use `cgo` to call it from a Go program.
+  id: totrans-257
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 复制 [*ch16/tree/main/sample_code/mini_calc*](https://oreil.ly/E-PfQ) 中的C代码到你自己的模块，并使用`cgo`从Go程序中调用它。
 - en: Wrapping Up
+  id: totrans-258
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 结语
 - en: In this chapter, you’ve learned about reflection, `unsafe`, and `cgo`. These
     features are probably the most exciting parts of Go because they allow you to
     break the rules that make Go a boring, type-safe, memory-safe language. More importantly,
     you’ve learned *why* you would want to break the rules and why you should avoid
     doing so most of the time.
+  id: totrans-259
   prefs: []
   type: TYPE_NORMAL
+  zh: 在本章中，你学习了反射（reflection）、`unsafe`和`cgo`。这些特性可能是Go语言最令人兴奋的部分，因为它们允许你打破Go语言无趣、类型安全、内存安全的规则。更重要的是，你学会了*为什么*要打破这些规则，以及为什么大多数时候应该避免这样做。
 - en: You’ve completed your journey through Go and how to use it idiomatically. As
     with any graduation ceremony, it’s time for a few closing words. Let’s look back
     at what was said in the preface. “[P]roperly written, Go is boring…​.Well-written
     Go programs tend to be straightforward and sometimes a bit repetitive.” I hope
     you can now see why this leads to better software engineering.
+  id: totrans-260
   prefs: []
   type: TYPE_NORMAL
+  zh: 你已经完成了对Go语言及其惯用法的学习之旅。就像任何毕业典礼一样，现在是总结的时候了。让我们回顾一下序言中的内容。"[P]roperly written,
+    Go is boring…​.Well-written Go programs tend to be straightforward and sometimes
+    a bit repetitive." 希望你现在能明白为什么这会导致更好的软件工程。
 - en: Idiomatic Go is a set of tools, practices, and patterns that makes it easier
     to maintain software across time and changing teams. That’s not to say the cultures
     around other languages don’t value maintainability; it just may not be their highest
@@ -1324,5 +1884,7 @@
     syntax. There is a place for these trade-offs, but in the long run, I suspect
     Go’s focus on crafting software that lasts will win out. I wish you the best as
     you create the software for the next 50 years of computing.
+  id: totrans-261
   prefs: []
   type: TYPE_NORMAL
+  zh: 惯用的Go语言是一组工具、实践和模式，使得随着时间和团队变化更容易维护软件。这并不是说其他语言的文化不重视可维护性；只是可能不是它们的首要考虑因素。它们更强调性能、新特性或简洁的语法。这些权衡是有存在的必要性，但从长远来看，我相信Go语言专注于打造持久软件的焦点最终会胜出。祝你在为未来50年的计算机软件创作中一切顺利。

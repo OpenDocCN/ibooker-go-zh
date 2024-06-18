@@ -1,203 +1,297 @@
 - en: 'Chapter 15\. responding to requests: Web Apps'
+  id: totrans-0
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 第15章。响应请求：Web应用程序
 - en: '![image](assets/f0425-01.png)'
+  id: totrans-1
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0425-01.png)'
 - en: '**This is the 21st century. Users want web apps.** Go’s got you covered there,
     too! The Go standard library includes packages to help you host your own web applications
     and make them accessible from any web browser. So we’re going to spend the final
     two chapters of the book showing you how to build web apps.'
+  id: totrans-2
   prefs: []
   type: TYPE_NORMAL
+  zh: '**这是21世纪。用户需要Web应用程序。** Go在这方面有所覆盖！Go标准库包含的包可以帮助您托管自己的Web应用程序，并使它们可以从任何Web浏览器访问。因此，我们将在本书的最后两章中向您展示如何构建Web应用程序。'
 - en: The first thing your web app needs is the ability to respond when a browser
     sends it a request. In this chapter, we’ll learn to use the `net/http` package
     to do just that.
+  id: totrans-3
   prefs: []
   type: TYPE_NORMAL
+  zh: 您的Web应用程序需要的第一件事是在浏览器发送请求时能够做出响应。在本章中，我们将学习使用`net/http`包来实现这一点。
 - en: Writing web apps in Go
+  id: totrans-4
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 使用Go编写Web应用程序
 - en: An app that runs in your terminal is great—for your own use. But ordinary users
     have been spoiled by the internet and the World Wide Web. They don’t want to learn
     to use a terminal so they can use your app. They don’t even want to install your
     app. They want it to be ready to use the moment they click a link in their browser.
+  id: totrans-5
   prefs: []
   type: TYPE_NORMAL
+  zh: 在终端上运行的应用程序对于个人使用非常棒。但普通用户已经被互联网和万维网宠坏了。他们不想为了使用你的应用程序而学习使用终端。他们甚至不想安装你的应用程序。他们希望在他们点击浏览器中的链接时立即可以使用它。
 - en: But don’t worry! Go can help you write apps for the web, too.
+  id: totrans-6
   prefs: []
   type: TYPE_NORMAL
+  zh: 但别担心！Go也可以帮助您编写Web应用程序。
 - en: '![image](assets/f0426-01.png)'
+  id: totrans-7
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0426-01.png)'
 - en: We won’t lead you on—writing a web app is not a small task. This is going to
     require all of the skills you’ve learned so far, plus a few new ones. But Go has
     some excellent packages available that will make the process easier!
+  id: totrans-8
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们不会误导您——编写Web应用程序并不是一件小事。这将需要您迄今为止学到的所有技能，再加上一些新技能。但Go有一些出色的可用包，将使这个过程更容易！
 - en: This includes the `net/http` package. HTTP stands for “**H**yper**T**ext **T**ransfer
     **P**rotocol,” and it’s used for communication by web browsers and web servers.
     With `net/http`, you’ll be able to create your very own web apps using Go!
+  id: totrans-9
   prefs: []
   type: TYPE_NORMAL
+  zh: 这包括`net/http`包。HTTP代表“**H**yper**T**ext **T**ransfer **P**rotocol”，它用于Web浏览器和Web服务器之间的通信。使用`net/http`，您将能够使用Go创建自己的Web应用程序！
 - en: Browsers, requests, servers, and responses
+  id: totrans-10
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 浏览器、请求、服务器和响应
 - en: When you type a URL into your browser, you’re actually sending a *request* for
     a web page. That request goes to a *server*. A server’s job is to get the appropriate
     page and send it back to the browser in a *response*.
+  id: totrans-11
   prefs: []
   type: TYPE_NORMAL
+  zh: 当您在浏览器中输入URL时，实际上是发送了对Web页面的*请求*。该请求发送到一个*服务器*。服务器的工作是获取适当的页面并将其发送回浏览器作为*响应*。
 - en: In the early days of the web, the server usually read the contents of an HTML
     file on the server’s hard drive and sent that HTML back to the browser.
+  id: totrans-12
   prefs: []
   type: TYPE_NORMAL
+  zh: 在Web的早期阶段，服务器通常会读取服务器硬盘上HTML文件的内容，并将该HTML返回给浏览器。
 - en: '![image](assets/f0427-01.png)'
+  id: totrans-13
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0427-01.png)'
 - en: But today, it’s much more common for the server to communicate with a *program*
     to fulfill the request, instead of reading from a file. This program can be written
     in pretty much any language you want, including Go!
+  id: totrans-14
   prefs: []
   type: TYPE_NORMAL
+  zh: 但今天，服务器通常与一个*程序*通信来满足请求，而不是从文件中读取。这个程序可以用几乎任何您想要的语言编写，包括Go！
 - en: '![image](assets/f0427-02.png)'
+  id: totrans-15
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0427-02.png)'
 - en: A simple web app
+  id: totrans-16
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 一个简单的Web应用程序
 - en: Handling a request from a browser is a lot of work. Fortunately, we don’t have
     to do it all ourselves. Back in [Chapter 13](ch13.html#sharing_workcolon_goroutines_and_channel),
     we used the `net/http` package to make requests to servers. The `net/http` package
     also includes a small web server, so it’s also able to *respond* to requests.
     All *we* have to do is write the code that fills those responses with data.
+  id: totrans-17
   prefs: []
   type: TYPE_NORMAL
+  zh: 处理来自浏览器的请求是一项大量的工作。幸运的是，我们不必自己处理所有工作。回到[第13章](ch13.html#sharing_workcolon_goroutines_and_channel)，我们使用`net/http`包向服务器发出请求。`net/http`包还包括一个小型的Web服务器，因此它也能够*响应*请求。我们唯一需要做的就是编写代码，填充这些响应数据。
 - en: Here’s a program that uses `net/http` to serve simple responses to the browser.
     Although the program is short, there’s a lot going on here, some of it new. We’ll
     run the program first, then go back and explain it piece by piece.
+  id: totrans-18
   prefs: []
   type: TYPE_NORMAL
+  zh: 这里有一个使用`net/http`来向浏览器提供简单响应的程序。虽然程序很简短，但其中有很多新东西。我们将首先运行程序，然后逐步解释它。
 - en: '![image](assets/f0428-01.png)'
+  id: totrans-19
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0428-01.png)'
 - en: 'Save the above code to a file of your choosing, and run it from your terminal
     using **`go run`**:'
+  id: totrans-20
   prefs: []
   type: TYPE_NORMAL
+  zh: 将上述代码保存到任意文件中，并使用**`go run`**命令在终端中运行：
 - en: '![image](assets/f0428-02.png)'
+  id: totrans-21
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0428-02.png)'
 - en: We’re running our own web app! Now we just need to connect a web browser to
     it and test it out. Open your browser and type this URL into the address bar.
     (If the URL looks a little strange to you, don’t worry; we’ll explain what it
     means in a moment.)
+  id: totrans-22
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们正在运行我们自己的Web应用程序！现在我们只需要连接一个Web浏览器并测试它。打开你的浏览器，将这个URL键入地址栏。（如果这个URL看起来有点奇怪，不要担心；我们马上解释它的含义。）
 - en: '[PRE0]'
+  id: totrans-23
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE0]'
 - en: The browser will send a request to the app, which will respond with “`Hello,
     web!`”. We’ve just sent our first response to the browser!
+  id: totrans-24
   prefs: []
   type: TYPE_NORMAL
+  zh: 浏览器将向应用程序发送请求，应用程序将回复“`Hello, web!`”。我们刚刚向浏览器发送了第一个响应！
 - en: The app will keep listening for requests until we stop it. When you’re done
     with the page, press Ctrl-C in your terminal to signal the program to exit.
+  id: totrans-25
   prefs: []
   type: TYPE_NORMAL
+  zh: 应用程序会继续监听请求，直到我们停止它。当您完成页面时，在终端中按下Ctrl-C以向程序发出退出信号。
 - en: '![image](assets/f0428-03.png)'
+  id: totrans-26
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0428-03.png)'
 - en: Your computer is talking to itself
+  id: totrans-27
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 您的计算机正在自我通信
 - en: When we launched our little web app, it started its very own web server, right
     there on your computer.
+  id: totrans-28
   prefs: []
   type: TYPE_NORMAL
+  zh: 当我们启动我们的小型Web应用程序时，它会在您的计算机上启动自己的Web服务器。
 - en: '![image](assets/f0429-01.png)'
+  id: totrans-29
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0429-01.png)'
 - en: Because the app is running *on* your computer (and not somewhere out on the
     internet), we use the special hostname `localhost` in the URL. This tells your
     browser that it needs to establish a connection *from* your computer *to* that
     same computer.
+  id: totrans-30
   prefs: []
   type: TYPE_NORMAL
+  zh: 因为该应用程序正在您的计算机上运行（而不是在互联网上的某个地方），所以我们在URL中使用特殊的主机名`localhost`。这告诉您的浏览器需要从您的计算机建立连接*到*同一台计算机。
 - en: '![image](assets/f0429-02.png)'
+  id: totrans-31
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0429-02.png)'
 - en: We also need to specify a port as part of the URL. (A *port* is a numbered network
     communication channel that an application can listen for messages on.) In our
     code, we specified that the server should listen on port 8080, so we include that
     in the URL, following the hostname.
+  id: totrans-32
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们还需要在URL中指定一个端口。（*端口*是应用程序可以监听消息的编号网络通信通道。）在我们的代码中，我们指定服务器应在端口8080上监听，所以我们在URL中包含它，跟在主机名后面。
 - en: '![image](assets/f0429-03.png)'
+  id: totrans-33
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0429-03.png)'
 - en: there are no Dumb Questions
+  id: totrans-34
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 没有愚蠢的问题
 - en: '**Q: I got an error saying the browser was unable to connect!**'
+  id: totrans-35
   prefs: []
   type: TYPE_NORMAL
+  zh: '**Q:** 我收到一个错误，说浏览器无法连接！'
 - en: '**A:** Your server might not actually be running. Look for error messages in
     your terminal. Also check the hostname and port number in your browser, in case
     you mistyped them.'
+  id: totrans-36
   prefs: []
   type: TYPE_NORMAL
+  zh: '**A:** 你的服务器可能实际上没有运行。在你的终端中查找错误消息。还要检查浏览器中的主机名和端口号，以防输错。'
 - en: '**Q: Why do I have to specify a port number in the URL? I don’t have to do
     that with other websites!**'
+  id: totrans-37
   prefs: []
   type: TYPE_NORMAL
+  zh: '**Q:** 为什么我在URL中必须指定端口号？我在访问其他网站时不必这样做！'
 - en: '**A:** Most web servers listen for HTTP requests on port 80, because that’s
     the port that web browsers make HTTP requests to by default. But on many operating
     systems, you need special permissions to run a service that listens on port 80,
     for security reasons. That’s why we set up our server to listen on port 8080 instead.'
+  id: totrans-38
   prefs: []
   type: TYPE_NORMAL
+  zh: '**A:** 大多数Web服务器在端口80上监听HTTP请求，因为这是Web浏览器默认发出HTTP请求的端口。但是出于安全原因，许多操作系统要求您运行监听端口80的服务时需要特殊权限。这就是为什么我们设置我们的服务器监听端口8080的原因。'
 - en: '**Q: My browser just displays the message, “404 page not found.”**'
+  id: totrans-39
   prefs: []
   type: TYPE_NORMAL
+  zh: '**Q:** 我的浏览器显示“404页面未找到”的消息。'
 - en: '**A:** That’s a response from the server, which is good, but it also means
     the resource you requested wasn’t found. Check that your URL ends in */hello*,
     and ensure you haven’t made a typo in the server program code.'
+  id: totrans-40
   prefs: []
   type: TYPE_NORMAL
+  zh: '**A:** 这是服务器的响应，这是好事，但也意味着你请求的资源未找到。检查你的URL是否以*/hello*结尾，并确保你在服务器程序代码中没有输错。'
 - en: '**Q: When I tried to run my app, I got an error saying “listen tcp 127.0.0.1:8080:
     bind: address already in use”!**'
+  id: totrans-41
   prefs: []
   type: TYPE_NORMAL
+  zh: '**Q:** 当我尝试运行我的应用程序时，我收到一个错误，说“listen tcp 127.0.0.1:8080: bind: 地址已在使用中”！'
 - en: '**A:** Your program is trying to listen on the same port as another program
     (which your OS won’t allow). Have you run the server program more than once? If
     so, did you press Ctrl-C in the terminal to stop it when you were done? Be sure
     to stop the old server before running a new one.'
+  id: totrans-42
   prefs: []
   type: TYPE_NORMAL
+  zh: '**A:** 你的程序试图监听与另一个程序相同的端口（这是你的操作系统不允许的）。你运行了服务器程序超过一次吗？如果是这样，在终端中完成操作后，确保停止旧的服务器。在运行新的服务器之前一定要停止旧的。'
 - en: Our simple web app, explained
+  id: totrans-43
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 我们的简单Web应用程序，解释如下
 - en: Now let’s take a closer look at the parts of our little web app.
+  id: totrans-44
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在让我们仔细看看我们小型Web应用程序的各个部分。
 - en: In the `main` function, we call `http.HandleFunc` with the string `"/hello"`,
     and the `viewHandler` function. (Go supports *first-class functions*, which allow
     you to pass functions to other functions. We’ll talk more about those shortly.)
     This tells the app to call `viewHandler` whenever a request for a URL ending in
     */hello* is received.
+  id: totrans-45
   prefs: []
   type: TYPE_NORMAL
+  zh: 在`main`函数中，我们使用字符串`"/hello"`和`viewHandler`函数调用`http.HandleFunc`。（Go支持*一等函数*，允许您将函数传递给其他函数。我们稍后会详细讨论这些。）这告诉应用程序在收到以`/hello`结尾的URL请求时调用`viewHandler`。
 - en: '![image](assets/f0430-01.png)'
+  id: totrans-46
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0430-01.png)'
 - en: Then, we call `http.ListenAndServe`, which starts up the web server. We pass
     it the string `"localhost:8080"`, which will cause it to accept requests only
     from your own machine on port 8080\. (When you’re ready to open apps up to requests
@@ -205,359 +299,545 @@
     also change the port number to something other than 8080, if you want.) The `nil`
     value in the second argument just means that requests will be handled using functions
     set up via `HandleFunc`.
+  id: totrans-47
   prefs: []
   type: TYPE_NORMAL
+  zh: 然后，我们调用`http.ListenAndServe`，启动 Web 服务器。我们将字符串`"localhost:8080"`传递给它，这将使它仅接受来自本机端口8080的请求。（当您准备向其他计算机的请求开放应用程序时，可以改用字符串`"0.0.0.0:8080"`。您也可以将端口号更改为其他值。）第二个参数中的`nil`值仅表示将使用通过`HandleFunc`设置的函数来处理请求。
 - en: Note
+  id: totrans-48
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: (Later, if you want to learn about alternate ways to handle requests, look up
     the documentation for the “ListenAndServe” function, the “Handler” interface,
     and the “ServeMux” type from the “http” package.)
+  id: totrans-49
   prefs: []
   type: TYPE_NORMAL
+  zh: （稍后，如果您想了解替代处理请求的其他方法，请查看“http”包中“ListenAndServe”函数、“Handler”接口和“ServeMux”类型的文档。）
 - en: We call `ListenAndServe` *after* `HandleFunc` because `ListenAndServe` will
     run forever, unless it encounters an error. If it does, it will return that error,
     which we log before the program exits. If there are no errors, though, this program
     will just continue running until we interrupt it by pressing Ctrl-C in the terminal.
+  id: totrans-50
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们在调用`HandleFunc`之后调用`ListenAndServe`，因为`ListenAndServe`会持续运行，除非遇到错误。如果有错误，它将返回该错误，我们在程序退出之前将其记录。但是，如果没有错误，此程序将继续运行，直到我们在终端中按下Ctrl-C来中断它。
 - en: '![image](assets/f0430-02.png)'
+  id: totrans-51
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0430-02.png)'
 - en: Compared to `main`, there’s nothing very surprising in the `viewHandler` function.
     The server passes `viewHandler` an `http.ResponseWriter`, which is used for writing
     data to the browser response, and a pointer to an `http.Request` value, which
     represents the browser’s request. (We don’t use the `Request` value in this program,
     but handler functions still have to accept one.)
+  id: totrans-52
   prefs: []
   type: TYPE_NORMAL
+  zh: 与`main`相比，在`viewHandler`函数中没有什么特别出乎意料的地方。服务器将`viewHandler`传递给`http.ResponseWriter`，用于向浏览器响应写入数据，并传递给`http.Request`值的指针，表示浏览器的请求。（在此程序中，我们不使用`Request`值，但处理程序函数仍然必须接受它。）
 - en: '![image](assets/f0430-03.png)'
+  id: totrans-53
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0430-03.png)'
 - en: Within `viewHandler`, we add data to the response by calling the `Write` method
     on the `ResponseWriter`. `Write` doesn’t accept strings, but it does accept a
     slice of `byte` values, so we convert our `"Hello, web!"` string to a `[]byte`,
     then pass it to `Write`.
+  id: totrans-54
   prefs: []
   type: TYPE_NORMAL
+  zh: 在`viewHandler`内部，我们通过在`ResponseWriter`上调用`Write`方法向响应添加数据。`Write`方法不接受字符串，但它接受`byte`值的切片，因此我们将字符串`"Hello,
+    web!"`转换为`[]byte`，然后传递给`Write`方法。
 - en: '![image](assets/f0431-01.png)'
+  id: totrans-55
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0431-01.png)'
 - en: You might remember `byte` values from [Chapter 13](ch13.html#sharing_workcolon_goroutines_and_channel).
     The `ioutil.Readall` function returned a slice of `byte` values when called on
     a response retrieved via the `http.Get` function.
+  id: totrans-56
   prefs: []
   type: TYPE_NORMAL
+  zh: 您可能还记得`byte`值来自[第13章](ch13.html#sharing_workcolon_goroutines_and_channel)。当在通过`http.Get`函数检索到的响应上调用`ioutil.Readall`函数时，该函数返回`byte`值的切片。
 - en: '![image](assets/f0431-02.png)'
+  id: totrans-57
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0431-02.png)'
 - en: 'As we saw in [Chapter 13](ch13.html#sharing_workcolon_goroutines_and_channel),
     a `[]byte` can be converted to a `string`:'
+  id: totrans-58
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如我们在[第13章](ch13.html#sharing_workcolon_goroutines_and_channel)中看到的，`[]byte`可以转换为`string`：
 - en: '![image](assets/f0431-03.png)'
+  id: totrans-59
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0431-03.png)'
 - en: And as you’ve just seen in this simple web app, a `string` can be converted
     to a `[]byte`.
+  id: totrans-60
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如您刚刚在这个简单的 Web 应用程序中看到的那样，`string`可以转换为`[]byte`。
 - en: '![image](assets/f0431-04.png)'
+  id: totrans-61
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0431-04.png)'
 - en: The `ResponseWriter`’s `Write` method returns the number of bytes successfully
     written, and any error encountered. We can’t do anything useful with the number
     of bytes written, so we ignore that. But if there’s an error, we log it and exit
     the program.
+  id: totrans-62
   prefs: []
   type: TYPE_NORMAL
+  zh: '`ResponseWriter`的`Write`方法返回成功写入的字节数以及遇到的任何错误。我们无法使用写入的字节数做任何有用的事情，因此我们忽略它。但是，如果有错误，我们会将其记录并退出程序。'
 - en: '[PRE1]'
+  id: totrans-63
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE1]'
 - en: Resource paths
+  id: totrans-64
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 资源路径
 - en: When we entered a URL in our browser to access our web app, we made sure it
     ended in */hello*. But why did we need to?
+  id: totrans-65
   prefs: []
   type: TYPE_NORMAL
+  zh: 当我们在浏览器中输入 URL 访问我们的 Web 应用时，我们确保它以*/hello*结尾。但是为什么我们需要这样做呢？
 - en: '[PRE2]'
+  id: totrans-66
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE2]'
 - en: A server usually has lots of different resources that it can send to a browser,
     including HTML pages, images, and more.
+  id: totrans-67
   prefs: []
   type: TYPE_NORMAL
+  zh: 服务器通常有许多不同的资源可发送到浏览器，包括 HTML 页面、图片等。
 - en: '![image](assets/f0432-01.png)'
+  id: totrans-68
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0432-01.png)'
 - en: The part of a URL following the host address and port is the resource *path*.
     It tells the server which of its many resources you want to act on. The `net/http`
     server pulls the path off the end of the URL, and uses it in handling the request.
+  id: totrans-69
   prefs: []
   type: TYPE_NORMAL
+  zh: URL 中主机地址和端口后面的部分是资源*路径*。它告诉服务器你要操作它的哪个资源。`net/http` 服务器从 URL 的末尾提取路径，并在处理请求时使用它。
 - en: '![image](assets/f0432-02.png)'
+  id: totrans-70
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0432-02.png)'
 - en: When we called `http.HandleFunc` in our web app, we passed it the string `"/hello"`,
     and the `viewHandler` function. The string is used as a request resource path
     to look for. From then on, any time a request with a path of `/hello` is received,
     the app will call the `viewHandler` function. The `viewHandler` function is then
     responsible for generating a response that’s appropriate for the request it received.
+  id: totrans-71
   prefs: []
   type: TYPE_NORMAL
+  zh: 当我们在我们的 Web 应用程序中调用 `http.HandleFunc` 时，我们传递了字符串`"/hello"`和`viewHandler`函数。该字符串用作请求资源路径进行查找。从那时起，每当收到路径为`/hello`的请求时，应用程序将调用`viewHandler`函数。然后，`viewHandler`函数负责生成适合其收到的请求的响应。
 - en: '![image](assets/f0432-03.png)'
+  id: totrans-72
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0432-03.png)'
 - en: In this case, that means responding with the text “Hello, web!”
+  id: totrans-73
   prefs: []
   type: TYPE_NORMAL
+  zh: 在这种情况下，这意味着以文本“Hello, web!”作为响应。
 - en: '![image](assets/f0432-04.png)'
+  id: totrans-74
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0432-04.png)'
 - en: Your app can’t just respond “Hello, web!” to every request it receives, though.
     Most apps will need to respond to different request paths in different ways.
+  id: totrans-75
   prefs: []
   type: TYPE_NORMAL
+  zh: 你的应用程序不能仅仅对收到的每个请求响应“Hello, web!”。大多数应用程序将需要以不同方式响应不同的请求路径。
 - en: One way to accomplish this is by calling `HandleFunc` once for each path you
     want to handle, and provide a different function to handle each path. Your app
     will then be able to respond to requests for any of those paths.
+  id: totrans-76
   prefs: []
   type: TYPE_NORMAL
+  zh: 一种实现这一点的方法是为要处理的每个路径调用一次 `HandleFunc`，并提供一个不同的函数来处理每个路径。这样，您的应用程序将能够响应任何这些路径的请求。
 - en: Responding differently for different resource paths
+  id: totrans-77
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 对不同资源路径的不同响应
 - en: Here’s an update to our app that provides greetings in three different languages.
     We call `HandleFunc` three different times. Requests with a `"/hello"` path cause
     the `englishHandler` function to be called, requests for `"/salut"` are handled
     by the `frenchHandler` function, and requests for `"/namaste"` are handled by
     `hindiHandler`. Each of these handler functions passes its `ResponseWriter` and
     a string to a new `write` function, which writes the string to the response.
+  id: totrans-78
   prefs: []
   type: TYPE_NORMAL
+  zh: 这是我们应用程序的更新，提供三种不同语言的问候语。我们调用了三次`HandleFunc`。具有`"/hello"`路径的请求将调用`englishHandler`函数，`"/salut"`的请求将由`frenchHandler`函数处理，而`"/namaste"`的请求将由`hindiHandler`处理。每个处理程序函数都将其`ResponseWriter`和字符串传递给新的`write`函数，该函数将字符串写入响应。
 - en: '![image](assets/f0433-01.png)![image](assets/f0433-02.png)'
+  id: totrans-79
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0433-01.png)![图片](assets/f0433-02.png)'
 - en: First-class functions
+  id: totrans-80
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 头等函数
 - en: When we call `http.HandleFunc` with handler functions, we’re not calling the
     handler function and passing its result to `HandleFunc`. We are passing the *function
     itself* to `HandleFunc`. That function is stored to be called later when a matching
     request path is received.
+  id: totrans-81
   prefs: []
   type: TYPE_NORMAL
+  zh: 当我们用处理函数调用 `http.HandleFunc` 时，并不是调用处理函数并将其结果传递给 `HandleFunc`。我们传递的是*函数本身*给
+    `HandleFunc`。该函数被存储起来，以便在接收到匹配请求路径时稍后调用。
 - en: '![image](assets/f0435-01.png)'
+  id: totrans-82
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0435-01.png)'
 - en: The Go language supports **first-class functions**; that is, functions in Go
     are treated as “first-class citizens.”
+  id: totrans-83
   prefs: []
   type: TYPE_NORMAL
+  zh: Go 语言支持**头等函数**；也就是说，Go 中的函数被视为“头等公民”。
 - en: In a programming language with first-class functions, functions can be assigned
     to variables, and then called from those variables.
+  id: totrans-84
   prefs: []
   type: TYPE_NORMAL
+  zh: 在支持头等函数的编程语言中，函数可以分配给变量，然后从这些变量调用。
 - en: The code below first defines a `sayHi` function. In our `main` function, we
     declare a `myFunction` variable with a type of `func()`, meaning the variable
     can hold a function.
+  id: totrans-85
   prefs: []
   type: TYPE_NORMAL
+  zh: 下面的代码首先定义了一个 `sayHi` 函数。在我们的 `main` 函数中，我们声明了一个类型为 `func()` 的 `myFunction` 变量，这意味着该变量可以保存一个函数。
 - en: 'Then we assign the `sayHi` function itself to `myFunction`. Notice that we
     don’t put any parentheses—we don’t write `sayHi()`—because doing so would *call*
     `sayHi`. We type only the function name, like this:'
+  id: totrans-86
   prefs: []
   type: TYPE_NORMAL
+  zh: 然后我们将 `sayHi` 函数本身分配给 `myFunction`。请注意，我们没有放任何括号 —— 我们不写 `sayHi()` —— 因为这样做会
+    *调用* `sayHi`。我们仅输入函数名，就像这样：
 - en: '[PRE3]'
+  id: totrans-87
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE3]'
 - en: This causes the `sayHi` function itself to be assigned to the `myFunction` variable.
+  id: totrans-88
   prefs: []
   type: TYPE_NORMAL
+  zh: 这导致 `sayHi` 函数本身被分配给 `myFunction` 变量。
 - en: 'But on the next line, we *do* include parentheses following the `myFunction`
     variable name, like this:'
+  id: totrans-89
   prefs: []
   type: TYPE_NORMAL
+  zh: 但在下一行，我们确实在 `myFunction` 变量名后面包含括号，像这样：
 - en: '[PRE4]'
+  id: totrans-90
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE4]'
 - en: This causes the function stored inside the `myFunction` variable to be called.
+  id: totrans-91
   prefs: []
   type: TYPE_NORMAL
+  zh: 这导致存储在 `myFunction` 变量中的函数被调用。
 - en: '![image](assets/f0435-02.png)'
+  id: totrans-92
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0435-02.png)'
 - en: Passing functions to other functions
+  id: totrans-93
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 将函数传递给其他函数
 - en: Programming languages with first-class functions also allow you to pass functions
     as arguments to other functions. This code defines simple `sayHi` and `sayBye`
     functions. It also defines a `twice` function that takes another function as a
     parameter named `theFunction`. The `twice` function then calls whatever function
     is stored in `theFunction` twice.
+  id: totrans-94
   prefs: []
   type: TYPE_NORMAL
+  zh: 具有一等公民函数的编程语言允许您将函数作为参数传递给其他函数。此代码定义了简单的 `sayHi` 和 `sayBye` 函数。它还定义了一个 `twice`
+    函数，该函数将另一个名为 `theFunction` 的函数作为参数。然后 `twice` 函数调用存储在 `theFunction` 中的任何函数两次。
 - en: In `main`, we call `twice` and pass the `sayHi` function as an argument, which
     causes `sayHi` to be run twice. Then we call `twice` with the `sayBye` function,
     which causes `sayBye` to be run twice.
+  id: totrans-95
   prefs: []
   type: TYPE_NORMAL
+  zh: 在 `main` 中，我们调用 `twice` 并将 `sayHi` 函数作为参数传递，导致 `sayHi` 被运行两次。然后我们用 `sayBye`
+    函数再次调用 `twice`，导致 `sayBye` 被运行两次。
 - en: '![image](assets/f0436-01.png)'
+  id: totrans-96
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0436-01.png)'
 - en: Functions as types
+  id: totrans-97
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 函数作为类型
 - en: 'We can’t just use any function as an argument when calling any other function,
     though. If we tried to pass the `sayHi` function as an argument to `http.HandleFunc`,
     we’d get a compile error:'
+  id: totrans-98
   prefs: []
   type: TYPE_NORMAL
+  zh: 当我们试图将 `sayHi` 函数作为参数传递给 `http.HandleFunc` 时，我们会得到编译错误：
 - en: '![image](assets/f0436-02.png)'
+  id: totrans-99
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0436-02.png)'
 - en: A function’s parameters and return value are part of its type. A variable that
     holds a function needs to specify what parameters and return values that function
     should have. That variable can only hold functions whose number and types of parameters
     and return values match the specified type.
+  id: totrans-100
   prefs: []
   type: TYPE_NORMAL
+  zh: 函数的参数和返回值是其类型的一部分。持有函数的变量需要指定该函数应具有的参数和返回值。该变量只能持有参数和返回值数量与类型匹配的函数。
 - en: 'This code defines a `greeterFunction` variable with a type of `func()`: it
     holds a function that accepts no parameters and returns no values. Then we define
     a `mathFunction` variable with a type of `func(int, int) float64`: it holds a
     function that accepts two integer parameters and returns a `float64` value.'
+  id: totrans-101
   prefs: []
   type: TYPE_NORMAL
+  zh: 此代码定义了一个类型为 `func()` 的 `greeterFunction` 变量：它持有一个不接受参数并且不返回值的函数。然后，我们定义了一个类型为
+    `func(int, int) float64` 的 `mathFunction` 变量：它持有一个接受两个整数参数并返回一个 `float64` 值的函数。
 - en: 'The code also defines `sayHi` and `divide` functions. If we assign `sayHi`
     to the `greeterFunction` variable and `divide` to the `mathFunction` variable,
     everything compiles and runs fine:'
+  id: totrans-102
   prefs: []
   type: TYPE_NORMAL
+  zh: 代码还定义了 `sayHi` 和 `divide` 函数。如果我们将 `sayHi` 分配给 `greeterFunction` 变量，将 `divide`
+    分配给 `mathFunction` 变量，一切都能编译和正常运行：
 - en: '![image](assets/f0437-01.png)'
+  id: totrans-103
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0437-01.png)'
 - en: 'But if we try to reverse the two, we’ll get compile errors again:'
+  id: totrans-104
   prefs: []
   type: TYPE_NORMAL
+  zh: 但是如果我们尝试颠倒两者，将再次得到编译错误：
 - en: '![image](assets/f0437-02.png)'
+  id: totrans-105
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0437-02.png)'
 - en: The `divide` function accepts two `int` parameters and returns a `float64` value,
     so it can’t be stored in the `greeterFunction` variable (which expects a function
     with no parameters and no return value). And the `sayHi` function accepts no parameters
     and returns no value, so it can’t be stored in the `mathFunction` variable (which
     expects a function with two `int` parameters and a `float64` return value).
+  id: totrans-106
   prefs: []
   type: TYPE_NORMAL
+  zh: '`divide` 函数接受两个 `int` 参数并返回一个 `float64` 值，因此无法存储在 `greeterFunction` 变量中（该变量期望不接受参数并且不返回值的函数）。而
+    `sayHi` 函数不接受参数并且不返回值，因此无法存储在 `mathFunction` 变量中（该变量期望接受两个 `int` 参数并返回一个 `float64`
+    值的函数）。'
 - en: Functions that accept a function as a parameter also need to specify the parameters
     and return types the passed-in function should have.
+  id: totrans-107
   prefs: []
   type: TYPE_NORMAL
+  zh: 接受函数作为参数的函数也需要指定传入函数应具有的参数和返回类型。
 - en: Here’s a `doMath` function with a `passedFunction` parameter. The passed-in
     function needs to accept two `int` parameters, and return one `float64` value.
+  id: totrans-108
   prefs: []
   type: TYPE_NORMAL
+  zh: 这是一个具有 `passedFunction` 参数的 `doMath` 函数。传入的函数需要接受两个 `int` 参数，并返回一个 `float64`
+    值。
 - en: We also define `divide` and `multiply` functions, both of which accept two `int`
     parameters and return one `float64`. Either `divide` or `multiply` can be passed
     to `doMath` successfully.
+  id: totrans-109
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们还定义了`divide`和`multiply`函数，两者都接受两个`int`参数并返回一个`float64`。`divide`或`multiply`都可以成功传递给`doMath`。
 - en: '![image](assets/f0438-01.png)'
+  id: totrans-110
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0438-01.png)'
 - en: A function that doesn’t match the specified type can’t be passed to `doMath`.
+  id: totrans-111
   prefs: []
   type: TYPE_NORMAL
+  zh: 一个不符合指定类型的函数无法传递给`doMath`。
 - en: '![image](assets/f0438-02.png)'
+  id: totrans-112
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0438-02.png)'
 - en: And that’s why we get compile errors if we pass the wrong function to `http.HandleFunc`.
     `HandleFunc` expects to be passed a function that takes a `ResponseWriter` and
     a pointer to a `Request` as parameters. Pass anything else, and you’ll get a compile
     error.
+  id: totrans-113
   prefs: []
   type: TYPE_NORMAL
+  zh: 这就是为什么如果我们向`http.HandleFunc`传递错误的函数，我们会得到编译错误。`HandleFunc`期望传递一个接受`ResponseWriter`和`Request`指针作为参数的函数。如果传递其他内容，你将得到编译错误。
 - en: And really, that’s a good thing. A function that can’t analyze a request and
     write a response probably isn’t going to be able to handle browser requests. If
     you try to pass a function with the wrong type, Go will alert you to the problem
     before your program even compiles.
+  id: totrans-114
   prefs: []
   type: TYPE_NORMAL
+  zh: 事实上，这是件好事。一个无法分析请求并写入响应的函数可能无法处理浏览器请求。如果尝试传递类型错误的函数，Go将在程序编译之前提醒你问题。
 - en: '![image](assets/f0438-03.png)'
+  id: totrans-115
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0438-03.png)'
 - en: Pool Puzzle
+  id: totrans-116
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 池谜题
 - en: '![image](assets/f0439-01.png)'
+  id: totrans-117
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0439-01.png)'
 - en: Your **job** is to take code snippets from the pool and place them into the
     blank lines in this code. **Don’t** use the same snippet more than once, and you
     won’t need to use all the snippets. Your **goal** is to make a program that will
     run and produce the output shown.
+  id: totrans-118
   prefs: []
   type: TYPE_NORMAL
+  zh: 你的**工作**是从池中获取代码片段，并将它们放入此代码中的空白行。**不要**重复使用相同的片段，而且你不需要使用所有的片段。你的**目标**是创建一个能运行并产生所示输出的程序。
 - en: '![image](assets/f0439-02.png)'
+  id: totrans-119
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0439-02.png)'
 - en: '[PRE5]'
+  id: totrans-120
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE5]'
 - en: '**Note: each snippet from the pool can only be used once!**'
+  id: totrans-121
   prefs: []
   type: TYPE_NORMAL
+  zh: '**注意：每个池中的片段只能使用一次！**'
 - en: '![image](assets/f0439-03.png)'
+  id: totrans-122
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0439-03.png)'
 - en: '![image](assets/arrow.png) Answers in [“Pool Puzzle Solution”](#pool_puzzle_solution_8).'
+  id: totrans-123
   prefs: []
   type: TYPE_NORMAL
+  zh: '![image](assets/arrow.png) 答案在[“Pool Puzzle Solution”](#pool_puzzle_solution_8)中。'
 - en: What’s next
+  id: totrans-124
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 接下来是什么
 - en: Now you know how to receive a request from a browser and send a response. The
     trickiest part is done!
+  id: totrans-125
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在你知道如何从浏览器接收请求并发送响应了。最棘手的部分已经完成！
 - en: '![image](assets/f0440-01.png)'
+  id: totrans-126
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0440-01.png)'
 - en: In the final chapter, we’ll use this knowledge to build a more complex app.
+  id: totrans-127
   prefs: []
   type: TYPE_NORMAL
+  zh: 在最后一章，我们将利用这些知识构建一个更复杂的应用程序。
 - en: So far, all our responses have used plain text. We’re going to learn to use
     HTML to give the page more structure. And we’ll learn to use the `html/template`
     package to insert data into our HTML before sending it back to the browser. See
     you there!
+  id: totrans-128
   prefs: []
   type: TYPE_NORMAL
+  zh: 到目前为止，我们所有的响应都是使用纯文本。我们将学习如何使用HTML来为页面提供更多结构。并且我们将学习如何使用`html/template`包在将数据插入HTML后将其发送回浏览器。到那里见！
 - en: Your Go Toolbox
+  id: totrans-129
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 你的Go工具箱
 - en: '![image](assets/f0441-01.png)'
+  id: totrans-130
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0441-01.png)'
 - en: '**That’s it for [Chapter 15](#responding_to_requestscolon_web_apps)! You’ve
     added HTTP handler functions and first-class functions to your toolbox.**'
+  id: totrans-131
   prefs: []
   type: TYPE_NORMAL
+  zh: '**这就是[第15章](#responding_to_requestscolon_web_apps)的全部内容！你已经向你的工具箱中添加了HTTP处理程序函数和一流函数。**'
 - en: '![image](assets/f0441-02.png)'
+  id: totrans-132
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0441-02.png)'
 - en: Pool Puzzle Solution
+  id: totrans-133
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 池谜题解决方案
 - en: '![image](assets/f0443-01.png)'
+  id: totrans-134
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0443-01.png)'

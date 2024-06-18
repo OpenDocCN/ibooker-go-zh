@@ -1,7 +1,9 @@
 - en: Chapter 3\. gRPC Communication Patterns
+  id: totrans-0
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 第 3 章\. gRPC 通信模式
 - en: In the first couple of chapters, you learned the basics of gRPC’s inter-process
     communication techniques and got some hands-on experience in building a simple
     gRPC-based application. So far what we have done is define a service interface,
@@ -11,31 +13,46 @@
     a single response for a single request. However, with gRPC, you can leverage different
     inter-process communication patterns (or RPC styles) other than the simple request–response
     pattern.
+  id: totrans-1
   prefs: []
   type: TYPE_NORMAL
+  zh: 在前几章中，您学习了 gRPC 的进程间通信技术的基础知识，并获得了构建基于 gRPC 的简单应用程序的实践经验。到目前为止，我们已经定义了一个服务接口，实现了一个服务，运行了一个
+    gRPC 服务器，并通过 gRPC 客户端应用程序远程调用服务操作。客户端和服务器之间的通信模式是简单的请求-响应式通信，您发送一个请求就会得到一个响应。但是，使用
+    gRPC，您可以利用除简单请求-响应模式之外的不同进程间通信模式（或 RPC 样式）。
 - en: 'In this chapter, we’ll explore four fundamental communication patterns used
     in gRPC-based applications: unary RPC (simple RPC), server-side streaming, client-side
     streaming, and bidirectional streaming. We’ll use some real-world use cases to
     showcase each pattern, define a service definition using a gRPC IDL, and implement
     both the service and client side using Go.'
+  id: totrans-2
   prefs: []
   type: TYPE_NORMAL
+  zh: 在本章中，我们将探讨 gRPC 应用程序中使用的四种基本通信模式：一元 RPC（简单 RPC）、服务器端流式传输、客户端端流式传输和双向流式传输。我们将使用一些真实用例展示每种模式，使用
+    gRPC IDL 定义服务定义，并使用 Go 在服务端和客户端实现服务。
 - en: Note
+  id: totrans-3
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: '**Go and Java Code Samples**'
+  id: totrans-4
   prefs: []
   type: TYPE_NORMAL
+  zh: '**Go 和 Java 代码示例**'
 - en: To maintain consistency, all the code samples in this chapter are written using
     Go. But if you are a Java developer, you can also find the complete Java code
     samples for the same use cases in the source code repository for this book.
+  id: totrans-5
   prefs: []
   type: TYPE_NORMAL
+  zh: 为了保持一致性，本章中的所有代码示例均使用 Go 编写。但如果您是 Java 开发人员，您也可以在本书的源代码存储库中找到相同用例的完整 Java 代码示例。
 - en: Simple RPC (Unary RPC)
+  id: totrans-6
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 简单 RPC（一元 RPC）
 - en: Let’s begin our discussion on gRPC communication patterns with the simplest
     RPC style, *simple RPC*, which is also known as *unary RPC*. In simple RPC, when
     a client invokes a remote function of a server, the client sends a single request
@@ -43,23 +60,35 @@
     and trailing metadata. In fact, this is exactly the same communication pattern
     that you learned in Chapters [1](ch01.html#grpc_ch_01) and [2](ch02.html#ch_02).
     Let’s try to understand the simple RPC pattern further with a real-world use case.
+  id: totrans-7
   prefs: []
   type: TYPE_NORMAL
+  zh: 让我们从最简单的 RPC 样式，*简单 RPC*，也称为*一元 RPC*开始讨论 gRPC 通信模式。在简单 RPC 中，当客户端调用服务器的远程函数时，客户端向服务器发送一个请求，并获得一个包含状态详细信息和尾部元数据的单个响应。实际上，这正是您在第
+    [1](ch01.html#grpc_ch_01) 章和第 [2](ch02.html#ch_02) 章学到的通信模式。让我们通过一个真实的用例进一步了解简单
+    RPC 模式。
 - en: Suppose we need to build an `OrderManagement` service for an online retail application
     based on gRPC. One of the methods that we have to implement as part of this service
     is a `getOrder` method, where the client can retrieve an existing order by providing
     the order ID. As shown in [Figure 3-1](#simple_unary_rpc), the client is sending
     a single request with the order ID and the service responds with a single response
     that contains the order information. Hence, it follows the simple RPC pattern.
+  id: totrans-8
   prefs: []
   type: TYPE_NORMAL
+  zh: 假设我们需要为基于 gRPC 的在线零售应用程序构建一个`OrderManagement`服务。作为该服务的一部分，我们必须实现一个`getOrder`方法，客户端可以通过提供订单
+    ID 检索现有订单。如 [图 3-1](#simple_unary_rpc) 所示，客户端发送一个带有订单 ID 的单个请求，服务端响应一个包含订单信息的单个响应。因此，它遵循简单
+    RPC 模式。
 - en: '![Simple/unary RPC](assets/grpc_0301.png)'
+  id: totrans-9
   prefs: []
   type: TYPE_IMG
+  zh: '![简单/一元 RPC](assets/grpc_0301.png)'
 - en: Figure 3-1\. Simple/unary RPC
+  id: totrans-10
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 3-1\. 简单/一元 RPC
 - en: Now let’s proceed to the implementation of this pattern. The first step is to
     create the service definition for the `OrderManagement` service with the `getOrder`
     method. As shown in the code snippet in [Example 3-1](#EX3-1), we can define the
@@ -67,42 +96,66 @@
     a single request order ID and responds with a single response, which comprises
     the `Order` message. The `Order` message has the required structure to represent
     the order in this use case.
+  id: totrans-11
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在让我们继续实现这个模式。第一步是为 `OrderManagement` 服务创建服务定义，其中包含 `getOrder` 方法。如 [Example 3-1](#EX3-1)
+    中的代码片段所示，我们可以使用协议缓冲定义服务定义，并且 `getOrder` 远程方法接收一个单一的请求订单 ID，并响应一个单一的响应，其中包含 `Order`
+    消息。`Order` 消息具有在此用例中表示订单所需的结构。
 - en: Example 3-1\. Service definition of OrderManagement with getOrder method that
     uses simple RPC pattern
+  id: totrans-12
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: Example 3-1\. 使用简单 RPC 模式的 OrderManagement 的 getOrder 方法的服务定义
 - en: '[PRE0]'
+  id: totrans-13
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE0]'
 - en: '[![1](assets/1.png)](#co_grpc_communication_patterns_CO1-1)'
+  id: totrans-14
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_grpc_communication_patterns_CO1-1)'
 - en: Use this package to leverage the well-known types such as `StringValue`.
+  id: totrans-15
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用此包以利用诸如 `StringValue` 等的知名类型。
 - en: '[![2](assets/2.png)](#co_grpc_communication_patterns_CO1-2)'
+  id: totrans-16
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_grpc_communication_patterns_CO1-2)'
 - en: Remote method for retrieving an order.
+  id: totrans-17
   prefs: []
   type: TYPE_NORMAL
+  zh: 检索订单的远程方法。
 - en: '[![3](assets/3.png)](#co_grpc_communication_patterns_CO1-3)'
+  id: totrans-18
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_grpc_communication_patterns_CO1-3)'
 - en: Define the `Order` type.
+  id: totrans-19
   prefs: []
   type: TYPE_NORMAL
+  zh: 定义 `Order` 类型。
 - en: '[![4](assets/4.png)](#co_grpc_communication_patterns_CO1-4)'
+  id: totrans-20
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![4](assets/4.png)](#co_grpc_communication_patterns_CO1-4)'
 - en: '`repeated` is used to represent the fields that can be repeated any number
     of times including zero in a message. Here one order message can have any number
     of items.'
+  id: totrans-21
   prefs: []
   type: TYPE_NORMAL
+  zh: '`repeated` 用于表示消息中可以重复任意次数（包括零）的字段。这里一个订单消息可以包含任意数量的条目。'
 - en: Then, using the gRPC service definition proto file, you can generate the server
     skeleton code and implement the logic of the `getOrder` method. In the code snippet
     in [Example 3-2](#EX3-2), what we have shown is the Go implementation of the `OrderManagement`
@@ -111,19 +164,30 @@
     with an `Order` message (`Order` struct). The `Order` message can be returned
     along with a nil error to tell gRPC that we’ve finished dealing with the RPC and
     the `Order` can be returned to the client.
+  id: totrans-22
   prefs: []
   type: TYPE_NORMAL
+  zh: 然后，使用 gRPC 服务定义 proto 文件，您可以生成服务器框架代码并实现 `getOrder` 方法的逻辑。在 [Example 3-2](#EX3-2)
+    的代码片段中，我们展示了 `OrderManagement` 服务的 Go 实现。作为 `getOrder` 方法的输入，您将获得一个单一的订单 ID（`String`）作为请求，并且您可以简单地从服务器端查找订单并响应一个
+    `Order` 消息（`Order` 结构）。可以返回带有 nil 错误的 `Order` 消息，告诉 gRPC 我们已经完成了对 RPC 的处理，并且可以将
+    `Order` 返回给客户端。
 - en: Example 3-2\. Service implementation of OrderManagement with getOrder in Go
+  id: totrans-23
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: Example 3-2\. 使用 Go 实现 OrderManagement 的 getOrder 服务
 - en: '[PRE1]'
+  id: totrans-24
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE1]'
 - en: Note
+  id: totrans-25
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: The low-level details of the complete message flow of a gRPC server and client
     are explained in [Chapter 4](ch04.html#ch_04). In addition to the method parameters
     that we have specified for the `getOrder` method in your service definition, you
@@ -131,8 +195,13 @@
     the preceding Go implementation of the `OrderManagement` service. `Context` carries
     some of the constructs such as deadlines and cancellations that are used to control
     gRPC behavior. We’ll discuss those concepts in detail in [Chapter 5](ch05.html#ch_05).
+  id: totrans-26
   prefs: []
   type: TYPE_NORMAL
+  zh: 详细说明了 gRPC 服务器和客户端完整消息流的低级细节，这些在 [Chapter 4](ch04.html#ch_04) 中有解释。除了我们在您的服务定义中为
+    `getOrder` 方法指定的方法参数外，您可以观察到在 `OrderManagement` 服务的前述 Go 实现中，方法还传递了另一个 `Context`
+    参数。`Context` 携带一些如截止时间和取消等构造，这些用于控制 gRPC 的行为。我们将在 [Chapter 5](ch05.html#ch_05)
+    中详细讨论这些概念。
 - en: Now let’s implement the client-side logic to invoke the `getOrder` method remotely.
     As with the server-side implementation, you can generate code for the preferred
     language to create the client-side stub and then use that stub to invoke the service.
@@ -142,72 +211,104 @@
     the client stub’s `getOrder` method to invoke the remote method. As the response,
     you get an `Order` message that contains the order information that we define
     using protocol buffers in our service definition.
+  id: totrans-27
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在让我们实现客户端逻辑，远程调用`getOrder`方法。与服务器端实现一样，你可以生成首选语言的代码以创建客户端存根，然后使用该存根调用服务。在[示例 3-3](#EX3-3)中，我们使用了Go
+    gRPC客户端来调用`OrderManagement`服务。当然，首先要建立与服务器的连接，并启动客户端存根来调用服务。然后，你可以简单地调用客户端存根的`getOrder`方法来远程调用方法。作为响应，你会得到一个包含我们在服务定义中使用协议缓冲区定义的订单信息的`Order`消息。
 - en: Example 3-3\. Client implementation to invoke remote method getOrder using Go
+  id: totrans-28
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 3-3\. 使用Go实现的客户端调用远程方法`getOrder`
 - en: '[PRE2]'
+  id: totrans-29
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE2]'
 - en: The simple RPC pattern is quite straightforward to implement and fits well for
     most inter-process communication use cases. The implementation is quite similar
     across multiple programming languages, and you can find the source code for Go
     and Java in the sample source code repository of the book.
+  id: totrans-30
   prefs: []
   type: TYPE_NORMAL
+  zh: 简单RPC模式非常直接，适合大多数进程间通信用例。该实现在多种编程语言中非常相似，你可以在该书的示例源代码仓库中找到Go和Java的源代码。
 - en: Now, since you have a good understanding of the simple RPC communication pattern,
     let’s move on to *server-streaming RPC*.
+  id: totrans-31
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在，既然你已经对简单RPC通信模式有了很好的理解，让我们继续*服务器端流式RPC*。
 - en: Server-Streaming RPC
+  id: totrans-32
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 服务器端流式RPC
 - en: In simple RPC you always had a single request and single response in the communication
     between the gRPC server and gRPC client. In server-side streaming RPC, the server
     sends back a sequence of responses after getting the client’s request message.
     This sequence of multiple responses is known as a “stream.” After sending all
     the server responses, the server marks the end of the stream by sending the server’s
     status details as trailing metadata to the client.
+  id: totrans-33
   prefs: []
   type: TYPE_NORMAL
+  zh: 在简单RPC中，你总是在gRPC服务器和gRPC客户端之间的通信中有一个请求和一个响应。在服务器端流式RPC中，服务器在收到客户端的请求消息后会返回一系列响应。这一系列的多个响应被称为“流”。在发送所有服务器响应之后，服务器通过向客户端发送服务器状态详细信息作为尾随元数据来标记流的结束。
 - en: Let’s take a real-world use case to understand server-side streaming further.
     In our `OrderManagement` service suppose that we need to build an order search
     capability where we can provide a search term and get the matching results ([Figure 3-2](#server_streaming_rpc)).
     Rather than sending all the matching orders at once, the `OrderManagement` service
     can send the orders as and when they are found. This means the order service client
     will receive multiple response messages for a single request that it has sent.
+  id: totrans-34
   prefs: []
   type: TYPE_NORMAL
+  zh: 让我们来看一个真实的用例，进一步理解服务器端流式。在我们的`OrderManagement`服务中，假设我们需要构建一个订单搜索功能，我们可以提供搜索词并获取匹配的结果（[图 3-2](#server_streaming_rpc)）。与其一次性发送所有匹配订单，`OrderManagement`服务可以在找到时即时发送订单。这意味着订单服务客户端将会为其发送的单个请求接收到多个响应消息。
 - en: '![Server-streaming RPC](assets/grpc_0302.png)'
+  id: totrans-35
   prefs: []
   type: TYPE_IMG
+  zh: '![服务器端流式RPC](assets/grpc_0302.png)'
 - en: Figure 3-2\. Server-streaming RPC
+  id: totrans-36
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 3-2\. 服务器端流式RPC
 - en: Now let’s include a `searchOrder` method in our gRPC service definition of the
     `OrderManagement` service. As shown in [Example 3-4](#EX3-4), the method definition
     is quite similar to simple RPC, but as the return parameter, you have to specify
     a *stream* of orders by using `returns (stream Order)` in the proto file of the
     service definition.
+  id: totrans-37
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在让我们在`OrderManagement`服务的gRPC服务定义中包含一个`searchOrder`方法。如[示例 3-4](#EX3-4)所示，方法定义与简单RPC非常相似，但作为返回参数，你必须在服务定义的proto文件中使用`returns
+    (stream Order)`指定一组订单的*stream*。
 - en: Example 3-4\. Service definition with server-side streaming RPC
+  id: totrans-38
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 3-4\. 带有服务器端流式RPC的服务定义
 - en: '[PRE3]'
+  id: totrans-39
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE3]'
 - en: '[![1](assets/1.png)](#co_grpc_communication_patterns_CO2-1)'
+  id: totrans-40
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_grpc_communication_patterns_CO2-1)'
 - en: Defining server-side streaming by returning a `stream` of `Order` messages.
+  id: totrans-41
   prefs: []
   type: TYPE_NORMAL
+  zh: 定义服务器端流式传输，通过返回`stream`类型的`Order`消息。
 - en: 'From the service definition, you can generate the server-side code and then
     by implementing the generated interfaces you build the logic of the `searchOrder`
     method of the `OrderManagement` gRPC service. In the Go implementation shown in
@@ -220,114 +321,175 @@
     the stream reference object. Once all the responses are written to the stream
     you can mark the end of the stream by returning `nil`, and the server status and
     other trailing metadata will be sent to the client.'
+  id: totrans-42
   prefs: []
   type: TYPE_NORMAL
+  zh: 根据服务定义，你可以生成服务端代码，然后通过实现生成的接口来构建 `OrderManagement` gRPC 服务中 `searchOrder` 方法的逻辑。在示例
+    3-5 中展示的 Go 实现中，`SearchOrders` 方法有两个参数：`searchQuery`，一个字符串值，和一个特殊的参数 `OrderManagement_SearchOrdersServer`，用于向其写入我们的响应。`OrderManagement_SearchOrdersServer`
+    充当流的引用对象，我们可以使用 `Send(…)` 方法向流中写入多个响应。业务逻辑在于查找匹配的订单，并逐个通过流发送它们。一旦所有响应写入流中，你可以通过返回
+    `nil` 来标记流的结束，服务器状态和其他尾随元数据将发送到客户端。
 - en: Example 3-5\. Service implementation of OrderManagement with searchOrders in
     Go
+  id: totrans-43
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 3-5\. 使用 Go 实现的 OrderManagement 的服务端实现，带有 `searchOrders`。
 - en: '[PRE4]'
+  id: totrans-44
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE4]'
 - en: '[![1](assets/1.png)](#co_grpc_communication_patterns_CO3-1)'
+  id: totrans-45
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_grpc_communication_patterns_CO3-1)'
 - en: Find matching orders.
+  id: totrans-46
   prefs: []
   type: TYPE_NORMAL
+  zh: 查找匹配的订单。
 - en: '[![2](assets/2.png)](#co_grpc_communication_patterns_CO3-2)'
+  id: totrans-47
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_grpc_communication_patterns_CO3-2)'
 - en: Send matching order through the stream.
+  id: totrans-48
   prefs: []
   type: TYPE_NORMAL
+  zh: 发送匹配订单通过流。
 - en: '[![3](assets/3.png)](#co_grpc_communication_patterns_CO3-3)'
+  id: totrans-49
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_grpc_communication_patterns_CO3-3)'
 - en: Check for possible errors that could occur when streaming messages to the client.
+  id: totrans-50
   prefs: []
   type: TYPE_NORMAL
+  zh: 检查可能在向客户端流式传输消息时发生的错误。
 - en: The remote method invocation from the client side is quite similar to simple
     RPC. However, here you have to process multiple responses as the server writes
     multiple responses to the stream. So in the Go implementation of the gRPC client
     ([Example 3-6](#EX3-6)), we retrieve messages from the client-side stream using
     the `Recv()` method and keep doing so until we reach the end of the stream.
+  id: totrans-51
   prefs: []
   type: TYPE_NORMAL
+  zh: 客户端从客户端发起的远程方法调用与简单的 RPC 非常相似。然而，在这里，你必须处理多个响应，因为服务器将多个响应写入流中。因此，在 gRPC 客户端的
+    Go 实现中（[示例 3-6](#EX3-6)），我们使用 `Recv()` 方法从客户端流中检索消息，并持续执行，直到流结束。
 - en: Example 3-6\. Client implementation of OrderManagement with searchOrders in
     Go
+  id: totrans-52
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 3-6\. 使用 Go 实现的 OrderManagement 的客户端实现，带有 `searchOrders`。
 - en: '[PRE5]'
+  id: totrans-53
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE5]'
 - en: '[![1](assets/1.png)](#co_grpc_communication_patterns_CO4-1)'
+  id: totrans-54
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_grpc_communication_patterns_CO4-1)'
 - en: The `SearchOrders` function returns a client stream of `OrderManagement_SearchOrders​Client`,
     which has a `Recv` method.
+  id: totrans-55
   prefs: []
   type: TYPE_NORMAL
+  zh: '`SearchOrders` 函数返回一个 `OrderManagement_SearchOrders​Client` 的客户端流，其中包含一个 `Recv`
+    方法。'
 - en: '[![2](assets/2.png)](#co_grpc_communication_patterns_CO4-2)'
+  id: totrans-56
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_grpc_communication_patterns_CO4-2)'
 - en: Calling the client stream’s `Recv()` method to retrieve `Order` responses one
     by one.
+  id: totrans-57
   prefs: []
   type: TYPE_NORMAL
+  zh: 调用客户端流的 `Recv()` 方法逐个检索 `Order` 响应。
 - en: '[![3](assets/3.png)](#co_grpc_communication_patterns_CO4-3)'
+  id: totrans-58
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_grpc_communication_patterns_CO4-3)'
 - en: When the end of the stream is found `Recv` returns an `io.EOF`.
+  id: totrans-59
   prefs: []
   type: TYPE_NORMAL
+  zh: 当找到流的结束时，`Recv` 返回一个 `io.EOF`。
 - en: Now let’s look at client-streaming RPC, which is pretty much the opposite of
     server-streaming RPC.
+  id: totrans-60
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在让我们看看客户端流式 RPC，这在逻辑上与服务器流式 RPC 正好相反。
 - en: Client-Streaming RPC
+  id: totrans-61
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 客户端流式 RPC
 - en: In client-streaming RPC, the client sends multiple messages to the server instead
     of a single request. The server sends back a single response to the client. However,
     the server does not necessarily have to wait until it receives all the messages
     from the client side to send a response. Based on this logic you may send the
     response after reading one or a few messages from the stream or after reading
     all the messages.
+  id: totrans-62
   prefs: []
   type: TYPE_NORMAL
+  zh: 在客户端流式 RPC 中，客户端发送多个消息到服务器，而不是单个请求。服务器向客户端发送单个响应。然而，服务器不一定需要等到接收到所有来自客户端的消息后才发送响应。根据此逻辑，你可以在从流中读取一个或几个消息后或者读取所有消息后发送响应。
 - en: Let’s further extend our `OrderManagement` service to understand client-streaming
     RPC. Suppose you want to include a new method, `updateOrders`, in the `OrderManagement`
     service to update a set of orders ([Figure 3-3](#client_streaming_rpc)). Here
     we want to send the order list as a stream of messages to the server and server
     will process that stream and send a message with the status of the orders that
     are updated.
+  id: totrans-63
   prefs: []
   type: TYPE_NORMAL
+  zh: 让我们进一步扩展我们的 `OrderManagement` 服务，以理解客户端流式 RPC。假设您想在 `OrderManagement` 服务中包含一个新方法
+    `updateOrders`，以更新一组订单（[图 3-3](#client_streaming_rpc)）。在这里，我们希望将订单列表作为消息流发送到服务器，并且服务器将处理该流并发送带有订单状态的消息。
 - en: '![Client Streaming RPC](assets/grpc_0303.png)'
+  id: totrans-64
   prefs: []
   type: TYPE_IMG
+  zh: '![客户端流式 RPC](assets/grpc_0303.png)'
 - en: Figure 3-3\. Client-streaming RPC
+  id: totrans-65
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 3-3\. 客户端流式 RPC
 - en: Then we can include the `updateOrders` method in our service definition of the
     `OrderManagement` service as shown in [Example 3-7](#EX3-7). You can simply use
     `stream order` as the method parameter of `updateOrders` to denote that `updateOrders`
     will get multiple messages as the input from the client. As the server only sends
     a single response, the return value is a single string message.
+  id: totrans-66
   prefs: []
   type: TYPE_NORMAL
+  zh: 然后，我们可以在 `OrderManagement` 服务的服务定义中包含 `updateOrders` 方法，如示例 3-7 所示。您可以简单地将 `stream
+    order` 作为 `updateOrders` 的方法参数，以表示 `updateOrders` 将从客户端接收多条消息作为输入。由于服务器只发送单个响应，返回值是单个字符串消息。
 - en: Example 3-7\. Service definition with client-side streaming RPC
+  id: totrans-67
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 3-7\. 带有客户端流式 RPC 的服务定义。
 - en: '[PRE6]'
+  id: totrans-68
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE6]'
 - en: Once we update the service definition, we can generate the server- and client-side
     code. At the server side, you need to implement the generated method interface
     of the `UpdateOrders` method of the `OrderManagement` service. In the Go implementation
@@ -340,84 +502,133 @@
     object, which also marks the end of the stream for server-side messages. If the
     server decides to prematurely stop reading from the client’s stream, the server
     should cancel the client stream so the client knows to stop producing messages.
+  id: totrans-69
   prefs: []
   type: TYPE_NORMAL
+  zh: 一旦我们更新了服务定义，我们可以生成服务器端和客户端代码。在服务器端，您需要实现 `OrderManagement` 服务的生成方法接口中的 `UpdateOrders`
+    方法。在示例 3-8 中显示的 Go 实现中，`UpdateOrders` 方法具有 `OrderManagement_UpdateOrdersServer`
+    参数，这是从客户端传入消息流的引用对象。因此，您可以通过调用 `Recv()` 方法从该对象中读取消息。根据业务逻辑，您可以读取少量或所有消息，直到流的结束。服务可以通过调用
+    `OrderManagement_UpdateOrdersServer` 对象的 `SendAndClose` 方法简单地发送其响应，这也标记了服务端消息流的结束。如果服务器决定过早停止从客户端的流中读取消息，则服务器应取消客户端流，以便客户端知道停止生成消息。
 - en: Example 3-8\. Service implementation of OrderManagement with updateOrders method
     in Go
+  id: totrans-70
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 3-8\. 在 Go 中实现的 OrderManagement 服务，包含了 `updateOrders` 方法的服务实现。
 - en: '[PRE7]'
+  id: totrans-71
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE7]'
 - en: '[![1](assets/1.png)](#co_grpc_communication_patterns_CO5-1)'
+  id: totrans-72
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_grpc_communication_patterns_CO5-1)'
 - en: Read message from the client stream.
+  id: totrans-73
   prefs: []
   type: TYPE_NORMAL
+  zh: 从客户端流中读取消息。
 - en: '[![2](assets/2.png)](#co_grpc_communication_patterns_CO5-2)'
+  id: totrans-74
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_grpc_communication_patterns_CO5-2)'
 - en: Check for end of stream.
+  id: totrans-75
   prefs: []
   type: TYPE_NORMAL
+  zh: 检查流的结束。
 - en: Now let’s look at the client-side implementation of the client-streaming RPC
     use case. As shown in the following Go implementation ([Example 3-9](#EX3-9)),
     the client can send multiple messages via the client-side stream reference using
     the `updateStream.Send` method. Once all the messages are streamed the client
     can mark the end of the stream and receive the response from the service. This
     is done using the `CloseAndRecv` method of the stream reference.
+  id: totrans-76
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在让我们看看客户端流式 RPC 用例的客户端实现。如下 Go 实现所示（[示例 3-9](#EX3-9)），客户端可以通过客户端流引用使用 `updateStream.Send`
+    方法发送多条消息。一旦所有消息流式传输完毕，客户端可以通过流引用的 `CloseAndRecv` 方法标记流的结束并接收来自服务的响应。
 - en: Example 3-9\. Client implementation of OrderManagement with updateOrders method
     in Go
+  id: totrans-77
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 3-9\. 在 Go 中实现的 OrderManagement 的客户端实现，包含了 `updateOrders` 方法。
 - en: '[PRE8]'
+  id: totrans-78
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE8]'
 - en: '[![1](assets/1.png)](#co_grpc_communication_patterns_CO6-1)'
+  id: totrans-79
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_grpc_communication_patterns_CO6-1)'
 - en: Invoking `UpdateOrders` remote method.
+  id: totrans-80
   prefs: []
   type: TYPE_NORMAL
+  zh: 调用 `UpdateOrders` 远程方法。
 - en: '[![2](assets/2.png)](#co_grpc_communication_patterns_CO6-2)'
+  id: totrans-81
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_grpc_communication_patterns_CO6-2)'
 - en: Handling errors related to `UpdateOrders`.
+  id: totrans-82
   prefs: []
   type: TYPE_NORMAL
+  zh: 处理与 `UpdateOrders` 相关的错误。
 - en: '[![3](assets/3.png)](#co_grpc_communication_patterns_CO6-3)'
+  id: totrans-83
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_grpc_communication_patterns_CO6-3)'
 - en: Sending order update via client stream.
+  id: totrans-84
   prefs: []
   type: TYPE_NORMAL
+  zh: 通过客户端流发送订单更新。
 - en: '[![4](assets/4.png)](#co_grpc_communication_patterns_CO6-4)'
+  id: totrans-85
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![4](assets/4.png)](#co_grpc_communication_patterns_CO6-4)'
 - en: Handling errors when sending messages to stream.
+  id: totrans-86
   prefs: []
   type: TYPE_NORMAL
+  zh: 处理向流发送消息时的错误。
 - en: '[![5](assets/5.png)](#co_grpc_communication_patterns_CO6-5)'
+  id: totrans-87
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![5](assets/5.png)](#co_grpc_communication_patterns_CO6-5)'
 - en: Closing the stream and receiving the response.
+  id: totrans-88
   prefs: []
   type: TYPE_NORMAL
+  zh: 关闭流并接收响应。
 - en: As a result of this function invocation, you get the response message of the
     service. Since now you have a good understanding of both server-streaming and
     client-streaming RPC, let’s move on to bidirectional-streaming RPC, which is sort
     of a combination of the RPC styles that we discussed.
+  id: totrans-89
   prefs: []
   type: TYPE_NORMAL
+  zh: 作为此功能调用的结果，您会收到服务的响应消息。既然现在您已经很好地理解了服务器流式和客户端流式 RPC，让我们继续讨论双向流式 RPC，这种 RPC 是我们讨论过的
+    RPC 风格的一种组合。
 - en: Bidirectional-Streaming RPC
+  id: totrans-90
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 双向流式 RPC
 - en: In bidirectional-streaming RPC, the client is sending a request to the server
     as a stream of messages. The server also responds with a stream of messages. The
     call has to be initiated from the client side, but after that, the communication
@@ -428,59 +639,85 @@
     send a continuous set of orders (the stream of orders) and process them into combined
     shipments based on the delivery location (i.e., orders are organized into shipments
     based on the delivery destination).
+  id: totrans-91
   prefs: []
   type: TYPE_NORMAL
+  zh: 在双向流式 RPC 中，客户端作为一系列消息的流向服务器发送请求。服务器也以消息流的形式响应。调用必须由客户端端发起，但之后的通信完全基于 gRPC 客户端和服务器的应用逻辑。让我们通过一个示例详细了解双向流式
+    RPC。如图 [Figure 3-4](#bidirectional_streaming_rpc) 所示，在我们的 `OrderManagement` 服务用例中，假设我们需要订单处理功能，您可以发送连续的订单集（订单流），并根据交付位置将其处理成组合装运（即根据交付目的地将订单组织成装运）。
 - en: '![Bidirectional-streaming RPC](assets/grpc_0304.png)'
+  id: totrans-92
   prefs: []
   type: TYPE_IMG
+  zh: '![双向流式 RPC](assets/grpc_0304.png)'
 - en: Figure 3-4\. Bidirectional-streaming RPC
+  id: totrans-93
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 3-4\. 双向流式 RPC
 - en: 'We can identify the following key steps of this business use case:'
+  id: totrans-94
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们可以确定此业务用例的以下关键步骤：
 - en: The client application initiates the business use case by setting up the connection
     with the server and sending call metadata (headers).
+  id: totrans-95
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 客户端应用程序通过与服务器建立连接并发送调用元数据（头部）来启动业务用例。
 - en: Once the connection setup is completed, the client application sends a continuous
     set of order IDs that need to be processed by the `OrderManagement` service.
+  id: totrans-96
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 连接设置完成后，客户端应用程序发送一组连续的订单 ID，这些订单需要由 `OrderManagement` 服务处理。
 - en: Each order ID is sent to the server as a separate gRPC message.
+  id: totrans-97
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 每个订单 ID 都作为单独的 gRPC 消息发送到服务器。
 - en: The service processes each order for the specified order ID and organizes them
     into combined shipments based on the delivery location of the order.
+  id: totrans-98
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 服务为每个指定的订单 ID 处理每个订单，并根据订单的交付位置将其组织成组合装运。
 - en: A combined shipment may contain multiple orders that should be delivered to
     the same destination.
+  id: totrans-99
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 组合装运可能包含多个订单，这些订单应该发送到相同的目的地。
 - en: Orders are processed in batches. When the batch size is reached, all the currently
     created combined shipments will be sent back to the client.
+  id: totrans-100
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 订单按批次处理。当达到批次大小时，所有当前创建的组合装运将发送回客户端。
 - en: For example, an ordered stream of four where two orders addressed to location
     X and two to location Y can be denoted as X, Y, X, Y. And if the batch size is
     three, then the created combined orders should be shipment [X, X], shipment [Y],
     shipment [Y]. These combined shipments are also sent as a stream back to the client.
+  id: totrans-101
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 例如，一个包含四个订单的有序流，其中两个订单寄送到位置 X，两个寄送到位置 Y，可以表示为 X, Y, X, Y。如果批次大小为三，那么创建的组合订单应该是装运
+    [X, X]，装运 [Y]，装运 [Y]。这些组合装运也作为流发送回客户端。
 - en: The key idea behind this business use case is that once the RPC method is invoked
     either the client or service can send messages at any arbitrary time. (This also
     includes the end of stream markings from either of the parties.)
+  id: totrans-102
   prefs: []
   type: TYPE_NORMAL
+  zh: 此业务用例背后的关键思想是一旦调用 RPC 方法，无论是客户端还是服务端都可以在任意时间发送消息。（这还包括来自任一方的流结束标记。）
 - en: Now, let’s move on to the service definition for the preceding use case. As
     shown in [Example 3-10](#EX3-10), we can define a `processOrders` method so that
     it takes a stream of strings as the method parameter to represent the order ID
@@ -488,34 +725,54 @@
     So, by declaring both the method parameter and return parameters as a `stream`,
     you can define a bidirectional-streaming RPC method. The combined shipment message
     is also declared in the service definition and it contains a list of order elements.
+  id: totrans-103
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在，让我们继续进行前面用例的服务定义。如示例 3-10 所示，我们可以定义一个`processOrders`方法，使其将字符串流作为方法参数来表示订单
+    ID 流，并将`CombinedShipments`流作为方法的返回参数。因此，通过将方法参数和返回参数都声明为`stream`，可以定义双向流式 RPC
+    方法。组合发货消息也在服务定义中声明，并包含订单元素列表。
 - en: Example 3-10\. Service definition for bidirectional-streaming RPC
+  id: totrans-104
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 3-10\. 双向流式 RPC 的服务定义
 - en: '[PRE9]'
+  id: totrans-105
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE9]'
 - en: '[![1](assets/1.png)](#co_grpc_communication_patterns_CO7-1)'
+  id: totrans-106
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_grpc_communication_patterns_CO7-1)'
 - en: Both method parameters and return parameters are declared as streams in bidirectional
     RPC.
+  id: totrans-107
   prefs: []
   type: TYPE_NORMAL
+  zh: 在双向 RPC 中，方法参数和返回参数均声明为流。
 - en: '[![2](assets/2.png)](#co_grpc_communication_patterns_CO7-2)'
+  id: totrans-108
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_grpc_communication_patterns_CO7-2)'
 - en: Structure of the `Order` message.
+  id: totrans-109
   prefs: []
   type: TYPE_NORMAL
+  zh: '`Order`消息的结构。'
 - en: '[![3](assets/3.png)](#co_grpc_communication_patterns_CO7-3)'
+  id: totrans-110
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_grpc_communication_patterns_CO7-3)'
 - en: Structure of the `CombinedShipment` message.
+  id: totrans-111
   prefs: []
   type: TYPE_NORMAL
+  zh: '`CombinedShipment`消息的结构。'
 - en: Then we can generate the server-side code from the updated service definition.
     The service should implement the `processOrders` method of the `OrderManagement`
     service. In the Go implementation shown in [Example 3-11](#EX3-11), `processOrders`
@@ -526,148 +783,229 @@
     reference object, the incoming message stream can be read using the `Recv()` method.
     In the `processOrders` method, the service can keep on reading the incoming message
     stream while writing to the same stream using `Send`.
+  id: totrans-112
   prefs: []
   type: TYPE_NORMAL
+  zh: 然后我们可以从更新的服务定义生成服务端代码。服务应该实现`OrderManagement`服务的`processOrders`方法。在示例 3-11 中显示的
+    Go 实现中，`processOrders`方法具有`OrderManagement_ProcessOrdersServer`参数，这是客户端和服务之间消息流的引用对象。使用这个流对象，服务可以读取流到服务器的客户端消息，并将流服务器的消息写回客户端。使用该流引用对象，可以使用`Recv()`方法读取传入消息流。在`processOrders`方法中，服务可以继续读取传入的消息流，同时使用`Send`写入同一流。
 - en: Note
+  id: totrans-113
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: To simplify the demonstration, some of the logic of [Example 3-10](#EX3-10)
     is not shown. You can find the full code example in this book’s source code repository.
+  id: totrans-114
   prefs: []
   type: TYPE_NORMAL
+  zh: 为了简化演示，未显示示例 3-10 的部分逻辑。您可以在本书的源代码库中找到完整的代码示例。
 - en: Example 3-11\. Service implementation of OrderManagement with processOrders
     method in Go
+  id: totrans-115
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 3-11\. 使用 Go 实现的 OrderManagement 服务，包含 processOrders 方法
 - en: '[PRE10]'
+  id: totrans-116
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE10]'
 - en: '[![1](assets/1.png)](#co_grpc_communication_patterns_CO8-1)'
+  id: totrans-117
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_grpc_communication_patterns_CO8-1)'
 - en: Read order IDs from the incoming stream.
+  id: totrans-118
   prefs: []
   type: TYPE_NORMAL
+  zh: 从传入流中读取订单 ID。
 - en: '[![2](assets/2.png)](#co_grpc_communication_patterns_CO8-2)'
+  id: totrans-119
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_grpc_communication_patterns_CO8-2)'
 - en: Keep reading until the end of the stream is found.
+  id: totrans-120
   prefs: []
   type: TYPE_NORMAL
+  zh: 一直读取，直到找到流的结尾。
 - en: '[![3](assets/3.png)](#co_grpc_communication_patterns_CO8-3)'
+  id: totrans-121
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_grpc_communication_patterns_CO8-3)'
 - en: When the end of the stream is found send all the remaining combined shipments
     to the client.
+  id: totrans-122
   prefs: []
   type: TYPE_NORMAL
+  zh: 当找到流的结尾时，将所有剩余的组合发货发送到客户端。
 - en: '[![4](assets/4.png)](#co_grpc_communication_patterns_CO8-4)'
+  id: totrans-123
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![4](assets/4.png)](#co_grpc_communication_patterns_CO8-4)'
 - en: Server-side end of the stream is marked by returning `nil`.
+  id: totrans-124
   prefs: []
   type: TYPE_NORMAL
+  zh: 返回`nil`标记了服务端流的结束。
 - en: '[![5](assets/5.png)](#co_grpc_communication_patterns_CO8-5)'
+  id: totrans-125
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![5](assets/5.png)](#co_grpc_communication_patterns_CO8-5)'
 - en: Orders are processed in batches. When the batch size is met, all the created
     combined shipments are streamed to the client.
+  id: totrans-126
   prefs: []
   type: TYPE_NORMAL
+  zh: 订单按批次处理。当达到批处理大小时，所有创建的组合发货将流式传输到客户端。
 - en: '[![6](assets/6.png)](#co_grpc_communication_patterns_CO8-6)'
+  id: totrans-127
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![6](assets/6.png)](#co_grpc_communication_patterns_CO8-6)'
 - en: Writing the combined shipment to the stream.
+  id: totrans-128
   prefs: []
   type: TYPE_NORMAL
+  zh: 将组合发货写入流。
 - en: Here we process incoming orders based on the ID, and when a new combined shipment
     is created the service writes it to the same stream (unlike client-streaming RPC
     where we write and close the stream with `SendAndClose`.). The end of the stream
     at the server side is marked when we return `nil` when the client’s end of the
     stream is found.
+  id: totrans-129
   prefs: []
   type: TYPE_NORMAL
+  zh: 在这里，我们根据ID处理传入的订单，当创建新的组合装运时，服务端将其写入同一流（与客户端流式RPC不同，其中我们使用`SendAndClose`来写入并关闭流）。在服务器端，当我们返回`nil`以找到客户端流的末尾时，流的末尾被标记。
 - en: The client-side implementation ([Example 3-12](#EX3-12)) is also quite similar
     to the previous examples. When the client invokes the method `processOrders` via
     the `OrderManagement` client object, it gets a reference to the stream (`streamProcOrder`)
     that is used in sending messages to the server as well as reading messages from
     the server.
+  id: totrans-130
   prefs: []
   type: TYPE_NORMAL
+  zh: 客户端实现（[示例 3-12](#EX3-12)）与之前的示例非常相似。当客户端通过`OrderManagement`客户端对象调用`processOrders`方法时，它会得到一个流引用（`streamProcOrder`），用于向服务器发送消息以及从服务器读取消息。
 - en: Example 3-12\. Client implementation of OrderManagement with processOrders method
     in Go
+  id: totrans-131
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 3-12\. 使用Go实现的OrderManagement客户端，包含了在processOrders方法中的实现。
 - en: '[PRE11]'
+  id: totrans-132
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE11]'
 - en: '[![1](assets/1.png)](#co_grpc_communication_patterns_CO9-1)'
+  id: totrans-133
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_grpc_communication_patterns_CO9-1)'
 - en: Invoke the remote method and obtain the stream reference for writing and reading
     from the client side.
+  id: totrans-134
   prefs: []
   type: TYPE_NORMAL
+  zh: 调用远程方法并获取用于从客户端写入和读取的流引用。
 - en: '[![2](assets/2.png)](#co_grpc_communication_patterns_CO9-2)'
+  id: totrans-135
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_grpc_communication_patterns_CO9-2)'
 - en: Send a message to the service.
+  id: totrans-136
   prefs: []
   type: TYPE_NORMAL
+  zh: 向服务端发送消息。
 - en: '[![3](assets/3.png)](#co_grpc_communication_patterns_CO9-3)'
+  id: totrans-137
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_grpc_communication_patterns_CO9-3)'
 - en: Create a channel to use for Goroutines.
+  id: totrans-138
   prefs: []
   type: TYPE_NORMAL
+  zh: 创建一个用于Goroutines的通道。
 - en: '[![4](assets/4.png)](#co_grpc_communication_patterns_CO9-4)'
+  id: totrans-139
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![4](assets/4.png)](#co_grpc_communication_patterns_CO9-4)'
 - en: Invoke the function using Goroutines to read the messages in parallel from the
     service.
+  id: totrans-140
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用Goroutines调用函数以并行方式从服务端读取消息。
 - en: '[![5](assets/5.png)](#co_grpc_communication_patterns_CO9-5)'
+  id: totrans-141
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![5](assets/5.png)](#co_grpc_communication_patterns_CO9-5)'
 - en: Mimic a delay when sending some messages to the service.
+  id: totrans-142
   prefs: []
   type: TYPE_NORMAL
+  zh: 模拟发送某些消息到服务端时的延迟。
 - en: '[![6](assets/6.png)](#co_grpc_communication_patterns_CO9-6)'
+  id: totrans-143
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![6](assets/6.png)](#co_grpc_communication_patterns_CO9-6)'
 - en: Mark the end of stream for the client stream (order IDs).
+  id: totrans-144
   prefs: []
   type: TYPE_NORMAL
+  zh: 标记客户端流（订单ID）的流的末尾。
 - en: '[![7](assets/7.png)](#co_grpc_communication_patterns_CO9-7)'
+  id: totrans-145
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![7](assets/7.png)](#co_grpc_communication_patterns_CO9-7)'
 - en: Read service’s messages on the client side.
+  id: totrans-146
   prefs: []
   type: TYPE_NORMAL
+  zh: 在客户端上读取服务端的消息。
 - en: '[![8](assets/8.png)](#co_grpc_communication_patterns_CO9-8)'
+  id: totrans-147
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![8](assets/8.png)](#co_grpc_communication_patterns_CO9-8)'
 - en: Condition to detect the end of the stream.
+  id: totrans-148
   prefs: []
   type: TYPE_NORMAL
+  zh: 检测流的结束条件。
 - en: The client can send messages to the service and close the stream at any arbitrary
     time. The same applies for reading as well. In the prior example, we execute the
     client message writing and message reading logic in two concurrent threads using
     the Go language’s *Goroutines* terminology.
+  id: totrans-149
   prefs: []
   type: TYPE_NORMAL
+  zh: 客户端可以随时向服务端发送消息并关闭流。读取也是如此。在前面的例子中，我们使用Go语言的*Goroutines*术语，使用两个并发线程执行客户端消息写入和消息读取逻辑。
 - en: Goroutines
+  id: totrans-150
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: Goroutines
 - en: In Go, Goroutines are functions or methods that run concurrently with other
     functions or methods. They can be thought of as lightweight threads.
+  id: totrans-151
   prefs: []
   type: TYPE_NORMAL
+  zh: 在Go语言中，Goroutines是并行运行的函数或方法，它们可以与其他函数或方法同时运行。可以将它们视为轻量级线程。
 - en: So, the client can read and write to the same stream concurrently and both incoming
     and outgoing streams operate independently. What we have shown is a somewhat complex
     use case to showcase the power of bidirectional RPC. It’s important to understand
@@ -675,22 +1013,30 @@
     completely independently. Therefore, it is completely up to the client and service
     to decide the communication pattern between the client and service once the initial
     connection is established.
+  id: totrans-152
   prefs: []
   type: TYPE_NORMAL
+  zh: 因此，客户端可以并行读写同一流，入站和出站流操作完全独立。我们展示的是一个相对复杂的用例，展示了双向RPC的强大功能。重要的是要理解，客户端和服务端可以按任意顺序读写——流操作完全独立。因此，一旦建立初始连接，客户端和服务端可以完全自行决定之间的通信模式。
 - en: With that, we have covered all the possible communication patterns that we can
     use to build interactions with gRPC-based applications. There is no hard-and-fast
     rule when it comes to selecting a communication pattern, but it’s always good
     to analyze the business use case and then select the most appropriate pattern.
+  id: totrans-153
   prefs: []
   type: TYPE_NORMAL
+  zh: 到此为止，我们已经涵盖了用于构建与基于gRPC的应用程序交互的所有可能通信模式。在选择通信模式时没有硬性规定，但始终建议分析业务用例，然后选择最合适的模式。
 - en: Before we conclude this discussion on gRPC communication patterns, it’s important
     to take a look at how gRPC is used for microservices communication.
+  id: totrans-154
   prefs: []
   type: TYPE_NORMAL
+  zh: 在我们结束对gRPC通信模式的讨论之前，重要的是要看一看gRPC如何用于微服务通信。
 - en: Using gRPC for Microservices Communication
+  id: totrans-155
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 使用gRPC进行微服务通信
 - en: One of the main usages of gRPC is to implement microservices and their inter-service
     communication. In microservices inter-service communication, gRPC is used along
     with other communication protocols and usually gRPC services are implemented as
@@ -698,8 +1044,10 @@
     this further, let’s take a real-world scenario ([Figure 3-5](#a_common_microservices_deployment_pattern_with_grpc_and_other_protocols))
     of an online retail system, which is an extended version of what we have discussed
     so far.
+  id: totrans-156
   prefs: []
   type: TYPE_NORMAL
+  zh: gRPC的主要用途之一是实现微服务及其服务间通信。在微服务的服务间通信中，gRPC与其他通信协议一起使用，通常gRPC服务被实现为多语言服务（使用不同的编程语言实现）。为了进一步理解这一点，让我们看一个真实世界的场景（见[图3-5](#a_common_microservices_deployment_pattern_with_grpc_and_other_protocols)），这是在线零售系统的扩展版本，它是我们迄今所讨论的内容的延伸。
 - en: In this scenario, we have a number of microservices serving specific business
     capabilities of the online relation system. There are services such as the `Product`
     service, which is implemented as a gRPC service, and there are composite services
@@ -714,15 +1062,22 @@
     or the GraphQL service. Thus services such as `Catalog` and `Checkout` are consuming
     gRPC-based backend services, and also exposing RESTful or GraphQL-based external-facing
     interfaces.
+  id: totrans-157
   prefs: []
   type: TYPE_NORMAL
+  zh: 在这种场景下，我们有多个微服务来提供在线关系系统的特定业务能力。有一些像`Product`服务这样的服务，它被实现为一个gRPC服务，还有一些复合服务如`Catalog`服务，它调用多个下游服务来构建其业务能力。正如我们在[第一章](ch01.html#grpc_ch_01)中讨论的那样，对于大多数同步消息传递的场景，我们可以使用gRPC。当您有某些可能需要持久消息传递的异步消息传递场景时，可以使用事件代理或消息代理，如[Kafka](https://kafka.apache.org)，[Active
+    MQ](https://activemq.apache.org)，[RabbitMQ](https://www.rabbitmq.com)，以及[NATS](http://nats.io)。当您必须将某些业务功能暴露给外部世界时，可以使用传统的REST/OpenAPI服务或GraphQL服务。因此，诸如`Catalog`和`Checkout`之类的服务正在消费基于gRPC的后端服务，并且还暴露RESTful或基于GraphQL的外部接口。
 - en: '![A common microservice deployment pattern with gRPC and other protocols](assets/grpc_0305.png)'
+  id: totrans-158
   prefs: []
   type: TYPE_IMG
+  zh: '![一个使用gRPC和其他协议的常见微服务部署模式](assets/grpc_0305.png)'
 - en: Figure 3-5\. A common microservices deployment pattern with gRPC and other protocols
+  id: totrans-159
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图3-5\. 使用gRPC和其他协议的常见微服务部署模式
 - en: In most of the real-world use cases, these external-facing services are exposed
     through an API gateway. That is the place where you apply various nonfunctional
     capabilities such as security, throttling, versioning, and so on. Most such APIs
@@ -736,12 +1091,19 @@
     the same service contract between then (i.e., code generation from the same gRPC
     service definition). This allows us to pick the appropriate implementation technology
     based on the business capability of the service.
+  id: totrans-160
   prefs: []
   type: TYPE_NORMAL
+  zh: 在大多数实际应用案例中，这些面向外部的服务通过 API 网关暴露。这是您应用各种非功能性功能（如安全性、节流、版本控制等）的地方。大多数这样的 API
+    利用诸如 REST 或 GraphQL 等协议。虽然这并不常见，但只要 API 网关支持暴露 gRPC 接口，您也可以将 gRPC 暴露为面向外部的服务。API
+    网关实现了诸如身份验证、日志记录、版本控制、节流和负载均衡等横切功能。通过在 gRPC API 中使用 API 网关，您能够将此功能部署到核心 gRPC 服务之外。此架构的另一个重要方面是我们可以利用多种编程语言，但共享相同的服务契约（即从同一
+    gRPC 服务定义生成的代码）。这使我们能够根据服务的业务能力选择适当的实现技术。
 - en: Summary
+  id: totrans-161
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 摘要
 - en: gRPC offers a diverse set of RPC communication styles for building inter-process
     communication between gRPC-based applications. In this chapter, we explored four
     main communication patterns. Simple RPC is the most basic one; it is pretty much
@@ -750,8 +1112,11 @@
     the first invocation of the remote method, while client streaming allows you to
     send multiple messages from the client to the service. We delve into the details
     of how we can implement each of these patterns using some real-world use cases.
+  id: totrans-162
   prefs: []
   type: TYPE_NORMAL
+  zh: gRPC 提供了多种RPC通信样式，用于构建基于 gRPC 的应用程序之间的进程间通信。在本章中，我们探讨了四种主要的通信模式。简单 RPC 是最基本的一种，基本上是一种简单的请求-响应式远程过程调用样式。服务器流式
+    RPC 允许在远程方法第一次调用后，从服务向消费者发送多个消息，而客户端流式允许从客户端向服务发送多个消息。我们深入探讨了如何使用一些真实的用例来实现每个模式的细节。
 - en: The knowledge you gained in this chapter is quite useful for implementing any
     gRPC use case so that you can select the most appropriate communication pattern
     for your business. While this chapter gave you a solid understanding of gRPC communication
@@ -759,5 +1124,8 @@
     were not covered in this chapter. In the next chapter, we will dive deep into
     how low-level communication takes place when we have gRPC-based inter-process
     communication.
+  id: totrans-163
   prefs: []
   type: TYPE_NORMAL
+  zh: 本章中获得的知识对于实施任何 gRPC 使用案例都非常有用，因此您可以选择最适合您业务的最合适的通信模式。尽管本章为您提供了对 gRPC 通信模式的深入理解，但用户透明的低级通信细节在本章中没有涵盖。在下一章中，我们将深入探讨基于
+    gRPC 的进程间通信时的低级通信细节。

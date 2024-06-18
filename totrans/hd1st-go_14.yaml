@@ -1,10 +1,14 @@
 - en: 'Chapter 13\. sharing work: Goroutines and Channels'
+  id: totrans-0
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 第 13 章 分享工作：Goroutines 和 Channels
 - en: '![image](assets/f0379-01.png)'
+  id: totrans-1
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0379-01.png)'
 - en: '**Working on one thing at a time isn’t always the fastest way to finish a task.**
     Some big problems can be broken into smaller tasks. **Goroutines** let your program
     work on several different tasks at once. Your goroutines can coordinate their
@@ -12,48 +16,70 @@
     so that one goroutine doesn’t get ahead of another. Goroutines let you take full
     advantage of computers with multiple processors, so that your programs run as
     fast as possible!'
+  id: totrans-2
   prefs: []
   type: TYPE_NORMAL
+  zh: '**一次只做一件事情并不总是完成任务最快的方法。** 有些大问题可以分解成更小的任务。**Goroutines** 允许你的程序同时处理多个不同的任务。你的
+    goroutines 可以使用**channels**来协调它们的工作，让它们互相发送数据并同步，以确保一个 goroutine 不会超过另一个。Goroutines
+    让你充分利用拥有多处理器的计算机，从而使你的程序运行尽可能快！'
 - en: Retrieving web pages
+  id: totrans-3
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 获取网页
 - en: '![image](assets/f0163-01a.png)'
+  id: totrans-4
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0163-01a.png)'
 - en: This chapter is going to be about finishing work faster by doing several tasks
     simultaneously. But first, we need a big task that we can break into little parts.
     So bear with us for a couple pages while we set the scene...
+  id: totrans-5
   prefs: []
   type: TYPE_NORMAL
+  zh: 本章将讨论通过同时执行多个任务来更快完成工作。但首先，我们需要一个可以分解成小部分的大任务。所以在接下来的几页中，请耐心等待我们布景...
 - en: The smaller a web page is, the faster it loads in visitors’ browsers. We need
     a tool that can measure the sizes of pages, in bytes.
+  id: totrans-6
   prefs: []
   type: TYPE_NORMAL
+  zh: 网页越小，访问者的浏览器加载速度就越快。我们需要一个工具来测量页面的大小，以字节为单位。
 - en: This shouldn’t be too difficult, thanks to Go’s standard library. The program
     below uses the `net/http` package to connect to a site and retrieve a web page
     with just a few function calls.
+  id: totrans-7
   prefs: []
   type: TYPE_NORMAL
+  zh: 多亏了 Go 的标准库，这不应该太难。下面的程序使用`net/http`包连接到一个站点，并仅通过几个函数调用获取网页。
 - en: We pass the URL of the site we want to the `http.Get` function. It will return
     an `http.Response` object, plus any error it encountered.
+  id: totrans-8
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们将想要的站点的 URL 传递给`http.Get`函数。它将返回一个`http.Response`对象，以及它遇到的任何错误。
 - en: The `http.Response` object is a struct with a `Body` field that represents the
     content of the page. `Body` satisfies the `io` package’s `ReadCloser` interface,
     meaning it has a `Read` method (which lets us read the page data), and a `Close`
     method that releases the network connection when we’re done.
+  id: totrans-9
   prefs: []
   type: TYPE_NORMAL
+  zh: '`http.Response`对象是一个结构体，具有代表页面内容的`Body`字段。`Body`满足`io`包的`ReadCloser`接口，意味着它有一个`Read`方法（允许我们读取页面数据）和一个`Close`方法（在完成读取后释放网络连接）。'
 - en: We `defer` a call to `Close`, so the connection gets released after we’re done
     reading from it. Then we pass the response body to the `ioutil` package’s `ReadAll`
     function, which will read its entire contents and return it as a slice of `byte`
     values.
+  id: totrans-10
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们推迟对`Close`的调用，所以在我们读完数据后，连接将被释放。然后我们将响应体传递给`ioutil`包的`ReadAll`函数，它将读取其所有内容并作为`byte`值的切片返回。
 - en: '![image](assets/f0380-01.png)'
+  id: totrans-11
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0380-01.png)'
 - en: We haven’t covered the `byte` type yet; it’s one of Go’s basic types (like `float64`
     or `bool`), and it’s used for holding raw data, such as you might read from a
     file or network connection. A slice of `byte` values won’t show us anything meaningful
@@ -61,33 +87,49 @@
     values to a `string`, you’ll get readable text back. (That is, assuming the data
     represents readable text.) So we end by converting the response body to a `string`,
     and printing it.
+  id: totrans-12
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们还没有涵盖`byte`类型；它是 Go 的基本类型之一（类似于`float64`或`bool`），用于保存原始数据，比如从文件或网络连接中读取的数据。如果直接打印`byte`值的切片，将不会显示任何有意义的内容，但是如果将`byte`值的切片转换为`string`类型，就可以得到可读的文本。（假设数据表示可读文本。）因此，我们最后将响应体转换为`string`并打印出来。
 - en: '![image](assets/f0380-02.png)'
+  id: totrans-13
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0380-02.png)'
 - en: If we save this code to a file and run it with `go run`, it will retrieve the
     HTML content of the *[https://example.com](https://example.com)* page, and display
     it.
+  id: totrans-14
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果我们将这段代码保存到文件并用`go run`运行它，它将获取 *[https://example.com](https://example.com)*
+    页面的 HTML 内容，并显示出来。
 - en: '![image](assets/f0163-01a.png)'
+  id: totrans-15
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0163-01a.png)'
 - en: If you want more info on the functions and types used in this program, you can
     get it via the `go doc` command (which we learned about back in [Chapter 4](ch04.html#bundles_of_codecolon_packages))
     in your terminal. Try the commands at the right to bring up the documentation.
     (Or if you prefer, you can look them up in your browser using your favorite search
     engine.)
+  id: totrans-16
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果您想获取有关此程序中使用的函数和类型的更多信息，可以通过终端上的`go doc`命令（我们在[第4章](ch04.html#bundles_of_codecolon_packages)中已经了解过）获取。
+    尝试右侧的命令来查看文档。（或者，如果您愿意，可以使用您喜欢的搜索引擎在浏览器中查找。）
 - en: '![image](assets/f0381-01.png)'
+  id: totrans-17
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0381-01.png)'
 - en: From there, it’s not too difficult to convert the program to print the size
     of multiple pages.
+  id: totrans-18
   prefs: []
   type: TYPE_NORMAL
+  zh: 从这里开始，将程序转换为打印多个页面的大小并不是太困难。
 - en: We can move the code that retrieves the page to a separate `responseSize` function,
     which takes the URL to retrieve as a parameter. We’ll print the URL we’re retrieving
     just for debugging purposes. The code to call `http.Get`, read the response, and
@@ -95,422 +137,621 @@
     the slice of bytes from the response to a `string`, we simply call `len` to get
     the slice’s length. This gives us the length of the response in bytes, which we
     print.
+  id: totrans-19
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们可以将检索页面的代码移动到单独的`responseSize`函数中，并将要检索的URL作为参数传递。 我们会打印我们正在检索的URL，仅用于调试目的。
+    调用`http.Get`、读取响应和释放连接的代码基本上不会改变。 最后，我们不再将响应的字节片段转换为`string`，而是直接调用`len`获取该片段的长度。
+    这将给出响应的字节长度，我们将其打印出来。
 - en: We update our `main` function to call `responseSize` with several different
     URLs. When we run the program, it will print the URLs and page sizes.
+  id: totrans-20
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们更新我们的`main`函数，使用多个不同的URL调用`responseSize`。 运行程序时，它将打印URL和页面大小。
 - en: '![image](assets/f0381-02.png)![image](assets/f0165-06.png)'
+  id: totrans-21
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0381-02.png)![image](assets/f0165-06.png)'
 - en: Multitasking
+  id: totrans-22
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 多任务处理
 - en: 'And now we get to the point of this chapter: finding a way to speed programs
     up by performing multiple tasks at the same time.'
+  id: totrans-23
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在我们来到本章的重点：通过同时执行多个任务来加速程序。
 - en: Our program makes several calls to `responseSize`, one at a time. Each call
     to `responseSize` establishes a network connection to the website, waits for the
     site to respond, prints the response size, and returns. Only when one call to
     `responseSize` returns can the next begin. If we had one big long function where
     the all code was repeated three times, it would take the same amount of time to
     run as our three calls to `responseSize`.
+  id: totrans-24
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们的程序依次调用`responseSize`多次。 每次调用`responseSize`都会建立到网站的网络连接，等待网站响应，打印响应大小，然后返回。
+    只有一个`responseSize`调用返回后，下一个才能开始。 如果我们有一个所有代码都重复三次的大型函数，运行时间与我们的三个`responseSize`调用相同。
 - en: '![image](assets/f0382-01.png)'
+  id: totrans-25
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0382-01.png)'
 - en: But what if there were a way to run all three calls to `responseSize` at once?
     The program could complete in as little as a third of the time!
+  id: totrans-26
   prefs: []
   type: TYPE_NORMAL
+  zh: 但是，如果有一种方法可以同时运行所有三个`responseSize`调用呢？ 程序可能只需三分之一的时间就能完成！
 - en: '![image](assets/f0382-02.png)'
+  id: totrans-27
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0382-02.png)'
 - en: Concurrency using goroutines
+  id: totrans-28
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 使用goroutines进行并发处理
 - en: When `responseSize` makes the call to `http.Get`, your program has to sit there
     and wait for the remote website to respond. It’s not doing anything useful while
     it waits.
+  id: totrans-29
   prefs: []
   type: TYPE_NORMAL
+  zh: 当`responseSize`调用`http.Get`时，您的程序必须在那里等待远程网站响应。 在等待期间，它不执行任何有用的操作。
 - en: A different program might have to wait for user input. And another might have
     to wait while data is read in from a file. There are lots of situations where
     programs are just sitting around waiting.
+  id: totrans-30
   prefs: []
   type: TYPE_NORMAL
+  zh: 不同的程序可能需要等待用户输入。 另一个可能在从文件中读取数据时等待。 有许多情况下，程序只是坐在那里等待。
 - en: '**Concurrency** allows a program to pause one task and work on other tasks.
     A program waiting for user input might do other processing in the background.
     A program might update a progress bar while reading from a file. Our `responseSize`
     program might make other network requests while it waits for the first request
     to complete.'
+  id: totrans-31
   prefs: []
   type: TYPE_NORMAL
+  zh: '**并发**允许程序暂停一个任务并处理其他任务。 等待用户输入的程序可能在后台执行其他处理。 程序可能在读取文件时更新进度条。 我们的`responseSize`程序在等待第一个请求完成时可能会进行其他网络请求。'
 - en: 'If a program is written to support concurrency, then it may also support **parallelism**:
     running tasks *simultaneously*. A computer with only one processor can only run
     one task at a time. But most computers these days have multiple processors (or
     one processor with multiple cores). Your computer may divide concurrent tasks
     among different processors to run them at the same time. (It’s rare to manage
     this directly; the operating system usually handles it for you.)'
+  id: totrans-32
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果一个程序被写成支持并发，那么它可能也支持**并行处理**：同时运行任务。只有一个处理器的计算机一次只能运行一个任务。但是如今大多数计算机都有多个处理器（或者一个拥有多个核心的处理器）。您的计算机可能会将并发任务分配给不同的处理器以同时运行它们。（直接管理这些的情况很少见，通常操作系统会为您处理。）
 - en: Breaking large tasks into smaller subtasks that can be run concurrently can
     sometimes mean big speed increases for your programs.
+  id: totrans-33
   prefs: []
   type: TYPE_NORMAL
+  zh: 将大任务分解为可以并发运行的更小子任务，有时可以显著提高程序的运行速度。
 - en: In Go, concurrent tasks are called **goroutines**. Other programming languages
     have a similar concept called *threads*, but goroutines require less computer
     memory than threads, and less time to start up and stop, meaning you can run more
     goroutines at once.
+  id: totrans-34
   prefs: []
   type: TYPE_NORMAL
+  zh: 在Go语言中，并发任务被称为**goroutines**。其他编程语言有类似的概念称为*线程*，但是goroutines需要比线程更少的计算机内存，而且启动和停止时间也更短，这意味着您可以同时运行更多的goroutines。
 - en: 'They’re also easier to use. To start another goroutine, you use a `go` statement,
     which is just an ordinary function or method call with the `go` keyword in front
     of it:'
+  id: totrans-35
   prefs: []
   type: TYPE_NORMAL
+  zh: 它们也更容易使用。要启动另一个goroutine，您只需使用`go`语句，这只是一个普通的函数或方法调用，在其前面加上`go`关键字：
 - en: '**Goroutines allow for concurrency: pausing one task to work on others. And
     in some situations they allow parallelism: working on multiple tasks simultaneously!**'
+  id: totrans-36
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: '**Goroutines允许并发：暂停一个任务以处理其他任务。在某些情况下，它们还允许并行处理：同时处理多个任务！**'
 - en: '![image](assets/f0383-01.png)'
+  id: totrans-37
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0383-01.png)'
 - en: Notice that we say *another* goroutine. The `main` function of every Go program
     is started using a goroutine, so every Go program runs at least one goroutine.
     You’ve been using goroutines all along, without knowing it!
+  id: totrans-38
   prefs: []
   type: TYPE_NORMAL
+  zh: 注意我们说*另一个*goroutine。每个Go程序的`main`函数都是使用一个goroutine启动的，所以每个Go程序至少运行一个goroutine。你一直在使用goroutines，只是不知道而已！
 - en: Using goroutines
+  id: totrans-39
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 使用goroutines
 - en: Here’s a program that makes function calls one at a time. The `a` function uses
     a loop to print the string `"a"` 50 times, and the `b` function prints the string
     `"b"` 50 times. The `main` function calls `a`, then `b`, and finally prints a
     message when it exits.
+  id: totrans-40
   prefs: []
   type: TYPE_NORMAL
+  zh: 这是一个按顺序调用函数的程序。`a`函数使用循环50次打印字符串`"a"`，而`b`函数则打印字符串`"b"` 50次。`main`函数先调用`a`，然后是`b`，最后在退出时打印一条消息。
 - en: '![image](assets/f0384-01.png)'
+  id: totrans-41
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0384-01.png)'
 - en: 'It’s as if the `main` function contained all the code from the `a` function,
     followed by all the code from the `b` function, followed by its own code:'
+  id: totrans-42
   prefs: []
   type: TYPE_NORMAL
+  zh: 这就好像`main`函数包含了所有`a`函数的代码，然后是所有`b`函数的代码，最后是自己的代码：
 - en: '![image](assets/f0384-02.png)'
+  id: totrans-43
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0384-02.png)'
 - en: 'To launch the `a` and `b` functions in new goroutines, all you have to do is
     add the `go` keyword in front of the function calls:'
+  id: totrans-44
   prefs: []
   type: TYPE_NORMAL
+  zh: 要在新的goroutines中启动`a`和`b`函数，您只需在函数调用前面加上`go`关键字即可：
 - en: '[PRE0]'
+  id: totrans-45
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE0]'
 - en: 'This makes the new goroutines run concurrently with the `main` function:'
+  id: totrans-46
   prefs: []
   type: TYPE_NORMAL
+  zh: 这会使新的goroutines与`main`函数并发运行：
 - en: '![image](assets/f0384-03.png)'
+  id: totrans-47
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0384-03.png)'
 - en: But if we run the program now, the only output we’ll see is from the `Println`
     call at the end of the `main` function—we won’t see anything from the `a` or `b`
     functions!
+  id: totrans-48
   prefs: []
   type: TYPE_NORMAL
+  zh: 但是如果我们现在运行程序，我们只会看到`main`函数末尾的`Println`调用的输出——我们看不到`a`或`b`函数的任何输出！
 - en: '![image](assets/f0385-01.png)'
+  id: totrans-49
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0385-01.png)'
 - en: 'Here’s the problem: Go programs stop running as soon as the `main` goroutine
     (the goroutine that calls the `main` function) ends, even if other goroutines
     are still running. Our `main` function completes before the code in the `a` and
     `b` functions has a chance to run.'
+  id: totrans-50
   prefs: []
   type: TYPE_NORMAL
+  zh: 这里有个问题：一旦`main` goroutine（调用`main`函数的goroutine）结束，Go程序就会停止运行，即使其他goroutine仍在运行。我们的`main`函数在`a`和`b`函数的代码有机会运行之前就已经完成了。
 - en: '![image](assets/f0385-02.png)'
+  id: totrans-51
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0385-02.png)'
 - en: We need to keep the `main` goroutine running until the goroutines for the `a`
     and `b` functions can finish. To do this properly, we’re going to need another
     feature of Go called *channels*, but we won’t be covering those until later in
     the chapter. So for now, we’ll just pause the `main` goroutine for a set amount
     of time so the other goroutines can run.
+  id: totrans-52
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们需要保持 `main` goroutine 运行，直到 `a` 和 `b` 函数的goroutine能够完成。为了正确实现这一点，我们将需要Go语言的另一个特性——*通道*，但在本章后面我们会再详细介绍。所以现在，我们只需暂停
+    `main` goroutine 一段时间，以便其他goroutine可以运行。
 - en: We’ll use a function from the `time` package, called `Sleep`, which pauses the
     current goroutine for a given amount of time. Calling `time.Sleep(time.Second)`
     within the `main` function will cause the `main` goroutine to pause for 1 second.
+  id: totrans-53
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们将使用 `time` 包中的一个函数，称为 `Sleep`，它会暂停当前goroutine给定的时间。在 `main` 函数中调用 `time.Sleep(time.Second)`
+    将导致 `main` goroutine 暂停1秒。
 - en: '![image](assets/f0385-03.png)'
+  id: totrans-54
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0385-03.png)'
 - en: If we rerun the program, we’ll see the output from the `a` and `b` functions
     again as their goroutines finally get a chance to run. The output of the two will
     be mixed as the program switches between the two goroutines. (The pattern you
     get may be different than what’s shown here.) When the `main` goroutine wakes
     back up, it makes its call to `fmt.Println` and exits.
+  id: totrans-55
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果我们重新运行程序，当它们的goroutine最终有机会运行时，我们会再次看到来自 `a` 和 `b` 函数的输出。这两者的输出会混合在一起，因为程序在两个goroutine之间切换。（您得到的模式可能与此处显示的不同。）当
+    `main` goroutine 再次唤醒时，它会进行 `fmt.Println` 的调用并退出。
 - en: The call to `time.Sleep` in the `main` goroutine gives more than enough time
     for both the `a` and `b` goroutines to finish running.
+  id: totrans-56
   prefs: []
   type: TYPE_NORMAL
+  zh: '`main` goroutine 中对 `time.Sleep` 的调用给了足够的时间让 `a` 和 `b` goroutine 完成运行。'
 - en: '![image](assets/f0386-01.png)'
+  id: totrans-57
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0386-01.png)'
 - en: Using goroutines with our responseSize function
+  id: totrans-58
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 使用goroutine和我们的`responseSize`函数
 - en: It’s pretty easy to adapt our program that prints web page sizes to use goroutines.
     All we have to do is add the `go` keyword before each of the calls to `responseSize`.
+  id: totrans-59
   prefs: []
   type: TYPE_NORMAL
+  zh: 适应我们打印网页大小程序使用goroutine是非常容易的。我们只需要在每个对`responseSize`的调用前添加`go`关键字即可。
 - en: To prevent the `main` goroutine from exiting before the `responseSize` goroutines
     can finish, we’ll also need to add a call to `time.Sleep` in the `main` function.
+  id: totrans-60
   prefs: []
   type: TYPE_NORMAL
+  zh: 为了防止 `main` goroutine 在 `responseSize` goroutine 完成之前退出，我们还需要在 `main` 函数中添加对
+    `time.Sleep` 的调用。
 - en: '![image](assets/f0386-02.png)'
+  id: totrans-61
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0386-02.png)'
 - en: Sleeping for just 1 second may not be enough time for the network requests to
     complete, though. Calling `time.Sleep(5 * time.Second)` will make the goroutine
     sleep for 5 seconds. (If you’re trying this on a slow or unresponsive network,
     you may need to increase that time.)
+  id: totrans-62
   prefs: []
   type: TYPE_NORMAL
+  zh: 仅休眠1秒可能不足以使网络请求完成。调用 `time.Sleep(5 * time.Second)` 将使goroutine休眠5秒。（如果您在慢速或无响应的网络上尝试此操作，则可能需要增加该时间。）
 - en: '[PRE1]'
+  id: totrans-63
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE1]'
 - en: If we run the updated program, we’ll see it print the URLs it’s retrieving all
     at once, as the three `responseSize` goroutines start up concurrently.
+  id: totrans-64
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果我们运行更新后的程序，我们会看到它一次性打印出正在检索的URL，因为三个 `responseSize` goroutine 同时启动。
 - en: The three calls to `http.Get` are made concurrently as well; the program doesn’t
     wait until one response comes back before sending out the next request. As a result
     the three response sizes are printed much sooner using goroutines than they were
     with the earlier, sequential version of the program. The program still takes 5
     seconds to finish, however, as we wait for the call to `time.Sleep` in `main`
     to complete.
+  id: totrans-65
   prefs: []
   type: TYPE_NORMAL
+  zh: 对 `http.Get` 的三次调用也是并发进行的；程序在发送下一个请求之前不会等待一个响应返回。因此，使用goroutine打印三个响应大小比早期的顺序版本要快得多。然而，程序仍然需要5秒才能完成，因为我们等待
+    `main` 中的 `time.Sleep` 调用完成。
 - en: '![image](assets/f0387-01.png)'
+  id: totrans-66
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0387-01.png)'
 - en: We’re not exerting any control over the order that calls to `responseSize` are
     executed in, so if we run the program again, we may see the requests happen in
     a different order.
+  id: totrans-67
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们并没有控制调用 `responseSize` 的执行顺序，所以如果我们再次运行程序，我们可能会看到请求以不同的顺序发生。
 - en: '![image](assets/f0387-02.png)'
+  id: totrans-68
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0387-02.png)'
 - en: The program takes 5 seconds to complete even if all the sites respond faster
     than that, so we’re still not getting that great a speed gain from the switch
     to goroutines. Even worse, 5 seconds may not be *enough* time if the sites take
     a long time to respond. Sometimes, you may see the program end before all the
     responses have arrived.
+  id: totrans-69
   prefs: []
   type: TYPE_NORMAL
+  zh: 即使所有站点的响应速度比5秒更快，程序仍然需要5秒才能完成，所以我们从切换到goroutine中仍然没有得到很好的速度增益。更糟糕的是，如果站点响应时间长，5秒可能还不够。有时，您可能会看到程序在所有响应到达之前结束。
 - en: '![image](assets/f0387-03.png)'
+  id: totrans-70
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0387-03.png)'
 - en: It’s becoming clear that `time.Sleep` is not the ideal way to wait for other
     goroutines to complete. Once we look at channels in a few pages, we’ll have a
     better alternative.
+  id: totrans-71
   prefs: []
   type: TYPE_NORMAL
+  zh: 显然，`time.Sleep`并不是等待其他goroutine完成的理想方式。一旦我们在几页中看到通道，我们将有一个更好的替代方法。
 - en: We don’t directly control when goroutines run
+  id: totrans-72
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 我们不能直接控制goroutine运行的时间
 - en: 'We may see the `responseSize` goroutines run in a different order each time
     the program is run:'
+  id: totrans-73
   prefs: []
   type: TYPE_NORMAL
+  zh: 每次运行程序时，我们可能会看到`responseSize` goroutine以不同的顺序运行：
 - en: '![image](assets/f0388-01.png)'
+  id: totrans-74
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0388-01.png)'
 - en: 'We also had no way of knowing when the previous program would switch between
     the `a` and `b` goroutines:'
+  id: totrans-75
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们也无法知道前一个程序何时在`a`和`b` goroutine之间切换：
 - en: '![image](assets/f0388-02.png)'
+  id: totrans-76
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0388-02.png)'
 - en: Under normal circumstances, Go makes no guarantees about when it will switch
     between goroutines, or for how long. This allows goroutines to run in whatever
     way is most efficient. But if the order your goroutines run in is important to
     you, you’ll need to synchronize them using channels (which we’ll look at shortly).
+  id: totrans-77
   prefs: []
   type: TYPE_NORMAL
+  zh: 在正常情况下，Go不能保证何时会在goroutine之间切换，也不能保证切换的持续时间。这允许goroutine以最有效的方式运行。但如果您关心goroutine运行的顺序，您将需要使用通道来同步它们（我们很快将看到）。
 - en: Code Magnets
+  id: totrans-78
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 代码磁铁
 - en: '![image](assets/f0388-03.png)'
+  id: totrans-79
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0388-03.png)'
 - en: A program that uses goroutines is scrambled up on the fridge. Can you reconstruct
     the code snippets to make a working program that will produce output *similar*
     to the given sample? (It’s not possible to predict the order of execution of goroutines,
     so don’t worry, your program’s output doesn’t need to exactly match the output
     shown.)
+  id: totrans-80
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用goroutines的程序在冰箱上被打乱了。您能够重构代码片段以使工作程序产生与给定示例*类似*的输出吗？（无法预测goroutine执行的顺序，所以不用担心，您的程序输出不需要完全匹配所示输出。）
 - en: '![image](assets/f0388-04.png)'
+  id: totrans-81
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0388-04.png)'
 - en: '![image](assets/arrow.png) Answers in [“Code Magnets Solution”](#code_magnets_solution_8).'
+  id: totrans-82
   prefs: []
   type: TYPE_NORMAL
+  zh: '![image](assets/arrow.png) 答案在[“代码磁铁解决方案”](#code_magnets_solution_8)中。'
 - en: Go statements can’t be used with return values
+  id: totrans-83
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: '`go`语句不能与返回值一起使用'
 - en: 'Switching to goroutines brings up another problem we’ll need to solve: we can’t
     use function return values in a `go` statement. Suppose we wanted to change the
     `responseSize` function to return the page size instead of printing it directly:'
+  id: totrans-84
   prefs: []
   type: TYPE_NORMAL
+  zh: 转换为goroutines引出了另一个问题，我们需要解决：我们不能在`go`语句中使用函数返回值。假设我们想要修改`responseSize`函数以返回页面大小而不是直接打印它：
 - en: '![image](assets/f0389-01.png)'
+  id: totrans-85
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0389-01.png)'
 - en: We’ll get compile errors. The compiler stops you from attempting to get a return
     value from a function called with a `go` statement.
+  id: totrans-86
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们将会得到编译错误。编译器阻止您尝试从使用`go`语句调用的函数中获取返回值。
 - en: This is actually a good thing. When you call `responseSize` as part of a `go`
     statement, you’re saying, “Go run `responseSize` in a separate goroutine. I’m
     going to keep running the instructions in this function.” The `responseSize` function
     isn’t going to return a value immediately; it has to wait for the website to respond.
     But the code in your `main` goroutine would expect a return value immediately,
     and there wouldn’t be one yet!
+  id: totrans-87
   prefs: []
   type: TYPE_NORMAL
+  zh: 这实际上是一件好事。当您在`go`语句的一部分调用`responseSize`时，您的意思是：“Go在一个单独的goroutine中运行`responseSize`。我将继续运行此函数中的指令。”`responseSize`函数不会立即返回值；它必须等待网站响应。但是您的`main`
+    goroutine中的代码会期望立即返回值，但此时还没有返回值！
 - en: '![image](assets/f0389-02.png)'
+  id: totrans-88
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0389-02.png)'
 - en: This is true of any function called in a `go` statement, not just long-running
     functions like `responseSize`. You can’t rely on the return values being ready
     in time, and so the Go compiler blocks any attempt to use them.
+  id: totrans-89
   prefs: []
   type: TYPE_NORMAL
+  zh: 这适用于使用`go`语句调用的任何函数，而不仅仅是像`responseSize`这样的长时间运行函数。您不能依赖于返回值及时准备好，因此Go编译器阻止任何尝试使用它们的行为。
 - en: 'Go won’t let you use the return value from a function called with a `go` statement,
     because there’s no guarantee the return value will be ready before we attempt
     to use it:'
+  id: totrans-90
   prefs: []
   type: TYPE_NORMAL
+  zh: Go不允许您在使用`go`语句调用的函数中使用返回值，因为无法保证返回值在使用之前已经准备好：
 - en: '![image](assets/f0390-01.png)'
+  id: totrans-91
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0390-01.png)'
 - en: 'But there *is* a way to communicate between goroutines: **channels**. Not only
     do channels allow you to send values from one goroutine to another, they ensure
     the sending goroutine has sent the value before the receiving goroutine attempts
     to use it.'
+  id: totrans-92
   prefs: []
   type: TYPE_NORMAL
+  zh: 但是有一种方法可以在goroutine之间进行通信：**通道（channels）**。通道不仅允许您从一个goroutine发送值到另一个goroutine，还确保发送goroutine在接收goroutine尝试使用该值之前已经发送了它。
 - en: 'The only practical way to use a channel is to communicate from one goroutine
     to another goroutine. So to demonstrate channels, we’ll need to be able to do
     a few things:'
+  id: totrans-93
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用通道的唯一实际方式是从一个goroutine向另一个goroutine通信。因此，为了演示通道，我们需要能够做一些事情：
 - en: Create a channel.
+  id: totrans-94
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 创建一个通道。
 - en: Write a function that receives a channel as a parameter. We’ll run this function
     in a separate goroutine, and use it to send values over the channel.
+  id: totrans-95
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 编写一个接收通道作为参数的函数。我们将在单独的goroutine中运行此函数，并使用它向通道发送值。
 - en: Receive the sent values in our original goroutine.
+  id: totrans-96
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 在我们的原始goroutine中接收发送的值。
 - en: Each channel only carries values of a particular type, so you might have one
     channel for `int` values, and another channel for values with a struct type. To
     declare a variable that holds a channel, you use the `chan` keyword, followed
     by the type of values that channel will carry.
+  id: totrans-97
   prefs: []
   type: TYPE_NORMAL
+  zh: 每个通道只传递特定类型的值，所以你可能有一个`int`值的通道，另一个是结构类型的通道。要声明一个持有通道的变量，你使用`chan`关键字，后跟通道将要传递的值的类型。
 - en: '![image](assets/f0390-02.png)'
+  id: totrans-98
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0390-02.png)'
 - en: To actually create a channel, you need to call the built-in `make` function
     (the same one you can use to create maps and slices). You pass `make` the type
     of the channel you want to create (which should be the same as the type of the
     variable you want to assign it to).
+  id: totrans-99
   prefs: []
   type: TYPE_NORMAL
+  zh: 要实际创建一个通道，你需要调用内置的`make`函数（这与创建映射和切片的方式相同）。你将通道类型作为参数传递给`make`函数（应该与你想要赋值的变量类型相同）。
 - en: '![image](assets/f0390-03.png)'
+  id: totrans-100
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0390-03.png)'
 - en: 'Rather than declare the channel variable separately, in most cases it’s easier
     to just use a short variable declaration:'
+  id: totrans-101
   prefs: []
   type: TYPE_NORMAL
+  zh: 大多数情况下，与其单独声明通道变量，不如使用简短的变量声明更容易：
 - en: '![image](assets/f0390-04.png)'
+  id: totrans-102
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0390-04.png)'
 - en: Sending and receiving values with channels
+  id: totrans-103
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 使用通道发送和接收值
 - en: To send a value on a channel, you use the `<-` operator (that’s a less-than
     symbol followed by a dash). It looks like an arrow pointing from the value you’re
     sending to the channel you’re sending it on.
+  id: totrans-104
   prefs: []
   type: TYPE_NORMAL
+  zh: 要在通道上发送值，你使用`<-`操作符（即小于号后跟一个短横线）。它看起来像是一个箭头，从你发送的值指向你发送它的通道。
 - en: '![image](assets/f0391-01.png)'
+  id: totrans-105
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0391-01.png)'
 - en: 'You also use the `<-` operator to *receive* values from a channel, but the
     positioning is different: you place the arrow to the *left* of the channel you’re
     receiving from. (It kind of looks like you’re pulling a value out of the channel.)'
+  id: totrans-106
   prefs: []
   type: TYPE_NORMAL
+  zh: 你也可以使用`<-`操作符从通道*接收*值，但位置不同：将箭头放在你要接收的通道*左侧*。（看起来像是从通道中拉出一个值。）
 - en: '![image](assets/f0391-02.png)'
+  id: totrans-107
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0391-02.png)'
 - en: Here’s the `greeting` function from the previous page, rewritten to use channels.
     We’ve added a `myChannel` parameter to `greeting`, which takes a channel that
     carries `string` values. Instead of returning a string value, `greeting` now sends
     a string via `myChannel`.
+  id: totrans-108
   prefs: []
   type: TYPE_NORMAL
+  zh: 这是前一页中的`greeting`函数，重写以使用通道。我们已经向`greeting`添加了一个`myChannel`参数，它接收一个传递`string`值的通道。现在`greeting`不再返回一个字符串值，而是通过`myChannel`发送一个字符串。
 - en: In the `main` function, we create the channel that we’re going to pass to `greeting`
     using the built-in `make` function. Then we call `greeting` as a new goroutine.
     Using a separate goroutine is important, because channels should only be used
     to communicate *between* goroutines. (We’ll talk about why in a little bit.) Finally,
     we receive a value from the channel we passed to `greeting`, and print the string
     it returns.
+  id: totrans-109
   prefs: []
   type: TYPE_NORMAL
+  zh: 在`main`函数中，我们使用内置的`make`函数创建了要传递给`greeting`的通道。然后我们将`greeting`作为一个新的goroutine调用。使用单独的goroutine很重要，因为通道应该只用于在*不同*的goroutine之间通信。（稍后我们会详细讨论原因。）最后，我们从传递给`greeting`的通道接收一个值，并打印它返回的字符串。
 - en: '![image](assets/f0391-03.png)'
+  id: totrans-110
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0391-03.png)'
 - en: 'We didn’t have to pass the value received from the channel straight to `Println`.
     You can receive from a channel in any context where you need a value. (That is,
     anywhere you might use a variable or the return value of a function.) So, for
     example, we could have assigned the received value to a variable first instead:'
+  id: totrans-111
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们不必直接将从通道接收到的值传递给`Println`。你可以在需要值的任何上下文中从通道接收值。（也就是说，在你可能使用变量或函数返回值的任何地方。）例如，我们可以先将接收到的值赋给一个变量：
 - en: '![image](assets/f0391-04.png)'
+  id: totrans-112
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0391-04.png)'
 - en: Synchronizing goroutines with channels
+  id: totrans-113
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 使用通道同步goroutine
 - en: 'We mentioned that channels also ensure the sending goroutine has sent the value
     before the receiving channel attempts to use it. Channels do this by **blocking**—by
     pausing all further operations in the current goroutine. A send operation blocks
@@ -519,175 +760,260 @@
     until another goroutine executes a send operation on the same channel. This behavior
     allows goroutines to **synchronize** their actions—that is, to coordinate their
     timing.'
+  id: totrans-114
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们提到通道还确保发送协程在接收通道尝试使用值之前已经发送了该值。通道通过**阻塞**来实现这一点——暂停当前协程中的所有后续操作。发送操作会阻塞发送协程，直到另一个协程在相同通道上执行接收操作。反之亦然：接收操作会阻塞接收协程，直到另一个协程在相同通道上执行发送操作。这种行为允许协程**同步**它们的操作，即协调它们的时序。
 - en: '![image](assets/f0392-01.png)'
+  id: totrans-115
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0392-01.png)'
 - en: 'Here’s a program that creates two channels and passes them to functions in
     two new goroutines. The `main` goroutine then receives values from those channels
     and prints them. Unlike our program with the goroutines that printed `"a"` or
     `"b"` repeatedly, we can predict the output for this program: it will always print
     `"a"`, then `"d"`, `"b"`, `"e"`, `"c"`, and `"f"` in that order.'
+  id: totrans-116
   prefs: []
   type: TYPE_NORMAL
+  zh: 这是一个创建两个通道并将它们传递给两个新协程函数的程序。然后 `main` 协程从这些通道接收值并打印它们。与我们的协程程序不同，该程序会重复打印 `"a"`
+    或 `"b"`，我们可以预测这个程序的输出：它将始终按顺序打印 `"a"`，然后是 `"d"`，`"b"`，`"e"`，`"c"` 和 `"f"`。
 - en: '![image](assets/f0392-01a.png)'
+  id: totrans-117
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0392-01a.png)'
 - en: We know what the order will be because the `abc` goroutine blocks each time
     it sends a value to a channel until the `main` goroutine receives from it. The
     `def` goroutine does the same. The `main` goroutine becomes the orchestrator of
     the `abc` and `def` goroutines, allowing them to proceed only when it’s ready
     to read the values they’re sending.
+  id: totrans-118
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们知道顺序是什么，因为 `abc` 协程每次向通道发送值时都会阻塞，直到 `main` 协程接收到它的值。`def` 协程也是如此。`main` 协程成为
+    `abc` 和 `def` 协程的协调者，只有当它准备好读取它们发送的值时，它们才能继续进行。
 - en: '![image](assets/f0392-02.png)'
+  id: totrans-119
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0392-02.png)'
 - en: Observing goroutine synchronization
+  id: totrans-120
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 观察协程同步
 - en: The `abc` and `def` goroutines send their values over their channels so quickly
     that it’s hard to see what’s going on. Here’s another program that slows things
     down so you can see the blocking happen.
+  id: totrans-121
   prefs: []
   type: TYPE_NORMAL
+  zh: '`abc` 和 `def` 协程通过它们的通道发送值的速度非常快，以至于很难看清发生了什么。这里有另一个程序可以减慢速度，这样你就可以看到阻塞发生的情况。'
 - en: We start with a `reportNap` function that causes the current goroutine to sleep
     for a specified number of seconds. Every second the goroutine is asleep, it will
     print an announcement that it’s still sleeping.
+  id: totrans-122
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们从一个 `reportNap` 函数开始，它会导致当前协程休眠指定的秒数。每秒协程休眠时，它将打印一个提示说它仍在休眠。
 - en: We add a `send` function that will run in a goroutine and send two values to
     a channel. Before it sends anything, though, it first calls `reportNap` so its
     goroutine sleeps for 2 seconds.
+  id: totrans-123
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们添加了一个 `send` 函数，它将在一个协程中运行，并向通道发送两个值。但在发送任何东西之前，它首先调用 `reportNap`，使其协程睡眠 2
+    秒。
 - en: '![image](assets/f0393-01.png)'
+  id: totrans-124
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0393-01.png)'
 - en: In the `main` goroutine, we create a channel and pass it to `send`. Then we
     call `reportNap` again so that *this* goroutine sleeps for *5* seconds (3 seconds
     longer than the `send` goroutine). Finally, we do two receive operations on the
     channel.
+  id: totrans-125
   prefs: []
   type: TYPE_NORMAL
+  zh: 在 `main` 协程中，我们创建一个通道并将其传递给 `send`。然后我们再次调用 `reportNap`，以便**这个**协程休眠**5**秒（比
+    `send` 协程长 3 秒）。最后，我们在通道上执行两次接收操作。
 - en: When we run this, we’ll see both goroutines sleep for the first 2 seconds. Then
     the `send` goroutine wakes up and sends its value. But it doesn’t do anything
     further; the send operation blocks the `send` goroutine until the `main` goroutine
     receives the value.
+  id: totrans-126
   prefs: []
   type: TYPE_NORMAL
+  zh: 当我们运行这个程序时，我们会看到两个协程在前两秒内都会休眠。然后 `send` 协程醒来并发送它的值。但它不会继续做任何事情；发送操作会阻塞 `send`
+    协程，直到 `main` 协程接收到该值。
 - en: That doesn’t happen right away, because the `main` goroutine still needs to
     sleep for 3 more seconds. When it wakes up, it receives the value from the channel.
     Only then is the `send` goroutine unblocked so it can send its second value.
+  id: totrans-127
   prefs: []
   type: TYPE_NORMAL
+  zh: 这并不会立即发生，因为 `main` 协程仍然需要睡眠另外 3 秒。当它醒来时，它会从通道接收值。只有在此之后，`send` 协程才会解除阻塞，以便发送它的第二个值。
 - en: '![image](assets/f0393-02.png)'
+  id: totrans-128
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0393-02.png)'
 - en: Breaking Stuff is Educational!
+  id: totrans-129
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 破坏性的东西是教育性的！
 - en: '![image](assets/f0394-01.png)'
+  id: totrans-130
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0394-01.png)'
 - en: 'Here’s the code again for our earliest, simplest demonstration of channels:
     the `greeting` function, which runs in a goroutine and sends a string value to
     the `main` goroutine.'
+  id: totrans-131
   prefs: []
   type: TYPE_NORMAL
+  zh: 这里是我们最早、最简单的通道演示代码：`greeting`函数在一个协程中运行，并向`main`协程发送一个字符串值。
 - en: Make one of the changes below and try to run the code. Then undo your change
     and try the next one. See what happens!
+  id: totrans-132
   prefs: []
   type: TYPE_NORMAL
+  zh: 做出以下任意一项更改并尝试运行代码。然后撤销您的更改并尝试下一项。看看会发生什么！
 - en: '[PRE2]'
+  id: totrans-133
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE2]'
 - en: '| If you do this... | ...the code will break because... |'
+  id: totrans-134
   prefs: []
   type: TYPE_TB
+  zh: '| 如果你这样做... | ...代码会因为... |'
 - en: '| --- | --- |'
+  id: totrans-135
   prefs: []
   type: TYPE_TB
+  zh: '| --- | --- |'
 - en: '| Send a value to the channel from within the `main` function: `myChannel <-
     "hi from main"` | You’ll get an “`all goroutines are asleep - deadlock`!” error.
     This happens because the `main` goroutine blocks, waiting for another goroutine
     to receive from the channel. But the other goroutine doesn’t do any receive operations,
     so the `main` goroutine stays blocked. |'
+  id: totrans-136
   prefs: []
   type: TYPE_TB
+  zh: '| 从`main`函数中向通道发送一个值：`myChannel <- "hi from main"` | 你会收到一个“所有协程都在睡眠 - 死锁”错误。这是因为`main`协程阻塞，等待另一个协程从通道接收。但另一个协程没有进行任何接收操作，所以`main`协程保持阻塞状态。
+    |'
 - en: '| Remove the `go` keyword from before the call to `greeting`: ``~~`go`~~ greeting(myChannel)``
     | This will cause the `greeting` function to run within the `main` goroutine.
     This also fails with a deadlock error, for the same reason as above: the send
     operation in `greeting` causes the `main` goroutine to block, but there’s no other
     goroutine to do a receive operation, so it stays blocked. |'
+  id: totrans-137
   prefs: []
   type: TYPE_TB
+  zh: '| 在调用`greeting`之前移除`go`关键字：``~~`go`~~ greeting(myChannel)`` | 这会导致`greeting`函数在`main`协程内部运行。同样的原因，这也会导致死锁错误：`greeting`中的发送操作导致`main`协程阻塞，但没有其他协程进行接收操作，所以它保持阻塞状态。
+    |'
 - en: '| Delete the line that sends a value to the channel: `~~myChannel <- "hi"~~`
     | This also causes a deadlock, but for a different reason: the `main` goroutine
     tries to *receive* a value, but now there’s nothing to *send* a value. |'
+  id: totrans-138
   prefs: []
   type: TYPE_TB
+  zh: '| 删除向通道发送值的那一行：`~~myChannel <- "hi"~~` | 这也导致了死锁，但原因不同：`main`协程尝试*接收*一个值，但现在没有*发送*任何值。
+    |'
 - en: '| Delete the line that receives a value from the channel: `~~fmt.Println(<-myChannel)~~`
     | The send operation in `greeting` causes that goroutine to block. But since there’s
     no receive operation to make the `main` goroutine block as well, `main` completes
     immediately, and the program ends without producing any output. |'
+  id: totrans-139
   prefs: []
   type: TYPE_TB
+  zh: '| 删除接收从通道接收值的那一行：`~~fmt.Println(<-myChannel)~~` | `greeting`中的发送操作导致该协程阻塞。但由于没有接收操作来使`main`协程也阻塞，`main`立即完成，程序在不产生任何输出的情况下结束。
+    |'
 - en: Fixing our web page size program with channels
+  id: totrans-140
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 使用通道来修复我们的网页大小程序
 - en: 'We still have two problems with our program that reports the size of web pages:'
+  id: totrans-141
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们的报告网页大小的程序仍然存在两个问题：
 - en: We can’t use a return value from the `responseSize` function in a `go` statement.
+  id: totrans-142
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 在`go`语句中，我们不能使用`responseSize`函数的返回值。
 - en: Our `main` goroutine was completing before the response sizes were received,
     so we added a call to `time.Sleep` for 5 seconds. But 5 seconds is too long some
     times, and too short other times.
+  id: totrans-143
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们的`main`协程在接收到响应大小之前就已经完成了，所以我们增加了一个对`time.Sleep`的调用，持续5秒钟。但有时5秒钟太长，有时又太短。
 - en: '![image](assets/f0396-01.png)'
+  id: totrans-144
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0396-01.png)'
 - en: We can use channels to fix both problems at the same time!
+  id: totrans-145
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们可以使用通道来同时解决这两个问题！
 - en: First, we remove the `time` package from the `import` statement; we won’t be
     needing `time.Sleep` anymore. Then we update `responseSize` to accept a channel
     of `int` values. Instead of returning the page size, we’ll have `responseSize`
     send the size via the channel.
+  id: totrans-146
   prefs: []
   type: TYPE_NORMAL
+  zh: 首先，我们从`import`语句中移除`time`包；我们不再需要`time.Sleep`了。然后，我们更新`responseSize`以接受一个`int`值的通道。不再返回页面大小，而是通过通道发送大小。
 - en: '![image](assets/f0396-02.png)'
+  id: totrans-147
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0396-02.png)'
 - en: In the `main` function, we call `make` to create the channel of `int` values.
     We update each of the calls to `responseSize` to add the channel as an argument.
     And finally, we do three receive operations on the channel, one for each value
     `responseSize` sends.
+  id: totrans-148
   prefs: []
   type: TYPE_NORMAL
+  zh: 在`main`函数中，我们调用`make`创建了一个`int`值的通道。我们更新每个对`responseSize`的调用，将通道作为参数添加进去。最后，我们在通道上执行三次接收操作，每次接收`responseSize`发送的一个值。
 - en: '![image](assets/f0397-01.png)'
+  id: totrans-149
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0397-01.png)'
 - en: If we run this, we’ll see that the program completes as rapidly as the websites
     respond. That time can vary, but in our testing we saw completion times as short
     as 1 second!
+  id: totrans-150
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果我们运行这个程序，我们会看到程序的完成速度和网站的响应速度一样快。这个时间可能有所不同，但在我们的测试中，我们看到完成时间短至1秒！
 - en: Another improvement we can make is to store the list of URLs we want to retrieve
     in a slice, and then use loops to call `responseSize`, and to receive values from
     the channel. This will make our code less repetitive, and will be important if
     we want to add more URLs later.
+  id: totrans-151
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们还可以做的另一个改进是将我们想要检索的URL列表存储在一个切片中，然后使用循环调用`responseSize`，并从channel接收值。这将使我们的代码更少重复，并且如果以后想要添加更多URL，则很重要。
 - en: We don’t need to change `responseSize` at all, just the `main` function. We
     create a slice of `string` values with the URLs we want. Then we loop over the
     slice, and call `responseSize` with the current URL and the channel. Finally,
@@ -696,79 +1022,118 @@
     loop. If we received values in the same loop that starts the `responseSize` goroutines,
     the `main` goroutine would block until the receive completes, and we’d be back
     to requesting pages one at a time.)
+  id: totrans-152
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们根本不需要改变`responseSize`，只需修改`main`函数。我们创建一个包含我们想要的URL的`string`值切片。然后我们遍历该切片，并调用`responseSize`函数，传入当前的URL和channel。最后，我们再进行第二个独立的循环，为切片中的每个URL运行一次，接收并打印来自channel的值。（在单独的循环中执行这些操作很重要。如果我们在启动`responseSize`
+    goroutines的同一个循环中接收值，`main` goroutine会阻塞，直到接收完成，然后我们又回到了一次请求一个页面的方式。）
 - en: '![image](assets/f0397-02.png)'
+  id: totrans-153
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0397-02.png)'
 - en: Using loops is much cleaner, but still gets us the same result!
+  id: totrans-154
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用循环的方式更清晰，但结果仍然相同！
 - en: Updating our channel to carry a struct
+  id: totrans-155
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 更新我们的channel以携带一个结构体
 - en: There’s still one issue we need to fix with the `responseSize` function. We
     have no idea which order the websites will respond in. And because we’re not keeping
     the page URL together with the response size, we have no idea which size belongs
     to which page!
+  id: totrans-156
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们仍然需要修复`responseSize`函数的一个问题。我们不知道网站将以什么顺序响应。因为我们没有保持页面URL与响应大小在一起，所以我们不知道哪个大小属于哪个页面！
 - en: '![image](assets/f0398-01.png)'
+  id: totrans-157
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0398-01.png)'
 - en: This won’t be difficult to fix, though. Channels can carry composite types like
     slices, maps, and structs just as easily as they can carry basic types. We can
     just create a struct type that will store a page URL together with its size, so
     we can send both over the channel together.
+  id: totrans-158
   prefs: []
   type: TYPE_NORMAL
+  zh: 不过这并不难修复。Channels可以像传递基本类型一样轻松地传递复合类型，比如切片、映射和结构体。我们可以创建一个结构体类型来存储页面URL以及其大小，这样我们可以一起将它们发送到channel中。
 - en: We’ll declare a new `Page` type with an underlying `struct` type. `Page` will
     have a `URL` field that records the page’s URL, and a `Size` field for the page’s
     size.
+  id: totrans-159
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们将声明一个具有底层`struct`类型的新`Page`类型。`Page`将有一个`URL`字段来记录页面的URL，以及一个`Size`字段来记录页面的大小。
 - en: We’ll update the channel parameter on `responseSize` to hold the new `Page`
     type rather than just the `int` page size. We’ll have `responseSize` create a
     new `Page` value with the current URL and the page size, and send that to the
     channel.
+  id: totrans-160
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们将在`responseSize`函数的channel参数上更新为保存新的`Page`类型，而不仅仅是`int`页面大小。我们将让`responseSize`创建一个带有当前URL和页面大小的新`Page`值，并将其发送到channel中。
 - en: In `main`, we’ll update the type the channel holds in the call to `make` as
     well. When we receive a value from the channel, it will be a `Page` value, so
     we’ll print both its `URL` and `Size` fields.
+  id: totrans-161
   prefs: []
   type: TYPE_NORMAL
+  zh: 在`main`函数中，我们还将更新`make`调用中channel持有的类型。当我们从channel接收一个值时，它将是一个`Page`值，因此我们将打印它的`URL`和`Size`字段。
 - en: '![image](assets/f0398-02.png)'
+  id: totrans-162
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0398-02.png)'
 - en: Now the output will pair the page sizes with their URLs. It’ll finally be clear
     again which size belongs to which page.
+  id: totrans-163
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在输出将页面大小与它们的URL配对。这样就清楚了每个大小属于哪个页面。
 - en: Before, our program had to request pages one at a time. Goroutines let us start
     processing the next request while we’re waiting for a website to respond. The
     program completes in as little as one-third of the time!
+  id: totrans-164
   prefs: []
   type: TYPE_NORMAL
+  zh: 以前，我们的程序必须逐个请求页面。Goroutines允许我们在等待网站响应时开始处理下一个请求。程序完成的时间缩短了三分之一！
 - en: Your Go Toolbox
+  id: totrans-165
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 你的Go工具箱
 - en: '![image](assets/f0399-01.png)'
+  id: totrans-166
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0399-01.png)'
 - en: '**That’s it for [Chapter 13](#sharing_workcolon_goroutines_and_channel)! You’ve
     added goroutines and channels to your toolbox.**'
+  id: totrans-167
   prefs: []
   type: TYPE_NORMAL
+  zh: '**这就是[第13章](#sharing_workcolon_goroutines_and_channel)的内容！你已经将goroutines和channels添加到你的工具箱中。**'
 - en: '![image](assets/f0399-02.png)'
+  id: totrans-168
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0399-02.png)'
 - en: Code Magnets Solution
+  id: totrans-169
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: Code Magnets解决方案
 - en: '![image](assets/f0400-01.png)'
+  id: totrans-170
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0400-01.png)'

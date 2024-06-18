@@ -1,7 +1,9 @@
 - en: Chapter 12\. Concurrency in Go
+  id: totrans-0
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 第12章《Go语言并发》
 - en: '*Concurrency* is the computer science term for breaking up a single process
     into independent components and specifying how these components safely share data.
     Most languages provide concurrency via a library using operating system–level
@@ -11,51 +13,72 @@
     a [paper by Tony Hoare](https://oreil.ly/x1IVG), the man who invented the Quicksort
     algorithm. The patterns implemented with CSP are just as powerful as the standard
     ones but are far easier to understand.'
+  id: totrans-1
   prefs: []
   type: TYPE_NORMAL
+  zh: '*并发*是计算机科学术语，用于将单个进程分解为独立组件，并指定这些组件如何安全地共享数据。大多数语言通过操作系统级线程提供并发，通过尝试获取锁来共享数据。但Go语言不同。它的主要并发模型，可以说是Go语言最著名的特性，基于通信顺序进程（CSP）。这种并发风格在1978年由发明快速排序算法的Tony
+    Hoare在一篇[paper](https://oreil.ly/x1IVG)中描述。使用CSP实现的模式与标准模式一样强大，但更易于理解。'
 - en: 'In this chapter, you are going to quickly review the features that are the
     backbone of concurrency in Go: goroutines, channels, and the `select` keyword.
     Then you are going to look at some common Go concurrency patterns and learn about
     the situations where lower-level techniques are a better approach.'
+  id: totrans-2
   prefs: []
   type: TYPE_NORMAL
+  zh: 在这一章中，您将快速回顾Go语言并发的核心特性：goroutines（协程）、channels（通道）和`select`关键字。然后，您将查看一些常见的Go并发模式，并了解在何种情况下使用底层技术是更好的方法。
 - en: When to Use Concurrency
+  id: totrans-3
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 何时使用并发
 - en: 'Let’s start with a word of caution. Be sure that your program benefits from
     concurrency. When new Go developers start experimenting with concurrency, they
     tend to go through a series of stages:'
+  id: totrans-4
   prefs: []
   type: TYPE_NORMAL
+  zh: 让我们先谨慎一点。确保您的程序从并发中获益。当新手Go开发人员开始尝试并发时，他们往往会经历一系列阶段：
 - en: This is *amazing*; I’m going to put everything in goroutines!
+  id: totrans-5
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 这太*神奇*了；我要把一切都放进goroutines中！
 - en: My program isn’t any faster. I’m adding buffers to my channels.
+  id: totrans-6
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 我的程序并没有更快。我正在向我的channels添加缓冲区。
 - en: My channels are blocking and I’m getting deadlocks. I’m going to use buffered
     channels with *really* big buffers.
+  id: totrans-7
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 我的channels在阻塞，我遇到了死锁。我将使用带有*非常*大缓冲区的buffered channels。
 - en: My channels are still blocking. I’m going to use mutexes.
+  id: totrans-8
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 我的channels仍然在阻塞。我将使用互斥锁。
 - en: Forget it, I’m giving up on concurrency.
+  id: totrans-9
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 算了吧，我放弃并发了。
 - en: People are attracted to concurrency because they believe concurrent programs
     run faster. Unfortunately, that’s not always the case. More concurrency doesn’t
     automatically make things faster, and it can make code harder to understand. The
     key is understanding that *concurrency is not parallelism*. Concurrency is a tool
     to better structure the problem you are trying to solve.
+  id: totrans-10
   prefs: []
   type: TYPE_NORMAL
+  zh: 人们被并发吸引，因为他们认为并发程序运行更快。不幸的是，这并不总是如此。更多的并发并不自动意味着事情更快，它可能会使代码更难理解。关键在于理解*并发不等于并行*。并发是一个工具，用来更好地解构您试图解决的问题。
 - en: Whether concurrent code runs in parallel (at the same time) depends on the hardware
     and whether the algorithm allows it. In 1967, Gene Amdahl, one of the pioneers
     of computer science, derived Amdahl’s law. It is a formula for figuring out how
@@ -64,8 +87,11 @@
     you can learn more in [*The Art of Concurrency*](https://oreil.ly/HaZQ8) by Clay
     Breshears (O’Reilly). For our purposes, all you need to understand is that more
     concurrency does not mean more speed.
+  id: totrans-11
   prefs: []
   type: TYPE_NORMAL
+  zh: 并发代码是否并行（同时运行）取决于硬件和算法是否允许。1967年，计算机科学先驱之一Gene Amdahl推导出了Amdahl定律。这是一个用于确定并行处理可以提升性能多少的公式，考虑了有多少工作必须顺序执行。如果您想深入了解Amdahl定律的细节，您可以在[*并发的艺术*](https://oreil.ly/HaZQ8)一书中了解更多，作者是Clay
+    Breshears（O’Reilly）。对于我们的目的，您只需理解更多的并发并不意味着更快。
 - en: 'Broadly speaking, all programs follow the same three-step process: they take
     data, transform it, and then output the result. Whether you should use concurrency
     in your program depends on how data flows through the steps in your program. Sometimes
@@ -73,8 +99,10 @@
     other to proceed, and at other times two steps must happen in series because one
     depends on the other’s output. Use concurrency when you want to combine data from
     multiple operations that can operate independently.'
+  id: totrans-12
   prefs: []
   type: TYPE_NORMAL
+  zh: 广义上讲，所有程序都遵循相同的三步过程：获取数据，转换数据，然后输出结果。您是否应在程序中使用并发取决于数据在程序步骤之间的流动方式。有时候两个步骤可以并发进行，因为一个步骤的数据不需要等待另一个步骤才能继续进行，而其他时候两个步骤必须按顺序进行，因为一个步骤依赖于另一个步骤的输出。当您想要结合多个可以独立操作的操作的数据时，请使用并发。
 - en: Another important thing to note is that concurrency isn’t worth using if the
     process that’s running concurrently doesn’t take a lot of time. Concurrency isn’t
     free; many common in-memory algorithms are so fast that the overhead of passing
@@ -85,8 +113,10 @@
     concurrency will help, first write your code serially and then write a benchmark
     to compare performance with a concurrent implementation. (See [“Using Benchmarks”](ch15.html#benchmarking)
     for information on how to benchmark your code.)
+  id: totrans-13
   prefs: []
   type: TYPE_NORMAL
+  zh: 另一个重要的注意事项是，并发不值得使用，如果运行并发的进程所花费的时间不多。并发并非免费；许多常见的内存算法非常快速，通过并发传递值的开销超过了通过并行运行并发代码可能获得的任何潜在时间节省。这就是为什么并发操作通常用于I/O的原因；读取或写入磁盘或网络比除了最复杂的内存过程以外的所有过程慢数千倍。如果您不确定并发是否有帮助，请首先将代码串行化，然后编写基准测试来比较并发实现的性能。（参见[“使用基准测试”](ch15.html#benchmarking)了解如何对您的代码进行基准测试。）
 - en: Let’s consider an example. Say you are writing a web service that calls three
     other web services. Your program sends data to two of those services, and then
     takes the results of those two calls and sends them to the third, returning the
@@ -96,12 +126,16 @@
     there’s a part where the results are combined, and there’s a limit on how long
     the code needs to run. At the end of this chapter, you’ll see how to implement
     this code.
+  id: totrans-14
   prefs: []
   type: TYPE_NORMAL
+  zh: 让我们来考虑一个例子。假设您正在编写一个调用其他三个网络服务的Web服务。您的程序将数据发送到其中两个服务，然后将这两个调用的结果发送给第三个服务，并返回结果。整个过程必须在50毫秒内完成，否则应返回错误。这是并发的一个很好的使用案例，因为代码中有需要执行I/O的部分，可以独立运行而无需相互交互，还有一个部分用于合并结果，并且代码需要运行的时间有限。在本章末尾，您将看到如何实现此代码。
 - en: Goroutines
+  id: totrans-15
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: Goroutines
 - en: The goroutine is the core concept in Go’s concurrency model. To understand goroutines,
     let’s define a couple of terms. The first is *process*. A process is an instance
     of a program that’s being run by a computer’s operating system. The operating
@@ -113,8 +147,10 @@
     of cores. One of the jobs of an operating system is to schedule threads on the
     CPU to make sure that every process (and every thread within a process) gets a
     chance to run.
+  id: totrans-16
   prefs: []
   type: TYPE_NORMAL
+  zh: Go语言并发模型的核心概念是**goroutine**。要理解goroutine，让我们先定义几个术语。首先是*进程*。进程是计算机操作系统正在运行的程序的实例。操作系统会为进程分配一些资源，如内存，并确保其他进程无法访问这些资源。一个进程由一个或多个*线程*组成。线程是操作系统分配运行时间的执行单位。同一进程内的线程共享资源。根据处理器核心数量，CPU可以同时执行一个或多个线程的指令。操作系统的一个任务是调度线程在CPU上运行，以确保每个进程（及其内部的每个线程）都有运行的机会。
 - en: 'Think of a goroutine as a lightweight thread, managed by the Go runtime. When
     a Go program starts, the Go runtime creates a number of threads and launches a
     single goroutine to run your program. All the goroutines created by your program,
@@ -123,60 +159,85 @@
     cores. This might seem like extra work, since the underlying operating system
     already includes a scheduler that manages threads and processes, but it has several
     benefits:'
+  id: totrans-17
   prefs: []
   type: TYPE_NORMAL
+  zh: 将 Goroutine 看作是由 Go 运行时管理的轻量级线程。当 Go 程序启动时，Go 运行时会创建一些线程，并启动一个单独的 Goroutine
+    来运行您的程序。您的程序创建的所有 Goroutine（包括初始的）都会由 Go 运行时调度器自动分配到这些线程中，就像操作系统在 CPU 核心之间调度线程一样。这看起来可能是额外的工作，因为底层操作系统已经包含了管理线程和进程的调度器，但它有几个好处：
 - en: Goroutine creation is faster than thread creation, because you aren’t creating
     an operating system–level resource.
+  id: totrans-18
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: Goroutine 的创建速度比线程快，因为您不需要创建一个操作系统级别的资源。
 - en: Goroutine initial stack sizes are smaller than thread stack sizes and can grow
     as needed. This makes goroutines more memory efficient.
+  id: totrans-19
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: Goroutine 的初始栈大小比线程栈大小小，并且可以根据需要增长。这使得 Goroutine 更加内存高效。
 - en: Switching between goroutines is faster than switching between threads because
     it happens entirely within the process, avoiding operating system calls that are
     (relatively) slow.
+  id: totrans-20
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 在 Goroutine 之间切换比在线程之间切换更快，因为它完全在进程内部进行，避免了（相对而言）缓慢的操作系统调用。
 - en: The goroutine scheduler is able to optimize its decisions because it is part
     of the Go process. The scheduler works with the network poller, detecting when
     a goroutine can be unscheduled because it is blocking on I/O. It also integrates
     with the garbage collector, making sure that work is properly balanced across
     all the operating system threads assigned to your Go process.
+  id: totrans-21
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: Goroutine 调度器能够优化其决策，因为它是 Go 进程的一部分。调度器与网络轮询器一起工作，当 Goroutine 因 I/O 阻塞时检测到可以取消调度。它还与垃圾回收器集成，确保工作在分配给
+    Go 进程的所有操作系统线程之间得到适当平衡。
 - en: These advantages allow Go programs to spawn hundreds, thousands, even tens of
     thousands of simultaneous goroutines. If you try to launch thousands of threads
     in a language with native threading, your program will slow to a crawl.
+  id: totrans-22
   prefs: []
   type: TYPE_NORMAL
+  zh: 这些优势使得 Go 程序能够同时启动数百、数千甚至数万个 Goroutine。如果在具有本地线程的语言中尝试启动数千个线程，您的程序将变得非常缓慢。
 - en: Tip
+  id: totrans-23
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 提示
 - en: If you are interested in learning more about how the scheduler does its work,
     watch the talk Kavya Joshi gave at GopherCon 2018 called [“The Scheduler Saga”](https://oreil.ly/879mk).
+  id: totrans-24
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果你对了解调度器如何工作感兴趣，请观看 Kavya Joshi 在 GopherCon 2018 上的演讲 [“调度器传奇”](https://oreil.ly/879mk)。
 - en: A goroutine is launched by placing the `go` keyword before a function invocation.
     Just as with any other function, you can pass it parameters to initialize its
     state. However, any values returned by the function are ignored.
+  id: totrans-25
   prefs: []
   type: TYPE_NORMAL
+  zh: 在函数调用前加上 `go` 关键字可以启动一个 Goroutine。与任何其他函数一样，您可以传递参数来初始化其状态。但是，函数返回的任何值都会被忽略。
 - en: 'Any function can be launched as a goroutine. This is different from JavaScript,
     where a function runs asynchronously only if the author of the function declared
     it with the `async` keyword. However, it is customary in Go to launch goroutines
     with a closure that wraps business logic. The closure takes care of the concurrent
     bookkeeping. The following sample code demonstrates the concept:'
+  id: totrans-26
   prefs: []
   type: TYPE_NORMAL
+  zh: 任何函数都可以作为 Goroutine 启动。这与 JavaScript 不同，JavaScript 中只有在函数使用 `async` 关键字声明时，该函数才会异步运行。然而，在
+    Go 中，习惯上使用一个包装业务逻辑的闭包来启动 Goroutine。闭包负责并发的簿记工作。以下示例代码演示了这个概念：
 - en: '[PRE0]'
+  id: totrans-27
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE0]'
 - en: In this code, the `processConcurrently` function creates a closure, which reads
     values out of a channel and passes them to the business logic in the `process`
     function. The `process` function is completely unaware that it is running in a
@@ -186,199 +247,292 @@
     concurrency out of your APIs. The decision to use a thread-like model for concurrency
     means that Go programs avoid the “function coloring” problem described by Bob
     Nystrom in his famous blog post [“What Color Is Your Function?”](https://oreil.ly/0I_Op)
+  id: totrans-28
   prefs: []
   type: TYPE_NORMAL
+  zh: 在这段代码中，`processConcurrently` 函数创建了一个闭包，从通道中读取值，并将它们传递给 `process` 函数中的业务逻辑。`process`
+    函数完全不知道它是在一个 goroutine 中运行。闭包然后将 `process` 的结果写回到另一个通道中。（我将在下一节简要概述通道。）这种责任分离使得你的程序模块化和可测试，并将并发性从你的
+    API 中分离出去。选择使用类似线程的模型来进行并发意味着 Go 程序避免了 Bob Nystrom 在他著名博客文章 ["你的函数是什么颜色？"](https://oreil.ly/0I_Op)
+    中描述的“函数着色”问题。
 - en: You can find a complete example on [The Go Playground](https://oreil.ly/mw5NU)
     or in the *sample_code/goroutine* directory in the [Chapter 12 repository](https://oreil.ly/uSQBs).
+  id: totrans-29
   prefs: []
   type: TYPE_NORMAL
+  zh: 你可以在 [The Go Playground](https://oreil.ly/mw5NU) 上或 [第 12 章存储库](https://oreil.ly/uSQBs)
+    中的 *sample_code/goroutine* 目录中找到完整的示例。
 - en: Channels
+  id: totrans-30
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 通道
 - en: 'Goroutines communicate using *channels*. Like slices and maps, channels are
     a built-in type created using the `make` function:'
+  id: totrans-31
   prefs: []
   type: TYPE_NORMAL
+  zh: Goroutine 使用 *通道* 进行通信。与切片和映射类似，通道是使用 `make` 函数创建的内置类型：
 - en: '[PRE1]'
+  id: totrans-32
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE1]'
 - en: Like maps, channels are reference types. When you pass a channel to a function,
     you are really passing a pointer to the channel. Also like maps and slices, the
     zero value for a channel is `nil`.
+  id: totrans-33
   prefs: []
   type: TYPE_NORMAL
+  zh: 像映射一样，通道也是引用类型。当你将一个通道传递给一个函数时，你实际上是传递了一个指向该通道的指针。与映射和切片一样，通道的零值是 `nil`。
 - en: Reading, Writing, and Buffering
+  id: totrans-34
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 读取、写入和缓冲
 - en: 'Use the `<-` operator to interact with a channel. You read from a channel by
     placing the `<-` operator to the left of the channel variable, and you write to
     a channel by placing it to the right:'
+  id: totrans-35
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用 `<-` 操作符与通道交互。通过将 `<-` 操作符放置在通道变量的左侧来从通道中读取，通过将其放置在右侧来向通道中写入：
 - en: '[PRE2]'
+  id: totrans-36
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE2]'
 - en: Each value written to a channel can be read only once. If multiple goroutines
     are reading from the same channel, a value written to the channel will be read
     by only one of them.
+  id: totrans-37
   prefs: []
   type: TYPE_NORMAL
+  zh: 每个写入到通道的值只能被读取一次。如果有多个 goroutine 从同一个通道读取，那么写入到通道的值只会被其中一个读取。
 - en: A single goroutine rarely reads and writes to the same channel. When assigning
     a channel to a variable or field, or passing it to a function, use an arrow before
     the `chan` keyword (`ch <-chan int`) to indicate that the goroutine only *reads*
     from the channel. Use an arrow after the `chan` keyword (`ch chan<- int`) to indicate
     that the goroutine only *writes* to the channel. Doing so allows the Go compiler
     to ensure that a channel is only read from or written to by a function.
+  id: totrans-38
   prefs: []
   type: TYPE_NORMAL
+  zh: 单个 goroutine 很少会同时从同一个通道读取和写入。当将通道分配给变量或字段，或者将其传递给函数时，请在 `chan` 关键字之前使用箭头（`ch
+    <-chan int`）来指示该 goroutine 只从通道中 *读取*。在 `chan` 关键字之后使用箭头（`ch chan<- int`）来指示该
+    goroutine 只 *写入* 通道。这样做可以让 Go 编译器确保通道只能被函数读取或写入。
 - en: By default, channels are *unbuffered*. Every write to an open, unbuffered channel
     causes the writing goroutine to pause until another goroutine reads from the same
     channel. Likewise, a read from an open, unbuffered channel causes the reading
     goroutine to pause until another goroutine writes to the same channel. This means
     you cannot write to or read from an unbuffered channel without at least two concurrently
     running goroutines.
+  id: totrans-39
   prefs: []
   type: TYPE_NORMAL
+  zh: 默认情况下，通道是 *无缓冲* 的。每次向打开的无缓冲通道写入时，写入 goroutine 都会暂停，直到另一个 goroutine 从同一通道读取。同样地，从打开的无缓冲通道读取时，读取
+    goroutine 也会暂停，直到另一个 goroutine 向同一通道写入。这意味着你不能在没有至少两个并发运行的 goroutine 的情况下写入或读取无缓冲通道。
 - en: Go also has *buffered* channels. These channels buffer a limited number of writes
     without blocking. If the buffer fills before there are any reads from the channel,
     a subsequent write to the channel pauses the writing goroutine until the channel
     is read. Just as writing to a channel with a full buffer blocks, reading from
     a channel with an empty buffer also blocks.
+  id: totrans-40
   prefs: []
   type: TYPE_NORMAL
+  zh: Go 语言还拥有 *缓冲* 通道。这些通道可以缓冲有限数量的写入操作而不会阻塞。如果在从通道读取之前缓冲区已满，那么对通道的后续写入会使写入 goroutine
+    暂停，直到有读取操作发生。与写入到满缓冲区的通道会阻塞一样，从空缓冲区读取的通道也会阻塞。
 - en: 'A buffered channel is created by specifying the capacity of the buffer when
     creating the channel:'
+  id: totrans-41
   prefs: []
   type: TYPE_NORMAL
+  zh: 创建缓冲通道时，可以在创建通道时指定缓冲区的容量：
 - en: '[PRE3]'
+  id: totrans-42
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE3]'
 - en: The built-in functions `len` and `cap` return information about a buffered channel.
     Use `len` to find out how many values are currently in the buffer and use `cap`
     to find out the maximum buffer size. The capacity of the buffer cannot be changed.
+  id: totrans-43
   prefs: []
   type: TYPE_NORMAL
+  zh: 内置函数`len`和`cap`返回有关缓冲通道的信息。使用`len`可以查找当前缓冲区中有多少个值，使用`cap`可以查找缓冲区的最大容量。缓冲区的容量不能更改。
 - en: Note
+  id: totrans-44
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: Passing an unbuffered channel to both `len` and `cap` returns 0\. This makes
     sense because, by definition, an unbuffered channel doesn’t have a buffer to store
     values.
+  id: totrans-45
   prefs: []
   type: TYPE_NORMAL
+  zh: 将无缓冲通道传递给`len`和`cap`都将返回0。这是有道理的，因为按定义，无缓冲通道没有缓冲区来存储值。
 - en: Most of the time, you should use unbuffered channels. In [“Know When to Use
     Buffered and Unbuffered Channels”](#buffered_unbuffered), I’ll talk about the
     situations where buffered channels are useful.
+  id: totrans-46
   prefs: []
   type: TYPE_NORMAL
+  zh: 大多数情况下，应该使用无缓冲通道。在[“了解何时使用缓冲和非缓冲通道”](#buffered_unbuffered)，我将讨论使用缓冲通道的情况。
 - en: Using for-range and Channels
+  id: totrans-47
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 使用`for-range`和通道
 - en: 'You can also read from a channel by using a `for-range` loop:'
+  id: totrans-48
   prefs: []
   type: TYPE_NORMAL
+  zh: 你也可以通过使用`for-range`循环从通道中读取：
 - en: '[PRE4]'
+  id: totrans-49
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE4]'
 - en: Unlike other `for-range` loops, there is only a single variable declared for
     the channel, which is the value. If the channel is open and a value is available
     on the channel, it is assigned to `v` and the body of the loop executes. If no
     value is available on the channel, the goroutine pauses until a value is available
     or the channel is closed. The loop continues until the channel is closed, or until
     a `break` or `return` statement is reached.
+  id: totrans-50
   prefs: []
   type: TYPE_NORMAL
+  zh: 不像其他`for-range`循环，这里只声明了一个变量用于通道的值，即`v`。如果通道打开并且通道上有值可用，则将其赋给`v`并执行循环体。如果通道上没有可用值，则goroutine暂停，直到通道有值可用或通道关闭。循环会继续，直到通道关闭，或达到`break`或`return`语句。
 - en: Closing a Channel
+  id: totrans-51
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 关闭通道
 - en: 'When you’re done writing to a channel, you close it using the built-in `close`
     function:'
+  id: totrans-52
   prefs: []
   type: TYPE_NORMAL
+  zh: 当你完成向通道写入数据后，使用内置的`close`函数关闭它：
 - en: '[PRE5]'
+  id: totrans-53
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE5]'
 - en: Once a channel is closed, any attempts to write to it or close it again will
     panic. Interestingly, attempting to read from a closed channel always succeeds.
     If the channel is buffered and some values haven’t been read yet, they will be
     returned in order. If the channel is unbuffered or the buffered channel has no
     more values, the zero value for the channel’s type is returned.
+  id: totrans-54
   prefs: []
   type: TYPE_NORMAL
+  zh: 一旦通道关闭，任何尝试向其写入或再次关闭它的操作都会引发恐慌。有趣的是，尝试从关闭的通道读取始终成功。如果通道是带缓冲的，并且还有未读取的值，它们将按顺序返回。如果通道是无缓冲的或缓冲通道没有更多值，则通道的类型的零值将返回。
 - en: 'This leads to a question that might sound familiar from your experience with
     maps: when your code reads from a channel, how do you tell the difference between
     a zero value that was written and a zero value that was returned because the channel
     is closed? Since Go tries to be a consistent language, there is a familiar answer—use
     the comma ok idiom to detect whether a channel has been closed:'
+  id: totrans-55
   prefs: []
   type: TYPE_NORMAL
+  zh: 这引出了一个问题，这个问题在你使用映射时可能会很熟悉：当你的代码从通道中读取时，如何区分是因为通道关闭而返回的零值，还是因为写入的零值？由于Go语言试图保持一致性，这里有一个熟悉的答案——使用逗号-ok惯用法来检测通道是否已关闭：
 - en: '[PRE6]'
+  id: totrans-56
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE6]'
 - en: If `ok` is set to `true`, the channel is open. If it is set to `false`, the
     channel is closed.
+  id: totrans-57
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果`ok`设置为`true`，则通道是打开的。如果设置为`false`，则通道已关闭。
 - en: Tip
+  id: totrans-58
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 提示
 - en: Anytime you are reading from a channel that might be closed, use the comma ok
     idiom to ensure that the channel is still open.
+  id: totrans-59
   prefs: []
   type: TYPE_NORMAL
+  zh: 每当从可能已关闭的通道读取时，请使用逗号-ok惯用法确保通道仍然打开。
 - en: The responsibility for closing a channel lies with the goroutine that writes
     to the channel. Be aware that closing a channel is required only if a goroutine
     is waiting for the channel to close (such as one using a `for-range` loop to read
     from the channel). Since a channel is just another variable, Go’s runtime can
     detect channels that are no longer referenced and garbage collect them.
+  id: totrans-60
   prefs: []
   type: TYPE_NORMAL
+  zh: 关闭通道的责任属于写入通道的goroutine。请注意，只有当有goroutine在等待通道关闭时（例如使用`for-range`循环从通道读取数据时），才需要关闭通道。由于通道只是另一个变量，Go的运行时可以检测到不再被引用的通道并对其进行垃圾回收。
 - en: Channels are one of the two things that set apart Go’s concurrency model. They
     guide you into thinking about your code as a series of stages and making data
     dependencies clear, which makes it easier to reason about concurrency. Other languages
     rely on global shared state to communicate between threads. This mutable shared
     state makes it hard to understand how data flows through a program, which in turn
     makes it difficult to understand whether two threads are actually independent.
+  id: totrans-61
   prefs: []
   type: TYPE_NORMAL
+  zh: 通道是 Go 并发模型的两大特色之一。它们引导你将代码视为一系列阶段，并清晰地表达数据依赖关系，这使得推理并发变得更容易。其他语言依赖于全局共享状态来在线程之间通信。这种可变的共享状态使得理解数据如何在程序中流动变得困难，进而难以确定两个线程是否真的是独立的。
 - en: Understanding How Channels Behave
+  id: totrans-62
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 理解通道的行为方式
 - en: Channels have many states, each with a different behavior when reading, writing,
     or closing. Use [Table 12-1](#how_channels_behave) to keep them straight.
+  id: totrans-63
   prefs: []
   type: TYPE_NORMAL
+  zh: 通道有多种状态，在读取、写入或关闭时有不同的行为。使用 [表 12-1](#how_channels_behave) 来理清它们。
 - en: Table 12-1\. How channels behave
+  id: totrans-64
   prefs: []
   type: TYPE_NORMAL
+  zh: 表 12-1\. 通道的行为方式
 - en: '|  | Unbuffered, open | Unbuffered, closed | Buffered, open | Buffered, closed
     | Nil |'
+  id: totrans-65
   prefs: []
   type: TYPE_TB
+  zh: '|  | 无缓冲，开放状态 | 无缓冲，关闭状态 | 带缓冲，开放状态 | 带缓冲，关闭状态 | 空 |'
 - en: '| --- | --- | --- | --- | --- | --- |'
+  id: totrans-66
   prefs: []
   type: TYPE_TB
+  zh: '| --- | --- | --- | --- | --- | --- |'
 - en: '| Read | Pause until something is written | Return zero value (use comma ok
     to see if closed) | Pause if buffer is empty | Return a remaining value in the
     buffer; if the buffer is empty, return zero value (use comma ok to see if closed)
     | Hang forever |'
+  id: totrans-67
   prefs: []
   type: TYPE_TB
+  zh: '| 读取 | 等待直到有东西被写入 | 返回零值（使用 comma ok 来查看是否关闭） | 如果缓冲区为空则等待 | 返回缓冲区中的剩余值；如果缓冲区为空则返回零值（使用
+    comma ok 来查看是否关闭） | 永久挂起 |'
 - en: '| Write | Pause until something is read | **PANIC** | Pause if buffer is full
     | **PANIC** | Hang forever |'
+  id: totrans-68
   prefs: []
   type: TYPE_TB
+  zh: '| 写入 | 等待直到有东西被读取 | **PANIC** | 如果缓冲区满则等待 | **PANIC** | 永久挂起 |'
 - en: '| Close | Works | **PANIC** | Works, remaining values still there | **PANIC**
     | **PANIC** |'
+  id: totrans-69
   prefs: []
   type: TYPE_TB
+  zh: '| 关闭 | 可行 | **PANIC** | 可行，剩余值仍在 | **PANIC** | **PANIC** |'
 - en: You must avoid situations that cause Go programs to panic. As mentioned earlier,
     the standard pattern is to make the writing goroutine responsible for closing
     the channel when there’s nothing left to write. When multiple goroutines are writing
@@ -386,43 +540,64 @@
     the same channel causes a panic. Furthermore, if you close a channel in one goroutine,
     a write to the channel in another goroutine triggers a panic as well. The way
     to address this is to use a `sync.WaitGroup`. You’ll see an example in [“Use WaitGroups”](#wait_group).
+  id: totrans-70
   prefs: []
   type: TYPE_NORMAL
+  zh: 你必须避免导致 Go 程序引发 panic 的情况。如前所述，标准模式是在写入 goroutine 写入完毕后关闭通道。当多个 goroutine 向同一通道写入时，情况会变得更复杂，因为在同一通道上调用两次
+    `close` 会导致 panic。此外，如果一个 goroutine 中关闭了通道，另一个 goroutine 中写入该通道也会触发 panic。解决这个问题的方法是使用
+    `sync.WaitGroup`，你将在 [“使用 WaitGroups”](#wait_group) 中看到一个示例。
 - en: A `nil` channel can be dangerous as well, but it is useful in some cases. You’ll
     learn more about them in [“Turn Off a case in a select”](#nil_channel).
+  id: totrans-71
   prefs: []
   type: TYPE_NORMAL
+  zh: '`nil` 通道在某些情况下也可能存在风险，但在其他情况下也是有用的。你将在 [“关闭 select 中的 case”](#nil_channel)
+    中了解更多相关内容。'
 - en: select
+  id: totrans-72
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: '`select`'
 - en: 'The `select` statement is the other thing that sets apart Go’s concurrency
     model. It is the control structure for concurrency in Go, and it elegantly solves
     a common problem: if you can perform two concurrent operations, which one do you
     do first? You can’t favor one operation over others, or you’ll never process some
     cases. This is called *starvation*.'
+  id: totrans-73
   prefs: []
   type: TYPE_NORMAL
+  zh: '`select` 语句是 Go 并发模型的另一大特色。它是 Go 中的并发控制结构，优雅地解决了一个常见问题：如果可以执行两个并发操作，那么应该先执行哪一个？你不能偏袒某个操作，否则有些情况将永远不会被处理。这被称为
+    *饥饿* 问题。'
 - en: 'The `select` keyword allows a goroutine to read from or write to one of a set
     of multiple channels. It looks a great deal like a blank `switch` statement:'
+  id: totrans-74
   prefs: []
   type: TYPE_NORMAL
+  zh: '`select` 关键字允许一个 goroutine 从多个通道中读取或写入其中一个。它看起来与空的 `switch` 语句非常相似：'
 - en: '[PRE7]'
+  id: totrans-75
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE7]'
 - en: Each `case` in a `select` is a read or a write to a channel. If a read or write
     is possible for a `case`, it is executed along with the body of the `case`. Like
     a `switch`, each `case` in a `select` creates its own block.
+  id: totrans-76
   prefs: []
   type: TYPE_NORMAL
+  zh: '`select` 中的每个 `case` 都是对通道的读取或写入。如果某个 `case` 可以读取或写入，它将与 `case` 的主体一起执行。与 `switch`
+    类似，`select` 中的每个 `case` 都创建了自己的代码块。'
 - en: 'What happens if multiple cases have channels that can be read or written? The
     `select` algorithm is simple: it picks randomly from any of its cases that can
     go forward; order is unimportant. This is very different from a `switch` statement,
     which always chooses the first `case` that resolves to `true`. It also cleanly
     resolves the starvation problem, as no `case` is favored over another and all
     are checked at the same time.'
+  id: totrans-77
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果多个情况都有可以读取或写入的通道会发生什么？`select`算法很简单：它从可以继续的任何情况中随机选择；顺序不重要。这与`switch`语句非常不同，后者总是选择第一个解析为`true`的`case`。它还清楚地解决了饥饿问题，因为没有一个`case`优先于另一个，并且所有情况同时被检查。
 - en: 'Another advantage of `select` choosing at random is that it prevents one of
     the most common causes of deadlocks: acquiring locks in an inconsistent order.
     If you have two goroutines that both access the same two channels, they must be
@@ -430,52 +605,76 @@
     that neither one can proceed because they are waiting on each other. If every
     goroutine in your Go application is deadlocked, the Go runtime kills your program
     (see [Example 12-1](#EX10_1)).'
+  id: totrans-78
   prefs: []
   type: TYPE_NORMAL
+  zh: '`select`随机选择的另一个优势是它防止了最常见的死锁原因之一：以不一致的顺序获取锁。如果有两个goroutine都访问相同的两个通道，它们必须在两个goroutine中以相同的顺序访问，否则它们将*死锁*。这意味着两者都无法继续，因为它们正在等待对方。如果您的Go应用程序中的每个goroutine都死锁，Go运行时将终止您的程序（参见[示例 12-1](#EX10_1)）。'
 - en: Example 12-1\. Deadlocking goroutines
+  id: totrans-79
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 12-1\. 死锁的goroutine
 - en: '[PRE8]'
+  id: totrans-80
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE8]'
 - en: 'If you run this program on [The Go Playground](https://oreil.ly/eP3D1) or in
     the *sample_code/deadlock* directory in the [Chapter 12 repository](https://oreil.ly/uSQBs),
     you’ll see the following error:'
+  id: totrans-81
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果您在[Go Playground](https://oreil.ly/eP3D1)或[第12章库的sample_code/deadlock目录](https://oreil.ly/uSQBs)中运行此程序，您将看到以下错误：
 - en: '[PRE9]'
+  id: totrans-82
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE9]'
 - en: Remember that `main` is running on a goroutine that is launched at startup by
     the Go runtime. The goroutine that is explicitly launched cannot proceed until
     `ch1` is read, and the main goroutine cannot proceed until `ch2` is read.
+  id: totrans-83
   prefs: []
   type: TYPE_NORMAL
+  zh: 请记住，`main`在启动时由Go运行时在一个goroutine中运行。显式启动的goroutine在`ch1`被读取之前无法继续，主goroutine在`ch2`被读取之前也无法继续。
 - en: If the channel read and the channel write in the main goroutine are wrapped
     in a `select`, deadlock is avoided (see [Example 12-2](#EX10_2)).
+  id: totrans-84
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果主goroutine中的通道读取和通道写入被包裹在`select`中，则避免了死锁（参见[示例 12-2](#EX10_2)）。
 - en: Example 12-2\. Using `select` to avoid deadlocks
+  id: totrans-85
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 12-2\. 使用`select`避免死锁
 - en: '[PRE10]'
+  id: totrans-86
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE10]'
 - en: 'If you run this program on [The Go Playground](https://oreil.ly/Djtpj) or in
     the *sample_code/select* directory in the [Chapter 12 repository](https://oreil.ly/uSQBs),
     you’ll get the output:'
+  id: totrans-87
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果您在[Go Playground](https://oreil.ly/Djtpj)或[第12章库的sample_code/select目录](https://oreil.ly/uSQBs)中运行此程序，您将获得如下输出：
 - en: '[PRE11]'
+  id: totrans-88
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE11]'
 - en: Because a `select` checks whether any of its cases can proceed, the deadlock
     is avoided. The goroutine that is launched explicitly wrote the value 1 into `ch1`,
     so the read from `ch1` into `fromGoroutine` in the main goroutine is able to succeed.
+  id: totrans-89
   prefs: []
   type: TYPE_NORMAL
+  zh: 因为`select`检查其所有情况是否能继续，所以避免了死锁。显式启动的goroutine将值1写入了`ch1`，因此主goroutine中对`ch1`的读取到`fromGoroutine`是成功的。
 - en: Although this program doesn’t deadlock, it still doesn’t do the right thing.
     The `fmt.Println` statement in the launched goroutine never executes, because
     that goroutine is paused, waiting for a value to read from `ch2`. When the main
@@ -483,68 +682,102 @@
     technically resolve the pause. However, you should make sure that all your goroutines
     exit properly so that you don’t *leak* them. I talk about this in more detail
     in [“Always Clean Up Your Goroutines”](#goroutine_cleanup).
+  id: totrans-90
   prefs: []
   type: TYPE_NORMAL
+  zh: 尽管此程序不会死锁，但仍未能完成正确操作。在启动的goroutine中，`fmt.Println`语句永远不会执行，因为该goroutine已暂停，等待从`ch2`读取值。当主goroutine退出时，程序也退出并终止所有剩余的goroutine，这在技术上解决了暂停的问题。然而，您应确保所有goroutine都能正确退出，以免*泄漏*它们。我在[“始终清理您的goroutine”](#goroutine_cleanup)中详细讨论了这个问题。
 - en: Note
+  id: totrans-91
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: Making this program behave properly requires a few techniques that you’ll learn
     about later in the chapter. You can find a working solution on [The Go Playground](https://oreil.ly/G1bi7).
+  id: totrans-92
   prefs: []
   type: TYPE_NORMAL
+  zh: 使此程序正常运行需要一些您将在本章后面学到的技术。您可以在[Go Playground](https://oreil.ly/G1bi7)上找到一个有效的解决方案。
 - en: 'Since `select` is responsible for communicating over a number of channels,
     it is often embedded within a `for` loop:'
+  id: totrans-93
   prefs: []
   type: TYPE_NORMAL
+  zh: 由于`select`负责在多个通道之间进行通信，因此通常嵌入在`for`循环中：
 - en: '[PRE12]'
+  id: totrans-94
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE12]'
 - en: This is so common that the combination is often referred to as a `for-select`
     loop. When using a `for-select` loop, you must include a way to exit the loop.
     You’ll see one way to do this in [“Use the Context to Terminate Goroutines”](#done_channel).
+  id: totrans-95
   prefs: []
   type: TYPE_NORMAL
+  zh: 这种组合通常被称为 `for-select` 循环。在使用 `for-select` 循环时，你必须包含一种退出循环的方法。你会在 [“使用上下文终止
+    Goroutines”](#done_channel) 中看到一种方法。
 - en: 'Just like `switch` statements, a `select` statement can have a `default` clause.
     Also just like `switch`, `default` is selected when there are no cases with channels
     that can be read or written. If you want to implement a nonblocking read or write
     on a channel, use a `select` with a `default`. The following code does not wait
     if there’s no value to read in `ch`; it immediately executes the body of the `default`:'
+  id: totrans-96
   prefs: []
   type: TYPE_NORMAL
+  zh: 就像 `switch` 语句一样，`select` 语句也可以有一个 `default` 子句。和 `switch` 类似，当没有可以读取或写入的通道时，会选择
+    `default`。如果你想在通道上实现非阻塞读取或写入，使用带有 `default` 的 `select`。下面的代码在 `ch` 中没有可读取的值时不会等待，而是立即执行
+    `default` 的主体：
 - en: '[PRE13]'
+  id: totrans-97
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE13]'
 - en: You’ll take a look at a use for `default` in [“Implement Backpressure”](#backpressure).
+  id: totrans-98
   prefs: []
   type: TYPE_NORMAL
+  zh: 你将会在 [“实现反压力”](#backpressure) 中看到 `default` 的用法。
 - en: Note
+  id: totrans-99
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: Having a `default` case inside a `for-select` loop is almost always the wrong
     thing to do. It will be triggered every time through the loop when there’s nothing
     to read or write for any of the cases. This makes your `for` loop run constantly,
     which uses a great deal of CPU.
+  id: totrans-100
   prefs: []
   type: TYPE_NORMAL
+  zh: 在 `for-select` 循环内部有一个 `default` 案例几乎总是不正确的。当循环中任何一个案例没有读取或写入时，它会在每次循环时触发。这会使得你的
+    `for` 循环持续运行，消耗大量的 CPU。
 - en: Concurrency Practices and Patterns
+  id: totrans-101
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 并发实践和模式
 - en: Now that you’ve seen the basic tools that Go provides for concurrency, let’s
     take a look at some concurrency best practices and patterns.
+  id: totrans-102
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在你已经了解了 Go 提供的并发基本工具，让我们来看看一些并发的最佳实践和模式。
 - en: Keep Your APIs Concurrency-Free
+  id: totrans-103
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 保持你的 API 不受并发的影响
 - en: Concurrency is an implementation detail, and good API design should hide implementation
     details as much as possible. This allows you to change how your code works without
     changing how your code is invoked.
+  id: totrans-104
   prefs: []
   type: TYPE_NORMAL
+  zh: 并发是一个实现细节，良好的 API 设计应尽可能隐藏实现细节。这样可以在不改变代码调用方式的情况下改变代码的工作方式。
 - en: Practically, this means that you should never expose channels or mutexes in
     your API’s types, functions, and methods (I’ll talk about mutexes in [“When to
     Use Mutexes Instead of Channels”](#mutexes)). If you expose a channel, you put
@@ -552,24 +785,35 @@
     have to worry about concerns like whether a channel is buffered or closed or `nil`.
     They can also trigger deadlocks by accessing channels or mutexes in an unexpected
     order.
+  id: totrans-105
   prefs: []
   type: TYPE_NORMAL
+  zh: 实际上，这意味着你不应该在 API 的类型、函数和方法中暴露通道或互斥锁（我将在 [“何时使用互斥锁而不是通道”](#mutexes) 中详细讨论互斥锁）。如果你暴露一个通道，你将把通道管理的责任放在
+    API 用户身上。用户则需要担心诸如通道是缓冲的、已关闭或 `nil` 的问题。他们也可能通过以意外的顺序访问通道或互斥锁来触发死锁。
 - en: Note
+  id: totrans-106
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: This doesn’t mean that you shouldn’t ever have channels as function parameters
     or struct fields. It means that they shouldn’t be exported.
+  id: totrans-107
   prefs: []
   type: TYPE_NORMAL
+  zh: 这并不意味着你不应该将通道作为函数参数或结构体字段。它意味着它们不应该被导出。
 - en: This rule has some exceptions. If your API is a library with a concurrency helper
     function, channels are going to be part of its API.
+  id: totrans-108
   prefs: []
   type: TYPE_NORMAL
+  zh: 这条规则有一些例外。如果你的 API 是一个带有并发辅助函数的库，通道将成为其 API 的一部分。
 - en: Goroutines, for Loops, and Varying Variables
+  id: totrans-109
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: Goroutines、for 循环和变量变化
 - en: 'Most of the time, the closure that you use to launch a goroutine has no parameters.
     Instead, it captures values from the environment where it was declared. Before
     Go 1.22, there was one common situation where this didn’t work: when trying to
@@ -578,148 +822,218 @@
     a backward-breaking change was introduced in Go 1.22 that changed the behavior
     of a `for` loop so that it creates new variables for the index and value on each
     iteration instead of reusing a single variable.'
+  id: totrans-110
   prefs: []
   type: TYPE_NORMAL
+  zh: 大多数情况下，用于启动 Goroutine 的闭包没有参数。相反，它捕获了在声明它的环境中的值。在 Go 1.22 之前，有一个常见的情况是这种方式不起作用：尝试捕获
+    `for` 循环的索引或值。正如 [“for-range 值是副本”](ch04.html#for_range_copy) 和 [“使用 go.mod”](ch10.html#go_mod)
+    中提到的，Go 1.22 引入了一个破坏性变化，改变了 `for` 循环的行为，使其在每次迭代时为索引和值创建新变量，而不是重复使用单个变量。
 - en: The following code demonstrates the reason this change was worthwhile. You can
     find it in the [`goroutine_for_loop` repository](https://oreil.ly/8KkS9) in the
     Learning Go 2nd Edition organization on GitHub.
+  id: totrans-111
   prefs: []
   type: TYPE_NORMAL
+  zh: 以下代码演示了这个变更值得的原因。你可以在 GitHub 上的 [`goroutine_for_loop` 仓库](https://oreil.ly/8KkS9)
+    找到它，这个仓库属于《学习 Go 第二版》组织。
 - en: 'If you run the following code on Go 1.21 or earlier (or on Go 1.22 or later
     with the Go version set to 1.21 or earlier in the `go` directive in the *go.mod*
     file), you’ll see a subtle bug:'
+  id: totrans-112
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果你在 Go 1.21 或更早版本运行以下代码（或在 Go 1.22 或更新版本中，`go.mod` 文件的 `go` 指令设置为 1.21 或更早版本），你会看到一个微妙的
+    bug：
 - en: '[PRE14]'
+  id: totrans-113
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE14]'
 - en: 'One goroutine is launched for each value in `a`. It looks like a different
     value is passed in to each goroutine, but running the code shows something different:'
+  id: totrans-114
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于 `a` 中的每个值，都会启动一个 goroutine。看起来每个 goroutine 接收到的值都不同，但实际运行代码显示的情况却不同：
 - en: '[PRE15]'
+  id: totrans-115
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE15]'
 - en: The reason every goroutine wrote `20` to `ch` on earlier versions of Go is that
     the closure for every goroutine captured the same variable. The index and value
     variables in a `for` loop were reused on each iteration. The last value assigned
     to `v` was `10`. When the goroutines run, that’s the value that they see.
+  id: totrans-116
   prefs: []
   type: TYPE_NORMAL
+  zh: 在早期的 Go 版本中，每个 goroutine 都向 `ch` 写入 `20` 的原因是，每个 goroutine 的闭包捕获了相同的变量。`for`
+    循环中的索引和数值变量在每次迭代中都被重用。变量 `v` 最后被赋的值是 `10`。当 goroutine 运行时，它们看到的就是这个值。
 - en: 'Upgrading to Go 1.22 or later and changing the value of the `go` directive
     in *go.mod* to 1.22 or later changes the behavior of `for` loops so they create
     a new index and value variable on each iteration. This gives you the expected
     result, with a different value passed to each goroutine:'
+  id: totrans-117
   prefs: []
   type: TYPE_NORMAL
+  zh: 升级到 Go 1.22 或更高版本，并将 *go.mod* 中的 `go` 指令值改为 1.22 或更高版本，将会改变 `for` 循环的行为，使其在每次迭代时创建新的索引和数值变量。这样会得到预期的结果，每个
+    goroutine 接收到不同的值：
 - en: '[PRE16]'
+  id: totrans-118
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE16]'
 - en: 'If you cannot upgrade to Go 1.22, you can resolve this issue in two ways. The
     first is to make a copy of the value by shadowing the value within the loop:'
+  id: totrans-119
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果你无法升级到 Go 1.22，可以通过两种方式解决这个问题。首先是在循环内部复制数值来遮蔽数值：
 - en: '[PRE17]'
+  id: totrans-120
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE17]'
 - en: 'If you want to avoid shadowing and make the data flow more obvious, you can
     also pass the value as a parameter to the goroutine:'
+  id: totrans-121
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果你想避免遮蔽并使数据流更加清晰，也可以将该值作为参数传递给 goroutine：
 - en: '[PRE18]'
+  id: totrans-122
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE18]'
 - en: While Go 1.22 prevents this issue for the index and value variables in `for`
     loops, you still need to be careful with other variables that are captured by
     closures. Anytime a closure depends on a variable whose value might change, whether
     or not it is used as a goroutine, you must pass the value into the closure or
     make sure a unique copy of the variable is created for each closure that refers
     to the variable.
+  id: totrans-123
   prefs: []
   type: TYPE_NORMAL
+  zh: 虽然 Go 1.22 可以避免 `for` 循环中索引和数值变量的问题，但对于闭包中捕获的其他变量仍需小心。每当闭包依赖可能会改变的变量值时，无论是否用作
+    goroutine，都必须将该值传递给闭包，或者确保为每个引用该变量的闭包创建一个独立的变量副本。
 - en: Tip
+  id: totrans-124
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 小贴士
 - en: Anytime a closure uses a variable whose value might change, use a parameter
     to pass a copy of the variable’s current value into the closure.
+  id: totrans-125
   prefs: []
   type: TYPE_NORMAL
+  zh: 每当闭包使用一个可能会改变的变量时，使用参数将该变量的当前值传递给闭包。
 - en: Always Clean Up Your Goroutines
+  id: totrans-126
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 始终清理你的 Goroutines
 - en: Whenever you launch a goroutine function, you must make sure that it will eventually
     exit. Unlike variables, the Go runtime can’t detect that a goroutine will never
     be used again. If a goroutine doesn’t exit, all the memory allocated for variables
     on its stack remains allocated and any memory on the heap that is rooted in the
     goroutine’s stack variables cannot be garbage collected. This is called a *goroutine
     leak*.
+  id: totrans-127
   prefs: []
   type: TYPE_NORMAL
+  zh: 每当启动一个 goroutine 函数时，一定要确保它最终会退出。与变量不同，Go 运行时无法检测出 goroutine 是否会再次被使用。如果一个 goroutine
+    没有退出，那么分配给其栈上变量的所有内存都将保留，任何根据 goroutine 栈上变量分配的堆上内存也无法被垃圾回收。这被称为 *goroutine 泄漏*。
 - en: 'It may not be obvious that a goroutine isn’t guaranteed to exit. For example,
     say you used a goroutine as a generator:'
+  id: totrans-128
   prefs: []
   type: TYPE_NORMAL
+  zh: 一个 goroutine 并不一定能保证退出。例如，假设你将 goroutine 用作生成器：
 - en: '[PRE19]'
+  id: totrans-129
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE19]'
 - en: Note
+  id: totrans-130
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: This is just a short example; don’t use a goroutine to generate a list of numbers.
     It’s too simple of an operation, which violates one of our “when to use concurrency”
     guidelines.
+  id: totrans-131
   prefs: []
   type: TYPE_NORMAL
+  zh: 这只是一个简短的示例；不要使用 goroutine 生成数字列表。这太简单了，违反了我们“何时使用并发”的指导原则之一。
 - en: 'In the common case, where you use all the values, the goroutine exits. However,
     if you exit the loop early, the goroutine blocks forever, waiting for a value
     to be read from the channel:'
+  id: totrans-132
   prefs: []
   type: TYPE_NORMAL
+  zh: 在通常情况下，当你使用完所有值时，goroutine 会退出。但是，如果你提前退出循环，goroutine 就会永远阻塞，等待从通道中读取值：
 - en: '[PRE20]'
+  id: totrans-133
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE20]'
 - en: Use the Context to Terminate Goroutines
+  id: totrans-134
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 使用上下文终止 Goroutines
 - en: 'To solve the `countTo` goroutine leak, you need a way to tell the goroutine
     that it’s time to stop processing. You solve this in Go by using a *context*.
     Here’s a rewrite of `countTo` to demonstrate this technique. You can find the
     code in the *sample_code/context_cancel* directory in the [Chapter 12 repository](https://oreil.ly/uSQBs):'
+  id: totrans-135
   prefs: []
   type: TYPE_NORMAL
+  zh: 要解决`countTo` goroutine泄漏的问题，你需要一种方法告诉goroutine现在是停止处理的时候了。在Go中，你通过使用*上下文*来解决这个问题。下面是一个重写的`countTo`示例，演示了这种技术。你可以在[第12章存储库](https://oreil.ly/uSQBs)的*sample_code/context_cancel*目录中找到这段代码。
 - en: '[PRE21]'
+  id: totrans-136
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE21]'
 - en: The `countTo` function is modified to take a `context.Context` parameter in
     addition to `max`. The `for` loop in the goroutine is also changed. It is now
     a `for-select` loop with two cases. One tries to write to `ch`. The other case
     checks the channel returned by the `Done` method on the context. If it returns
     a value, you exit the `for-select` loop and the goroutine. Now, you have a way
     to prevent the goroutine from leaking when every value is read.
+  id: totrans-137
   prefs: []
   type: TYPE_NORMAL
+  zh: '`countTo`函数修改为除了`max`之外还接受一个`context.Context`参数。goroutine中的`for`循环也已更改。现在是一个带有两个case的`for-select`循环。一个尝试向`ch`写入。另一个case检查上下文的`Done`方法返回的通道。如果它返回一个值，你退出`for-select`循环和goroutine。现在，你有了一种方法可以在读取每个值时防止goroutine泄漏。'
 - en: This leads to the question, how do you get the `Done` channel to return a value?
     It is triggered via *context cancellation*. In `main`, you create a context and
     a cancel function by using the `WithCancel` function in the `context` package.
     Next, you use `defer` to call `cancel` when the `main` function exits. This closes
     the channel returned by `Done`, and since a closed channel always returns a value,
     it ensures that the goroutine running `countTo` exits.
+  id: totrans-138
   prefs: []
   type: TYPE_NORMAL
+  zh: 这就引出了一个问题，你如何让`Done`通道返回一个值？它通过*上下文取消*来触发。在`main`函数中，你使用`context`包中的`WithCancel`函数创建了一个上下文和一个取消函数。接下来，你使用`defer`在`main`函数退出时调用`cancel`。这关闭了`Done`返回的通道，并且由于关闭的通道始终返回一个值，它确保运行`countTo`的goroutine退出。
 - en: Using the context to terminate a goroutine is a very common pattern. It allows
     you to stop goroutines based on something from an earlier function in the call
     stack. In [“Cancellation”](ch14.html#cancelation), you’ll learn in detail how
     to use the context to tell one or more goroutines that it is time to shut down.
+  id: totrans-139
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用上下文来终止goroutine是一个非常常见的模式。它允许你基于调用堆栈中较早的某些东西来停止goroutine。在[“取消”](ch14.html#cancelation)，你将详细了解如何使用上下文告诉一个或多个goroutine现在是时候关闭了。
 - en: Know When to Use Buffered and Unbuffered Channels
+  id: totrans-140
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 了解何时使用有缓冲和无缓冲通道
 - en: 'One of the most complicated techniques to master in Go concurrency is deciding
     when to use a buffered channel. By default, channels are unbuffered, and they
     are easy to understand: one goroutine writes and waits for another goroutine to
@@ -728,54 +1042,74 @@
     buffers. Proper use of a buffered channel means that you must handle the case
     where the buffer is full and your writing goroutine blocks waiting for a reading
     goroutine. So what is the proper use of a buffered channel?'
+  id: totrans-141
   prefs: []
   type: TYPE_NORMAL
+  zh: 在Go并发中掌握最复杂的技术之一是决定何时使用缓冲通道。默认情况下，通道是无缓冲的，并且很容易理解：一个goroutine写入并等待另一个goroutine接管它的工作，就像接力赛中的接力棒一样。缓冲通道则复杂得多。你必须选择一个大小，因为缓冲通道永远不会有无限的缓冲区。正确使用缓冲通道意味着你必须处理缓冲区已满并且你的写入goroutine因等待读取goroutine而阻塞的情况。那么，什么是正确使用缓冲通道的方式呢？
 - en: 'The case for buffered channels is subtle. To sum it up in a single sentence:
     buffered channels are useful when you know how many goroutines you have launched,
     want to limit the number of goroutines you will launch, or want to limit the amount
     of work that is queued up.'
+  id: totrans-142
   prefs: []
   type: TYPE_NORMAL
+  zh: 缓冲通道的情况很微妙。简单地说：当你知道自己启动了多少个goroutine时，想要限制你将要启动的goroutine数量，或者想要限制排队的工作量时，缓冲通道是有用的。
 - en: Buffered channels work great when you either want to gather data back from a
     set of goroutines that you have launched or want to limit concurrent usage. They
     are also helpful for managing the amount of work a system has queued up, preventing
     your services from falling behind and becoming overwhelmed. Here are a couple
     of examples to show how they can be used.
+  id: totrans-143
   prefs: []
   type: TYPE_NORMAL
+  zh: 缓冲通道在你想要从启动的一组goroutine中收集数据或者想要限制并发使用时非常有效。它们还有助于管理系统排队的工作量，防止你的服务落后并变得不堪重负。以下是几个示例，展示了它们的使用方式。
 - en: 'In the first example, you are processing the first 10 results on a channel.
     To do this, you launch 10 goroutines, each of which writes its results to a buffered
     channel:'
+  id: totrans-144
   prefs: []
   type: TYPE_NORMAL
+  zh: 在第一个示例中，您正在处理通道上的前10个结果。为此，您启动10个goroutine，每个goroutine将其结果写入缓冲通道：
 - en: '[PRE22]'
+  id: totrans-145
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE22]'
 - en: You know exactly how many goroutines have been launched, and you want each goroutine
     to exit as soon as it finishes its work. This means you can create a buffered
     channel with one space for each launched goroutine, and have each goroutine write
     data to this goroutine without blocking. You can then loop over the buffered channel,
     reading out the values as they are written. When all the values have been read,
     you return the results, knowing that you aren’t leaking any goroutines.
+  id: totrans-146
   prefs: []
   type: TYPE_NORMAL
+  zh: 您确切地知道启动了多少个goroutine，并且希望每个goroutine在完成其工作后立即退出。这意味着您可以为每个启动的goroutine创建一个带有一个空间的缓冲通道，并让每个goroutine向该goroutine写入数据而不阻塞。然后，您可以循环遍历缓冲通道，读取写入的值。当所有值都已读取时，您返回结果，知道没有泄漏任何goroutine。
 - en: You can find this code in the *sample_code/buffered_channel_work* directory
     in the [Chapter 12 repository](https://oreil.ly/uSQBs).
+  id: totrans-147
   prefs: []
   type: TYPE_NORMAL
+  zh: 您可以在[第12章存储库](https://oreil.ly/uSQBs)的*sample_code/buffered_channel_work*目录中找到此代码。
 - en: Implement Backpressure
+  id: totrans-148
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 实现背压
 - en: 'Another technique that can be implemented with a buffered channel is *backpressure*.
     It is counterintuitive, but systems perform better overall when their components
     limit the amount of work they are willing to perform. You can use a buffered channel
     and a `select` statement to limit the number of simultaneous requests in a system:'
+  id: totrans-149
   prefs: []
   type: TYPE_NORMAL
+  zh: 另一种可以使用缓冲通道实现的技术是*背压*。这似乎违反直觉，但是当系统组件限制其愿意执行的工作量时，系统整体表现更佳。您可以使用缓冲通道和`select`语句来限制系统中同时请求的数量：
 - en: '[PRE23]'
+  id: totrans-150
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE23]'
 - en: 'In this code, you create a struct containing a buffered channel that can hold
     a number of “tokens” and a function to run. Every time a goroutine wants to use
     the function, it calls `Process`. This is one of the rare examples of the same
@@ -784,19 +1118,28 @@
     to the buffered channel. If it can’t write a token, the `default` case runs, and
     an error is returned instead. Here’s a quick example that uses this code with
     the built-in HTTP server (you’ll learn more about working with HTTP in [“The Server”](ch13.html#http_server)):'
+  id: totrans-151
   prefs: []
   type: TYPE_NORMAL
+  zh: 在此代码中，您创建一个包含可以容纳多个“令牌”的缓冲通道和要运行的函数的结构体。每次goroutine想要使用函数时，它调用`Process`。这是同一个goroutine读取和写入同一个通道的少数例子之一。`select`尝试向通道写入令牌。如果可以，函数运行，然后从缓冲通道读取一个令牌。如果无法写入令牌，则运行`default`
+    case，并返回错误。以下是一个快速示例，使用此代码与内置HTTP服务器（您将在[“服务器”](ch13.html#http_server)中学习更多关于与HTTP的工作）：
 - en: '[PRE24]'
+  id: totrans-152
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE24]'
 - en: You can find this code in the *sample_code/backpressure* directory in the [Chapter
     12 repository](https://oreil.ly/uSQBs).
+  id: totrans-153
   prefs: []
   type: TYPE_NORMAL
+  zh: 您可以在[第12章存储库](https://oreil.ly/uSQBs)的*sample_code/backpressure*目录中找到此代码。
 - en: Turn Off a case in a select
+  id: totrans-154
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 关闭`select`中的case
 - en: When you need to combine data from multiple concurrent sources, the `select`
     keyword is great. However, you need to properly handle closed channels. If one
     of the cases in a `select` is reading a closed channel, it will always be successful,
@@ -806,8 +1149,10 @@
     is lots of activity on the nonclosed channels, your program will still spend some
     portion of its time reading from the closed channel, since `select` chooses a
     case at random.
+  id: totrans-155
   prefs: []
   type: TYPE_NORMAL
+  zh: 当您需要从多个并发源合并数据时，`select`关键字非常有用。但是，您需要正确处理关闭的通道。如果`select`中的某个case正在读取一个关闭的通道，则它总是成功的，返回零值。每次选择该case时，您需要检查确保该值有效并跳过该case。如果读取被分散，您的程序将浪费大量时间读取垃圾值。即使非关闭通道上有大量活动，您的程序仍会花费一部分时间从关闭的通道读取，因为`select`随机选择一个case。
 - en: 'When that happens, you rely on something that looks like an error: reading
     a `nil` channel. As you saw earlier, reading from or writing to a `nil` channel
     causes your code to hang forever. While that is bad if it is triggered by a bug,
@@ -816,30 +1161,42 @@
     case will no longer run, because the read from the `nil` channel never returns
     a value. Here is a `for-select` loop that reads from two channels until both are
     closed:'
+  id: totrans-156
   prefs: []
   type: TYPE_NORMAL
+  zh: 当发生这种情况时，你依赖于看起来像是错误的东西：读取一个`nil`通道。正如你之前看到的，从或写入`nil`通道会导致你的代码永远挂起。虽然如果由于bug触发是不好的，但你可以使用`nil`通道来禁用`select`中的`case`。当检测到通道已关闭时，将通道的变量设置为`nil`。相关的case将不再运行，因为从`nil`通道读取永远不会返回值。这里是一个`for-select`循环，从两个通道中读取直到两个通道都关闭：
 - en: '[PRE25]'
+  id: totrans-157
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE25]'
 - en: You can try out this code on [The Go Playground](https://oreil.ly/0nCDz) or
     in the *sample_code/close_case* directory in the [Chapter 12 repository](https://oreil.ly/uSQBs).
+  id: totrans-158
   prefs: []
   type: TYPE_NORMAL
+  zh: 你可以在[Go Playground](https://oreil.ly/0nCDz)或*sample_code/close_case*目录中的[第12章存储库](https://oreil.ly/uSQBs)中尝试这段代码。
 - en: Time Out Code
+  id: totrans-159
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 超时代码
 - en: 'Most interactive programs have to return a response within a certain amount
     of time. One of the things that you can do with concurrency in Go is manage how
     much time a request (or a part of a request) has to run. Other languages introduce
     additional features on top of promises or futures to add this functionality, but
     Go’s timeout idiom shows how you build complicated features from existing parts.
     Let’s take a look:'
+  id: totrans-160
   prefs: []
   type: TYPE_NORMAL
+  zh: 大多数交互式程序必须在一定时间内返回响应。在Go语言中，使用并发可以管理请求（或请求的一部分）运行的时间。其他语言在promise或future之上引入了额外的功能来添加这种功能，但Go语言的超时习惯表明了如何从现有部件构建复杂功能。让我们来看一下：
 - en: '[PRE26]'
+  id: totrans-161
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE26]'
 - en: Whenever you need to limit how long an operation takes in Go, you’ll see a variation
     on this pattern. I talk about the context in [Chapter 14](ch14.html#unique_chapter_id_14)
     and cover using timeouts in detail in [“Contexts with Deadlines”](ch14.html#context_timers).
@@ -849,8 +1206,10 @@
     called. You create a timed context by using the `WithTimeout` function in the
     `context` package and specify how long to wait by using constants from the `time`
     package (I’ll talk more about the `time` package in [“time”](ch13.html#time)).
+  id: totrans-162
   prefs: []
   type: TYPE_NORMAL
+  zh: 每当你需要在Go中限制操作花费的时间时，你会看到这种模式的变体。我在[第14章](ch14.html#unique_chapter_id_14)中讨论上下文，并详细介绍了如何使用超时在[“带截止日期的上下文”](ch14.html#context_timers)中。现在，你只需要知道达到超时会取消上下文。上下文的`Done`方法返回一个通道，在上下文由于超时或调用上下文的取消方法而被取消时返回一个值。你可以通过使用`context`包中的`WithTimeout`函数创建一个定时上下文，并使用`time`包中的常量指定等待时间（我将在[“time”](ch13.html#time)中更多地讨论`time`包）。
 - en: Once the context is set up, you run the worker in a goroutine and then use `select`
     to choose between two cases. The first case reads the value from the `out` channel
     when the work completes. The second case waits for the channel returned by the
@@ -858,38 +1217,55 @@
     Goroutines”](#done_channel). If it does, you return a timeout error. You write
     to a buffered channel of size 1 so that the channel write in the goroutine will
     complete even if `Done` is triggered first.
+  id: totrans-163
   prefs: []
   type: TYPE_NORMAL
+  zh: 一旦设置了上下文，就在一个goroutine中运行工作程序，然后使用`select`选择两种情况之间的一种。第一种情况在工作完成时从`out`通道读取值。第二种情况等待`Done`方法返回的通道返回一个值，就像在[“使用上下文终止Goroutines”](#done_channel)中看到的那样。如果是这样，就返回超时错误。你可以写入一个大小为1的缓冲通道，以便即使`Done`首先触发，goroutine中的通道写入也会完成。
 - en: You can try out this code on [The Go Playground](https://oreil.ly/mTgyA) or
     in the *sample_code/time_out* directory in the [Chapter 12 repository](https://oreil.ly/uSQBs).
+  id: totrans-164
   prefs: []
   type: TYPE_NORMAL
+  zh: 你可以在[Go Playground](https://oreil.ly/mTgyA)或*sample_code/time_out*目录中的[第12章存储库](https://oreil.ly/uSQBs)中尝试这段代码。
 - en: Note
+  id: totrans-165
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: If `timeLimit` exits before the goroutine finishes processing, the goroutine
     continues to run, eventually writing the returned value to the buffered channel
     and exiting. You just don’t do anything with the result that is returned. If you
     want to stop work in a goroutine when you are no longer waiting for it to complete,
     use context cancellation, which I’ll discuss in [“Cancellation”](ch14.html#cancelation).
+  id: totrans-166
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果 `timeLimit` 在 goroutine 完成处理之前退出，那么 goroutine 会继续运行，最终将返回的值写入缓冲通道并退出。你只是不处理返回的结果。如果想在不再等待
+    goroutine 完成时停止其工作，可以使用上下文取消，我将在 [“Cancellation”](ch14.html#cancelation) 中讨论。
 - en: Use WaitGroups
+  id: totrans-167
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 使用 WaitGroups
 - en: 'Sometimes one goroutine needs to wait for multiple goroutines to complete their
     work. If you are waiting for a single goroutine, you can use the context cancellation
     pattern that you saw earlier. But if you are waiting on several goroutines, you
     need to use a `WaitGroup`, which is found in the `sync` package in the standard
     library. Here is a simple example, which you can run on [The Go Playground](https://oreil.ly/hg7IF)
     or in the *sample_code/waitgroup* directory in the [Chapter 12 repository](https://oreil.ly/uSQBs):'
+  id: totrans-168
   prefs: []
   type: TYPE_NORMAL
+  zh: 有时一个 goroutine 需要等待多个 goroutine 完成它们的工作。如果你等待单个 goroutine，可以使用之前看到的上下文取消模式。但如果你正在等待多个
+    goroutine，则需要使用 `WaitGroup`，它位于标准库中的 `sync` 包中。这里是一个简单的例子，你可以在 [The Go Playground](https://oreil.ly/hg7IF)
+    运行，或者在 [第 12 章仓库](https://oreil.ly/uSQBs) 的 *sample_code/waitgroup* 目录中运行：
 - en: '[PRE27]'
+  id: totrans-169
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE27]'
 - en: 'A `sync.WaitGroup` doesn’t need to be initialized, just declared, as its zero
     value is useful. There are three methods on `sync.WaitGroup`: `Add`, which increments
     the counter of goroutines to wait for; `Done`, which decrements the counter and
@@ -897,8 +1273,13 @@
     until the counter hits zero. `Add` is usually called once, with the number of
     goroutines that will be launched. `Done` is called within the goroutine. To ensure
     that it is called, even if the goroutine panics, you use a `defer`.'
+  id: totrans-170
   prefs: []
   type: TYPE_NORMAL
+  zh: '`sync.WaitGroup` 不需要初始化，只需声明，因为它的零值是有用的。`sync.WaitGroup` 上有三个方法：`Add`，用于增加等待的
+    goroutine 计数器；`Done`，在 goroutine 完成时减少计数器，并且当它完成时调用；`Wait`，暂停其 goroutine 直到计数器为零。通常只调用一次
+    `Add`，并指定将要启动的 goroutine 数量。在 goroutine 内部调用 `Done`。为了确保即使 goroutine 恐慌也会调用 `Done`，可以使用
+    `defer`。'
 - en: You’ll notice that you don’t explicitly pass the `sync.WaitGroup`. There are
     two reasons. The first is that you must ensure that every place that uses a `sync.WaitGroup`
     is using the same instance. If you pass the `sync.WaitGroup` to the goroutine
@@ -906,41 +1287,58 @@
     to `Done` won’t decrement the original `sync.WaitGroup`. By using a closure to
     capture the `sync.WaitGroup`, you are assured that every goroutine is referring
     to the same instance.
+  id: totrans-171
   prefs: []
   type: TYPE_NORMAL
+  zh: 你会注意到，你并没有显式地传递 `sync.WaitGroup`。有两个原因。第一个是你必须确保每个使用 `sync.WaitGroup` 的地方都使用同一个实例。如果将
+    `sync.WaitGroup` 传递给 goroutine 函数并且不使用指针，则该函数有一个副本，调用 `Done` 不会减少原始的 `sync.WaitGroup`。通过使用闭包捕获
+    `sync.WaitGroup`，你确保每个 goroutine 引用的是同一个实例。
 - en: The second reason is design. Remember, you should keep concurrency out of your
     API. As you saw with channels earlier, the usual pattern is to launch a goroutine
     with a closure that wraps the business logic. The closure manages issues around
     concurrency, and the function provides the algorithm.
+  id: totrans-172
   prefs: []
   type: TYPE_NORMAL
+  zh: 第二个原因是设计。记住，你应该将并发性从你的 API 中分离出去。正如你之前在通道中看到的，通常的模式是使用一个闭包启动一个 goroutine，该闭包封装业务逻辑周围的并发问题，而函数则提供算法。
 - en: 'Let’s take a look at a more realistic example. As I mentioned earlier, when
     you have multiple goroutines writing to the same channel, you need to make sure
     that the channel being written to is closed only once. A `sync.WaitGroup` is perfect
     for this. Let’s see how it works in a function that processes the values in a
     channel concurrently, gathers the results into a slice, and returns the slice:'
+  id: totrans-173
   prefs: []
   type: TYPE_NORMAL
+  zh: 让我们看一个更现实的例子。正如我之前提到的，当你有多个 goroutine 向同一个通道写入时，你需要确保只关闭被写入的通道一次。`sync.WaitGroup`
+    就非常适合这种情况。让我们看看它在一个函数中的运作方式，该函数并发处理通道中的值，将结果收集到一个切片中，并返回该切片：
 - en: '[PRE28]'
+  id: totrans-174
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE28]'
 - en: In this example, you launch a monitoring goroutine that waits until all the
     processing goroutines exit. When they do, the monitoring goroutine calls `close`
     on the output channel. The `for-range` channel loop exits when `out` is closed
     and the buffer is empty. Finally, the function returns the processed values. You
     can try out this code in the *sample_code/waitgroup_close_once* directory in the
     [Chapter 12 repository](https://oreil.ly/uSQBs).
+  id: totrans-175
   prefs: []
   type: TYPE_NORMAL
+  zh: 在这个示例中，你启动了一个监控goroutine，等待所有处理goroutine退出。当它们退出时，监控goroutine在输出通道上调用`close`。当`out`关闭并且缓冲区为空时，`for-range`通道循环退出。最后，函数返回处理后的值。你可以在[第12章存储库](https://oreil.ly/uSQBs)的*sample_code/waitgroup_close_once*目录中尝试此代码。
 - en: While `WaitGroups` are handy, they shouldn’t be your first choice when coordinating
     goroutines. Use them only when you have something to clean up (like closing a
     channel they all write to) after all your worker goroutines exit.
+  id: totrans-176
   prefs: []
   type: TYPE_NORMAL
+  zh: 虽然`WaitGroups`很方便，但在协调goroutine时不应该是你的首选。仅在所有工作goroutine退出后需要进行清理（例如关闭它们写入的通道）时才使用它们。
 - en: Run Code Exactly Once
+  id: totrans-177
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 仅运行代码一次
 - en: 'As I covered in [“Avoiding the init Function if Possible”](ch10.html#pkg_init),
     `init` should be reserved for initialization of effectively immutable package-level
     state. However, sometimes you want to *lazy load*, or call some initialization
@@ -949,145 +1347,206 @@
     `sync` package includes a handy type called `Once` that enables this functionality.
     Let’s take a quick look at how it works. Say you have some code that takes a long
     time to initialize:'
+  id: totrans-178
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如我在[“避免init函数（如果可能的话）”](ch10.html#pkg_init)中所述，`init`应该保留用于有效不可变的包级别状态的初始化。然而，有时候你想要*延迟加载*，或者在程序启动后仅调用某些初始化代码一次。这通常是因为初始化相对缓慢，并且可能并非每次程序运行都需要。`sync`包包含一个称为`Once`的方便类型，可以实现这种功能。让我们快速看一下它是如何工作的。假设你有一些需要长时间初始化的代码：
 - en: '[PRE29]'
+  id: totrans-179
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE29]'
 - en: 'Here’s how you use `sync.Once` to delay initialization of a `SlowComplicatedParser`:'
+  id: totrans-180
   prefs: []
   type: TYPE_NORMAL
+  zh: 下面是如何使用`sync.Once`延迟初始化`SlowComplicatedParser`的方法：
 - en: '[PRE30]'
+  id: totrans-181
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE30]'
 - en: 'There are two package-level variables: `parser`, which is of type `SlowComplicatedParser`,
     and `once`, which is of type `sync.Once`. As with `sync.WaitGroup`, you do not
     have to configure an instance of `sync.Once`. This is an example of *making the
     zero value useful*, which is a common pattern in Go.'
+  id: totrans-182
   prefs: []
   type: TYPE_NORMAL
+  zh: 有两个包级别的变量：`parser`，类型为`SlowComplicatedParser`，以及`once`，类型为`sync.Once`。与`sync.WaitGroup`类似，你无需配置`sync.Once`的实例。这是一个例子，*使零值变得有用*，这是Go语言中的一种常见模式。
 - en: As with `sync.WaitGroup`, you must make sure not to make a copy of an instance
     of `sync.Once`, because each copy has its own state to indicate whether it has
     already been used. Declaring a `sync.Once` instance inside a function is usually
     the wrong thing to do, as a new instance will be created on every function call
     and there will be no memory of previous invocations.
+  id: totrans-183
   prefs: []
   type: TYPE_NORMAL
+  zh: 与`sync.WaitGroup`类似，你必须确保不复制`sync.Once`的实例，因为每个副本都有自己的状态来指示它是否已经被使用过。通常在函数内声明`sync.Once`实例是错误的做法，因为每次函数调用都会创建一个新实例，并且不会记住先前的调用。
 - en: In the example, you want to make sure that `parser` is initialized only once,
     so you set the value of `parser` from within a closure that’s passed to the `Do`
     method on `once`. If `Parse` is called more than once, `once.Do` will not execute
     the closure again.
+  id: totrans-184
   prefs: []
   type: TYPE_NORMAL
+  zh: 在这个示例中，你需要确保`parser`仅初始化一次，因此你将`parser`的值设置在传递给`once`的`Do`方法的闭包中。如果调用`Parse`超过一次，`once.Do`将不会再次执行闭包。
 - en: You can try out this code on [The Go Playground](https://oreil.ly/v7qtq) or
     in the *sample_code/sync_once* directory in the [Chapter 12 repository](https://oreil.ly/uSQBs).
+  id: totrans-185
   prefs: []
   type: TYPE_NORMAL
+  zh: 你可以在[The Go Playground](https://oreil.ly/v7qtq)或[第12章存储库](https://oreil.ly/uSQBs)中的*sample_code/sync_once*目录中尝试此代码。
 - en: 'Go 1.21 added helper functions that make it easier to run a function exactly
     once: `sync.OnceFunc`, `sync.OnceValue`, and `sync.OnceValues`. The only difference
     between the three functions is the number of return values of the passed-in function
     (zero, one, or two, respectively). The `sync.OnceValue` and `sync.OnceValues`
     functions are generic, so they adapt to the type of the original function’s return
     values.'
+  id: totrans-186
   prefs: []
   type: TYPE_NORMAL
+  zh: Go 1.21添加了一些辅助函数，使得执行函数仅一次变得更加容易：`sync.OnceFunc`、`sync.OnceValue`和`sync.OnceValues`。这三个函数之间唯一的区别是传入函数的返回值数量（分别为零、一个或两个）。`sync.OnceValue`和`sync.OnceValues`函数是通用的，因此它们适应原始函数返回值的类型。
 - en: 'Using these functions is straightforward. You pass the original function to
     the helper function and get back a function that calls the original function only
     once. The values returned by the original function are cached. Here’s how you
     can use `sync.OnceValue` to rewrite the `Parse` function in the previous example:'
+  id: totrans-187
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用这些函数非常简单。你将原始函数传递给辅助函数，然后得到一个仅调用原始函数一次的函数。原始函数返回的值会被缓存。以下是如何使用`sync.OnceValue`重写上一个示例中的`Parse`函数：
 - en: '[PRE31]'
+  id: totrans-188
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE31]'
 - en: The package-level `initParserCached` variable is assigned the function returned
     by `sync.OnceValue` when `initParser` is passed to it. The first time `initParserCached`
     is called, `initParser` is also called, and its return value is cached. Each subsequent
     time `initParserCached` is called, the cached value is returned. This means you
     can get rid of the `parser` package-level variable.
+  id: totrans-189
   prefs: []
   type: TYPE_NORMAL
+  zh: 当`initParserCached`变量在包级别被赋值为`sync.OnceValue`返回的函数时，说明`initParser`被传递给它了。第一次调用`initParserCached`时，也会调用`initParser`，并缓存它的返回值。每次后续调用`initParserCached`时，都会返回缓存的值。这意味着你可以去掉包级别的`parser`变量。
 - en: You can try out this code on [The Go Playground](https://oreil.ly/VrR-s) or
     in the *sample_code/sync_value* directory in the [Chapter 12 repository](https://oreil.ly/uSQBs).
+  id: totrans-190
   prefs: []
   type: TYPE_NORMAL
+  zh: 你可以在[Go Playground](https://oreil.ly/VrR-s)上尝试这段代码，或者在[第 12 章的代码库](https://oreil.ly/uSQBs)的*sample_code/sync_value*目录中尝试。
 - en: Put Your Concurrent Tools Together
+  id: totrans-191
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 将你的并发工具整合起来
 - en: Let’s go back to the example from the first section in the chapter. You have
     a function that calls three web services. You send data to two of those services,
     and then take the results of those two calls and send them to the third, returning
     the result. The entire process must take less than 50 milliseconds, or an error
     is returned.
+  id: totrans-192
   prefs: []
   type: TYPE_NORMAL
+  zh: 让我们回到本章第一节的示例中。你有一个调用三个Web服务的函数。你向其中两个服务发送数据，然后将这两次调用的结果发送给第三个服务，并返回结果。整个过程必须在50毫秒内完成，否则将返回错误。
 - en: 'You’ll start with the function you invoke:'
+  id: totrans-193
   prefs: []
   type: TYPE_NORMAL
+  zh: 你将从你调用的函数开始：
 - en: '[PRE32]'
+  id: totrans-194
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE32]'
 - en: The first thing to do is set up a `context.Context` that times out in 50 milliseconds,
     as you saw in [“Time Out Code”](#time_out).
+  id: totrans-195
   prefs: []
   type: TYPE_NORMAL
+  zh: 首先要做的是设置一个超时为50毫秒的`context.Context`，就像你在[“Time Out Code”](#time_out)中看到的一样。
 - en: After creating the context, use a `defer` to make sure the context’s `cancel`
     function is called. As I’ll discuss in [“Cancellation”](ch14.html#cancelation),
     you must call this function, or resources leak.
+  id: totrans-196
   prefs: []
   type: TYPE_NORMAL
+  zh: 创建完context后，使用`defer`确保调用context的`cancel`函数。正如我在[“Cancellation”](ch14.html#cancelation)中会讨论的，你必须调用这个函数，否则资源会泄漏。
 - en: You are using `A` and `B` as the names of the two services that are called in
     parallel, so you’ll make a new `abProcessor` to call them. You then start processing
     with a call to the `start` method, and then wait for your results with a call
     to the `wait` method.
+  id: totrans-197
   prefs: []
   type: TYPE_NORMAL
+  zh: 你将`A`和`B`作为两个并行调用的服务名称，所以你将创建一个新的`abProcessor`来调用它们。然后你通过调用`start`方法开始处理，并通过调用`wait`方法等待结果。
 - en: When `wait` returns, you do a standard error check. If all is well, you call
     the third service, which you are calling `C`. The logic is the same as before.
     Processing is started with a call to the `start` method on the `cProcessor` and
     then you wait for the result with a call to the `wait` method on `cProcessor`.
     You then return the result of the `wait` method call.
+  id: totrans-198
   prefs: []
   type: TYPE_NORMAL
+  zh: 当`wait`返回时，你进行标准的错误检查。如果一切顺利，你调用第三个服务，称之为`C`。逻辑与之前相同。通过在`cProcessor`上调用`start`方法开始处理，然后通过在`cProcessor`上调用`wait`方法等待结果。然后返回`wait`方法调用的结果。
 - en: 'This looks a lot like standard sequential code without concurrency. Let’s look
     at the `abProcessor` and `cProcessor` to see how the concurrency happens:'
+  id: totrans-199
   prefs: []
   type: TYPE_NORMAL
+  zh: 这看起来很像标准的顺序代码，没有并发。让我们看看`abProcessor`和`cProcessor`中是如何进行并发的：
 - en: '[PRE33]'
+  id: totrans-200
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE33]'
 - en: The `abProcessor` has three fields, all of which are channels. They are `outA`,
     `outB`, and `errs`. You’ll see how you use all these channels next. Notice that
     every channel is buffered, so that the goroutines that write to them can exit
     after writing without waiting for a read to happen. The `errs` channel has a buffer
     size of `2`, because it could have up to two errors written to it.
+  id: totrans-201
   prefs: []
   type: TYPE_NORMAL
+  zh: '`abProcessor`有三个字段，全部都是通道。它们是`outA`、`outB`和`errs`。接下来你将看到如何使用这些通道。注意每个通道都是有缓冲的，这样写入它们的goroutine在写完后就可以退出，而不必等待读取。`errs`通道的缓冲大小为`2`，因为最多可能会有两个错误写入其中。'
 - en: 'Next is the implementation of the `start` method:'
+  id: totrans-202
   prefs: []
   type: TYPE_NORMAL
+  zh: 接下来是`start`方法的实现：
 - en: '[PRE34]'
+  id: totrans-203
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE34]'
 - en: The `start` method launches two goroutines. The first one calls `getResultA`
     to talk to the `A` service. If the call returns an error, you write to the `errs`
     channel. Otherwise, you write to the `outA` channel. Since these channels are
     buffered, the goroutine will not hang, no matter which channel is written to.
     Also notice that you are passing the context along to `getResultA`, which allows
     it to cancel processing if the timeout happens.
+  id: totrans-204
   prefs: []
   type: TYPE_NORMAL
+  zh: '`start` 方法启动了两个 goroutine。第一个调用 `getResultA` 来与 `A` 服务通信。如果调用返回错误，就向 `errs`
+    通道写入。否则，向 `outA` 通道写入。由于这些通道是有缓冲的，所以无论写入哪个通道，goroutine 都不会挂起。同时注意，你将上下文传递给 `getResultA`，这允许它在超时时取消处理。'
 - en: The second goroutine is just like the first, only it calls `getResultB` and
     writes to the `outB` channel on success.
+  id: totrans-205
   prefs: []
   type: TYPE_NORMAL
+  zh: 第二个 goroutine 与第一个完全相同，只是调用 `getResultB` 并在成功时向 `outB` 通道写入。
 - en: 'Let’s see what the `wait` method for `ABProcessor` looks like:'
+  id: totrans-206
   prefs: []
   type: TYPE_NORMAL
+  zh: 让我们看看 `ABProcessor` 的 `wait` 方法是什么样的：
 - en: '[PRE35]'
+  id: totrans-207
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE35]'
 - en: The `wait` method on `abProcessor` is the most complicated method you need to
     implement. It populates a struct of type `cIn`, which holds the data returned
     from calling the `A` service and the `B` service. You define your output variable,
@@ -1098,32 +1557,51 @@
     read a value on the `errs` channel, you return immediately with the error. Finally,
     if the context times out, you return immediately with the error from the context’s
     `Err` method.
+  id: totrans-208
   prefs: []
   type: TYPE_NORMAL
+  zh: '`abProcessor` 上的 `wait` 方法是你需要实现的最复杂方法。它填充了一个 `cIn` 类型的结构体，该结构体保存从调用 `A` 服务和
+    `B` 服务返回的数据。你将输出变量 `cData` 定义为 `cIn` 类型。然后有一个 `for` 循环，计数到两个，因为你需要从两个通道读取以成功完成。在循环内部，有一个
+    `select` 语句。如果从 `outA` 通道读取到一个值，就设置 `cData` 的 `a` 字段。如果从 `outB` 通道读取到一个值，就设置 `cData`
+    的 `b` 字段。如果从 `errs` 通道读取到一个值，就立即返回错误。最后，如果上下文超时，就从上下文的 `Err` 方法立即返回错误。'
 - en: Once you have read a value from both the `p.outA` channel and the `p.outB` channel,
     you exit the loop and return the input that you’re going to use with the `cProcessor`.
+  id: totrans-209
   prefs: []
   type: TYPE_NORMAL
+  zh: 一旦从 `p.outA` 通道和 `p.outB` 通道都读取到一个值，你就退出循环并返回输入，用于 `cProcessor` 使用。
 - en: 'The `cProcessor` looks like a simpler version of the `abProcessor`:'
+  id: totrans-210
   prefs: []
   type: TYPE_NORMAL
+  zh: '`cProcessor` 看起来像是 `abProcessor` 的简化版本：'
 - en: '[PRE36]'
+  id: totrans-211
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE36]'
 - en: The `cProcessor` struct has one out channel and one error channel.
+  id: totrans-212
   prefs: []
   type: TYPE_NORMAL
+  zh: '`cProcessor` 结构体有一个输出通道和一个错误通道。'
 - en: The `start` method on the `cProcessor` looks like the `start` method on the
     `abProcessor`. It launches a goroutine that calls `getResultC` with your input
     data, writes to the `errs` channel on an error, and writes to the `outC` channel
     on success.
+  id: totrans-213
   prefs: []
   type: TYPE_NORMAL
+  zh: 在 `cProcessor` 的 `start` 方法看起来像是 `abProcessor` 的 `start` 方法。它启动一个 goroutine，调用
+    `getResultC` 处理输入数据，在错误时向 `errs` 通道写入，成功时向 `outC` 通道写入。
 - en: Finally, the `wait` method on the `cProcessor` is a simple `select` statement
     that checks whether there’s a value to read from the `outC` channel, the `errs`
     channel, or the context’s `Done` channel.
+  id: totrans-214
   prefs: []
   type: TYPE_NORMAL
+  zh: 最后，`cProcessor` 上的 `wait` 方法是一个简单的 `select` 语句，检查是否有值可以从 `outC` 通道、`errs` 通道或上下文的
+    `Done` 通道读取。
 - en: By structuring code with goroutines, channels, and `select` statements, you
     separate the individual steps, allow independent parts to run and complete in
     any order, and cleanly exchange data between the dependent parts. In addition,
@@ -1132,22 +1610,30 @@
     If you are not convinced that this is a better method for implementing concurrency,
     try to implement this in another language. You might be surprised at how difficult
     it is.
+  id: totrans-215
   prefs: []
   type: TYPE_NORMAL
+  zh: 通过使用 goroutine、通道和 `select` 语句来组织代码，你可以将各个步骤分离，允许独立部分以任何顺序运行和完成，并在依赖部分之间清晰地交换数据。此外，你确保程序的任何部分都不会挂起，并且正确处理既在此函数内设置的超时，也在调用历史中的较早函数内设置的超时。如果你不确信这是否是实现并发的更好方法，请尝试在另一种语言中实现它。你可能会惊讶地发现它有多么困难。
 - en: You can find the code for this concurrent pipeline in the *sample_code/pipeline*
     directory in the [Chapter 12 repository](https://oreil.ly/uSQBs).
+  id: totrans-216
   prefs: []
   type: TYPE_NORMAL
+  zh: 你可以在[第12章代码库](https://oreil.ly/uSQBs)的 *sample_code/pipeline* 目录中找到这个并发流水线的代码。
 - en: When to Use Mutexes Instead of Channels
+  id: totrans-217
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 何时使用互斥锁而不是通道
 - en: If you’ve had to coordinate access to data across threads in other programming
     languages, you have probably used a *mutex*. This is short for *mutual exclusion*,
     and the job of a mutex is to limit the concurrent execution of some code or access
     to a shared piece of data. This protected part is called the *critical section*.
+  id: totrans-218
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果你曾经在其他编程语言中协调线程间数据访问，你可能使用过*互斥锁*。这是*互斥排除*的缩写，互斥锁的作用是限制某些代码的并发执行或对共享数据的访问。受保护的部分称为*临界区*。
 - en: 'There are good reasons Go’s creators designed channels and `select` to manage
     concurrency. The main problem with mutexes is that they obscure the flow of data
     through a program. When a value is passed from goroutine to goroutine over a series
@@ -1158,36 +1644,53 @@
     understand the order of processing. There is a saying in the Go community to describe
     this philosophy: “Share memory by communicating; do not communicate by sharing
     memory.”'
+  id: totrans-219
   prefs: []
   type: TYPE_NORMAL
+  zh: Go 语言的创建者设计通道和`select`来管理并发有很好的原因。互斥锁的主要问题是它们会混淆程序中的数据流。当值通过一系列通道从 goroutine
+    传递到 goroutine 时，数据流是清晰的。对值的访问局限于一次只有一个 goroutine。当互斥锁用于保护一个值时，没有任何指示当前哪个 goroutine
+    拥有该值的方式，因为所有并发进程共享对值的访问。这使得理解处理顺序变得困难。在 Go 社区中有一句话来描述这种哲学：“通过通信共享内存，不要通过共享内存进行通信。”
 - en: 'That said, sometimes it is clearer to use a mutex, and the Go standard library
     includes mutex implementations for these situations. The most common case is when
     your goroutines read or write a shared value, but don’t process the value. Let’s
     use an in-memory scoreboard for a multiplayer game as an example. You’ll first
     see how to implement this using channels. Here’s a function that you can launch
     as a goroutine to manage the scoreboard:'
+  id: totrans-220
   prefs: []
   type: TYPE_NORMAL
+  zh: 有时候，使用互斥锁会更清晰一些，Go 标准库包含了这些情况的互斥锁实现。最常见的情况是当你的 goroutine 读取或写入共享值，但不处理该值。让我们以内存中的多人游戏积分板为例。首先看看如何使用通道来实现这一点。下面是一个函数，你可以启动它作为一个
+    goroutine 来管理积分板：
 - en: '[PRE37]'
+  id: totrans-221
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE37]'
 - en: 'This function declares a map and then listens on one channel for a function
     that reads or modifies the map and on a context’s Done channel to know when to
     shut down. Let’s create a type with a method to write a value to the map:'
+  id: totrans-222
   prefs: []
   type: TYPE_NORMAL
+  zh: 此函数声明了一个映射，然后监听一个通道以便接收一个读取或修改映射的函数，同时监听上下文的 Done 通道以知道何时关闭。让我们创建一个带有写入值到映射的方法的类型：
 - en: '[PRE38]'
+  id: totrans-223
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE38]'
 - en: 'The update method is very straightforward: just pass a function that puts a
     value into the map. But how about reading from the scoreboard? You need to return
     a value back. That means creating a channel that’s written to within the passed-in
     function:'
+  id: totrans-224
   prefs: []
   type: TYPE_NORMAL
+  zh: 更新方法非常直接：只需传递一个将值放入映射中的函数即可。但是如何从积分板中读取？你需要返回一个值。这意味着创建一个在传入函数中被写入的通道：
 - en: '[PRE39]'
+  id: totrans-225
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE39]'
 - en: While this code works, it’s cumbersome and allows only a single reader at a
     time. A better approach is to use a mutex. The standard library has two mutex
     implementations, both in the `sync` package. The first, `Mutex`, has two methods,
@@ -1196,152 +1699,208 @@
     is clear, the lock is *acquired* by the current goroutine, and the code in the
     critical section is executed. A call to the `Unlock` method on the `Mutex` marks
     the end of the critical section.
+  id: totrans-226
   prefs: []
   type: TYPE_NORMAL
+  zh: 虽然这段代码可以工作，但它很繁琐，并且一次只允许一个读取者。更好的方法是使用互斥锁。标准库中有两种互斥锁实现，都在`sync`包中。第一种是`Mutex`，有两个方法，`Lock`和`Unlock`。调用`Lock`会导致当前
+    goroutine 暂停，直到另一个 goroutine 当前在临界区内为止。当临界区清除时，锁被当前 goroutine *获取*，并执行临界区中的代码。在`Mutex`上调用`Unlock`方法标记临界区的结束。
 - en: The second mutex implementation, called `RWMutex`, allows you to have both reader
     locks and writer locks. While only one writer can be in the critical section at
     a time, reader locks are shared; multiple readers can be in the critical section
     at once. The writer lock is managed with the `Lock` and `Unlock` methods, while
     the reader lock is managed with `RLock` and `RUnlock` methods.
+  id: totrans-227
   prefs: []
   type: TYPE_NORMAL
+  zh: 第二种互斥锁实现称为`RWMutex`，允许同时拥有读锁和写锁。虽然每次只能有一个写锁进入临界区，但读锁是共享的；多个读者可以同时进入临界区。写锁由`Lock`和`Unlock`方法管理，而读锁由`RLock`和`RUnlock`方法管理。
 - en: 'Anytime you acquire a mutex lock, you must make sure that you release the lock.
     Use a `defer` statement to call `Unlock` immediately after calling `Lock` or `RLock`:'
+  id: totrans-228
   prefs: []
   type: TYPE_NORMAL
+  zh: 每当你获取一个互斥锁时，一定要确保释放锁。使用`defer`语句在调用`Lock`或`RLock`之后立即调用`Unlock`：
 - en: '[PRE40]'
+  id: totrans-229
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE40]'
 - en: You can find the example in the *sample_code/mutex* directory in the [Chapter
     12 repository](https://oreil.ly/uSQBs).
+  id: totrans-230
   prefs: []
   type: TYPE_NORMAL
+  zh: 在[第12章存储库](https://oreil.ly/uSQBs)的*sample_code/mutex*目录中可以找到示例。
 - en: 'Now that you’ve seen an implementation using mutexes, carefully consider your
     options before using one. Katherine Cox-Buday’s excellent book [*Concurrency in
     Go*](https://oreil.ly/G7bpu) (O’Reilly) includes a decision tree to help you decide
     whether to use channels or mutexes:'
+  id: totrans-231
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在你已经看到了使用互斥锁的实现，再在使用之前慎重考虑你的选择。Katherine Cox-Buday的优秀著作[*《Go语言并发编程》*](https://oreil.ly/G7bpu)（O’Reilly）包含一个决策树，帮助你决定是使用通道还是互斥锁：
 - en: If you are coordinating goroutines or tracking a value as it is transformed
     by a series of goroutines, use channels.
+  id: totrans-232
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 如果你在协调goroutine或跟踪值在一系列goroutine中的转换过程中，请使用通道。
 - en: If you are sharing access to a field in a struct, use mutexes.
+  id: totrans-233
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 如果你正在共享结构体中的字段访问，请使用互斥锁。
 - en: If you discover a critical performance issue when using channels (see [“Using
     Benchmarks”](ch15.html#benchmarking) to learn how to do this), and you cannot
     find any other way to fix the issue, modify your code to use a mutex.
+  id: totrans-234
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 如果在使用通道时发现了关键性能问题（参见[“使用基准测试”](ch15.html#benchmarking)了解如何做到这一点），并且找不到其他解决方法来修复问题，请修改你的代码以使用互斥锁。
 - en: Since your scoreboard is a field in a struct and there’s no transfer of the
     scoreboard, using a mutex makes sense. This is a good use for a mutex only because
     the data is stored in-memory. When data is stored in external services, like an
     HTTP server or a database, don’t use a mutex to guard access to the system.
+  id: totrans-235
   prefs: []
   type: TYPE_NORMAL
+  zh: 因为你的记分板是结构体中的一个字段，并且没有记分板的传递，使用互斥锁是合理的。只有在数据存储在内存中时，才是互斥锁的良好使用场景。当数据存储在外部服务（如HTTP服务器或数据库）中时，请勿使用互斥锁来保护系统访问。
 - en: Mutexes require you to do more bookkeeping. For example, you must correctly
     pair locks and unlocks, or your programs will likely deadlock. The example both
     acquires and releases the locks within the same method. Another issue is that
     mutexes in Go aren’t *reentrant*. If a goroutine tries to acquire the same lock
     twice, it deadlocks, waiting for itself to release the lock. This is different
     from languages like Java, where locks are reentrant.
+  id: totrans-236
   prefs: []
   type: TYPE_NORMAL
+  zh: 互斥锁需要你进行更多的簿记。例如，你必须正确配对锁定和解锁，否则你的程序很可能会死锁。示例中在同一方法中同时获取和释放锁。另一个问题是Go中的互斥锁不是*可重入*的。如果一个goroutine尝试两次获取同一个锁，它将死锁，等待自己释放锁。这与像Java这样的语言不同，那里的锁是可重入的。
 - en: Nonreentrant locks make it tricky to acquire a lock in a function that calls
     itself recursively. You must release the lock before the recursive function call.
     In general, be careful when holding a lock while making a function call, because
     you don’t know what locks are going to be acquired in those calls. If your function
     calls another function that tries to acquire the same mutex lock, the goroutine
     deadlocks.
+  id: totrans-237
   prefs: []
   type: TYPE_NORMAL
+  zh: 非可重入锁使得在调用自身递归的函数中获取锁变得棘手。你必须在递归函数调用之前释放锁。总体而言，在持有锁时调用函数时要小心，因为你不知道这些调用中会获取哪些锁。如果你的函数调用另一个尝试获取相同互斥锁的函数，则goroutine将死锁。
 - en: Like `sync.WaitGroup` and `sync.Once`, mutexes must never be copied. If they
     are passed to a function or accessed as a field on a struct, it must be via a
     pointer. If a mutex is copied, its lock won’t be shared.
+  id: totrans-238
   prefs: []
   type: TYPE_NORMAL
+  zh: 像`sync.WaitGroup`和`sync.Once`一样，互斥锁绝不能被复制。如果它们被传递给一个函数或作为结构体上的字段访问，必须通过指针。如果复制互斥锁，则其锁将不会被共享。
 - en: Warning
+  id: totrans-239
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 警告
 - en: Never try to access a variable from multiple goroutines unless you acquire a
     mutex for that variable first. It can cause odd errors that are hard to trace.
     See [“Finding Concurrency Problems with the Data Race Detector”](ch15.html#race_checker)
     to learn how to detect these problems.
+  id: totrans-240
   prefs: []
   type: TYPE_NORMAL
+  zh: 永远不要尝试从多个goroutine访问一个变量，除非你首先为该变量获取互斥锁。这可能导致难以追踪的奇怪错误。参见[“使用数据竞争检测器查找并发问题”](ch15.html#race_checker)了解如何检测这些问题。
 - en: Atomics—You Probably Don’t Need These
+  id: totrans-241
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 原子操作——你可能不需要这些操作。
 - en: In addition to mutexes, Go provides another way to keep data consistent across
     multiple threads. The `sync/atomic` package provides access to the *atomic variable*
     operations built into modern CPUs to add, swap, load, store, or compare and swap
     (CAS) a value that fits into a single register.
+  id: totrans-242
   prefs: []
   type: TYPE_NORMAL
+  zh: 除了互斥锁，Go还提供了另一种方式来在多个线程中保持数据一致性。`sync/atomic`包提供了访问现代CPU内置的*原子变量*操作，包括添加、交换、加载、存储或比较并交换（CAS）适合单个寄存器的值。
 - en: If you need to squeeze out every last bit of performance and are an expert on
     writing concurrent code, you’ll be glad that Go includes atomic support. For everyone
     else, use goroutines and mutexes to manage your concurrency needs.
+  id: totrans-243
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果您需要尽可能提高性能，并且是编写并发代码的专家，您会很高兴知道Go包含原子支持。对于其他人，请使用goroutine和互斥锁来管理您的并发需求。
 - en: Where to Learn More About Concurrency
+  id: totrans-244
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 关于并发学习更多信息
 - en: I’ve covered a few simple concurrency patterns here, but there are many more.
     In fact, you could write an entire book on how to properly implement various concurrency
     patterns in Go, and, luckily, Katherine Cox-Buday has. I’ve already mentioned
     *Concurrency in Go*, when discussing how to decide between mutexes or channels,
     but it’s an excellent resource on all things involving Go and concurrency. Check
     out her book if you want to learn more.
+  id: totrans-245
   prefs: []
   type: TYPE_NORMAL
+  zh: 我在这里介绍了一些简单的并发模式，但实际上还有很多。事实上，您可以撰写一本关于如何在Go中正确实现各种并发模式的完整书籍，幸运的是，Katherine
+    Cox-Buday已经做到了。在讨论互斥锁或通道如何选择时，我已经提到了*Concurrency in Go*，但它是关于Go和并发的优秀资源。如果您想了解更多，请查看她的书籍。
 - en: Exercises
+  id: totrans-246
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 练习
 - en: Using concurrency effectively is one of the most important skills for a Go developer.
     Work through these exercises to see if you have mastered them. The solutions are
     available in the *exercise_solutions* directory in the [Chapter 12 repository](https://oreil.ly/uSQBs).
+  id: totrans-247
   prefs: []
   type: TYPE_NORMAL
+  zh: 有效地使用并发是Go开发人员最重要的技能之一。通过这些练习来检验您是否掌握了它们。解决方案可以在[第12章的存储库](https://oreil.ly/uSQBs)中的*exercise_solutions*目录中找到。
 - en: Create a function that launches three goroutines that communicate using a channel.
     The first two goroutines each write 10 numbers to the channel. The third goroutine
     reads all the numbers from the channel and prints them out. The function should
     exit when all values have been printed out. Make sure that none of the goroutines
     leak. You can create additional goroutines if needed.
+  id: totrans-248
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 创建一个函数，启动三个使用通道进行通信的goroutine。前两个goroutine各自向通道写入10个数字。第三个goroutine从通道中读取所有数字并打印出来。函数在所有值打印完毕后应退出。确保没有goroutine泄漏。如有需要，您可以创建额外的goroutine。
 - en: Create a function that launches two goroutines. Each goroutine writes 10 numbers
     to its own channel. Use a `for-select` loop to read from both channels, printing
     out the number and the goroutine that wrote the value. Make sure that your function
     exits after all values are read and that none of your goroutines leak.
+  id: totrans-249
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 创建一个函数，启动两个goroutine。每个goroutine向自己的通道写入10个数字。使用`for-select`循环从两个通道读取数据，打印出数字及其写入该值的goroutine。确保在所有值都被读取后函数退出，并且没有goroutine泄漏。
 - en: Write a function that builds a `map[int]float64` where the keys are the numbers
     from 0 (inclusive) to 100,000 (exclusive) and the values are the square roots
     of those numbers (use the [`math.Sqrt`](https://oreil.ly/DPNYi) function to calculate
     square roots). Use `sync.OnceValue` to generate a function that caches the `map`
     returned by this function and use the cached value to look up square roots for
     every 1,000th number from 0 to 100,000.
+  id: totrans-250
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 编写一个函数，构建一个`map[int]float64`，其中键是从0（包括）到100,000（不包括）的数字，而值是这些数字的平方根（使用[`math.Sqrt`](https://oreil.ly/DPNYi)函数计算平方根）。使用`sync.OnceValue`生成一个函数，缓存此函数返回的`map`，并使用缓存值来查找从0到100,000每1000个数字的平方根。
 - en: Wrapping Up
+  id: totrans-251
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 总结
 - en: In this chapter, you’ve looked at concurrency and learned why Go’s approach
     is simpler than more traditional concurrency mechanisms. In doing so, you’ve also
     learned when you should use concurrency as well as a few concurrency rules and
     patterns. In the next chapter, you’re going to take a quick look at Go’s standard
     library, which embraces a “batteries included” ethos for modern computing.
+  id: totrans-252
   prefs: []
   type: TYPE_NORMAL
+  zh: 在本章中，您已经了解了并发性，并学习了为什么Go的方法比传统的并发机制更简单。在此过程中，您还学会了何时应该使用并发，以及一些并发规则和模式。在下一章中，您将快速浏览Go的标准库，这个库以现代计算的“一揽子”理念为核心。

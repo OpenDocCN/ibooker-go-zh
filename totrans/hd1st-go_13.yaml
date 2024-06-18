@@ -1,13 +1,19 @@
 - en: 'Chapter 12\. back on your feet: Recovering from Failure'
+  id: totrans-0
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 第12章\. 重新振作：从失败中恢复
 - en: '![image](assets/f0349-01.png)'
+  id: totrans-1
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0349-01.png)'
 - en: '**Every program encounters errors. You should plan for them.**'
+  id: totrans-2
   prefs: []
   type: TYPE_NORMAL
+  zh: '**每个程序都会遇到错误。你应该为它们做好准备。**'
 - en: Sometimes handling an error can be as simple as reporting it and exiting the
     program. But other errors may require additional action. You may need to close
     opened files or network connections, or otherwise clean up, so your program doesn’t
@@ -15,219 +21,325 @@
     actions so they happen even when there’s an error. We’ll also show you how to
     make your program **panic** in those (rare) situations where it’s appropriate,
     and how to **recover** afterward.
+  id: totrans-3
   prefs: []
   type: TYPE_NORMAL
+  zh: 有时处理错误可能就是简单地报告它并退出程序。但其他错误可能需要额外的操作。你可能需要关闭已打开的文件或网络连接，或者以其他方式清理，以防止程序留下混乱。在本章中，我们将向您展示如何**推迟**清理操作，以便即使出现错误，它们仍然会发生。我们还将向您展示在那些（罕见的）适当情况下如何让程序**panic**，以及如何**recover**。
 - en: Reading numbers from a file, revisited
+  id: totrans-4
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 重新审视从文件中读取数字
 - en: We’ve talked about handling errors in Go quite a lot. But the techniques we’ve
     shown thus far don’t work in every situation. Let’s look at one such scenario.
+  id: totrans-5
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们已经讨论了在Go语言中处理错误的许多技巧。但到目前为止我们展示的技术并不适用于所有情况。让我们看看一个这样的场景。
 - en: '![image](assets/f0350-01.png)'
+  id: totrans-6
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0350-01.png)'
 - en: We want to create a program, *sum.go*, that reads `float64` values from a text
     file, adds them all together, and prints their sum.
+  id: totrans-7
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们希望创建一个名为*sum.go*的程序，从文本文件中读取`float64`值，将它们全部加在一起，并打印它们的总和。
 - en: In [Chapter 6](ch06.html#appending_issuecolon_slices) we created a `GetFloats`
     function that opened a text file, converted each line of the file to a `float64`
     value, and returned those values as a slice.
+  id: totrans-8
   prefs: []
   type: TYPE_NORMAL
+  zh: 在[第6章](ch06.html#appending_issuecolon_slices)中，我们创建了一个`GetFloats`函数，它打开一个文本文件，将文件的每一行转换为`float64`值，并将这些值作为一个切片返回。
 - en: Here, we’ve moved `GetFloats` to the `main` package and updated it to rely on
     two new functions, `OpenFile` and `CloseFile`, to open and close the text file.
+  id: totrans-9
   prefs: []
   type: TYPE_NORMAL
+  zh: 在这里，我们将`GetFloats`移到了`main`包中，并更新它以依赖两个新函数，`OpenFile`和`CloseFile`，来打开和关闭文本文件。
 - en: '![image](assets/f0350-02.png)'
+  id: totrans-10
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0350-02.png)'
 - en: We want to specify the name of the file we’re going to read as a command-line
     argument. You may recall using the `os.Args` slice in [Chapter 6](ch06.html#appending_issuecolon_slices)—it’s
     a slice of `string` values containing all the arguments used when the program
     is run.
+  id: totrans-11
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们想要将要读取的文件名作为命令行参数指定。你可能还记得在[第6章](ch06.html#appending_issuecolon_slices)中使用过`os.Args`切片
+    —— 它是一个包含程序运行时所有参数的`string`值切片。
 - en: So in our `main` function, we get the name of the file to open from the first
     command-line argument by accessing `os.Args[1]`. (Remember, the `os.Args[0]` element
     is the name of the program being run; the actual program arguments appear in `os.Args[1]`
     and later elements.)
+  id: totrans-12
   prefs: []
   type: TYPE_NORMAL
+  zh: 因此在我们的`main`函数中，通过访问`os.Args[1]`来获取要打开的文件名作为第一个命令行参数。（请记住，`os.Args[0]`元素是正在运行的程序的名称；实际的程序参数出现在`os.Args[1]`及以后的元素中。）
 - en: We then pass that filename to `GetFloats` to read the file, and get a slice
     of `float64` values back.
+  id: totrans-13
   prefs: []
   type: TYPE_NORMAL
+  zh: 然后我们将该文件名传递给`GetFloats`以读取文件，并获得一个`float64`值切片。
 - en: If any errors are encountered along the way, they’ll be returned from the `GetFloats`
     function, and we’ll store them in the `err` variable. If `err` is not `nil`, it
     means there was an error, so we simply log it and exit.
+  id: totrans-14
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果在执行过程中遇到任何错误，它们将从`GetFloats`函数中返回，并存储在`err`变量中。如果`err`不为`nil`，这意味着发生了错误，我们只需记录它并退出。
 - en: Otherwise, it means the file was read successfully, so we use a `for` loop to
     add every value in the slice together, and end by printing the total.
+  id: totrans-15
   prefs: []
   type: TYPE_NORMAL
+  zh: 否则，这意味着文件已成功读取，因此我们使用`for`循环将切片中的每个值相加，并最后打印总和。
 - en: '![image](assets/f0351-01.png)'
+  id: totrans-16
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0351-01.png)'
 - en: Let’s save all this code together in a file named *sum.go*. Then, let’s create
     a plain-text file filled with numbers, one number per line. We’ll name it *data.txt*
     and save it in the same directory as *sum.go*.
+  id: totrans-17
   prefs: []
   type: TYPE_NORMAL
+  zh: 让我们把所有这些代码保存在一个名为*sum.go*的文件中。然后，让我们创建一个填满数字的纯文本文件，每行一个数字。我们将其命名为*data.txt*，并保存在与*sum.go*相同的目录中。
 - en: '![image](assets/f0351-02.png)'
+  id: totrans-18
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0351-02.png)'
 - en: We can run the program with `go run sum.go data.txt`. The string `"data.txt"`
     will be the first argument to the *sum.go* program, so that’s the filename that
     will be passed to `GetFloats`.
+  id: totrans-19
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们可以通过`go run sum.go data.txt`来运行程序。字符串`"data.txt"`将作为*sum.go*程序的第一个参数，因此它将作为文件名传递给`GetFloats`。
 - en: We can see when the `OpenFile` and `CloseFile` functions get called, since they
     both include calls to `fmt.Println`. And at the end of the output, we can see
     the total of all the numbers in *data.txt*. Looks like everything’s working!
+  id: totrans-20
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们可以看到 `OpenFile` 和 `CloseFile` 函数何时被调用，因为它们都包含对 `fmt.Println` 的调用。在输出末尾，我们可以看到
+    *data.txt* 中所有数字的总和。看起来一切正常！
 - en: '![image](assets/f0351-03.png)'
+  id: totrans-21
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0351-03.png)'
 - en: Any errors will prevent the file from being closed!
+  id: totrans-22
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 任何错误都会阻止文件关闭！
 - en: If we give the *sum.go* program an improperly formatted file, though, we run
     into problems. A file with a line that can’t be parsed into a `float64` value,
     for example, results in an error.
+  id: totrans-23
   prefs: []
   type: TYPE_NORMAL
+  zh: 但是，如果我们给 *sum.go* 程序一个格式错误的文件，我们就会遇到问题。例如，文件中有一行无法解析为 `float64` 值，就会出现错误。
 - en: '![image](assets/f0352-01.png)'
+  id: totrans-24
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0352-01.png)'
 - en: Now, that in itself is fine; every program receives invalid data occasionally.
     But the `GetFloats` function is supposed to call the `CloseFile` function when
     it’s done. We don’t see “`Closing file`” in the program output, which would suggest
     that `CloseFile` isn’t getting called!
+  id: totrans-25
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在，这本身没什么问题；每个程序偶尔都会收到无效数据。但是 `GetFloats` 函数应该在完成时调用 `CloseFile` 函数。我们在程序输出中看不到
+    “`Closing file`”，这表明 `CloseFile` 没有被调用！
 - en: The problem is that when we call `strconv.ParseFloat` with a string that can’t
     be converted to a `float64`, it returns an error. Our code is set up to return
     from the `GetFloats` function at that point.
+  id: totrans-26
   prefs: []
   type: TYPE_NORMAL
+  zh: 问题是当我们用无法转换为 `float64` 的字符串调用 `strconv.ParseFloat` 时，它会返回一个错误。我们的代码设置在那一点从 `GetFloats`
+    函数返回。
 - en: But that return happens *before* the call to `CloseFile`, which means the file
     never gets closed!
+  id: totrans-27
   prefs: []
   type: TYPE_NORMAL
+  zh: 但是那个返回发生在调用 `CloseFile` 之前，这意味着文件永远不会被关闭！
 - en: '![image](assets/f0352-02.png)'
+  id: totrans-28
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0352-02.png)'
 - en: Deferring function calls
+  id: totrans-29
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 延迟函数调用
 - en: Now, failing to close a file may not seem like such a big deal. And for a simple
     program that just opens a single file, it’s probably fine. But each file that’s
     left open continues to consume operating system resources. Over time, multiple
     files left open can build up and cause a program to fail, or even hamper performance
     of the entire system. It’s really important to get in the habit of ensuring that
     files are closed when your program is done with them.
+  id: totrans-30
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在，没有关闭文件可能看起来不是什么大问题。对于只打开单个文件的简单程序，这可能没什么问题。但是每个未关闭的文件都会继续消耗操作系统资源。随着时间的推移，多个未关闭的文件会累积，导致程序失败，甚至影响整个系统的性能。养成确保程序完成后关闭文件的习惯非常重要。
 - en: But how can we accomplish this? The `GetFloats` function is set up to immediately
     exit if it encounters an error reading the file, even if `CloseFile` hasn’t been
     called yet!
+  id: totrans-31
   prefs: []
   type: TYPE_NORMAL
+  zh: 但是我们如何实现这一点呢？`GetFloats` 函数设置为如果在读取文件时遇到错误立即退出，即使还没有调用 `CloseFile`！
 - en: If you have a function call that you want to ensure is run, *no matter what*,
     you can use a `defer` statement. You can place the `defer` keyword before any
     ordinary function or method call, and Go will defer (that is, delay) making the
     function call until after the current function exits.
+  id: totrans-32
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果有一个函数调用你希望确保运行，*无论如何*，你可以使用 `defer` 语句。你可以在任何普通函数或方法调用之前放置 `defer` 关键字，Go
+    将延迟执行该函数调用，直到当前函数退出。
 - en: Normally, function calls are executed as soon as they’re encountered. In this
     code, the `fmt.Println("Goodbye!")` call runs before the other two `fmt.Println`
     calls.
+  id: totrans-33
   prefs: []
   type: TYPE_NORMAL
+  zh: 通常，函数调用会在遇到它们时立即执行。在这段代码中，`fmt.Println("Goodbye!")` 调用在另外两个 `fmt.Println` 调用之前执行。
 - en: '![image](assets/f0353-01.png)'
+  id: totrans-34
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0353-01.png)'
 - en: But if we add the `defer` keyword before the `fmt.Println("Goodbye!")` call,
     then that call won’t be run until all the remaining code in the `Socialize` function
     runs, and `Socialize` exits.
+  id: totrans-35
   prefs: []
   type: TYPE_NORMAL
+  zh: 但是如果我们在 `fmt.Println("Goodbye!")` 调用之前添加 `defer` 关键字，那么该调用将等到 `Socialize` 函数的所有剩余代码运行完毕并退出后才会执行。
 - en: '![image](assets/f0353-02.png)'
+  id: totrans-36
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0353-02.png)'
 - en: Recovering from errors using deferred function calls
+  id: totrans-37
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 使用延迟函数调用来从错误中恢复
 - en: '![image](assets/f0354-01.png)'
+  id: totrans-38
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0354-01.png)'
 - en: The `defer` keyword ensures a function call takes place even if the calling
     function exits early, say, by using the `return` keyword.
+  id: totrans-39
   prefs: []
   type: TYPE_NORMAL
+  zh: “defer” 关键字确保即使调用函数提前退出（例如通过使用 `return` 关键字），也会执行函数调用。
 - en: '**The “defer” keyword ensures a function call takes place, even if the calling
     function exits early.**'
+  id: totrans-40
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: '**“defer” 关键字确保即使调用函数提前退出，也会执行。**'
 - en: Below, we’ve updated our `Socialize` function to return an `error` because we
     don’t feel like talking. `Socialize` will exit before the `fmt.Println("Nice weather,
     eh?")` call. But because we include a `defer` keyword before the `fmt.Println("Goodbye!")`
     call, `Socialize` will always be polite enough to print “`Goodbye!`” before ending
     the conversation.
+  id: totrans-41
   prefs: []
   type: TYPE_NORMAL
+  zh: 下面，我们更新了`Socialize`函数以返回一个`error`，因为我们不想说话。`Socialize`将在调用`fmt.Println("Nice
+    weather, eh?")`之前退出。但因为我们在`fmt.Println("Goodbye!")`调用之前包含了`defer`关键字，`Socialize`总是会礼貌地在结束对话之前打印“`Goodbye!`”。
 - en: '![image](assets/f0354-02.png)'
+  id: totrans-42
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0354-02.png)'
 - en: Ensuring files get closed using deferred function calls
+  id: totrans-43
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 使用延迟函数调用确保文件被关闭
 - en: Because the `defer` keyword can ensure a function call is made “no matter what,”
     it’s usually used for code that needs to be run even in the event of an error.
     One common example of this is closing files after they’ve been opened.
+  id: totrans-44
   prefs: []
   type: TYPE_NORMAL
+  zh: 因为`defer`关键字可以确保在“任何情况下”都执行函数调用，通常用于需要在发生错误时仍需运行的代码。一个常见的例子是在文件打开后关闭文件。
 - en: And that’s exactly what we need in our *sum.go* program’s `GetFloats` function.
     After we call the `OpenFile` function, we need it to call `CloseFile`, even if
     there’s an error parsing the file contents.
+  id: totrans-45
   prefs: []
   type: TYPE_NORMAL
+  zh: 这正是我们*sum.go*程序中`GetFloats`函数所需要的。在调用`OpenFile`函数后，我们需要调用`CloseFile`，即使在解析文件内容时出现错误。
 - en: '![image](assets/f0355-01.png)'
+  id: totrans-46
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0355-01.png)'
 - en: We can achieve this by simply moving the call to `CloseFile` immediately after
     the call to `OpenFile` (and its accompanying error handling code), and placing
     the `defer` keyword in front of it.
+  id: totrans-47
   prefs: []
   type: TYPE_NORMAL
+  zh: 通过将`CloseFile`的调用移到`OpenFile`后面（及其相应的错误处理代码），并在其前面加上`defer`关键字，我们可以实现这一点。
 - en: Using `defer` ensures `CloseFile` will be called when `GetFloats` exits, whether
     it completes normally or there’s an error parsing the file.
+  id: totrans-48
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用`defer`确保`GetFloats`退出时将调用`CloseFile`，无论是正常完成还是在解析文件时出错。
 - en: Now, even if *sum.go* is given a file with bad data, it will still close the
     file before exiting!
+  id: totrans-49
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在，即使*sum.go*收到了错误数据的文件，它仍会在退出前关闭文件！
 - en: '![image](assets/f0355-02.png)'
+  id: totrans-50
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0355-02.png)'
 - en: Code Magnets
+  id: totrans-51
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 代码磁铁
 - en: '![image](assets/f0356-01.png)'
+  id: totrans-52
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0356-01.png)'
 - en: This code sets up a `Refrigerator` type that simulates a refrigerator. `Refrigerator`
     uses a slice of strings as its underlying type; the strings represent the names
     of foods the refrigerator contains. The type has an `Open` method that simulates
@@ -235,762 +347,1130 @@
     want to waste energy, after all). The `FindFood` method calls `Open` to open the
     door, calls a `find` function we’ve written to search the underlying slice for
     a particular food, and then calls `Close` to close the door again.
+  id: totrans-53
   prefs: []
   type: TYPE_NORMAL
+  zh: 该代码设置了一个`Refrigerator`类型，模拟冰箱的功能。`Refrigerator`使用字符串切片作为其底层类型；这些字符串表示冰箱中包含的食物名称。该类型有一个`Open`方法模拟打开冰箱门，以及一个对应的`Close`方法来关闭它（毕竟我们不想浪费能量）。`FindFood`方法调用`Open`打开冰箱门，调用我们编写的`find`函数在底层切片中搜索特定食物，然后调用`Close`来再次关闭门。
 - en: But there’s a problem with `FindFood`. It’s set up to return an error value
     if the food we’re searching for isn’t found. But when that happens, it’s returning
     before `Close` gets called, leaving the virtual refrigerator door wide open!
+  id: totrans-54
   prefs: []
   type: TYPE_NORMAL
+  zh: 但`FindFood`存在问题。如果我们搜索的食物找不到，它设置为返回错误值。但当这种情况发生时，在调用`Close`之前它已经返回，导致虚拟冰箱门敞开！
 - en: '![image](assets/f0356-02.png)'
+  id: totrans-55
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0356-02.png)'
 - en: '![image](assets/arrow.png) Answers in [“Code Magnets Solution”](#code_magnets_solution_7).'
+  id: totrans-56
   prefs: []
   type: TYPE_NORMAL
+  zh: '![图片](assets/arrow.png) 答案在[“代码磁铁解决方案”](#code_magnets_solution_7)中。'
 - en: Use the magnets below to create an updated version of the `FindFood` method.
     It should defer the call to the `Close` method, so that it runs when `FindFood`
     exits (regardless of whether the food was found successfully).
+  id: totrans-57
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用下面的磁铁创建`FindFood`方法的更新版本。它应该延迟对`Close`方法的调用，以便在`FindFood`退出时运行（无论是否成功找到食物）。
 - en: '![image](assets/f0357-01.png)'
+  id: totrans-58
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0357-01.png)'
 - en: there are no Dumb Questions
+  id: totrans-59
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 没有愚蠢的问题
 - en: '**Q: So I can defer function and method calls... Can I defer other statements
     too, like `for` loops or variable assignments?**'
+  id: totrans-60
   prefs: []
   type: TYPE_NORMAL
+  zh: '**Q: 所以我可以延迟函数和方法调用… 我可以延迟其他语句吗，比如`for`循环或变量赋值？**'
 - en: '**A:** No, only function and method calls. You can write a function or method
     to do whatever you want and then defer a call to that function or method, but
     the `defer` keyword itself can only be used with a function or method call.'
+  id: totrans-61
   prefs: []
   type: TYPE_NORMAL
+  zh: '**A:** 不，只能用于函数和方法调用。您可以编写一个函数或方法来执行您想要的任何操作，然后延迟调用该函数或方法，但`defer`关键字本身只能用于函数或方法调用。'
 - en: Listing the files in a directory
+  id: totrans-62
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 列出目录中的文件
 - en: '![image](assets/common3.png)'
+  id: totrans-63
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/common3.png)'
 - en: Go has a couple more features to help you handle errors, and we’ll be showing
     you a program that demonstrates them in a bit. But that program uses a couple
     new tricks, which we’ll need to show you before we dive in. First up, we’re going
     to need to know how to read the contents of a directory.
+  id: totrans-64
   prefs: []
   type: TYPE_NORMAL
+  zh: Go 还有一些其他功能可帮助您处理错误，我们将展示一个演示这些功能的程序。但是那个程序使用了一些新技巧，我们在深入之前需要向您展示它们。首先，我们需要知道如何读取目录的内容。
 - en: Try creating a directory, named *my_directory*, that includes two files and
     a subdirectory, as shown at the right. The program below will list the contents
     of *my_directory*, indicating the name of each item it contains, and whether it’s
     a file or a subdirectory.
+  id: totrans-65
   prefs: []
   type: TYPE_NORMAL
+  zh: 尝试创建一个名为 *my_directory* 的目录，其中包含右侧显示的两个文件和一个子目录。下面的程序将列出 *my_directory* 的内容，显示每个项目的名称以及它是文件还是子目录。
 - en: '![image](assets/f0358-01.png)'
+  id: totrans-66
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0358-01.png)'
 - en: The `io/ioutil` package includes a `ReadDir` function that will let us read
     the directory contents. You pass `ReadDir` the name of a directory, and it will
     return a slice of values, one for each file or subdirectory the directory contains
     (along with any error it encounters).
+  id: totrans-67
   prefs: []
   type: TYPE_NORMAL
+  zh: '`io/ioutil` 包包含一个 `ReadDir` 函数，它允许我们读取目录的内容。您将目录的名称传递给 `ReadDir`，它将返回一个值的切片，每个值代表目录包含的每个文件或子目录（以及遇到的任何错误）。'
 - en: Each of the slice’s values satisfies the `FileInfo` interface, which includes
     a `Name` method that returns the file’s name, and an `IsDir` method that returns
     `true` if it’s a directory.
+  id: totrans-68
   prefs: []
   type: TYPE_NORMAL
+  zh: 切片的每个值都满足 `FileInfo` 接口，该接口包括一个 `Name` 方法，返回文件的名称，以及一个 `IsDir` 方法，如果是目录则返回 `true`。
 - en: So our program calls `ReadDir`, passing it the name of *my_directory* as an
     argument. It then loops over each value in the slice it gets back. If `IsDir`
     returns `true` for the value, it prints `"Directory:"` and the file’s name. Otherwise,
     it prints `"File:"` and the file’s name.
+  id: totrans-69
   prefs: []
   type: TYPE_NORMAL
+  zh: 因此，我们的程序调用 `ReadDir`，并将 *my_directory* 的名称作为参数传递给它。然后它循环遍历返回的切片中的每个值。如果 `IsDir`
+    对于该值返回 `true`，则打印 `"目录：" + 文件的名称`。否则，打印 `"文件：" + 文件的名称`。
 - en: '![image](assets/f0358-02.png)'
+  id: totrans-70
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0358-02.png)'
 - en: Save the above code as *files.go*, in the same directory as *my_directory*.
     In your terminal, change to that parent directory, and type `**go run files.go**`.
     The program will run and produce a list of the files and directories *my_directory*
     contains.
+  id: totrans-71
   prefs: []
   type: TYPE_NORMAL
+  zh: 将上述代码保存为 *files.go*，与 *my_directory* 相同的目录中。在终端中，切换到该父目录，并输入 `**go run files.go**`。程序将运行并列出
+    *my_directory* 包含的文件和目录。
 - en: '![image](assets/f0358-03.png)'
+  id: totrans-72
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0358-03.png)'
 - en: Listing the files in subdirectories (will be trickier)
+  id: totrans-73
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 列出子目录中的文件（会更棘手）
 - en: '![image](assets/common3.png)![image](assets/f0359-01.png)'
+  id: totrans-74
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/common3.png)![image](assets/f0359-01.png)'
 - en: A program that reads the contents of a single directory isn’t too complicated.
     But suppose we wanted to list the contents of something more complicated, like
     a Go workspace directory. That would contain an entire tree of subdirectories
     nested within subdirectories, some containing files, some not.
+  id: totrans-75
   prefs: []
   type: TYPE_NORMAL
+  zh: 读取单个目录的内容并不太复杂。但是假设我们想要列出更复杂的内容，比如 Go 工作区目录。这将包含一个嵌套在子目录中的整个子目录树，其中有些包含文件，有些则不包含。
 - en: 'Normally, such a program would be quite complicated. In outline form, the logic
     would be something like this:'
+  id: totrans-76
   prefs: []
   type: TYPE_NORMAL
+  zh: 通常情况下，这样一个程序会相当复杂。简单来说，其逻辑如下：
 - en: '![image](assets/f0359-02.png)'
+  id: totrans-77
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0359-02.png)'
 - en: Pretty complicated, right? We’d rather not have to write *that* code!
+  id: totrans-78
   prefs: []
   type: TYPE_NORMAL
+  zh: 相当复杂，对吧？我们宁愿不必编写*那样*的代码！
 - en: 'But what if there were a simpler way? Some logic like this:'
+  id: totrans-79
   prefs: []
   type: TYPE_NORMAL
+  zh: 但是如果有一种更简单的方法呢？类似于这样的逻辑：
 - en: Get a list of files in the directory.
+  id: totrans-80
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 获取目录中的文件列表。
 - en: Get the next file.
+  id: totrans-81
   prefs:
   - PREF_IND
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 获取下一个文件。
 - en: Is the file a directory?
+  id: totrans-82
   prefs:
   - PREF_IND
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 文件是一个目录吗？
 - en: 'If yes: start over at step **I** with this directory.'
+  id: totrans-83
   prefs:
   - PREF_IND
   - PREF_IND
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 如果是：从步骤**I**开始，使用此目录。
 - en: 'If no: just print the filename.'
+  id: totrans-84
   prefs:
   - PREF_IND
   - PREF_IND
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 如果不是：只需打印文件名。
 - en: It’s not clear how to handle the “Start the logic over with this new directory”
     part, though. To achieve this, we’ll need a new programming concept...
+  id: totrans-85
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在我们不清楚如何处理“使用这个新目录重新启动逻辑”的部分了。为了实现这一点，我们将需要一个新的编程概念...
 - en: '![image](assets/f0359-03.png)'
+  id: totrans-86
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0359-03.png)'
 - en: Recursive function calls
+  id: totrans-87
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 递归函数调用
 - en: '![image](assets/common3.png)'
+  id: totrans-88
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/common3.png)'
 - en: That brings us to the second (and last) trick we’ll need to show you before
     we end our detour and get back to handling errors.
+  id: totrans-89
   prefs: []
   type: TYPE_NORMAL
+  zh: 这就把我们带到了我们在结束我们的偏离并回到处理错误之前需要向您展示的第二个（也是最后一个）技巧。
 - en: Go is one of many programming languages that support **recursion**, which allows
     a function to call itself.
+  id: totrans-90
   prefs: []
   type: TYPE_NORMAL
+  zh: Go 是支持**递归**的众多编程语言之一，允许函数调用自身。
 - en: 'If you do this carelessly, you’ll just wind up with an infinite loop where
     the function calls itself over and over:'
+  id: totrans-91
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果你粗心大意地做这个，你最终会陷入一个无限循环，函数一遍又一遍地调用自身：
 - en: '![image](assets/f0360-01.png)'
+  id: totrans-92
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0360-01.png)'
 - en: But if you make sure that the recursion loop stops itself eventually, recursive
     functions can actually be useful.
+  id: totrans-93
   prefs: []
   type: TYPE_NORMAL
+  zh: 但是，如果确保递归循环最终停止，递归函数实际上可以很有用。
 - en: Here’s a recursive `count` function that counts from a starting number up to
     an ending number. (Normally a loop would be more efficient, but this is a simple
     way of demonstrating how recursion works.)
+  id: totrans-94
   prefs: []
   type: TYPE_NORMAL
+  zh: 这是一个递归的 `count` 函数，从一个起始数计数到一个结束数。（通常循环效率更高，但这是演示递归工作原理的简单方法。）
 - en: '![image](assets/f0360-02.png)![image](assets/common3.png)'
+  id: totrans-95
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0360-02.png)![图片](assets/common3.png)'
 - en: 'Here’s the sequence the program follows:'
+  id: totrans-96
   prefs: []
   type: TYPE_NORMAL
+  zh: 以下是程序的执行顺序：
 - en: '`main` calls `count` with a `start` parameter of `1` and an `end` of `3`'
+  id: totrans-97
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: '`main` 调用 `count`，起始参数为 `1`，结束参数为 `3`'
 - en: '`count` prints the `start` parameter: `1`'
+  id: totrans-98
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: '`count`打印`start`参数：`1`'
 - en: '`start` (`1`) is less than `end` (`3`), so `count` calls itself with a `start`
     of `2` and an `end` of `3`'
+  id: totrans-99
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: '`start` (`1`) 小于 `end` (`3`)，所以 `count` 以 `start` 为 `2` 和 `end` 为 `3` 调用自身。'
 - en: 'This second invocation of `count` prints its new `start` parameter: `2`'
+  id: totrans-100
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 这是 `count` 的第二次调用，打印了它的新 `start` 参数：`2`
 - en: '`start` (`2`) is less than `end` (`3`), so `count` calls itself with a `start`
     of `3` and an `end` of `3`'
+  id: totrans-101
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: '`start` (`2`) 小于 `end` (`3`)，所以 `count` 以 `start` 为 `3` 和 `end` 为 `3` 调用自身。'
 - en: 'The third invocation of `count` prints its new `start` parameter: `3`'
+  id: totrans-102
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: '`count` 的第三次调用，打印了它的新 `start` 参数：`3`'
 - en: '`start` (`3`) is *not* less than `end` (`3`), so `count` does *not* call itself
     again; it just returns'
+  id: totrans-103
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: '`start` (`3`) *不* 小于 `end` (`3`)，因此 `count` *不* 再次调用自身；它只是返回。'
 - en: The previous two invocations of `count` return as well, and the program ends
+  id: totrans-104
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 前两次调用 `count` 也返回了，程序结束了。
 - en: 'If we add calls to `Printf` showing each time `count` is called and each time
     the function exits, this sequence will be a little more obvious:'
+  id: totrans-105
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果我们添加调用 `Printf` 来显示每次调用 `count` 和每次函数退出时，这个顺序将更加明显：
 - en: '![image](assets/f0361-01.png)'
+  id: totrans-106
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0361-01.png)'
 - en: So that’s a simple recursive function. Let’s try applying recursion to our *files.go*
     program, and see if it can help us list the contents of subdirectories...
+  id: totrans-107
   prefs: []
   type: TYPE_NORMAL
+  zh: 所以这是一个简单的递归函数。让我们尝试将递归应用到我们的 *files.go* 程序中，看看它是否能帮助我们列出子目录的内容...
 - en: Recursively listing directory contents
+  id: totrans-108
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 递归列出目录内容
 - en: '![image](assets/common3.png)'
+  id: totrans-109
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/common3.png)'
 - en: 'We want our *files.go* program to list the contents of all of the subdirectories
     in our Go workspace directory. We’re hoping to achieve that using recursive logic
     like this:'
+  id: totrans-110
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们希望我们的 *files.go* 程序能够列出 Go 工作空间目录中所有子目录的内容。我们希望使用类似这样的递归逻辑来实现这一点：
 - en: Get a list of files in the directory.
+  id: totrans-111
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 获取目录中的文件列表。
 - en: Get the next file.
+  id: totrans-112
   prefs:
   - PREF_IND
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 获取下一个文件。
 - en: Is the file a directory?
+  id: totrans-113
   prefs:
   - PREF_IND
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 文件是否为目录？
 - en: 'If yes: start over at step **I** with this directory.'
+  id: totrans-114
   prefs:
   - PREF_IND
   - PREF_IND
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 如果是：从步骤 **I** 开始处理此目录。
 - en: 'If no: just print the filename.'
+  id: totrans-115
   prefs:
   - PREF_IND
   - PREF_IND
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 如果不是：只需打印文件名。
 - en: '![image](assets/f0362-01.png)'
+  id: totrans-116
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0362-01.png)'
 - en: We’ve removed the code from the `main` function that reads the directory contents;
     `main` now simply calls a recursive `scanDirectory` function. The `scanDirectory`
     function takes the path of the directory it should scan, so we pass it the path
     of the `"go"` subdirectory.
+  id: totrans-117
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们从`main`函数中删除了读取目录内容的代码；现在`main`只是调用一个递归的`scanDirectory`函数。`scanDirectory`函数接受它应该扫描的目录路径作为参数，因此我们将它传递给`"go"`子目录的路径。
 - en: The first thing `scanDirectory` does is print the current path, so we know what
     directory we’re working in. Then it calls `ioutil.ReadDir` on that path, to get
     the directory contents.
+  id: totrans-118
   prefs: []
   type: TYPE_NORMAL
+  zh: '`scanDirectory` 的第一件事是打印当前路径，这样我们就知道我们正在哪个目录中。然后它调用 `ioutil.ReadDir` 来获取目录内容。'
 - en: It loops over the slice of `FileInfo` values that `ReadDir` returns, processing
     each one. It calls `filepath.Join` to join the current directory path and the
     current filename together with slashes (so `"go"` and `"src"` are joined to become
     `"go/src"`).
+  id: totrans-119
   prefs: []
   type: TYPE_NORMAL
+  zh: 它遍历 `ReadDir` 返回的 `FileInfo` 值的切片，处理每一个。它调用 `filepath.Join` 来将当前目录路径和当前文件名用斜杠连接起来（因此
+    `"go"` 和 `"src"` 被连接成 `"go/src"`）。
 - en: If the current file isn’t a directory, `scanDirectory` just prints its full
     path, and moves on to the next file (if there are any more in the current directory).
+  id: totrans-120
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果当前文件不是目录，`scanDirectory` 只是打印它的完整路径，并继续处理当前目录中的下一个文件（如果有的话）。
 - en: 'But if the current file *is* a directory, the recursion kicks in: `scanDirectory`
     calls itself with the subdirectory’s path. If that subdirectory has any subdirectories,
     `scanDirectory` will call itself with each of *those* subdirectories, and so on
     through the whole file tree.'
+  id: totrans-121
   prefs: []
   type: TYPE_NORMAL
+  zh: 但是，如果当前文件是一个目录，递归就会启动：`scanDirectory` 会使用子目录的路径调用自身。如果该子目录有任何子目录，`scanDirectory`
+    将递归调用每个子目录，依此类推直到整个文件树。
 - en: '![image](assets/f0362-02.png)![image](assets/f0363-01.png)'
+  id: totrans-122
   prefs: []
   type: TYPE_IMG
+  zh: '![图像](assets/f0362-02.png)![图像](assets/f0363-01.png)'
 - en: Save the preceding code as *files.go* in the directory that contains your Go
     workspace (probably your user’s home directory). In your terminal, change to that
     directory, and run the program with `**go run files.go**`.
+  id: totrans-123
   prefs: []
   type: TYPE_NORMAL
+  zh: 将上述代码保存为 *files.go*，放在包含您的 Go 工作区的目录中（可能是您的用户主目录）。在终端中，切换到该目录，并使用 `**go run
+    files.go**` 运行该程序。
 - en: 'When you see the `scanDirectory` function at work, you’ll see the real beauty
     of recursion. For our sample directory structure, the process goes something like
     this:'
+  id: totrans-124
   prefs: []
   type: TYPE_NORMAL
+  zh: 当你看到 `scanDirectory` 函数在运行时，你会看到递归的真正魅力。对于我们的示例目录结构，处理过程大致如下：
 - en: '`main` calls `scanDirectory` with a path of `"go"`'
+  id: totrans-125
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: '`main` 函数使用路径 `"go"` 调用 `scanDirectory`'
 - en: '`scanDirectory` prints the path it’s passed, `"go"`, indicating the directory
     it’s working in'
+  id: totrans-126
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: '`scanDirectory` 函数打印传递给它的路径："go"，指示它正在处理的目录'
 - en: It calls `ioutil.ReadDir` with the `"go"` path
+  id: totrans-127
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 它使用路径 `"go"` 调用 `ioutil.ReadDir` 函数
 - en: 'There’s only one entry in the returned slice: `"src"`'
+  id: totrans-128
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 返回的切片中只有一个条目："src"
 - en: Calling `filepath.Join` with the current directory path of `"go"` and a filename
     of `"src"` gives a new path of `"go/src"`
+  id: totrans-129
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 使用当前目录路径 `"go"` 和文件名 `"src"` 调用 `filepath.Join` 函数会得到新路径 `"go/src"`
 - en: '*src* is a subdirectory, so `scanDirectory` is called again, this time with
     a path of `"go/src"`'
+  id: totrans-130
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: '*src* 是一个子目录，因此再次调用 `scanDirectory` 函数，这次路径是 `"go/src"`'
 - en: Note
+  id: totrans-131
   prefs:
   - PREF_IND
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: Recursion!
+  id: totrans-132
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
+  zh: 递归！
 - en: '`scanDirectory` prints the new path: `"go/src"`'
+  id: totrans-133
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: '`scanDirectory` 函数打印新路径："go/src"'
 - en: It calls `ioutil.ReadDir` with the `"go/src"` path
+  id: totrans-134
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 使用路径 `"go/src"` 调用 `ioutil.ReadDir` 函数
 - en: The first entry in the returned slice is `"geo"`
+  id: totrans-135
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 返回的切片中的第一个条目是 "geo"
 - en: Calling `filepath.Join` with the current directory path of `"go/src"` and a
     filename of `"geo"` gives a new path of `"go/src/geo"`
+  id: totrans-136
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 使用当前目录路径 `"go/src"` 和文件名 `"geo"` 调用 `filepath.Join` 函数会得到新路径 `"go/src/geo"`
 - en: '*geo* is a subdirectory, so `scanDirectory` is called again, this time with
     a path of `"go/src/geo"`'
+  id: totrans-137
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: '*geo* 是一个子目录，因此再次调用 `scanDirectory` 函数，这次路径是 `"go/src/geo"`'
 - en: Note
+  id: totrans-138
   prefs:
   - PREF_IND
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: Recursion!
+  id: totrans-139
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
+  zh: 递归！
 - en: '`scanDirectory` prints the new path: `"go/src/geo"`'
+  id: totrans-140
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: '`scanDirectory` 函数打印新路径："go/src/geo"'
 - en: It calls `ioutil.ReadDir` with the `"go/src/geo"` path
+  id: totrans-141
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 它使用路径 `"go/src/geo"` 调用 `ioutil.ReadDir` 函数
 - en: The first entry in the returned slice is `"coordinates.go"`
+  id: totrans-142
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 返回的切片中的第一个条目是 "coordinates.go"
 - en: '*coordinates.go* is *not* a directory, so its name is simply printed'
+  id: totrans-143
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: '*coordinates.go* 不是一个目录，因此它的名称会简单地被打印出来'
 - en: And so on...
+  id: totrans-144
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 依此类推...
 - en: Recursive functions can be tricky to write, and they often consume more computing
     resources than nonrecursive solutions. But sometimes, recursive functions offer
     solutions to problems that would be very difficult to solve using other means.
+  id: totrans-145
   prefs: []
   type: TYPE_NORMAL
+  zh: 递归函数可能很难编写，并且通常消耗比非递归解决方案更多的计算资源。但有时，递归函数可以提供解决其他方法难以解决的问题的解决方案。
 - en: Now that our *files.go* program is set up, we can end our detour. Up next, we’ll
     return to our discussion of Go’s error handling features.
+  id: totrans-146
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在我们的 *files.go* 程序已经设置好，我们可以结束我们的插曲了。接下来，我们将回到讨论 Go 的错误处理特性。
 - en: '![image](assets/f0363-02.png)'
+  id: totrans-147
   prefs: []
   type: TYPE_IMG
+  zh: '![图像](assets/f0363-02.png)'
 - en: Error handling in a recursive function
+  id: totrans-148
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 在递归函数中进行错误处理
 - en: If `scanDirectory` encounters an error while scanning any subdirectory (for
     example, if a user doesn’t have permission to access that directory), it will
     return an error. This is expected behavior; the program doesn’t have any control
     over the filesystem, and it’s important to report errors when they inevitably
     occur.
+  id: totrans-149
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果 `scanDirectory` 在扫描任何子目录时遇到错误（例如，用户无权访问该目录），它会返回一个错误。这是预期的行为；程序对文件系统没有任何控制权，报告错误是很重要的。
 - en: '![image](assets/f0364-01.png)'
+  id: totrans-150
   prefs: []
   type: TYPE_IMG
+  zh: '![图像](assets/f0364-01.png)'
 - en: 'But if we add a couple `Printf` statements showing the errors being returned,
     we’ll see that the *way* this error is handled isn’t ideal:'
+  id: totrans-151
   prefs: []
   type: TYPE_NORMAL
+  zh: 但是，如果我们添加几个 `Printf` 语句来显示返回的错误，我们会看到这种错误处理方式并不理想：
 - en: '![image](assets/f0364-02.png)'
+  id: totrans-152
   prefs: []
   type: TYPE_IMG
+  zh: '![图像](assets/f0364-02.png)'
 - en: If an error occurs in one of the recursive `scanDirectory` calls, that error
     has to be returned up the entire chain until it reaches the `main` function!
+  id: totrans-153
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果在递归调用 `scanDirectory` 中的任何一个中发生错误，该错误必须沿着整个链路返回，直到它达到 `main` 函数！
 - en: '![image](assets/f0364-03.png)'
+  id: totrans-154
   prefs: []
   type: TYPE_IMG
+  zh: '![图像](assets/f0364-03.png)'
 - en: Starting a panic
+  id: totrans-155
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 引发panic
 - en: Our `scanDirectory` function is a rare example of a place it might be appropriate
     for a program to panic at runtime.
+  id: totrans-156
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们的`scanDirectory`函数是一个程序可能在运行时适合使用panic的罕见例子。
 - en: 'We’ve encountered panics before. We’ve seen them when accessing invalid indexes
     in arrays and slices:'
+  id: totrans-157
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们之前遇到过panic。当访问数组和切片中的无效索引时，我们也见过它们：
 - en: 'We’ve also seen them when a type assertion fails (if we didn’t use the optional
     `ok` Boolean value):'
+  id: totrans-158
   prefs: []
   type: TYPE_NORMAL
+  zh: 当类型断言失败时（如果我们没有使用可选的`ok`布尔值），我们也见过它们：
 - en: '![image](assets/f0365-01.png)'
+  id: totrans-159
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0365-01.png)'
 - en: When a program panics, the current function stops running, and the program prints
     a log message and crashes.
+  id: totrans-160
   prefs: []
   type: TYPE_NORMAL
+  zh: 程序panic时，当前函数停止运行，并打印日志消息然后崩溃。
 - en: You can cause a panic yourself simply by calling the built-in `panic` function.
+  id: totrans-161
   prefs: []
   type: TYPE_NORMAL
+  zh: 您可以通过调用内置的`panic`函数自行引发panic。
 - en: '![image](assets/f0365-02.png)'
+  id: totrans-162
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0365-02.png)'
 - en: The `panic` function expects a single argument that satisfies the empty interface
     (that is, it can be of any type). That argument is converted to a string (if necessary)
     and printed as part of the panic’s log message.
+  id: totrans-163
   prefs: []
   type: TYPE_NORMAL
+  zh: '`panic`函数期望一个满足空接口（即可以是任何类型）的单一参数。该参数会（如果需要）转换为字符串并作为panic日志消息的一部分打印出来。'
 - en: Stack traces
+  id: totrans-164
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 堆栈跟踪
 - en: Each function that’s called needs to return to the function that called it.
     To enable this, like other programming languages, Go keeps a **call stack**, a
     list of the function calls that are active at any given point.
+  id: totrans-165
   prefs: []
   type: TYPE_NORMAL
+  zh: 每个被调用的函数都需要返回到调用它的函数。为了实现这一点，像其他编程语言一样，Go保留了一个**调用堆栈**，即在任何给定点活动的函数调用列表。
 - en: When a program panics, a **stack trace**, or listing of the call stack, is included
     in the panic output. This can be useful in determining what caused the program
     to crash.
+  id: totrans-166
   prefs: []
   type: TYPE_NORMAL
+  zh: 程序panic时，会包括**堆栈跟踪**（stack trace）或调用堆栈列表在panic输出中。这在确定程序崩溃原因时非常有用。
 - en: '![image](assets/f0366-01.png)'
+  id: totrans-167
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0366-01.png)'
 - en: Deferred calls completed before crash
+  id: totrans-168
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 在崩溃前完成的延迟调用
 - en: When a program panics, all deferred function calls will still be made. If there’s
     more than one deferred call, they’ll be made in the reverse of the order they
     were deferred in.
+  id: totrans-169
   prefs: []
   type: TYPE_NORMAL
+  zh: 程序panic时，所有延迟调用的函数仍然会被执行。如果有多个延迟调用，它们将按照被延迟的相反顺序执行。
 - en: The code below defers two calls to `Println` and then panics. The top of the
     program output shows the two calls being completed before the program crashes.
+  id: totrans-170
   prefs: []
   type: TYPE_NORMAL
+  zh: 下面的代码延迟了两次对`Println`的调用，然后发生了panic。程序崩溃前的输出顶部显示了两个调用完成的情况。
 - en: '![image](assets/f0366-02.png)'
+  id: totrans-171
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0366-02.png)'
 - en: Using “panic” with scanDirectory
+  id: totrans-172
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 使用“panic”与scanDirectory
 - en: The `scanDirectory` function at the right has been updated to call `panic` instead
     of returning an error value. This greatly simplifies the error handling.
+  id: totrans-173
   prefs: []
   type: TYPE_NORMAL
+  zh: 右侧的`scanDirectory`函数已更新为调用`panic`而不是返回错误值。这大大简化了错误处理。
 - en: First, we remove the `error` return value from the `scanDirectory` declaration.
     If an `error` value is returned from `ReadDir`, we pass it to `panic` instead.
     We can remove the error handling code from the recursive call to `scanDirectory`,
     and the call to `scanDirectory` in `main`, as well.
+  id: totrans-174
   prefs: []
   type: TYPE_NORMAL
+  zh: 首先，我们从`scanDirectory`声明中删除`error`返回值。如果从`ReadDir`返回`error`值，则将其传递给`panic`。我们可以从对`scanDirectory`的递归调用中删除错误处理代码，并且也可以从`main`中删除对`scanDirectory`的调用。
 - en: '![image](assets/f0367-01.png)'
+  id: totrans-175
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0367-01.png)'
 - en: Now, when `scanDirectory` encounters an error reading a directory, it simply
     panics. All the recursive calls to `scanDirectory` exit.
+  id: totrans-176
   prefs: []
   type: TYPE_NORMAL
+  zh: 当`scanDirectory`遇到读取目录错误时，它会直接panic。所有对`scanDirectory`的递归调用都会退出。
 - en: '![image](assets/f0367-02.png)'
+  id: totrans-177
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0367-02.png)'
 - en: When to panic
+  id: totrans-178
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 何时使用panic
 - en: '![image](assets/f0368-01.png)'
+  id: totrans-179
   prefs: []
   type: TYPE_IMG
+  zh: '![图片](assets/f0368-01.png)'
 - en: We’ll show you a way to prevent the program from crashing in a moment. But it’s
     true that calling `panic` is rarely the ideal way to deal with errors.
+  id: totrans-180
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们马上会向您展示一种防止程序崩溃的方法。但是调用panic确实很少是处理错误的理想方式。
 - en: 'Things like inaccessible files, network failures, and bad user input should
     usually be considered “normal,” and should be handled gracefully though `error`
     values. Generally, calling `panic` should be reserved for “impossible” situations:
     errors that indicate a bug in the program, not a mistake on the user’s part.'
+  id: totrans-181
   prefs: []
   type: TYPE_NORMAL
+  zh: 类似于无法访问的文件、网络故障和不良用户输入通常应视为“正常”，并且应通过`error`值进行优雅处理。通常，调用`panic`应保留用于“不可能”情况：即表明程序中存在错误而不是用户错误的情况。
 - en: Here’s a program that uses `panic` to indicate a bug. It awards a prize hidden
     behind one of three virtual doors. The `doorNumber` variable is populated not
     with user input, but with a random number chosen by the `rand.Intn` function.
     If `doorNumber` contains any number other than `1`, `2`, or `3`, it’s not user
     error, it’s a bug in the program.
+  id: totrans-182
   prefs: []
   type: TYPE_NORMAL
+  zh: 下面是一个使用`panic`来指示bug的程序。它给出了隐藏在三扇虚拟门后面的奖品。`doorNumber`变量不是由用户输入填充的，而是由`rand.Intn`函数选择的随机数。如果`doorNumber`包含除`1`、`2`或`3`之外的任何数字，那不是用户错误，而是程序中的bug。
 - en: So it makes sense to call `panic` if `doorNumber` contains an invalid value.
     It *should* never happen, and if it does, we want to stop the program before it
     behaves in unexpected ways.
+  id: totrans-183
   prefs: []
   type: TYPE_NORMAL
+  zh: 因此，如果`doorNumber`包含无效值，调用`panic`是有道理的。这*不应该*发生，如果发生，我们希望在程序表现出意外行为之前停止程序。
 - en: '![image](assets/f0368-02.png)'
+  id: totrans-184
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0368-02.png)'
 - en: The “recover” function
+  id: totrans-185
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: “recover”函数
 - en: Changing our `scanDirectory` function to use `panic` instead of returning an
     error greatly simplified the error handling code. But panicking is also causing
     our program to crash with an ugly stack trace. We’d rather just show users the
     error message.
+  id: totrans-186
   prefs: []
   type: TYPE_NORMAL
+  zh: 将我们的`scanDirectory`函数更改为使用`panic`而不是返回错误，大大简化了错误处理代码。但是，恐慌也导致我们的程序崩溃并显示一个丑陋的堆栈跟踪。我们更愿意只显示用户错误消息。
 - en: Go offers a built-in `recover` function that can stop a program from panicking.
     We’ll need to use it to exit the program gracefully.
+  id: totrans-187
   prefs: []
   type: TYPE_NORMAL
+  zh: Go语言提供了一个内置的`recover`函数，可以阻止程序因恐慌而崩溃。我们需要使用它来优雅地退出程序。
 - en: 'When you call `recover` during normal program execution, it just returns `nil`
     and does nothing else:'
+  id: totrans-188
   prefs: []
   type: TYPE_NORMAL
+  zh: 当您在正常程序执行期间调用`recover`时，它只会返回`nil`，不会做其他操作：
 - en: '![image](assets/f0370-01.png)'
+  id: totrans-189
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0370-01.png)'
 - en: 'If you call `recover` when a program is panicking, it will stop the panic.
     But when you call `panic` in a function, that function stops executing. So there’s
     no point calling `recover` in the same function as `panic`, because the panic
     will continue anyway:'
+  id: totrans-190
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果在程序恐慌时调用`recover`，它将停止恐慌。但是当您在函数中调用`panic`时，该函数将停止执行。因此，在与`panic`相同的函数中调用`recover`是没有意义的，因为恐慌仍将继续：
 - en: '![image](assets/f0370-02.png)'
+  id: totrans-191
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0370-02.png)'
 - en: But there *is* a way to call `recover` when a program is panicking... During
     a panic, any deferred function calls are completed. So you can place a call to
     `recover` in a separate function, and use `defer` to call that function before
     the code that panics.
+  id: totrans-192
   prefs: []
   type: TYPE_NORMAL
+  zh: 但是在程序恐慌时有一种方法可以调用`recover`…… 在恐慌期间，任何延迟调用的函数都会被完成。因此，您可以将调用`recover`放在一个单独的函数中，并使用`defer`在导致恐慌的代码之前调用该函数。
 - en: '![image](assets/f0370-03.png)'
+  id: totrans-193
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0370-03.png)'
 - en: Calling `recover` will *not* cause execution to resume at the point of the panic,
     at least not exactly. The function that panicked will return immediately, and
     none of the code in that function’s block following the panic will be executed.
     After the function that panicked returns, however, normal execution resumes.
+  id: totrans-194
   prefs: []
   type: TYPE_NORMAL
+  zh: 调用`recover` *不会* 导致执行在恐慌点恢复，至少不完全是这样。发生恐慌的函数将立即返回，该函数块中恐慌后的代码将不会执行。但在发生恐慌的函数返回后，正常执行将恢复。
 - en: '![image](assets/f0371-01.png)'
+  id: totrans-195
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0371-01.png)'
 - en: The panic value is returned from recover
+  id: totrans-196
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 恐慌值是从`recover`函数返回的。
 - en: As we mentioned, when there is no panic, calls to `recover` return `nil`.
+  id: totrans-197
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如我们提到的，当没有恐慌时，调用`recover`会返回`nil`。
 - en: '![image](assets/f0371-02.png)'
+  id: totrans-198
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0371-02.png)'
 - en: But when there *is* a panic, `recover` returns whatever value was passed to
     `panic`. This can be used to gather information about the panic, to aid in recovering
     or to report errors to the user.
+  id: totrans-199
   prefs: []
   type: TYPE_NORMAL
+  zh: 但是当有恐慌发生时，`recover`会返回传递给`panic`的任何值。这可以用来收集关于恐慌的信息，以帮助恢复或向用户报告错误。
 - en: '![image](assets/f0371-03.png)'
+  id: totrans-200
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0371-03.png)'
 - en: Back when we introduced the `panic` function, we mentioned the type for its
     argument is `interface{}`, the empty interface, so that `panic` can accept any
     value. Likewise, the type for `recover`’s return value is also `interface{}`.
     You can pass `recover`’s return value to `fmt` functions like `Println` (which
     accept `interface{}` values), but you won’t be able to call methods on it directly.
+  id: totrans-201
   prefs: []
   type: TYPE_NORMAL
+  zh: 在我们介绍`panic`函数时，我们提到它的参数类型是`interface{}`，即空接口，因此`panic`可以接受任何值。同样，`recover`的返回值类型也是`interface{}`。您可以将`recover`的返回值传递给像`Println`（接受`interface{}`值）之类的`fmt`函数，但不能直接调用它的方法。
 - en: Here’s some code that passes an `error` value to `panic`. But in doing so, the
     `error` is converted to an `interface{}` value. When the deferred function calls
     `recover` later, that `interface{}` value is what’s returned. So even though the
     underlying `error` value has an `Error` method, attempting to call `Error` on
     the `interface{}` value results in a compile error.
+  id: totrans-202
   prefs: []
   type: TYPE_NORMAL
+  zh: 下面是一些代码，它将一个 `error` 值传递给 `panic`。但在这样做时，该 `error` 被转换为一个 `interface{}` 值。当延迟函数稍后调用
+    `recover` 时，将返回该 `interface{}` 值。因此，即使底层的 `error` 值具有 `Error` 方法，尝试在 `interface{}`
+    值上调用 `Error` 将导致编译错误。
 - en: '![image](assets/f0372-01.png)'
+  id: totrans-203
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0372-01.png)'
 - en: To call methods or do anything else with the panic value, you’ll need to convert
     it back to its underlying type using a type assertion.
+  id: totrans-204
   prefs: []
   type: TYPE_NORMAL
+  zh: 要调用方法或使用 panic 值进行其他操作，需要使用类型断言将其转换回其底层类型。
 - en: Here’s an update to the above code that takes the return value of `recover`
     and converts it back to an `error` value. Once that’s done, we can safely call
     the `Error` method.
+  id: totrans-205
   prefs: []
   type: TYPE_NORMAL
+  zh: 这里更新了上述代码，它获取 `recover` 的返回值并将其转换回 `error` 值。完成后，我们可以安全地调用 `Error` 方法。
 - en: '![image](assets/f0372-02.png)'
+  id: totrans-206
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0372-02.png)'
 - en: Recovering from panics in scanDirectory
+  id: totrans-207
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 在 scanDirectory 中从 panic 中恢复
 - en: When we last left our *files.go* program, adding a call to `panic` in the `scanDirectory`
     function cleaned up our error handling code, but it also caused the program to
     crash. We can take everything we’ve learned so far about `defer`, `panic`, and
     `recover` and use it to print an error message and exit the program gracefully.
+  id: totrans-208
   prefs: []
   type: TYPE_NORMAL
+  zh: 当我们最后离开 *files.go* 程序时，在 `scanDirectory` 函数中添加 `panic` 调用清理了我们的错误处理代码，但也导致程序崩溃。我们可以利用我们到目前为止学到的关于
+    `defer`、`panic` 和 `recover` 的知识来打印错误消息并优雅地退出程序。
 - en: We do this by adding a `reportPanic` function, which we’ll call using `defer`
     in `main`. We do this *before* calling `scanDirectory`, which could potentially
     panic.
+  id: totrans-209
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们通过添加一个 `reportPanic` 函数来实现这一点，在 `main` 函数中使用 `defer` 来调用它。我们在调用可能会导致 panic
+    的 `scanDirectory` 之前执行这一操作。
 - en: Within `reportPanic`, we call `recover` and store the panic value it returns.
     If the program is panicking, this will stop the panic.
+  id: totrans-210
   prefs: []
   type: TYPE_NORMAL
+  zh: 在 `reportPanic` 中，我们调用 `recover` 并存储它返回的 panic 值。如果程序正在 panic，这将停止 panic。
 - en: But when `reportPanic` is called, we *don’t* know whether the program is actually
     panicking or not. The deferred call to `reportPanic` will be made regardless of
     whether `scanDirectory` calls `panic` or not. So the first thing we do is test
     whether the panic value returned from `recover` is `nil`. If it is, it means there’s
     no panic, so we return from `reportPanic` without doing anything further.
+  id: totrans-211
   prefs: []
   type: TYPE_NORMAL
+  zh: 但当调用 `reportPanic` 时，我们*不知道*程序是否真的在 panic。无论 `scanDirectory` 是否调用了 `panic`，延迟调用
+    `reportPanic` 都会执行。因此，我们首先测试从 `recover` 返回的 panic 值是否为 `nil`。如果是，这意味着没有 panic，因此我们从
+    `reportPanic` 中返回而不执行进一步操作。
 - en: But if the panic value is *not* `nil`, it means there’s a panic, and we need
     to report it.
+  id: totrans-212
   prefs: []
   type: TYPE_NORMAL
+  zh: 但如果 panic 值 *不是* `nil`，这意味着发生了 panic，我们需要报告它。
 - en: Because `scanDirectory` passes an `error` value to `panic`, we use a type assertion
     to convert the `interface{}` panic value to an `error` value. If that conversion
     is successful, we print the `error` value.
+  id: totrans-213
   prefs: []
   type: TYPE_NORMAL
+  zh: 因为 `scanDirectory` 将一个 `error` 值传递给 `panic`，我们使用类型断言将 `interface{}` panic 值转换为
+    `error` 值。如果转换成功，我们打印 `error` 值。
 - en: With these changes in place, instead of an ugly panic log and stack trace, our
     users will simply see an error message!
+  id: totrans-214
   prefs: []
   type: TYPE_NORMAL
+  zh: 有了这些更改，我们的用户将不再看到丑陋的 panic 日志和堆栈跟踪，而只会看到一个错误消息！
 - en: '![image](assets/f0373-01.png)![image](assets/f0373-02.png)'
+  id: totrans-215
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0373-01.png)![image](assets/f0373-02.png)'
 - en: Reinstating a panic
+  id: totrans-216
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 恢复 panic
 - en: There’s one other potential issue with `reportPanic` that we need to address.
     Right now, it intercepts *any* panic, even ones that didn’t originate from `scanDirectory`.
     And if the panic value can’t be converted to an `error` type, `reportPanic` won’t
     print it.
+  id: totrans-217
   prefs: []
   type: TYPE_NORMAL
+  zh: '`reportPanic` 还有一个潜在问题需要解决。现在，它拦截 *任何* panic，即使这些 panic 并非源自 `scanDirectory`。如果
+    panic 值无法转换为 `error` 类型，`reportPanic` 就不会打印它。'
 - en: 'We can test this out by adding another call to `panic` within `main` using
     a `string` argument:'
+  id: totrans-218
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们可以通过在 `main` 函数中使用 `string` 参数再次调用 `panic` 来测试这一点：
 - en: '![image](assets/f0374-01.png)'
+  id: totrans-219
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0374-01.png)'
 - en: The `reportPanic` function recovers from the new panic, but because the panic
     value isn’t an `error`, `reportPanic` doesn’t print it. Our users are left wondering
     why the program failed!
+  id: totrans-220
   prefs: []
   type: TYPE_NORMAL
+  zh: '`reportPanic` 函数从新的 panic 中恢复，但由于 panic 值不是 `error`，因此 `reportPanic` 不会打印它。我们的用户不知道程序为什么失败了！'
 - en: A common strategy for dealing with unanticipated panics you’re not prepared
     to recover from is to simply renew the panic state. Panicking again is usually
     appropriate because, after all, this is an unanticipated situation.
+  id: totrans-221
   prefs: []
   type: TYPE_NORMAL
+  zh: 处理未预期的 panic 的常见策略是简单地重新引发 panic 状态。通常重新引发是合适的，因为毕竟这是一个未预期的情况。
 - en: The code at right updates `reportPanic` to handle unanticipated panics. If the
     type assertion to convert the panic value to an `error` succeeds, we simply print
     it as before. But if it fails, we simply call `panic` again with the same panic
     value.
+  id: totrans-222
   prefs: []
   type: TYPE_NORMAL
+  zh: 右侧代码更新了`reportPanic`以处理意外的 panic。如果类型断言成功将 panic 值转换为`error`，我们就像以前一样简单地打印它。但如果失败，我们只需再次调用`panic`并传入相同的
+    panic 值。
 - en: '![image](assets/f0374-02.png)'
+  id: totrans-223
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0374-02.png)'
 - en: 'Running *files.go* again shows that the fix works: `reportPanic` recovers from
     our test call to `panic`, but then panics again when the `error` type assertion
     fails. Now we can remove the call to `panic` in `main`, confident that any other
     unanticipated panics will be reported!'
+  id: totrans-224
   prefs: []
   type: TYPE_NORMAL
+  zh: 再次运行*files.go*显示修复效果：`reportPanic`从我们对`panic`的测试调用中恢复，但当`error`类型断言失败时，它会再次引发
+    panic。现在我们可以在`main`中移除对`panic`的调用，有信心地报告任何其他未预期的 panic！
 - en: '![image](assets/f0374-03.png)'
+  id: totrans-225
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0374-03.png)'
 - en: there are no Dumb Questions
+  id: totrans-226
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 没有愚蠢的问题
 - en: '**Q: I’ve seen other programming languages that have “exceptions.” The `panic`
     and `recover` functions seem to work in a similar way. Can I use them like exceptions?**'
+  id: totrans-227
   prefs: []
   type: TYPE_NORMAL
+  zh: '**Q: 我看到其他编程语言有“异常”。`panic`和`recover`函数似乎以类似的方式工作。我能像异常那样使用它们吗？**'
 - en: '**A:** We strongly recommend against it, and so do the Go language maintainers.
     It can even be said that using `panic` and `recover` is discouraged by the design
     of the language itself. In a conference keynote in 2012, Rob Pike (one of the
     creators of Go) described `panic` and `recover` as “intentionally clumsy.” That
     means that when designing Go, its creators didn’t try to make `panic` and `recover`
     easy or pleasant to use, so that they’d be used *less* often.'
+  id: totrans-228
   prefs: []
   type: TYPE_NORMAL
+  zh: '**A:** 我们强烈建议不要这样做，Go 语言的维护者们也是这样认为。甚至可以说，根据语言设计本身的原因，使用`panic`和`recover`是不被鼓励的。在2012年的一次会议主题演讲中，Rob
+    Pike（Go 的创始人之一）将`panic`和`recover`描述为“故意笨拙”。这意味着在设计 Go 语言时，其创作者们并没有试图让`panic`和`recover`易于使用或愉快，因此它们使用的频率会*较低*。'
 - en: 'This is the Go designers’ response to one of the major weaknesses of exceptions:
     they can make program flow much more complex. Instead, Go developers are encouraged
     to handle errors the exact same way they handle the other parts of their program:
@@ -1001,42 +1481,66 @@
     handle it later.) Dealing with errors directly also makes it immediately obvious
     how the error is handled—you don’t have to go look at a different part of the
     program to see the error handling code.'
+  id: totrans-229
   prefs: []
   type: TYPE_NORMAL
+  zh: 这是 Go 设计者们对异常的一个主要弱点做出的回应：异常可能会使程序流程变得更加复杂。相反，Go 开发者被鼓励以与处理程序其他部分相同的方式处理错误：通过`if`和`return`语句，以及`error`值。确实，直接在函数内部处理错误可能会使函数的代码略微变长，但这比根本不处理错误要好。（Go
+    的创建者发现许多使用异常的开发者会仅仅抛出异常，然后未能正确处理它。）直接处理错误也使得错误处理方式立即显而易见——你无需查看程序的其他部分来查看错误处理代码。
 - en: So don’t look for an equivalent to exceptions in Go. That feature has been left
     out, on purpose. It may require a period of adjustment for developers used to
     using exceptions, but the Go maintainers believe it makes for better software
     in the end.
+  id: totrans-230
   prefs: []
   type: TYPE_NORMAL
+  zh: 所以不要期待 Go 中与异常等效的功能。这个特性是有意遗漏的。对于习惯于使用异常的开发者来说，可能需要一段时间的适应，但 Go 的维护者们认为这样做最终会带来更好的软件。
 - en: Note
+  id: totrans-231
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: 'You can review a summary of Rob Pike’s talk at:'
+  id: totrans-232
   prefs: []
   type: TYPE_NORMAL
+  zh: 你可以在这里查看 Rob Pike 的演讲摘要：
 - en: '[https://talks.golang.org/2012/splash.article#TOC_16](https://talks.golang.org/2012/splash.article#TOC_16).'
+  id: totrans-233
   prefs: []
   type: TYPE_NORMAL
+  zh: '[https://talks.golang.org/2012/splash.article#TOC_16](https://talks.golang.org/2012/splash.article#TOC_16).'
 - en: Your Go Toolbox
+  id: totrans-234
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 你的 Go 工具箱
 - en: '**That’s it for [Chapter 12](#back_on_your_feetcolon_recovering_from_f)! You’ve
     added deferred function calls and recovery from panics to your toolbox.**'
+  id: totrans-235
   prefs: []
   type: TYPE_NORMAL
+  zh: '**这就是[第12章](#back_on_your_feetcolon_recovering_from_f)的全部内容！你已经将延迟函数调用和从 panic
+    中恢复添加到了你的工具箱中。**'
 - en: '![image](assets/f0376-01.png)![image](assets/f0376-02.png)'
+  id: totrans-236
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0376-01.png)![image](assets/f0376-02.png)'
 - en: Code Magnets Solution
+  id: totrans-237
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: Code Magnets Solution
 - en: '[PRE0]'
+  id: totrans-238
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE0]'
 - en: '![image](assets/f0377-01.png)'
+  id: totrans-239
   prefs: []
   type: TYPE_IMG
+  zh: '![image](assets/f0377-01.png)'

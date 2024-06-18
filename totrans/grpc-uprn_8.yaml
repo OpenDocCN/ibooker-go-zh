@@ -1,29 +1,42 @@
 - en: Chapter 8\. The gRPC Ecosystem
+  id: totrans-0
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 第 8 章\. gRPC 生态系统
 - en: In this chapter, we’ll explore some of the projects that are not part of the
     core gRPC implementation but could be quite useful in building and running gRPC
     applications for a real-world use case. These projects are part of the gRPC Ecosystem
     parent project, and none of the technologies mentioned here are mandatory to run
     gRPC applications. If you have a similar requirement that a given project offers,
     explore and evaluate those technologies.
+  id: totrans-1
   prefs: []
   type: TYPE_NORMAL
+  zh: 在本章中，我们将探讨一些不属于核心 gRPC 实现但在构建和运行真实用例的 gRPC 应用程序中可能非常有用的项目。这些项目是 gRPC 生态系统父项目的一部分，这里提到的技术都不是运行
+    gRPC 应用程序的强制要求。如果您有类似的需求，可以探索和评估这些技术。
 - en: Let’s begin our discussion with the gRPC gateway.
+  id: totrans-2
   prefs: []
   type: TYPE_NORMAL
+  zh: 让我们从 gRPC 网关开始讨论。
 - en: gRPC Gateway
+  id: totrans-3
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: gRPC 网关
 - en: The gRPC gateway plug-in enables the protocol buffer compiler to read the gRPC
     service definition and generate a reverse proxy server, which translates a RESTful
     JSON API into gRPC. This is specifically written for Go, to support invoking gRPC
     service from both gRPC and HTTP client applications. [Figure 8-1](#grpc_gateway)illustrates
     how it provides the ability to invoke gRPC service in both gRPC and RESTful ways.
+  id: totrans-4
   prefs: []
   type: TYPE_NORMAL
+  zh: gRPC 网关插件使协议缓冲编译器能够读取 gRPC 服务定义并生成反向代理服务器，将 RESTful JSON API 转换为 gRPC。这是专门为
+    Go 编写的，支持从 gRPC 和 HTTP 客户端应用程序调用 gRPC 服务。[图 8-1](#grpc_gateway) 说明了它如何提供在 gRPC
+    和 RESTful 方式中调用 gRPC 服务的能力。
 - en: As shown in the figure, we have a `ProductInfo` service contract and using the
     contract we build a gRPC service called `ProductInfoService`. Earlier we built
     a gRPC client to talk with this gRPC service. But here, instead of building a
@@ -33,415 +46,630 @@
     and calls the remote method in the backend service. The response message from
     the backend server again converts back to an HTTP response and replies to the
     client.
+  id: totrans-5
   prefs: []
   type: TYPE_NORMAL
+  zh: 如图所示，我们有一个 `ProductInfo` 服务合同，并使用该合同构建了一个名为 `ProductInfoService` 的 gRPC 服务。之前我们构建了一个
+    gRPC 客户端来与此 gRPC 服务通信。但是在这里，我们将构建一个反向代理服务，为 gRPC 服务中的每个远程方法提供 RESTful API，并接受来自
+    REST 客户端的 HTTP 请求。一旦收到 HTTP 请求，它将请求转换为 gRPC 消息，并调用后端服务中的远程方法。来自后端服务器的响应消息再次转换为
+    HTTP 响应并回复给客户端。
 - en: '![gRPC gateway](assets/grpc_0801.png)'
+  id: totrans-6
   prefs: []
   type: TYPE_IMG
+  zh: '![gRPC 网关](assets/grpc_0801.png)'
 - en: Figure 8-1\. gRPC gateway
+  id: totrans-7
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 8-1\. gRPC 网关
 - en: To generate a reverse proxy service for the service definition, we first need
     to map the gRPC methods to the HTTP resources by updating the service definition.
     Let’s get the same `ProductInfo` service definition we created, to add mapping
     entries. [Example 8-1](#EX8-1) shows the updated protocol buffer definition.
+  id: totrans-8
   prefs: []
   type: TYPE_NORMAL
+  zh: 要为服务定义生成反向代理服务，首先需要通过更新服务定义将 gRPC 方法映射到 HTTP 资源。让我们使用之前创建的 `ProductInfo` 服务定义，添加映射条目。[示例 8-1](#EX8-1)
+    显示了更新后的协议缓冲区定义。
 - en: Example 8-1\. Updates protocol buffer definition of ProductInfo service
+  id: totrans-9
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 8-1\. 更新了 ProductInfo 服务的协议缓冲区定义
 - en: '[PRE0]'
+  id: totrans-10
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE0]'
 - en: '[![1](assets/1.png)](#co_the_grpc_ecosystem_CO1-1)'
+  id: totrans-11
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_the_grpc_ecosystem_CO1-1)'
 - en: Import the *google/api/annotations.proto* proto file to add annotation support
     to the protocol definition.
+  id: totrans-12
   prefs: []
   type: TYPE_NORMAL
+  zh: 导入 *google/api/annotations.proto* proto 文件以向协议定义添加注解支持。
 - en: '[![2](assets/2.png)](#co_the_grpc_ecosystem_CO1-2)'
+  id: totrans-13
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_the_grpc_ecosystem_CO1-2)'
 - en: Add gRPC/HTTP mapping to the `addProduct` method. Specify the URL path template
     (`/v1/product`), the HTTP method (“post”), and what the message body looks like.
     `*` is used in the body mapping to define that every field not bound by the path
     template should be mapped to the request body.
+  id: totrans-14
   prefs: []
   type: TYPE_NORMAL
+  zh: 将 gRPC/HTTP 映射添加到 `addProduct` 方法。指定 URL 路径模板 (`/v1/product`)、HTTP 方法 (`post`)
+    和消息体的结构。在消息体映射中使用 `*` 来定义未被路径模板绑定的每个字段应映射到请求体中。
 - en: '[![3](assets/3.png)](#co_the_grpc_ecosystem_CO1-3)'
+  id: totrans-15
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_the_grpc_ecosystem_CO1-3)'
 - en: Add gRPC/HTTP mapping to the `getProduct` method. Here it is a GET method with
     the URL path template as `/v1/product/{value}` and the `ProductID` passed as the
     path parameter.
+  id: totrans-16
   prefs: []
   type: TYPE_NORMAL
+  zh: 将 gRPC/HTTP 映射添加到 `getProduct` 方法。这是一个 GET 方法，URL 路径模板为 `/v1/product/{value}`，并将
+    `ProductID` 作为路径参数传递。
 - en: 'There are additional rules we need to know when we are mapping gRPC methods
     to HTTP resources. A few important rules are listed next. You can refer to the
     [Google API Documentation](https://oreil.ly/iYyZC) for more details about HTTP
     to gRPC mapping:'
+  id: totrans-17
   prefs: []
   type: TYPE_NORMAL
+  zh: 当我们映射gRPC方法到HTTP资源时，我们需要了解更多的附加规则。下面列出了一些重要的规则。您可以参考[Google API文档](https://oreil.ly/iYyZC)了解有关HTTP到gRPC映射的更多详细信息。
 - en: Each mapping needs to specify a URL path template and an HTTP method.
+  id: totrans-18
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 每个映射都需要指定一个URL路径模板和一个HTTP方法。
 - en: The path template can contain one or more fields in the gRPC request message.
     But those fields should be nonrepeated fields with primitive types.
+  id: totrans-19
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 路径模板可以包含gRPC请求消息中的一个或多个字段。但这些字段应该是具有原始类型的非重复字段。
 - en: Any fields in the request message that are not in the path template automatically
     become HTTP query parameters if there is no HTTP request body.
+  id: totrans-20
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 如果没有HTTP请求体，请求消息中的任何字段都将自动成为HTTP查询参数，如果没有路径模板。
 - en: Fields that are mapped to URL query parameters should be either a primitive
     type or a repeated primitive type or a nonrepeated message type.
+  id: totrans-21
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 映射到URL查询参数的字段应该是原始类型、重复的原始类型或非重复的消息类型之一。
 - en: For a repeated field type in query parameters, the parameter can be repeated
     in the URL as `...?param=A&param=B`.
+  id: totrans-22
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 对于查询参数中的重复字段类型，参数可以在URL中重复显示为`...?param=A&param=B`。
 - en: For a message type in query parameters, each field of the message is mapped
     to a separate parameter, such as `...?foo.a=A&foo.b=B&foo.c=C`.
+  id: totrans-23
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 对于查询参数中的消息类型，消息的每个字段都映射到一个单独的参数，如`...?foo.a=A&foo.b=B&foo.c=C`。
 - en: Once we write the service definition, we need to compile it using the protocol
     buffer compiler and generate a source code of reverse proxy service. Let’s talk
     about how to generate code and implement the server in the Go language.
+  id: totrans-24
   prefs: []
   type: TYPE_NORMAL
+  zh: 一旦编写了服务定义，我们需要使用协议缓冲编译器对其进行编译，并生成反向代理服务的源代码。让我们来讨论如何在Go语言中生成代码并实现服务器。
 - en: 'Before we can compile the service definition, we need to get a few dependent
     packages. Use the following command to download the packages:'
+  id: totrans-25
   prefs: []
   type: TYPE_NORMAL
+  zh: 在我们能够编译服务定义之前，我们需要获取一些依赖包。使用以下命令下载这些包：
 - en: '[PRE1]'
+  id: totrans-26
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE1]'
 - en: 'After downloading the packages, execute the following command to compile the
     service definition (*product_info.proto*) and to generate the stub:'
+  id: totrans-27
   prefs: []
   type: TYPE_NORMAL
+  zh: 下载完依赖包后，执行以下命令编译服务定义（*product_info.proto*）并生成存根：
 - en: '[PRE2]'
+  id: totrans-28
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE2]'
 - en: Once we execute the command, it will generate a stub (*product_info.pb.go*)
     in the same location. Apart from the generated stub, we also need to create a
     reverse proxy service to support RESTful client invocation. This reverse proxy
     service can be generated by the gateway plug-in supported in the Go compiler.
+  id: totrans-29
   prefs: []
   type: TYPE_NORMAL
+  zh: 一旦执行该命令，它将在相同位置生成一个存根（*product_info.pb.go*）。除了生成的存根外，我们还需要创建一个反向代理服务来支持RESTful客户端调用。这个反向代理服务可以通过Go编译器支持的网关插件来生成。
 - en: Note
+  id: totrans-30
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: The gRPC gateway is only supported in Go, which means we cannot compile and
     generate a reverse proxy service for the gRPC gateway in other languages.
+  id: totrans-31
   prefs: []
   type: TYPE_NORMAL
+  zh: gRPC网关仅在Go中支持，这意味着我们无法在其他语言中编译并生成gRPC网关的反向代理服务。
 - en: 'Let’s generate a reverse proxy service from service definition by executing
     the following command:'
+  id: totrans-32
   prefs: []
   type: TYPE_NORMAL
+  zh: 让我们通过执行以下命令从服务定义生成一个反向代理服务：
 - en: '[PRE3]'
+  id: totrans-33
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE3]'
 - en: Once we execute the command, it will generate a reverse proxy service (*product_info.pb.gw.go*)
     in the same location.
+  id: totrans-34
   prefs: []
   type: TYPE_NORMAL
+  zh: 一旦执行该命令，它将在相同位置生成一个反向代理服务（*product_info.pb.gw.go*）。
 - en: Let’s create the listener endpoint for the HTTP server and run the reverse proxy
     service we just created. [Example 8-2](#EX8-2) illustrates how to create a new
     server instance and register the service to listen to the inbound HTTP requests.
+  id: totrans-35
   prefs: []
   type: TYPE_NORMAL
+  zh: 让我们为HTTP服务器创建监听端点，并运行我们刚刚创建的反向代理服务。[示例 8-2](#EX8-2)展示了如何创建一个新的服务器实例并注册服务以监听传入的HTTP请求。
 - en: Example 8-2\. HTTP reverse proxy in Go language
+  id: totrans-36
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 8-2\. Go语言中的HTTP反向代理
 - en: '[PRE4]'
+  id: totrans-37
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE4]'
 - en: '[![1](assets/1.png)](#co_the_grpc_ecosystem_CO2-1)'
+  id: totrans-38
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_the_grpc_ecosystem_CO2-1)'
 - en: Import the package to where the generated reverse-proxy code exists.
+  id: totrans-39
   prefs: []
   type: TYPE_NORMAL
+  zh: 导入到生成的反向代理代码所在的包。
 - en: '[![2](assets/2.png)](#co_the_grpc_ecosystem_CO2-2)'
+  id: totrans-40
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_the_grpc_ecosystem_CO2-2)'
 - en: Specify the gRPC server endpoint URL. Make sure the backend gRPC server is running
     properly in the mentioned endpoint. Here we used the same gRPC service created
     in [Chapter 2](ch02.html#ch_02).
+  id: totrans-41
   prefs: []
   type: TYPE_NORMAL
+  zh: 指定gRPC服务器端点URL。确保后端gRPC服务器在所述端点上正常运行。这里我们使用了同一章中创建的gRPC服务 [Chapter 2](ch02.html#ch_02)。
 - en: '[![3](assets/3.png)](#co_the_grpc_ecosystem_CO2-3)'
+  id: totrans-42
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_the_grpc_ecosystem_CO2-3)'
 - en: Register the gRPC server endpoint with the proxy handler. At runtime, the request
     multiplexer matches HTTP requests to patterns and invokes the corresponding handler.
+  id: totrans-43
   prefs: []
   type: TYPE_NORMAL
+  zh: 将 gRPC 服务器端点注册到代理处理程序。在运行时，请求多路复用器将 HTTP 请求与模式进行匹配，并调用相应的处理程序。
 - en: '[![4](assets/4.png)](#co_the_grpc_ecosystem_CO2-4)'
+  id: totrans-44
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![4](assets/4.png)](#co_the_grpc_ecosystem_CO2-4)'
 - en: Start listening to the HTTP requests on the port (8081).
+  id: totrans-45
   prefs: []
   type: TYPE_NORMAL
+  zh: 监听端口（8081）上的 HTTP 请求。
 - en: Once we build an HTTP reverse-proxy server, we can test it by running both the
     gRPC server and the HTTP server. In this case, the gRPC server is listening on
     port 50051 and the HTTP server is listening on port 8081.
+  id: totrans-46
   prefs: []
   type: TYPE_NORMAL
+  zh: 一旦我们建立了 HTTP 反向代理服务器，我们可以通过同时运行 gRPC 服务器和 HTTP 服务器来测试它。在这种情况下，gRPC 服务器监听端口 50051，HTTP
+    服务器监听端口 8081。
 - en: 'Let’s make a few HTTP requests from curl and observe the behavior:'
+  id: totrans-47
   prefs: []
   type: TYPE_NORMAL
+  zh: 让我们使用 curl 发出几个 HTTP 请求并观察其行为：
 - en: Add a new product to the `ProductInfo` service.
+  id: totrans-48
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 向 `ProductInfo` 服务添加新产品。
 - en: '[PRE5]'
+  id: totrans-49
   prefs:
   - PREF_IND
   type: TYPE_PRE
+  zh: '[PRE5]'
 - en: 'Get the existing product using `ProductID`:'
+  id: totrans-50
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 使用 `ProductID` 获取现有产品：
 - en: '[PRE6]'
+  id: totrans-51
   prefs:
   - PREF_IND
   type: TYPE_PRE
+  zh: '[PRE6]'
 - en: 'Added to the reverse proxy service, the gRPC gateway also supports generating
     the swagger definition of the reverse proxy service by executing the following
     command:'
+  id: totrans-52
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 添加到反向代理服务中，gRPC 网关还支持通过执行以下命令生成反向代理服务的 swagger 定义：
 - en: '[PRE7]'
+  id: totrans-53
   prefs:
   - PREF_IND
   type: TYPE_PRE
+  zh: '[PRE7]'
 - en: 'Once we execute the command, it generates a swagger definition for the reverse
     proxy service (*product_info.swagger.json*) in the same location. For our `ProductInfo`
     service, generated swagger definition looks like this:'
+  id: totrans-54
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 一旦我们执行该命令，它将在相同位置为反向代理服务生成一个 swagger 定义文件（*product_info.swagger.json*）。对于我们的
+    `ProductInfo` 服务，生成的 swagger 定义看起来像这样：
 - en: '[PRE8]'
+  id: totrans-55
   prefs:
   - PREF_IND
   type: TYPE_PRE
+  zh: '[PRE8]'
 - en: So now we have implemented the HTTP reverse proxy service for our gRPC service
     using the gRPC gateway. This way we can expose our gRPC server to use in HTTP
     client applications. You can get more information about gateway implementation
     from the [gRPC gateway repository](https://oreil.ly/rN1WK).
+  id: totrans-56
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在我们已经使用 gRPC 网关实现了 gRPC 服务的 HTTP 反向代理服务。通过这种方式，我们可以将我们的 gRPC 服务器暴露给 HTTP 客户端应用程序使用。您可以从
+    [gRPC 网关存储库](https://oreil.ly/rN1WK) 获取有关网关实现的更多信息。
 - en: As we mentioned earlier, the gRPC gateway is only supported in Go. The same
     concept is also known as HTTP/JSON transcoding. Let’s talk more about HTTP/JSON
     transcoding in the next section.
+  id: totrans-57
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如我们之前提到的，gRPC 网关仅在 Go 中受支持。相同的概念也称为 HTTP/JSON 转码。让我们在下一节中更详细地讨论 HTTP/JSON 转码。
 - en: HTTP/JSON Transcoding for gRPC
+  id: totrans-58
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: gRPC 的 HTTP/JSON 转码
 - en: '*Transcoding* is the process of translating HTTP JSON calls to RPC calls and
     passing them to the gRPC service. This is useful when the client applications
     don’t have support for gRPC and need to provide access to talk to the gRPC service
     via JSON over HTTP. There is a library written in C++ languages to support the
     HTTP/JSON transcoding called grpc-httpjson-transcoding, and it is currently used
     in [Istio](https://oreil.ly/vWllM) and [Google cloud endpoint](https://oreil.ly/KR5_X).'
+  id: totrans-59
   prefs: []
   type: TYPE_NORMAL
+  zh: '*转码* 是将 HTTP JSON 调用转换为 RPC 调用并传递给 gRPC 服务的过程。当客户端应用程序不支持 gRPC 并需要通过 JSON over
+    HTTP 提供访问 gRPC 服务时，这非常有用。有一个用 C++ 语言编写的库来支持 HTTP/JSON 转码，称为 grpc-httpjson-transcoding，目前在
+    [Istio](https://oreil.ly/vWllM) 和 [Google Cloud Endpoint](https://oreil.ly/KR5_X)
+    中使用。'
 - en: The [Envoy proxy](https://oreil.ly/33hyY) also supports transcoding by providing
     an HTTP/JSON interface to the gRPC service. Similar to the gRPC gateway, we need
     to provide the service definition with HTTP mapping for the gRPC service. It uses
     the same mapping rules specified in the [Google API documentation](https://oreil.ly/H6ysW).
     So the service definition we modified in [Example 8-1](#EX8-1) can also be applied
     to the HTTP/JSON transcoding.
+  id: totrans-60
   prefs: []
   type: TYPE_NORMAL
+  zh: '[Envoy 代理](https://oreil.ly/33hyY) 也通过为 gRPC 服务提供 HTTP/JSON 接口来支持转码。类似于 gRPC
+    网关，我们需要为 gRPC 服务提供 HTTP 映射的服务定义。它使用在 [Google API 文档](https://oreil.ly/H6ysW) 中指定的相同映射规则。因此，我们在
+    [Example 8-1](#EX8-1) 中修改的服务定义也可以应用于 HTTP/JSON 转码。'
 - en: 'For example, the `Product Info` service’s `getProduct` method is defined in
     the *.proto* file with its request and response types like the following:'
+  id: totrans-61
   prefs: []
   type: TYPE_NORMAL
+  zh: 例如，`Product Info` 服务的 `getProduct` 方法在 *.proto* 文件中定义，其请求和响应类型如下：
 - en: '[PRE9]'
+  id: totrans-62
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE9]'
 - en: If a client calls this method by sending a GET to the URL http://localhost:8081/v1/product/2,
     the proxy server creates a *google.protobuf.StringValue* with a value of 2 and
     then calls the gRPC method `getProduct()` with it. The gRPC backend then returns
     the requested `Product` with the ID 2, which the proxy server converts to JSON
     format and returns to the client.
+  id: totrans-63
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果客户端通过向URL http://localhost:8081/v1/product/2 发送 GET 请求调用此方法，则代理服务器将创建一个值为
+    2 的*google.protobuf.StringValue*，然后调用带有此值的 gRPC 方法`getProduct()`。 gRPC 后端然后返回
+    ID 为 2 的请求的`Product`，代理服务器将其转换为 JSON 格式并返回给客户端。
 - en: Now that we’ve covered HTTP/JSON transcoding, in the next section, we’ll discuss
     another important concept, called gRPC server reflection.
+  id: totrans-64
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在我们已经介绍了 HTTP/JSON 转码，下一节我们将讨论另一个重要的概念，即 gRPC 服务器反射。
 - en: The gRPC Server Reflection Protocol
+  id: totrans-65
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: gRPC 服务器反射协议
 - en: '*Server reflection* is a service defined on a gRPC server that provides information
     about publicly accessible gRPC services on that server. In simple terms, server
     reflection provides service definitions of the services registered on a server
     to the client application. So the client doesn’t need precompiled service definitions
     to communicate with the services.'
+  id: totrans-66
   prefs: []
   type: TYPE_NORMAL
+  zh: '*服务器反射*是在 gRPC 服务器上定义的一项服务，它提供有关该服务器上公开访问的 gRPC 服务的信息。简单来说，服务器反射为客户端应用程序提供了在服务器上注册的服务的服务定义。因此，客户端不需要预编译的服务定义来与服务通信。'
 - en: As we discussed in [Chapter 2](ch02.html#ch_02), for the client application
     to connect and communicate with the gRPC service, it must have the service definition
     of that service. We first need to compile the service definition and generate
     the corresponding client stub. Then we need to create client application calling
     methods of the stub. With the gRPC server reflection, we don’t need to precompile
     service definitions to communicate with the service.
+  id: totrans-67
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如我们在[第 2 章](ch02.html#ch_02)中讨论的那样，要使客户端应用程序能够连接并与 gRPC 服务通信，它必须具有该服务的服务定义。我们首先需要编译服务定义并生成相应的客户端存根。然后，我们需要创建调用存根方法的客户端应用程序。使用
+    gRPC 服务器反射，我们不需要预编译服务定义来与服务通信。
 - en: The service reflection is useful when we build a command-line (CLI) tool for
     debugging the gRPC server. We don’t need to provide service definitions for the
     tool, but instead we provide the method and the text payload. It sends the binary
     payload to the server and takes the response back to the user in a human-readable
     format. In order to use service reflection, we first need to enable it on the
     server side. [Example 8-3](#EX8-3) illustrates how to enable server reflection.
+  id: totrans-68
   prefs: []
   type: TYPE_NORMAL
+  zh: 当我们构建用于调试 gRPC 服务器的命令行（CLI）工具时，服务反射非常有用。我们不需要为工具提供服务定义，而是提供方法和文本负载。它将二进制负载发送到服务器，并以人类可读的格式将响应返回给用户。为了使用服务反射，我们首先需要在服务器端启用它。[示例 8-3](#EX8-3)演示了如何启用服务器反射。
 - en: Example 8-3\. Enable server reflection in the gRPC Go server
+  id: totrans-69
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 8-3\. 在 gRPC Go 服务器中启用服务器反射
 - en: '[PRE10]'
+  id: totrans-70
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE10]'
 - en: '[![1](assets/1.png)](#co_the_grpc_ecosystem_CO3-1)'
+  id: totrans-71
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_the_grpc_ecosystem_CO3-1)'
 - en: Import the reflection package to access reflection APIs.
+  id: totrans-72
   prefs: []
   type: TYPE_NORMAL
+  zh: 导入反射包以访问反射 API。
 - en: '[![2](assets/2.png)](#co_the_grpc_ecosystem_CO3-2)'
+  id: totrans-73
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_the_grpc_ecosystem_CO3-2)'
 - en: Register reflection service on your gRPC server.
+  id: totrans-74
   prefs: []
   type: TYPE_NORMAL
+  zh: 在您的 gRPC 服务器上注册反射服务。
 - en: After enabling server reflection in your server application, you can use the
     gRPC CLI tool to check your server.
+  id: totrans-75
   prefs: []
   type: TYPE_NORMAL
+  zh: 在您的服务器应用程序中启用服务器反射后，您可以使用 gRPC CLI 工具检查您的服务器。
 - en: Note
+  id: totrans-76
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: The gRPC CLI tool comes with the gRPC repository. It supports many functionalities,
     such as the list server services and methods, and sending and receiving RPC calls
     with metadata. As of this writing, you need to build the tool from the source
     code. For details on how to build and use the tool, refer to the [gRPC CLI tool
     repository](https://oreil.ly/jYl0h).
+  id: totrans-77
   prefs: []
   type: TYPE_NORMAL
+  zh: gRPC CLI 工具随 gRPC 仓库提供。它支持许多功能，例如列出服务器服务和方法，并带有元数据发送和接收 RPC 调用。截至撰写本文时，您需要从源代码构建此工具。有关如何构建和使用该工具的详细信息，请参阅[gRPC
+    CLI 工具仓库](https://oreil.ly/jYl0h)。
 - en: Once you build the gRPC CLI tool from the [source code](https://github.com/grpc/grpc),
     you can use it to check services. Let’s try to understand this using our product
     management service that we built in [Chapter 2](ch02.html#ch_02). Once you start
     the gRPC server of the product management service, then you can run the CLI tool
     to retrieve the service information.
+  id: totrans-78
   prefs: []
   type: TYPE_NORMAL
+  zh: 一旦您从[源代码](https://github.com/grpc/grpc)构建了 gRPC CLI 工具，您可以使用它来检查服务。让我们尝试通过我们在[第
+    2 章](ch02.html#ch_02)中构建的产品管理服务来理解这一点。一旦启动产品管理服务的 gRPC 服务器，您就可以运行 CLI 工具来检索服务信息。
 - en: 'Here are the actions that you can execute from the CLI tool:'
+  id: totrans-79
   prefs: []
   type: TYPE_NORMAL
+  zh: 以下是您可以从 CLI 工具执行的操作：
 - en: List services
+  id: totrans-80
   prefs: []
   type: TYPE_NORMAL
+  zh: 列出服务
 - en: 'Run the following command to list all public services in endpoint `localhost:50051`:'
+  id: totrans-81
   prefs: []
   type: TYPE_NORMAL
+  zh: 运行以下命令以列出端点`localhost:50051`中的所有公共服务：
 - en: '[PRE11]'
+  id: totrans-82
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE11]'
 - en: List service details
+  id: totrans-83
   prefs: []
   type: TYPE_NORMAL
+  zh: 列出服务详细信息
 - en: 'Run the following command by giving the service’s full name (in the format
     of <package>.<service>) to inspect the service:'
+  id: totrans-84
   prefs: []
   type: TYPE_NORMAL
+  zh: 通过提供服务的全名（格式为<package>.<service>）运行以下命令以检查服务：
 - en: '[PRE12]'
+  id: totrans-85
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE12]'
 - en: List method details
+  id: totrans-86
   prefs: []
   type: TYPE_NORMAL
+  zh: 列出方法详细信息
 - en: 'Run the following command by giving the method’s full name (in the format of
     <package>.<service>.<method>) to method details:'
+  id: totrans-87
   prefs: []
   type: TYPE_NORMAL
+  zh: 通过提供方法的全名（格式为<package>.<service>.<method>）来获取方法详细信息：
 - en: '[PRE13]'
+  id: totrans-88
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE13]'
 - en: Inspect message types
+  id: totrans-89
   prefs: []
   type: TYPE_NORMAL
+  zh: 检查消息类型
 - en: 'Run the following commands by giving the full name of the message type (in
     the format of <package>.<type>) to inspect the message type:'
+  id: totrans-90
   prefs: []
   type: TYPE_NORMAL
+  zh: 运行以下命令，通过提供消息类型的全名（格式为<package>.<type>）来检查消息类型：
 - en: '[PRE14]'
+  id: totrans-91
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE14]'
 - en: Call remote methods
+  id: totrans-92
   prefs: []
   type: TYPE_NORMAL
+  zh: 调用远程方法
 - en: 'Run the following commands to send remote calls to the server and get the response:'
+  id: totrans-93
   prefs: []
   type: TYPE_NORMAL
+  zh: 运行以下命令以向服务器发送远程调用并获取响应：
 - en: 'Call the `addProduct` method in the `ProductInfo` service:'
+  id: totrans-94
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 调用`ProductInfo`服务中的`addProduct`方法：
 - en: '[PRE15]'
+  id: totrans-95
   prefs:
   - PREF_IND
   type: TYPE_PRE
+  zh: '[PRE15]'
 - en: 'Call `getProduct` method in the `ProductInfo` service:'
+  id: totrans-96
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 调用`ProductInfo`服务中的`getProduct`方法：
 - en: '[PRE16]'
+  id: totrans-97
   prefs:
   - PREF_IND
   type: TYPE_PRE
+  zh: '[PRE16]'
 - en: Now we can enable server reflection in the gRPC Go server and test it using
     the CLI tool. We can also enable server reflection in our gRPC Java server. If
     you are more familiar with Java, you can refer to the Java samples in the source
     code repository.
+  id: totrans-98
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在我们可以在 gRPC Go 服务器中启用服务器反射，并使用 CLI 工具进行测试。我们还可以在我们的 gRPC Java 服务器中启用服务器反射。如果您更熟悉
+    Java，可以参考源代码存储库中的 Java 示例。
 - en: Let’s discuss another interesting concept called gRPC middleware.
+  id: totrans-99
   prefs: []
   type: TYPE_NORMAL
+  zh: 让我们讨论另一个有趣的概念，称为 gRPC 中间件。
 - en: gRPC Middleware
+  id: totrans-100
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: gRPC 中间件
 - en: In basic terms, the *middleware* is a software component in a distributed system
     that is used to connect different components to route requests generated by the
     client to the backend server. In [gRPC Middleware](https://oreil.ly/EqnCQ), we
     are also talking about running code before and after the gRPC server or client
     application.
+  id: totrans-101
   prefs: []
   type: TYPE_NORMAL
+  zh: 在基本术语中，*中间件*是分布式系统中的软件组件，用于连接不同的组件，将客户端生成的请求路由到后端服务器。在[gRPC中间件](https://oreil.ly/EqnCQ)中，我们还讨论了在
+    gRPC 服务器或客户端应用程序之前和之后运行代码的情况。
 - en: In fact, gRPC middleware is based on the *interceptor* concept that we learned
     in [Chapter 5](ch05.html#ch_05). It’s a Go-based collection of interceptors, helpers,
     and utils that you will require when building gRPC-based applications. It allows
@@ -452,146 +680,234 @@
     for Go. In [Example 8-4](#EX8-4), we have shown the common usage of the gRPC Middleware
     package. Here we have used it for applying multiple interceptors for both unary
     and streaming messaging.
+  id: totrans-102
   prefs: []
   type: TYPE_NORMAL
+  zh: 实际上，gRPC 中间件基于我们在[第5章](ch05.html#ch_05)学到的*拦截器*概念。它是一个基于 Go 的拦截器、辅助函数和实用工具的集合，在构建基于
+    gRPC 的应用程序时需要这些工具。它允许您在客户端或服务器端应用多个拦截器作为拦截器链。此外，由于拦截器通常用于实现常见模式，如认证、日志记录、消息验证、重试或监控，因此
+    gRPC 中间件项目作为 Go 的这些可重用功能的首选点。在[示例8-4](#EX8-4)中，我们展示了 gRPC 中间件包的常见用法。在这里，我们用它来为一元和流式消息应用多个拦截器。
 - en: Example 8-4\. interceptor chaining at the server side with Go gRPC Middleware
+  id: totrans-103
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例8-4。在 Go gRPC 中间件中服务器端的拦截器链
 - en: '[PRE17]'
+  id: totrans-104
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE17]'
 - en: '[![1](assets/1.png)](#co_the_grpc_ecosystem_CO4-1)'
+  id: totrans-105
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_the_grpc_ecosystem_CO4-1)'
 - en: Add a unary interceptor chain for the server.
+  id: totrans-106
   prefs: []
   type: TYPE_NORMAL
+  zh: 为服务器添加一元拦截器链。
 - en: '[![2](assets/2.png)](#co_the_grpc_ecosystem_CO4-2)'
+  id: totrans-107
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_the_grpc_ecosystem_CO4-2)'
 - en: Add a streaming interceptor chain for the server.
+  id: totrans-108
   prefs: []
   type: TYPE_NORMAL
+  zh: 为服务器添加流式拦截器链。
 - en: 'The interceptors are invoked in the same order that they have registered with
     the Go gRPC Middleware. The project also offers some reusable interceptors for
     common patterns. Here are some of those common patterns and interceptor implementations:'
+  id: totrans-109
   prefs: []
   type: TYPE_NORMAL
+  zh: 拦截器按照它们在 Go gRPC 中间件中注册的顺序被调用。该项目还为常见模式提供了一些可重用的拦截器。以下是一些常见模式和拦截器实现：
 - en: Auth
+  id: totrans-110
   prefs: []
   type: TYPE_NORMAL
+  zh: 认证
 - en: '`grpc_auth`'
+  id: totrans-111
   prefs: []
   type: TYPE_NORMAL
+  zh: '`grpc_auth`'
 - en: A customizable (via `AuthFunc`) piece of auth middleware.
+  id: totrans-112
   prefs: []
   type: TYPE_NORMAL
+  zh: 可定制的（通过`AuthFunc`）认证中间件。
 - en: Logging
+  id: totrans-113
   prefs: []
   type: TYPE_NORMAL
+  zh: 日志记录
 - en: '`grpc_ctxtags`'
+  id: totrans-114
   prefs: []
   type: TYPE_NORMAL
+  zh: '`grpc_ctxtags`'
 - en: A library that adds a Tag map to context, with data populated from the request
     body.
+  id: totrans-115
   prefs: []
   type: TYPE_NORMAL
+  zh: 一个将标签映射添加到上下文中的库，数据来自请求体。
 - en: '`grpc_zap`'
+  id: totrans-116
   prefs: []
   type: TYPE_NORMAL
+  zh: '`grpc_zap`'
 - en: Integration of zap logging library into gRPC handlers.
+  id: totrans-117
   prefs: []
   type: TYPE_NORMAL
+  zh: 将zap日志库集成到gRPC处理程序中。
 - en: '`grpc_logrus`'
+  id: totrans-118
   prefs: []
   type: TYPE_NORMAL
+  zh: '`grpc_logrus`'
 - en: Integration of logrus logging library into gRPC handlers.
+  id: totrans-119
   prefs: []
   type: TYPE_NORMAL
+  zh: 将logrus日志库集成到gRPC处理程序中。
 - en: Monitoring
+  id: totrans-120
   prefs: []
   type: TYPE_NORMAL
+  zh: 监控
 - en: '`grpc_prometheus`'
+  id: totrans-121
   prefs: []
   type: TYPE_NORMAL
+  zh: '`grpc_prometheus`'
 - en: Prometheus client-side and server-side monitoring middleware.
+  id: totrans-122
   prefs: []
   type: TYPE_NORMAL
+  zh: Prometheus客户端和服务器端监控中间件。
 - en: '`grpc_opentracing`'
+  id: totrans-123
   prefs: []
   type: TYPE_NORMAL
+  zh: '`grpc_opentracing`'
 - en: OpenTracing client-side and server-side interceptors with support for streaming
     and handler-returned tags.
+  id: totrans-124
   prefs: []
   type: TYPE_NORMAL
+  zh: 客户端和服务器端的OpenTracing拦截器支持流式处理和处理程序返回的标签。
 - en: Client
+  id: totrans-125
   prefs: []
   type: TYPE_NORMAL
+  zh: 客户端
 - en: '`grpc_retry`'
+  id: totrans-126
   prefs: []
   type: TYPE_NORMAL
+  zh: '`grpc_retry`'
 - en: A generic gRPC response code retry mechanism, client-side middleware.
+  id: totrans-127
   prefs: []
   type: TYPE_NORMAL
+  zh: 通用的gRPC响应代码重试机制，客户端中间件。
 - en: Server
+  id: totrans-128
   prefs: []
   type: TYPE_NORMAL
+  zh: 服务器
 - en: '`grpc_validator`'
+  id: totrans-129
   prefs: []
   type: TYPE_NORMAL
+  zh: '`grpc_validator`'
 - en: Codegen inbound message validation from *.proto* options.
+  id: totrans-130
   prefs: []
   type: TYPE_NORMAL
+  zh: 从*.proto*选项中生成入站消息验证的代码。
 - en: '`grpc_recovery`'
+  id: totrans-131
   prefs: []
   type: TYPE_NORMAL
+  zh: '`grpc_recovery`'
 - en: Turn panics into gRPC errors.
+  id: totrans-132
   prefs: []
   type: TYPE_NORMAL
+  zh: 将恐慌转换为gRPC错误。
 - en: '`ratelimit`'
+  id: totrans-133
   prefs: []
   type: TYPE_NORMAL
+  zh: '`ratelimit`'
 - en: gRPC rate-limiting by your own limiter.
+  id: totrans-134
   prefs: []
   type: TYPE_NORMAL
+  zh: 通过自己的限制器对gRPC进行速率限制。
 - en: The usage of Go gRPC Middleware at the client side is exactly the same. [Example 8-5](#EX8-5)
     shows a code snippet of the client-side interceptor chaining with Go gRPC Middleware.
+  id: totrans-135
   prefs: []
   type: TYPE_NORMAL
+  zh: 在客户端使用Go gRPC中间件的方式完全相同。[示例 8-5](#EX8-5)展示了使用Go gRPC中间件进行客户端拦截器链的代码片段。
 - en: Example 8-5\. interceptor chaining at the client side with Go gRPC Middleware
+  id: totrans-136
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 8-5\. 使用Go gRPC中间件进行客户端端拦截器链
 - en: '[PRE18]'
+  id: totrans-137
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE18]'
 - en: '[![1](assets/1.png)](#co_the_grpc_ecosystem_CO5-1)'
+  id: totrans-138
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_the_grpc_ecosystem_CO5-1)'
 - en: Client-side unary interceptor chaining.
+  id: totrans-139
   prefs: []
   type: TYPE_NORMAL
+  zh: 客户端一元拦截器链。
 - en: '[![2](assets/2.png)](#co_the_grpc_ecosystem_CO5-2)'
+  id: totrans-140
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_the_grpc_ecosystem_CO5-2)'
 - en: Client-side streaming interceptor chaining.
+  id: totrans-141
   prefs: []
   type: TYPE_NORMAL
+  zh: 客户端流式拦截器链。
 - en: Similar to the server side, the interceptors are executed in the order that
     they registered with the client.
+  id: totrans-142
   prefs: []
   type: TYPE_NORMAL
+  zh: 类似于服务器端，拦截器按照它们在客户端注册的顺序执行。
 - en: Next, we will talk about how we can expose the health status of the gRPC server.
     In a high-availability system, it is essential to have a way to check the health
     status of the server, so that we can periodically check and take actions to mitigate
     the damage.
+  id: totrans-143
   prefs: []
   type: TYPE_NORMAL
+  zh: 接下来，我们将讨论如何公开gRPC服务器的健康状态。在高可用系统中，有一种方法可以检查服务器的健康状态，以便我们可以定期检查并采取措施以减少损害。
 - en: Health Checking Protocol
+  id: totrans-144
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 健康检查协议
 - en: gRPC defines a health checking protocol (Health Checking API) that allows the
     gRPC services to expose the server status so that the consumers can probe the
     server’s health information. The health of the server is determined if the server
@@ -599,45 +915,69 @@
     does not respond at all for the health probe request. The client can act accordingly
     if the response denotes an *unhealthy* status or a response is not received within
     some time window.
+  id: totrans-145
   prefs: []
   type: TYPE_NORMAL
+  zh: gRPC定义了一个健康检查协议（健康检查API），允许gRPC服务公开服务器状态，以便消费者可以探测服务器的健康信息。服务器的健康状态是通过响应一个*不健康*状态来确定，当服务器没有准备好处理RPC或者在健康探测请求中没有响应时。如果响应表明*不健康*状态或者在某个时间窗口内未收到响应，则客户端可以相应地采取行动。
 - en: The gRPC Health Checking Protocol defines an API based on gRPC. Then a gRPC
     service is used as the health checking mechanism for both simple client-to-server
     scenarios and other control systems such as load balancing. [Example 8-6](#EX8-6)
     shows the standard service definition of the gRPC health checking interface.
+  id: totrans-146
   prefs: []
   type: TYPE_NORMAL
+  zh: gRPC健康检查协议定义了一个基于gRPC的API。然后，gRPC服务用作健康检查机制，既可以用于简单的客户端到服务器的场景，也可以用于负载均衡等其他控制系统。[示例 8-6](#EX8-6)展示了gRPC健康检查接口的标准服务定义。
 - en: Example 8-6\. gRPC service definition of the Health Checking API
+  id: totrans-147
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 8-6\. gRPC健康检查API的服务定义
 - en: '[PRE19]'
+  id: totrans-148
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE19]'
 - en: '[![1](assets/1.png)](#co_the_grpc_ecosystem_CO6-1)'
+  id: totrans-149
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_the_grpc_ecosystem_CO6-1)'
 - en: The health check request message structure.
+  id: totrans-150
   prefs: []
   type: TYPE_NORMAL
+  zh: 健康检查请求消息结构。
 - en: '[![2](assets/2.png)](#co_the_grpc_ecosystem_CO6-2)'
+  id: totrans-151
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_the_grpc_ecosystem_CO6-2)'
 - en: The health check response with the serving status.
+  id: totrans-152
   prefs: []
   type: TYPE_NORMAL
+  zh: 带服务状态的健康检查响应。
 - en: '[![3](assets/3.png)](#co_the_grpc_ecosystem_CO6-3)'
+  id: totrans-153
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![3](assets/3.png)](#co_the_grpc_ecosystem_CO6-3)'
 - en: The client can query the server’s health status by calling the `Check` method.
+  id: totrans-154
   prefs: []
   type: TYPE_NORMAL
+  zh: 客户端可以通过调用`Check`方法查询服务器的健康状态。
 - en: '[![4](assets/4.png)](#co_the_grpc_ecosystem_CO6-4)'
+  id: totrans-155
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![4](assets/4.png)](#co_the_grpc_ecosystem_CO6-4)'
 - en: The client can call the `Watch` method to perform a streaming health check.
+  id: totrans-156
   prefs: []
   type: TYPE_NORMAL
+  zh: 客户端可以调用`Watch`方法执行流式健康检查。
 - en: The implementation of the health check service is very similar to any conventional
     gRPC service. Often you will run a health checking service and related gRPC business
     services together in the same gRPC server instance using multiplexing (which we
@@ -646,134 +986,198 @@
     health semantics that includes details such as per-service health status. Also,
     it is able to reuse all the existing information on the server and have full control
     over it.
+  id: totrans-157
   prefs: []
   type: TYPE_NORMAL
+  zh: 健康检查服务的实现与任何传统的gRPC服务非常相似。通常情况下，您将在同一个gRPC服务器实例中使用多路复用同时运行健康检查服务和相关的gRPC业务服务（我们在[第5章](ch05.html#ch_05)中讨论过）。由于它是一个gRPC服务，进行健康检查与进行普通RPC相同。它还提供了细粒度的服务健康语义，包括每个服务的健康状态等详细信息。此外，它能够重用服务器上的所有现有信息并对其进行全面控制。
 - en: Based on the server interface shown in [Example 8-6](#EX8-6), a client can call
     the `Check` method (with an optional parameter service name) to check the health
     status of a particular service or the server.
+  id: totrans-158
   prefs: []
   type: TYPE_NORMAL
+  zh: 基于[示例 8-6](#EX8-6)中显示的服务器接口，客户端可以调用`Check`方法（可选参数为服务名）来检查特定服务或服务器的健康状态。
 - en: Additionally, the client can also call the `Watch` method to perform a streaming
     health check. This uses a server streaming messaging pattern, which means once
     the client calls this method, the server starts sending messages indicating the
     current status and sends subsequent new messages whenever the status changes.
+  id: totrans-159
   prefs: []
   type: TYPE_NORMAL
+  zh: 此外，客户端还可以调用`Watch`方法执行流式健康检查。这使用服务器流式传输消息模式，这意味着一旦客户端调用此方法，服务器将开始发送指示当前状态的消息，并在状态更改时发送后续新消息。
 - en: 'These are the key points to know in the gRPC Health Checking Protocol:'
+  id: totrans-160
   prefs: []
   type: TYPE_NORMAL
+  zh: 这些是了解gRPC健康检查协议的关键要点：
 - en: To serve the status of each service registered in the server, we should manually
     register all the services, along with their status in the server. We also need
     to set the server’s overall status with an empty service name.
+  id: totrans-161
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 为了为服务器中注册的每个服务提供状态，我们应手动注册所有服务，并在服务器中设置空服务名的总体状态。
 - en: Each health check request from the client should have a deadline set to it,
     so the client can determine the server status as unhealthy if the RPC is not finished
     within the deadline period.
+  id: totrans-162
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 客户端的每个健康检查请求应该设置截止日期，以便客户端可以确定如果RPC未在截止期内完成，则服务器状态为不健康。
 - en: For each health check request, the client can either set a service name or set
     as empty. If the request has a service name and it is found in the server registry,
     a response must be sent back with an HTTP OK status and the status field of the
     `HealthCheckResponse` message should be set to the status of the particular service
     (either `SERVING` or `NOT_SERVING`). If the service is not found in the server
     registry, the server should respond with a `NOT_FOUND` status.
+  id: totrans-163
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 对于每个健康检查请求，客户端可以设置一个服务名或为空。如果请求中有服务名并且在服务器注册表中找到，必须返回带有HTTP OK状态的响应，并且`HealthCheckResponse`消息的状态字段应设置为特定服务的状态（可以是`SERVING`或`NOT_SERVING`）。如果在服务器注册表中找不到该服务，则服务器应以`NOT_FOUND`状态响应。
 - en: If the client needs to query the overall status of the server instead of a specific
     service, the client can send the request with an empty string value so the server
     responds back with the server’s overall health status.
+  id: totrans-164
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 如果客户端需要查询服务器的总体状态而不是特定服务的状态，则客户端可以发送带有空字符串值的请求，以便服务器响应服务器的总体健康状态。
 - en: If the server doesn’t have a health check API, then the client should deal with
     it themselves.
+  id: totrans-165
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 如果服务器没有健康检查API，则客户端应自行处理。
 - en: The health check services are consumed by other gRPC consumer or intermediate
     subsystems such as load balancers or proxies. Rather than implementing a client
     from scratch, you can use the existing implementation of health checking clients
     such as `grpc_health_probe`.
+  id: totrans-166
   prefs: []
   type: TYPE_NORMAL
+  zh: 健康检查服务由其他gRPC消费者或中间子系统（如负载均衡器或代理）消耗。与从头开始实现客户端不同，您可以使用诸如`grpc_health_probe`之类的现有健康检查客户端的实现。
 - en: gRPC Health Probe
+  id: totrans-167
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: gRPC健康探针
 - en: 'The [`grpc_health_probe`](https://oreil.ly/I84Ui) is a utility provided by
     the community to check the health status of a server that exposes its status as
     a service through the gRPC Health Checking Protocol. It’s a generic client that
     can communicate with the gRPC standard health check service. You can use the `grpc_health_probe_`
     binary as a CLI utility as shown in the following:'
+  id: totrans-168
   prefs: []
   type: TYPE_NORMAL
+  zh: '[`grpc_health_probe`](https://oreil.ly/I84Ui) 是社区提供的一个工具，用于检查将其状态作为服务公开的服务器的健康状态，通过
+    gRPC 健康检查协议。它是一个通用客户端，可以与 gRPC 标准健康检查服务进行通信。您可以像下面显示的那样使用 `grpc_health_probe_`
+    二进制文件作为 CLI 实用程序：'
 - en: '[PRE20]'
+  id: totrans-169
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE20]'
 - en: '[PRE21]'
+  id: totrans-170
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE21]'
 - en: '[![1](assets/1.png)](#co_the_grpc_ecosystem_CO7-1)'
+  id: totrans-171
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_the_grpc_ecosystem_CO7-1)'
 - en: A health checking request for gRPC server running on localhost port 50051.
+  id: totrans-172
   prefs: []
   type: TYPE_NORMAL
+  zh: 对运行在本地主机端口 50051 上的 gRPC 服务器进行健康检查请求。
 - en: '[![2](assets/2.png)](#co_the_grpc_ecosystem_CO7-2)'
+  id: totrans-173
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_the_grpc_ecosystem_CO7-2)'
 - en: A health checking request with few more additional parameters related to the
     connectivity.
+  id: totrans-174
   prefs: []
   type: TYPE_NORMAL
+  zh: 健康检查请求还包括与连接相关的其他几个附加参数。
 - en: As shown in the preceding CL output, `grpc_health_probe_` makes an RPC to `/grpc.health.v1.Health/Check`.
     If it then responds with a `SERVING` status, the `grpc_health_probe` will exit
     with success; otherwise, it exits with a nonzero exit code.
+  id: totrans-175
   prefs: []
   type: TYPE_NORMAL
+  zh: 如前述 CL 输出所示，`grpc_health_probe` 发起 RPC 请求至 `/grpc.health.v1.Health/Check`。如果它响应
+    `SERVING` 状态，则 `grpc_health_probe` 将成功退出；否则，它将以非零退出代码退出。
 - en: If you are running your gRPC applications on Kubernetes, then you can run the
     `grpc_health_probe` to check to define Kubernetes’s [liveness and readiness](https://oreil.ly/a7bOC)
     checks for your gRPC server pods.
+  id: totrans-176
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果您在 Kubernetes 上运行 gRPC 应用程序，则可以运行 `grpc_health_probe` 来检查您的 gRPC 服务器 pod 的
+    Kubernetes 的 [活性和就绪](https://oreil.ly/a7bOC) 检查。
 - en: 'For that, you can bundle the gRPC health probe along with your Docker image
     as shown following in the Dockerfile snippet:'
+  id: totrans-177
   prefs: []
   type: TYPE_NORMAL
+  zh: 为此，您可以将 gRPC 健康探测与您的 Docker 镜像捆绑在一起，如下所示的 Dockerfile 片段：
 - en: '[PRE22]'
+  id: totrans-178
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE22]'
 - en: 'Then in the Kubernetes deployment’s pod specification, you can define `livenessProbe`
     and/or `readinessProbe` like this:'
+  id: totrans-179
   prefs: []
   type: TYPE_NORMAL
+  zh: 然后在 Kubernetes 部署的 pod 规范中，您可以像这样定义 `livenessProbe` 和/或 `readinessProbe`：
 - en: '[PRE23]'
+  id: totrans-180
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE23]'
 - en: '[![1](assets/1.png)](#co_the_grpc_ecosystem_CO8-1)'
+  id: totrans-181
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_the_grpc_ecosystem_CO8-1)'
 - en: Specify `grpc_health_probe` as the readiness probe.
+  id: totrans-182
   prefs: []
   type: TYPE_NORMAL
+  zh: 将 `grpc_health_probe` 指定为就绪探测。
 - en: '[![2](assets/2.png)](#co_the_grpc_ecosystem_CO8-2)'
+  id: totrans-183
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_the_grpc_ecosystem_CO8-2)'
 - en: Specify `grpc_health_probe` as the liveness probe.
+  id: totrans-184
   prefs: []
   type: TYPE_NORMAL
+  zh: 将 `grpc_health_probe` 指定为活性探测。
 - en: When you have liveness and readiness probes set using the gRPC health probe,
     then Kubernetes can make decisions based on the health of your gRPC server.
+  id: totrans-185
   prefs: []
   type: TYPE_NORMAL
+  zh: 当您使用 gRPC 健康探测设置活性和就绪探测时，Kubernetes 可以基于您的 gRPC 服务器的健康状态做出决策。
 - en: Other Ecosystem Projects
+  id: totrans-186
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 其他生态系统项目
 - en: There are quite a few other ecosystem projects that can be useful when building
     gRPC-based applications. Customer *protoc* plugging is a similar ecosystem requirement
     where projects such as [*protoc-gen-star (PG*)*](https://oreil.ly/9eRq8) started
@@ -781,20 +1185,29 @@
     offer a protoc plug-in to generate polyglot message validators. The ecosystem
     has kept on growing with new projects for various requirements in gRPC application
     development.
+  id: totrans-187
   prefs: []
   type: TYPE_NORMAL
+  zh: 在构建基于 gRPC 的应用程序时，还有一些其他生态系统项目可以提供帮助。客户端 *protoc* 插件是一个类似的生态系统需求，例如 [*protoc-gen-star
+    (PG*)*](https://oreil.ly/9eRq8) 开始引起关注。此外，诸如 [*protoc-gen-validate (PGV)*](https://oreil.ly/KlGy7)
+    的库提供了一个 protoc 插件，用于生成多语言消息验证器。生态系统随着新项目的增加而不断发展，以满足 gRPC 应用程序开发中的各种需求。
 - en: 'With this, we conclude our discussion of the gRPC ecosystem components. It’s
     important to keep in mind that these ecosystem projects are not part of the gRPC
     project. You need to evaluate them properly prior to using them in production.
     Also, these are subject to change: some projects may become obsolete, others may
     become mainstream, and other, completely new projects, may emerge in the gRPC
     ecosystem.'
+  id: totrans-188
   prefs: []
   type: TYPE_NORMAL
+  zh: 至此，我们结束了对 gRPC 生态系统组件的讨论。重要的是要记住，这些生态系统项目并不是 gRPC 项目的一部分。在生产环境中使用它们之前，您需要适当评估它们。此外，它们可能会发生变化：一些项目可能会变得过时，其他项目可能变得主流，而另一些全新的项目可能会出现在
+    gRPC 生态系统中。
 - en: Summary
+  id: totrans-189
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 总结
 - en: As you can see, though gRPC ecosystem projects are not part of the core gRPC
     implementation, they can be quite useful in building and running gRPC applications
     for real-world use cases. These projects are built around gRPC to overcome problems
@@ -805,13 +1218,20 @@
     are introduced, so that both existing RESTful clients and new gRPC clients can
     call the same service. Similarly, service reflection is introduced to overcome
     the limitation in testing gRPC services using a command-line tool.
+  id: totrans-190
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如您所看到的，尽管 gRPC 生态系统项目不是核心 gRPC 实现的一部分，但它们在构建和运行面向实际用例的 gRPC 应用程序中非常有用。这些项目围绕
+    gRPC 构建，以解决在使用 gRPC 构建生产系统时遇到的问题或限制。例如，当我们将我们的 RESTful 服务迁移到 gRPC 服务时，我们需要考虑那些习惯于以
+    RESTful 方式调用我们服务的现有客户端。为了解决这个问题，引入了 HTTP/JSON 转码和 gRPC 网关概念，以便现有的 RESTful 客户端和新的
+    gRPC 客户端都可以调用同一个服务。类似地，引入了服务反射来克服使用命令行工具测试 gRPC 服务的限制。
 - en: Since gRPC is a very popular topic in the cloud-native world and developers
     are now gradually moving toward gRPC from REST services, we will see more projects
     like these built around gRPC in the future.
+  id: totrans-191
   prefs: []
   type: TYPE_NORMAL
+  zh: 由于 gRPC 在云原生世界中非常流行，开发人员现在逐渐从 REST 服务向 gRPC 迁移，我们将在未来看到更多围绕 gRPC 构建的类似项目。
 - en: 'Congratulations! You have just completed reading *gRPC: Up and Running*, and
     have pretty much covered the entire development life cycle of the gRPC application
     along with numerous code examples based on Go and Java. We hope this book laid
@@ -819,8 +1239,12 @@
     technology for your applications and microservices. What you learned in this book
     will help you to rapidly build gRPC applications, understand how they can coexist
     with other technologies, and run them in production.'
+  id: totrans-192
   prefs: []
   type: TYPE_NORMAL
+  zh: '恭喜！您刚刚完成了阅读《gRPC: Up and Running》，并基本涵盖了 gRPC 应用程序的整个开发生命周期，包括基于 Go 和 Java
+    的大量代码示例。我们希望本书为您在将 gRPC 作为应用程序和微服务之间的进程间通信技术使用的旅程奠定了基础。您在本书中学到的内容将帮助您快速构建 gRPC
+    应用程序，了解它们如何与其他技术共存，并在生产环境中运行。'
 - en: So, it’s time to explore gRPC further. Try building real-world applications
     by applying the techniques that you learned in this book. There’s a significant
     amount of features of gRPC that are dependent on the programming language that
@@ -828,5 +1252,8 @@
     that are specific to the language that you use. Also, the gRPC ecosystem is exponentially
     growing and it will be helpful to stay up to date on the latest technologies and
     frameworks that support gRPC. Go forth and explore!
+  id: totrans-193
   prefs: []
   type: TYPE_NORMAL
+  zh: 因此，现在是进一步探索 gRPC 的时候了。尝试通过应用本书中学到的技术来构建实际应用程序。gRPC 有很多功能取决于您用于开发 gRPC 应用程序的编程语言，因此您需要学习特定于您使用的语言的某些技术。此外，gRPC
+    生态系统正呈指数级增长，了解支持 gRPC 的最新技术和框架将非常有帮助。前进，探索吧！

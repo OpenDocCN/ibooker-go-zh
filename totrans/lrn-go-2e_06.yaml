@@ -1,34 +1,48 @@
 - en: Chapter 6\. Pointers
+  id: totrans-0
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 第6章 指针
 - en: Now that you’ve seen variables and functions, it’s time to learn about pointer
     syntax. Then I’ll clarify the behavior of pointers in Go by comparing them to
     the behavior of classes in other languages. You’ll also learn how and when to
     use pointers, how memory is allocated in Go, and how using pointers and values
     properly makes Go programs faster and more efficient.
+  id: totrans-1
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在你已经了解了变量和函数，是时候学习指针语法了。接下来我将通过将Go语言中指针的行为与其他语言中类的行为进行比较来澄清指针的行为。你还将学习如何以及何时使用指针，在Go语言中如何分配内存，以及如何正确使用指针和值使Go程序更快、更高效。
 - en: A Quick Pointer Primer
+  id: totrans-2
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 快速指针入门
 - en: 'A *pointer* is a variable that holds the location in memory where a value is
     stored. If you’ve taken computer science courses, you might have seen a graphic
     to represent the way variables are stored in memory. The representation of the
     following two variables would look something like [Figure 6-1](#storing_two_variables_in_memory):'
+  id: totrans-3
   prefs: []
   type: TYPE_NORMAL
+  zh: '*指针*是一个变量，它保存值存储的内存位置。如果你学过计算机科学课程，可能已经看过用图形表示变量存储在内存中的方式。以下两个变量的表示形式类似于[图 6-1](#storing_two_variables_in_memory)：'
 - en: '[PRE0]'
+  id: totrans-4
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE0]'
 - en: '![Variables in Memory](assets/lgo2_0601.png)'
+  id: totrans-5
   prefs: []
   type: TYPE_IMG
+  zh: '![Variables in Memory](assets/lgo2_0601.png)'
 - en: Figure 6-1\. Storing two variables in memory
+  id: totrans-6
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 6-1\. 在内存中存储两个变量
 - en: Every variable is stored in one or more contiguous memory locations, called
     *addresses*. Different types of variables can take up different amounts of memory.
     In this example, you have two variables, `x`, which is a 32-bit int, and `y`,
@@ -38,23 +52,33 @@
     `false`, but the smallest amount of memory that can be independently addressed
     is a byte), so the value for `y` is stored in one byte at address 5, with `true`
     represented by the value 1.
+  id: totrans-7
   prefs: []
   type: TYPE_NORMAL
+  zh: 每个变量都存储在一个或多个连续的内存位置中，称为*地址*。不同类型的变量可能占用不同数量的内存。在这个例子中，你有两个变量，`x`是一个32位的整数，`y`是一个布尔值。存储一个32位整数需要四个字节，因此`x`的值存储在从地址1到地址4的四个字节中。布尔值只需要一个字节（只需一个位来表示`true`或`false`，但可以独立寻址的最小内存单位是一个字节），因此`y`的值存储在地址5处的一个字节中，其中`true`的值表示为1。
 - en: 'A pointer is a variable that contains the address where another variable is
     stored. [Figure 6-2](#storing_pointers_in_memory) demonstrates how the following
     pointers are stored in memory:'
+  id: totrans-8
   prefs: []
   type: TYPE_NORMAL
+  zh: 指针是一个变量，它包含另一个变量存储的地址。[图 6-2](#storing_pointers_in_memory)展示了以下指针如何在内存中存储：
 - en: '[PRE1]'
+  id: totrans-9
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE1]'
 - en: '![Pointers in Memory](assets/lgo2_0602.png)'
+  id: totrans-10
   prefs: []
   type: TYPE_IMG
+  zh: '![Pointers in Memory](assets/lgo2_0602.png)'
 - en: Figure 6-2\. Storing pointers in memory
+  id: totrans-11
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: Figure 6-2\. 在内存中存储指针
 - en: While different types of variables can take up different numbers of memory locations,
     every pointer, no matter what type it is pointing to, is always the same number
     of memory locations. The examples in this chapter use 4-byte pointers, but many
@@ -65,8 +89,10 @@
     is stored at location 10 and has the value 5, the address of `y`. The last pointer,
     `pointerZ`, is stored at location 14 and has the value 0, because it doesn’t point
     to anything.
+  id: totrans-12
   prefs: []
   type: TYPE_NORMAL
+  zh: 虽然不同类型的变量可能占用不同数量的内存位置，但无论指向何种类型，每个指针始终占据相同数量的内存位置。本章的示例使用4字节的指针，但许多现代计算机使用8字节的指针。指针保存一个数字，该数字表示被指向的数据存储的内存位置。这个数字称为*地址*。我们指向`x`的指针`pointerX`存储在位置6，并具有值1，即`x`的地址。类似地，我们指向`y`的指针`pointerY`存储在位置10，并具有值5，即`y`的地址。最后一个指针`pointerZ`存储在位置14，并具有值0，因为它没有指向任何东西。
 - en: The zero value for a pointer is `nil`. You’ve seen `nil` a few times before,
     as the zero value for slices, maps, and functions. All these types are implemented
     with pointers. (Two more types, channels and interfaces, are also implemented
@@ -75,196 +101,288 @@
     `nil` is an untyped identifier that represents the lack of a value for certain
     types. Unlike `NULL` in C, `nil` is not another name for 0; you can’t convert
     it back and forth with a number.
+  id: totrans-13
   prefs: []
   type: TYPE_NORMAL
+  zh: 指针的零值为`nil`。你之前几次见过`nil`，作为切片、映射和函数的零值。这些类型都是用指针实现的。（还有两种类型，通道和接口，也是用指针实现的。你将在[“接口快速入门”](ch07.html#interfaces)和[“通道”](ch12.html#channels)中详细了解它们。）正如我在[第三章](ch03.html#unique_chapter_id_03)中所述，`nil`是一个无类型标识符，表示某些类型的缺失值。与C中的`NULL`不同，`nil`不是0的另一个名称；你不能将其与数字来回转换。
 - en: Warning
+  id: totrans-14
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 警告
 - en: As alluded to in [Chapter 4](ch04.html#unique_chapter_id_04), `nil` is defined
     in the universe block. Because `nil` is a value defined in the universe block,
     it can be shadowed. Never name a variable or function `nil`, unless you are trying
     to trick your coworker and are unconcerned about your annual review.
+  id: totrans-15
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如在[第四章](ch04.html#unique_chapter_id_04)中所提到的，`nil`在宇宙块中有定义。因为`nil`是在宇宙块中定义的值，它可以被隐藏。除非你试图愚弄你的同事且不关心你的年度审查，否则永远不要将变量或函数命名为`nil`。
 - en: Go’s pointer syntax is partially borrowed from C and C++. Since Go has a garbage
     collector, most memory management pain is removed. Furthermore, some tricks that
     you can do with pointers in C and C++, including *pointer arithmetic*, are not
     allowed in Go.
+  id: totrans-16
   prefs: []
   type: TYPE_NORMAL
+  zh: Go的指针语法部分借鉴自C和C++。由于Go具有垃圾回收器，大多数内存管理痛点被消除。此外，一些你可以在C和C++中使用的指针技巧，包括*指针算术*，在Go中是不允许的。
 - en: Note
+  id: totrans-17
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: The Go standard library does have an `unsafe` package that lets you do some
     low-level operations on data structures. While pointer manipulation is used in
     C for common operations, it is exceedingly rare for Go developers to use `unsafe`.
     You’ll take a quick look at it in [Chapter 16](ch16.html#unique_chapter_id_16).
+  id: totrans-18
   prefs: []
   type: TYPE_NORMAL
+  zh: Go标准库确实有一个`unsafe`包，它允许你在数据结构上进行一些低级操作。虽然在C中常用指针操作进行常规操作，但在Go开发者中极少使用`unsafe`。你将在[第十六章](ch16.html#unique_chapter_id_16)中快速了解它。
 - en: 'The `&` is the *address* operator. It precedes a value type and returns the
     address where the value is stored:'
+  id: totrans-19
   prefs: []
   type: TYPE_NORMAL
+  zh: '`&`是*地址*运算符。它前置于值类型，并返回存储值的地址：'
 - en: '[PRE2]'
+  id: totrans-20
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE2]'
 - en: 'The `*` is the *indirection* operator. It precedes a variable of pointer type
     and returns the pointed-to value. This is called *dereferencing*:'
+  id: totrans-21
   prefs: []
   type: TYPE_NORMAL
+  zh: '`*`是*间接*运算符。它前置于指针类型的变量，并返回指向的值。这称为*解引用*：'
 - en: '[PRE3]'
+  id: totrans-22
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE3]'
 - en: 'Before dereferencing a pointer, you must make sure that the pointer is non-nil.
     Your program will panic if you attempt to dereference a `nil` pointer:'
+  id: totrans-23
   prefs: []
   type: TYPE_NORMAL
+  zh: 在解引用指针之前，你必须确保指针非`nil`。如果尝试对`nil`指针进行解引用，程序将会崩溃：
 - en: '[PRE4]'
+  id: totrans-24
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE4]'
 - en: 'A *pointer type* is a type that represents a pointer. It is written with a
     `*` before a type name. A pointer type can be based on any type:'
+  id: totrans-25
   prefs: []
   type: TYPE_NORMAL
+  zh: '*指针类型*是表示指针的类型。它在类型名前写上`*`。指针类型可以基于任何类型：'
 - en: '[PRE5]'
+  id: totrans-26
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE5]'
 - en: 'The built-in function `new` creates a pointer variable. It returns a pointer
     to a zero-value instance of the provided type:'
+  id: totrans-27
   prefs: []
   type: TYPE_NORMAL
+  zh: 内置函数`new`创建一个指针变量。它返回所提供类型的零值实例的指针：
 - en: '[PRE6]'
+  id: totrans-28
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE6]'
 - en: 'The `new` function is rarely used. For structs, use an `&` before a struct
     literal to create a pointer instance. You can’t use an `&` before a primitive
     literal (numbers, booleans, and strings) or a constant because they don’t have
     memory addresses; they exist only at compile time. When you need a pointer to
     a primitive type, declare a variable and point to it:'
+  id: totrans-29
   prefs: []
   type: TYPE_NORMAL
+  zh: '`new`函数很少使用。对于结构体，请在结构体文字之前加上`&`以创建指针实例。你不能在原始文字（数字、布尔值和字符串）或常量之前使用`&`，因为它们没有内存地址；它们只存在于编译时。当你需要一个指向原始类型的指针时，请声明一个变量并指向它：'
 - en: '[PRE7]'
+  id: totrans-30
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE7]'
 - en: 'Not being able to take the address of a constant is sometimes inconvenient.
     If you have a struct with a field of a pointer to a primitive type, you can’t
     assign a literal directly to the field:'
+  id: totrans-31
   prefs: []
   type: TYPE_NORMAL
+  zh: 有时无法取常量的地址有点不方便。如果你有一个结构体，其中一个字段是指向原始类型的指针，你不能直接将字面量赋给该字段：
 - en: '[PRE8]'
+  id: totrans-32
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE8]'
 - en: 'Compiling this code returns the error:'
+  id: totrans-33
   prefs: []
   type: TYPE_NORMAL
+  zh: 编译此代码会返回错误：
 - en: '[PRE9]'
+  id: totrans-34
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE9]'
 - en: 'If you try to put an `&` before `"Perry"`, you’ll get the error message:'
+  id: totrans-35
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果你尝试在`"Perry"`之前加上`&`，你将会得到错误消息：
 - en: '[PRE10]'
+  id: totrans-36
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE10]'
 - en: 'There are two ways around this problem. The first is to do what was shown previously,
     which is to introduce a variable to hold the constant value. The second way is
     to write a generic helper function that takes in a parameter of any type and returns
     a pointer to that type:'
+  id: totrans-37
   prefs: []
   type: TYPE_NORMAL
+  zh: 有两种方法可以解决这个问题。第一种方法是做之前展示的事情，即引入一个变量来保存常量值。第二种方法是编写一个通用的辅助函数，接受任何类型的参数并返回该类型的指针：
 - en: '[PRE11]'
+  id: totrans-38
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE11]'
 - en: 'With that function, you can now write:'
+  id: totrans-39
   prefs: []
   type: TYPE_NORMAL
+  zh: 有了那个函数，你现在可以写：
 - en: '[PRE12]'
+  id: totrans-40
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE12]'
 - en: Why does this work? When you pass a constant to a function, the constant is
     copied to a parameter, which is a variable. Since it’s a variable, it has an address
     in memory. The function then returns the variable’s memory address. Writing generic
     functions is covered in [Chapter 8](ch08.html#unique_chapter_id_08).
+  id: totrans-41
   prefs: []
   type: TYPE_NORMAL
+  zh: 为什么这样做？当你将一个常量传递给一个函数时，该常量被复制到一个参数中，该参数是一个变量。因为它是一个变量，它在内存中有一个地址。然后函数返回变量的内存地址。编写通用函数在[第8章](ch08.html#unique_chapter_id_08)中有介绍。
 - en: Tip
+  id: totrans-42
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 提示
 - en: Use a helper function to turn a constant value into a pointer.
+  id: totrans-43
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用一个辅助函数将一个常量值转换为指针。
 - en: Don’t Fear the Pointers
+  id: totrans-44
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 不要害怕指针
 - en: The first rule of pointers is to not be afraid of them. If you are used to Java,
     JavaScript, Python, or Ruby, you might find pointers intimidating. However, pointers
     are actually the familiar behavior for classes. It’s the nonpointer structs in
     Go that are unusual.
+  id: totrans-45
   prefs: []
   type: TYPE_NORMAL
+  zh: 指针的第一条规则是不要害怕它们。如果你习惯于Java、JavaScript、Python或Ruby，你可能会觉得指针很吓人。然而，指针实际上是类中熟悉的行为。在Go语言中，非指针的结构体才是不寻常的。
 - en: In Java and JavaScript, there is a difference in the behavior between primitive
     types and classes (Python and Ruby don’t have primitive values but use immutable
     instances to simulate them). When a primitive value is assigned to another variable
     or passed to a function or method, any changes made to the other variable aren’t
     reflected in the original, as shown in [Example 6-1](#EX_6_1).
+  id: totrans-46
   prefs: []
   type: TYPE_NORMAL
+  zh: 在Java和JavaScript中，原始类型和类之间的行为有所不同（Python和Ruby没有原始值，但使用不可变实例来模拟它们）。当将原始值分配给另一个变量或传递给函数或方法时，对其他变量进行的任何更改不会反映在原始变量中，就像在[示例 6-1](#EX_6_1)中所示的那样。
 - en: Example 6-1\. Assigning primitive variables doesn’t share memory in Java
+  id: totrans-47
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 6-1\. 在Java中分配原始变量不共享内存
 - en: '[PRE13]'
+  id: totrans-48
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE13]'
 - en: However, let’s take a look at what happens when an instance of a class is assigned
     to another variable or passed to a function or method (the code in [Example 6-2](#EX_6_2a)
     is written in Python, but you can find similar code for Java, JavaScript, and
     Ruby in the *sample_code/language_pointer_examples* directory in the [Chapter
     6 repository](https://oreil.ly/riOYA)).
+  id: totrans-49
   prefs: []
   type: TYPE_NORMAL
+  zh: 然而，让我们看看当一个类的实例被分配给另一个变量或传递给函数或方法时会发生什么（[示例 6-2](#EX_6_2a)中的代码是用Python编写的，但是你可以在[第6章代码示例](https://oreil.ly/riOYA)的*sample_code/language_pointer_examples*目录中找到类似的Java、JavaScript和Ruby代码）。
 - en: Example 6-2\. Passing a class instance into a function
+  id: totrans-50
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 6-2\. 将类实例传递给函数
 - en: '[PRE14]'
+  id: totrans-51
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE14]'
 - en: 'Running this code prints the following output:'
+  id: totrans-52
   prefs: []
   type: TYPE_NORMAL
+  zh: 运行此代码会打印以下输出：
 - en: '[PRE15]'
+  id: totrans-53
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE15]'
 - en: 'That’s because the following scenarios are true in Java, Python, JavaScript,
     and Ruby:'
+  id: totrans-54
   prefs: []
   type: TYPE_NORMAL
+  zh: 这是因为在Java、Python、JavaScript和Ruby中以下场景是正确的：
 - en: If you pass an instance of a class to a function and you change the value of
     a field, the change is reflected in the variable that was passed in.
+  id: totrans-55
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 如果你将一个类的实例传递给一个函数，并且改变字段的值，则这种改变将反映在传入的变量中。
 - en: If you reassign the parameter, the change is *not* reflected in the variable
     that was passed in.
+  id: totrans-56
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 如果重新分配参数，则传入的变量不会*反映*变化。
 - en: If you pass `nil/null/None` for a parameter value, setting the parameter itself
     to a new value doesn’t modify the variable in the calling function.
+  id: totrans-57
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 如果你为参数值传递`nil/null/None`，则将参数本身设置为新值不会修改调用函数中的变量。
 - en: Some people explain this behavior by saying that class instances are passed
     by reference in these languages. This is untrue. If they were being passed by
     reference, scenarios two and three would change the variable in the calling function.
     These languages are always pass-by-value, just as in Go.
+  id: totrans-58
   prefs: []
   type: TYPE_NORMAL
+  zh: 有些人解释这种行为时说，在这些语言中类实例是通过引用传递的。这是不正确的。如果它们是通过引用传递的，场景二和场景三将改变调用函数中的变量。这些语言始终是按值传递的，就像在Go语言中一样。
 - en: What you are seeing is that every instance of a class in these languages is
     implemented as a pointer. When a class instance is passed to a function or method,
     the value being copied is the pointer to the instance. Since `outer` and `inner1`
@@ -272,8 +390,12 @@
     reflected in the variable in `outer`. When `inner2` reassigns `f` to a new class
     instance, this creates a separate instance and does not affect the variable in
     `outer`.
+  id: totrans-59
   prefs: []
   type: TYPE_NORMAL
+  zh: 你所看到的是这些语言中每个类的每个实例都作为指针实现。当将类实例传递给函数或方法时，被复制的值是指向实例的指针。由于 `outer` 和 `inner1`
+    引用同一内存，对 `inner1` 中的 `f` 字段的更改会反映在 `outer` 中的变量上。当 `inner2` 将 `f` 重新分配给一个新的类实例时，这创建了一个单独的实例，并且不会影响
+    `outer` 中的变量。
 - en: When you use a pointer variable or parameter in Go, you see the exact same behaviors.
     The difference between Go and these languages is that Go gives you the *choice*
     to use pointers or values for both primitives and structs. Most of the time, you
@@ -281,12 +403,17 @@
     is modified. A secondary benefit is that using values reduces the amount of work
     that the garbage collector has to do. I’ll talk about that in [“Reducing the Garbage
     Collector’s Workload”](#memory).
+  id: totrans-60
   prefs: []
   type: TYPE_NORMAL
+  zh: 当你在 Go 中使用指针变量或参数时，你会看到完全相同的行为。Go 和这些语言的不同之处在于，Go 给你选择使用指针或值的*选择*，无论是基本类型还是结构体。大多数情况下，你应该使用值。值使得更容易理解数据何时以及如何被修改。第二个好处是，使用值减少了垃圾收集器需要做的工作量。我将在
+    [“减少垃圾收集器的工作负荷”](#memory) 中讨论这一点。
 - en: Pointers Indicate Mutable Parameters
+  id: totrans-61
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 指针表示可变参数
 - en: 'As you’ve already seen, Go constants provide names for literal expressions
     that can be calculated at compile time. Go has no mechanism to declare that other
     kinds of values are immutable. Modern software engineering embraces immutability.
@@ -294,8 +421,11 @@
     “[I]mmutable types are safer from bugs, easier to understand, and more ready for
     change. Mutability makes it harder to understand what your program is doing, and
     much harder to enforce contracts.”'
+  id: totrans-62
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如你已经看到的，Go 常量为可以在编译时计算的字面表达式提供了名称。Go 没有机制声明其他类型的值是不可变的。现代软件工程推崇不可变性。[MIT 的《软件构造课程》](https://oreil.ly/FbUTJ)
+    总结了原因：“不可变类型更安全，更易于理解，并且更容易变更。可变性使得理解程序的运行变得更加困难，并且更难强制执行合同。”
 - en: 'The lack of immutable declarations in Go might seem problematic, but the ability
     to choose between value and pointer parameter types addresses the issue. As the
     Software Construction course materials go on to explain: “[U]sing mutable objects
@@ -303,73 +433,108 @@
     only one reference to the object.” Rather than declare that some variables and
     parameters are immutable, Go developers use pointers to indicate that a parameter
     is mutable.'
+  id: totrans-63
   prefs: []
   type: TYPE_NORMAL
+  zh: Go 语言中缺乏不可变声明可能看起来是个问题，但可以选择值或指针参数类型来解决这个问题。正如《软件构造课程材料》所解释的那样：“使用可变对象是完全可以的，只要在方法内部完全本地使用，并且只有一个对该对象的引用。”
+    而不是声明某些变量和参数是不可变的，Go 开发者使用指针来指示参数是可变的。
 - en: Since Go is a call-by-value language, the values passed to functions are copies.
     For nonpointer types like primitives, structs, and arrays, this means that the
     called function cannot modify the original. Since the called function has a copy
     of the original data, the original data’s immutability is guaranteed.
+  id: totrans-64
   prefs: []
   type: TYPE_NORMAL
+  zh: 由于 Go 是按值传递的语言，传递给函数的是值的副本。对于非指针类型（如基本类型、结构体和数组），这意味着被调用函数无法修改原始数据。由于被调用函数有原始数据的副本，原始数据的不可变性是得到保证的。
 - en: Note
+  id: totrans-65
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: I’ll talk about passing maps and slices to functions in [“The Difference Between
     Maps and Slices”](#map_slice).
+  id: totrans-66
   prefs: []
   type: TYPE_NORMAL
+  zh: 我将在 [“映射和切片的区别”](#map_slice) 中讨论将映射和切片传递给函数的情况。
 - en: However, if a pointer is passed to a function, the function gets a copy of the
     pointer. This still points to the original data, which means that the original
     data can be modified by the called function.
+  id: totrans-67
   prefs: []
   type: TYPE_NORMAL
+  zh: 然而，如果将指针传递给函数，函数将获得指针的副本。这仍然指向原始数据，这意味着被调用函数可以修改原始数据。
 - en: This has a couple of related implications.
+  id: totrans-68
   prefs: []
   type: TYPE_NORMAL
+  zh: 这带来了几个相关的影响。
 - en: 'The first implication is that when you pass a `nil` pointer to a function,
     you cannot make the value non-nil. You can reassign the value only if there was
     a value already assigned to the pointer. While confusing at first, it makes sense.
     Since the memory location was passed to the function via call-by-value, you can’t
     change the memory address, any more than you could change the value of an `int`
     parameter. You can demonstrate this with the following program:'
+  id: totrans-69
   prefs: []
   type: TYPE_NORMAL
+  zh: 首先的含义是，当你将一个 `nil` 指针传递给一个函数时，你不能使其值变为非 `nil`。你只能在指针已经有值的情况下重新赋值。虽然刚开始会感到困惑，但这是有道理的。由于内存位置是通过按值调用函数传递的，你不能改变内存地址，就像你不能改变
+    `int` 参数的值一样。你可以用以下程序来演示这一点：
 - en: '[PRE16]'
+  id: totrans-70
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE16]'
 - en: The flow through this code is shown in [Figure 6-3](#failing_to_update_a_nil_pointer).
+  id: totrans-71
   prefs: []
   type: TYPE_NORMAL
+  zh: 该代码的流程如 [图 6-3](#failing_to_update_a_nil_pointer) 所示。
 - en: '![Failing To Update a nil Pointer](assets/lgo2_0603.png)'
+  id: totrans-72
   prefs: []
   type: TYPE_IMG
+  zh: '![更新 `nil` 指针失败](assets/lgo2_0603.png)'
 - en: Figure 6-3\. Failing to update a `nil` pointer
+  id: totrans-73
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 6-3\. 更新 `nil` 指针失败
 - en: You start with a `nil` variable `f` in `main`. When you call `failedUpdate`,
     you copy the value of `f`, which is `nil`, into the parameter named `g`. This
     means that `g` is also set to `nil`. You then declare a new variable `x` within
     `failedUpdate` with the value 10\. Next, you change `g` in `failedUpdate` to point
     to `x`. This does not change the `f` in `main`, and when you exit `failedUpdate`
     and return to `main`, `f` is still `nil`.
+  id: totrans-74
   prefs: []
   type: TYPE_NORMAL
+  zh: 你在 `main` 中开始有一个 `nil` 变量 `f`。当你调用 `failedUpdate` 时，你将 `f` 的值，即 `nil`，复制到名为
+    `g` 的参数中。这意味着 `g` 也被设置为 `nil`。然后在 `failedUpdate` 中声明一个值为 10 的新变量 `x`。接下来，你将 `failedUpdate`
+    中的 `g` 改为指向 `x`。这并不会改变 `main` 中的 `f`，当你退出 `failedUpdate` 并返回到 `main` 时，`f` 仍然是
+    `nil`。
 - en: 'The second implication of copying a pointer is that if you want the value assigned
     to a pointer parameter to still be there when you exit the function, you must
     dereference the pointer and set the value. If you change the pointer, you have
     changed the copy, not the original. Dereferencing puts the new value in the memory
     location pointed to by both the original and the copy. Here’s a short program
     that shows how this works:'
+  id: totrans-75
   prefs: []
   type: TYPE_NORMAL
+  zh: 复制指针的第二个含义是，如果你希望在退出函数时保留指针参数分配的值，你必须对指针进行解引用并设置值。如果改变指针，你改变的是副本而不是原始的值。解引用将新值放入原始和副本指向的内存位置。以下是展示这一过程的简短程序：
 - en: '[PRE17]'
+  id: totrans-76
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE17]'
 - en: The flow through this code is shown in [Figure 6-4](#the_wrong_way_and_the_right_way).
+  id: totrans-77
   prefs: []
   type: TYPE_NORMAL
+  zh: 该代码的流程如 [图 6-4](#the_wrong_way_and_the_right_way) 所示。
 - en: In this example, you start with `x` in `main` set to 10\. When you call `failedUpdate`,
     you copy the address of `x` into the parameter `px`. Next, you declare `x2` in
     `failedUpdate`, set to 20\. You then point `px` in `failedUpdate` to the address
@@ -377,60 +542,91 @@
     `update`, you copy the address of `x` into `px` again. However, this time you
     change the value of what `px` in `update` points to, the variable `x` in `main`.
     When you return to `main`, `x` has been changed.
+  id: totrans-78
   prefs: []
   type: TYPE_NORMAL
+  zh: 在这个例子中，你在 `main` 中将 `x` 设置为 10。当你调用 `failedUpdate` 时，你将 `x` 的地址复制到参数 `px` 中。接下来，在
+    `failedUpdate` 中声明 `x2` 并设置为 20。然后你将 `px` 在 `failedUpdate` 中指向 `x2` 的地址。当你返回到
+    `main` 时，`x` 的值保持不变。当你调用 `update` 时，再次将 `x` 的地址复制到 `px` 中。但是，这次你改变了 `update` 中
+    `px` 指向的值，也就是 `main` 中的变量 `x`。当你返回到 `main` 时，`x` 的值已经改变了。
 - en: '![The Wrong Way and The Right Way To Update a Pointer](assets/lgo2_0604.png)'
+  id: totrans-79
   prefs: []
   type: TYPE_IMG
+  zh: '![更新指针的错误方法和正确方法](assets/lgo2_0604.png)'
 - en: Figure 6-4\. The wrong way and the right way to update a pointer
+  id: totrans-80
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 6-4\. 更新指针的错误方法和正确方法
 - en: Pointers Are a Last Resort
+  id: totrans-81
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 指针是最后的选择。
 - en: That said, you should be careful when using pointers in Go. As discussed earlier,
     they make it harder to understand data flow and can create extra work for the
     garbage collector. Rather than populating a struct by passing a pointer to it
     into a function, have the function instantiate and return the struct (see Examples
     [6-3](#EX_6_3) and [6-4](#EX_6_4)).
+  id: totrans-82
   prefs: []
   type: TYPE_NORMAL
+  zh: 说到这里，在 Go 中使用指针时应当小心。正如前面讨论的那样，它们使得数据流程更难理解，并可能为垃圾收集器增加额外的工作。与其通过将指针传递到函数中来填充结构体，不如让函数实例化并返回结构体（参见示例
+    [6-3](#EX_6_3) 和 [6-4](#EX_6_4)）。
 - en: Example 6-3\. Don’t do this
+  id: totrans-83
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 6-3\. 不要这样做
 - en: '[PRE18]'
+  id: totrans-84
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE18]'
 - en: Example 6-4\. Do this
+  id: totrans-85
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 6-4\. 这样做
 - en: '[PRE19]'
+  id: totrans-86
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE19]'
 - en: 'The only time you should use pointer parameters to modify a variable is when
     the function expects an interface. You see this pattern when working with JSON
     (I’ll talk more about the JSON support in Go’s standard library in [“encoding/json”](ch13.html#json)):'
+  id: totrans-87
   prefs: []
   type: TYPE_NORMAL
+  zh: 唯一应该使用指针参数修改变量的时机是当函数期望一个接口时。在使用 JSON 时你会看到这种模式（我将在 [“encoding/json”](ch13.html#json)
+    中更多地讨论 Go 标准库中的 JSON 支持）：
 - en: '[PRE20]'
+  id: totrans-88
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE20]'
 - en: The `Unmarshal` function populates a variable from a slice of bytes containing
     JSON. It is declared to take a slice of bytes and an `any` parameter. The value
     passed in for the `any` parameter must be a pointer. If it is not, an error is
     returned.
+  id: totrans-89
   prefs: []
   type: TYPE_NORMAL
+  zh: '`Unmarshal`函数从包含JSON的字节片段中填充变量。它声明为接受一个字节片段和一个`any`参数。传递给`any`参数的值必须是一个指针。如果不是，将返回错误。'
 - en: Why do you pass a pointer into `Unmarshal` instead of having it return a value?
     There are two reasons. First, this function predates the addition of generics
     to Go, and without generics (which I’ll talk about in detail in [Chapter 8](ch08.html#unique_chapter_id_08)),
     there is no way to know what type of value to create and return.
+  id: totrans-90
   prefs: []
   type: TYPE_NORMAL
+  zh: 为什么要将指针传递给`Unmarshal`而不是让它返回一个值？有两个原因。首先，这个函数早于Go泛型的添加，而没有泛型（我将在[第8章](ch08.html#unique_chapter_id_08)详细讨论），没有办法知道要创建和返回什么类型的值。
 - en: The second reason is that passing in a pointer gives you control over memory
     allocation. Iterating over data and converting it from JSON to a Go struct is
     a common design pattern, so `Unmarshal` is optimized for this case. If the `Unmarshal`
@@ -439,32 +635,43 @@
     garbage collector, which slows down your program. You’ll see another use of this
     pattern when you look at [“Slices as Buffers”](#buffers), and I’ll talk more about
     efficient memory usage in [“Reducing the Garbage Collector’s Workload”](#memory).
+  id: totrans-91
   prefs: []
   type: TYPE_NORMAL
+  zh: 第二个原因是，传递指针可以控制内存分配。迭代数据并将其从JSON转换为Go结构体是一种常见的设计模式，因此`Unmarshal`针对这种情况进行了优化。如果`Unmarshal`函数返回一个值，并且在循环中调用`Unmarshal`，则每个循环迭代都会创建一个结构体实例。这会给垃圾收集器带来更多工作量，从而减慢程序的速度。在查看[“Slices
+    as Buffers”](#buffers)时，您会看到此模式的另一个用途，而在[“Reducing the Garbage Collector’s Workload”](#memory)中我将详细讨论高效内存使用。
 - en: Because JSON integration is so common, this API is sometimes treated as a common
     case by new Go developers, instead of the exception that it should be.
+  id: totrans-92
   prefs: []
   type: TYPE_NORMAL
+  zh: 由于JSON集成非常普遍，这个API有时被新的Go开发人员视为常见情况，而不是应该是的例外情况。
 - en: When returning values from a function, you should favor value types. Use a pointer
     type as a return type only if there is state within the data type that needs to
     be modified. When you look at I/O in [“io and Friends”](ch13.html#io_friends),
     you’ll see that with buffers for reading or writing data. In addition, some data
     types used with concurrency must always be passed as pointers. You’ll see those
     in [Chapter 12](ch12.html#unique_chapter_id_12).
+  id: totrans-93
   prefs: []
   type: TYPE_NORMAL
+  zh: 当从函数返回值时，应优先考虑值类型。仅当数据类型内部存在需要修改的状态时，才使用指针类型作为返回类型。在查看[“io and Friends”](ch13.html#io_friends)中的I/O时，您将看到用于读取或写入数据的缓冲区。此外，某些与并发使用的数据类型必须始终作为指针传递。您将在[第12章](ch12.html#unique_chapter_id_12)中看到这些内容。
 - en: Pointer Passing Performance
+  id: totrans-94
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 指针传递性能
 - en: If a struct is large enough, using a pointer to the struct as either an input
     parameter or a return value improves performance. The time to pass a pointer into
     a function is constant for all data sizes, roughly one nanosecond. This makes
     sense, as the size of a pointer is the same for all data types. Passing a value
     into a function takes longer as the data gets larger. It takes about 0.7 milliseconds
     once the value gets to be around 10 megabytes of data.
+  id: totrans-95
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果一个结构体足够大，使用结构体的指针作为输入参数或返回值可以提升性能。将指针传递给函数的时间对于所有数据大小都是常数级别的，大约一纳秒。这是有道理的，因为指针的大小对所有数据类型都是相同的。将值传递给函数随着数据变大会花费更长的时间。当值达到大约10兆字节时，传递值大约需要0.7毫秒。
 - en: The behavior for returning a pointer versus returning a value is more interesting.
     For data structures that are smaller than 10 megabytes, it is actually *slower*
     to return a pointer type than a value type. For example, a 100-byte data structure
@@ -472,14 +679,18 @@
     takes about 30 nanoseconds. As your data structures get larger, the performance
     advantage flips. It takes nearly 1.5 milliseconds to return 10 megabytes of data,
     but a little less than half a millisecond to return a pointer to it.
+  id: totrans-96
   prefs: []
   type: TYPE_NORMAL
+  zh: 返回指针与返回值的行为更有趣。对于小于10兆字节的数据结构，返回指针类型实际上比返回值类型*更慢*。例如，一个100字节的数据结构返回大约需要10纳秒，但指向该数据结构的指针则需要约30纳秒。随着数据结构变得更大，性能优势则会反转。返回10兆字节的数据需要将近1.5毫秒，但返回指向它的指针则少于半毫秒。
 - en: You should be aware that these are very short times. For the vast majority of
     cases, the difference between using a pointer and a value won’t affect your program’s
     performance. But if you are passing megabytes of data between functions, consider
     using a pointer even if the data is meant to be immutable.
+  id: totrans-97
   prefs: []
   type: TYPE_NORMAL
+  zh: 您应该知道这些时间非常短暂。在绝大多数情况下，使用指针和值之间的差异不会影响程序的性能。但是，如果在函数之间传递的数据量达到几兆字节，请考虑使用指针，即使该数据旨在是不可变的。
 - en: All these numbers are from an i7-8700 computer with 32 GB of RAM. Different
     CPUs can produce different crossover points. For example, on an Apple M1 CPU with
     16 GB of RAM, it is faster to return a pointer (5 microseconds) than a value (8
@@ -487,53 +698,74 @@
     tests with the code in the *sample_code/pointer_perf* directory in the [Chapter
     6 repository](https://oreil.ly/riOYA). Run the command `go test ./…​ -bench=.`
     to find your own results. (Benchmarks are covered in [“Using Benchmarks”](ch15.html#benchmarking).)
+  id: totrans-98
   prefs: []
   type: TYPE_NORMAL
+  zh: 所有这些数字来自一台配备 32 GB RAM 的 i7-8700 计算机。不同的 CPU 可能会产生不同的交叉点。例如，在配备 16 GB RAM 的
+    Apple M1 CPU 上，在大约 100 千字节的大小时，返回指针（5 微秒）比返回值（8 微秒）更快。您可以在[第 6 章代码库](https://oreil.ly/riOYA)中的
+    *sample_code/pointer_perf* 目录中运行自己的性能测试。运行命令 `go test ./…​ -bench=.` 来查找您自己的结果。（性能基准测试在[“使用基准测试”](ch15.html#benchmarking)中介绍。）
 - en: The Zero Value Versus No Value
+  id: totrans-99
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 零值与无值
 - en: Go pointers are also commonly used to indicate the difference between a variable
     or field that’s been assigned the zero value and a variable or field that hasn’t
     been assigned a value at all. If this distinction matters in your program, use
     a `nil` pointer to represent an unassigned variable or struct field.
+  id: totrans-100
   prefs: []
   type: TYPE_NORMAL
+  zh: Go 指针也常用于指示已分配了零值的变量或字段与根本没有分配值的变量或字段之间的区别。如果此区别在您的程序中很重要，请使用`nil`指针来表示未分配的变量或结构体字段。
 - en: Because pointers also indicate mutability, be careful when using this pattern.
     Rather than return a pointer set to `nil` from a function, use the comma ok idiom
     that you saw for maps, and return a value type and a boolean.
+  id: totrans-101
   prefs: []
   type: TYPE_NORMAL
+  zh: 因为指针还表示可变性，在使用此模式时要小心。与其从函数中返回设置为`nil`的指针，不如使用您在映射中看到的逗号 ok 惯用法，并返回一个值类型和一个布尔值。
 - en: Remember, if a `nil` pointer is passed into a function via a parameter or a
     field on a parameter, you cannot set the value within the function, as there’s
     nowhere to store the value. If a non-nil value is passed in for the pointer, do
     not modify it unless you document the behavior.
+  id: totrans-102
   prefs: []
   type: TYPE_NORMAL
+  zh: 请记住，如果通过参数或参数上的字段将`nil`指针传递到函数中，则无法在函数内部设置值，因为没有地方存储该值。如果传入指针的值不为`nil`，则不要修改它，除非您记录了该行为。
 - en: Again, JSON conversions are the exception that proves the rule. When converting
     data back and forth from JSON (yes, I’ll talk more about the JSON support in Go’s
     standard library in [“encoding/json”](ch13.html#json)), you often need a way to
     differentiate between the zero value and not having a value assigned at all. Use
     a pointer value for fields in the struct that are nullable.
+  id: totrans-103
   prefs: []
   type: TYPE_NORMAL
+  zh: 再次提醒，JSON 转换是证明规则的例外。在将数据在 JSON 中来回转换时（是的，我会在[“encoding/json”](ch13.html#json)中更多地讨论
+    Go 标准库中的 JSON 支持），您经常需要一种区分零值和根本没有分配值的方式。对于结构体中可为空的字段，请使用指针值。
 - en: When not working with JSON (or other external protocols), resist the temptation
     to use a pointer field to indicate no value. While a pointer does provide a handy
     way to indicate no value, if you are not going to modify the value, you should
     use a value type instead, paired with a boolean.
+  id: totrans-104
   prefs: []
   type: TYPE_NORMAL
+  zh: 当不使用 JSON（或其他外部协议）时，请抵制使用指针字段来表示无值的诱惑。虽然指针确实提供了一种方便的方式来指示无值，但如果您不打算修改该值，则应改为使用值类型，配合布尔值使用。
 - en: The Difference Between Maps and Slices
+  id: totrans-105
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 映射和切片之间的区别
 - en: 'As you saw in the previous chapter, any modifications made to a map that’s
     passed to a function are reflected in the original variable that was passed in.
     Now that you know about pointers, you can understand why: within the Go runtime,
     a map is implemented as a pointer to a struct. Passing a map to a function means
     that you are copying a pointer.'
+  id: totrans-106
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如您在前一章节中看到的那样，对传递给函数的映射所做的任何修改都会反映在传递的原始变量中。现在您已经了解了指针，您可以理解其中的原因：在 Go 运行时中，映射被实现为指向结构体的指针。将映射传递给函数意味着您在复制一个指针。
 - en: Because of this, you should consider carefully before using maps for input parameters
     or return values, especially on public APIs. On an API-design level, maps are
     a bad choice because they say nothing about the values contained within; nothing
@@ -545,17 +777,24 @@
     language’s lack of structure. Go is a strongly typed language; rather than passing
     a map around, use a struct. (You’ll learn another reason to prefer structs when
     I talk about memory layout in [“Reducing the Garbage Collector’s Workload”](#memory).)
+  id: totrans-107
   prefs: []
   type: TYPE_NORMAL
+  zh: 因此，在使用映射作为输入参数或返回值时，尤其是在公共 API 上，你应该仔细考虑。从 API 设计的角度来看，映射是一个不好的选择，因为它们并未明确定义映射中包含的值；没有任何东西明确定义映射中的任何键，所以唯一了解它们的方法是通过代码进行跟踪。从不可变性的角度来看，映射也不好，因为了解映射中最终包含了什么的唯一方法是跟踪与其交互的所有函数。这会阻止你的
+    API 自我记录。如果你习惯于动态语言，请不要将映射作为替代其他语言缺乏结构的方式。Go 是一种强类型语言；与其传递映射，不如使用结构体。（当我讨论内存布局时，你会了解更喜欢结构体的另一个原因，见[“减少垃圾收集器的工作量”](#memory)。）
 - en: Note
+  id: totrans-108
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: A map input parameter or return value is the correct choice in certain situations.
     A struct requires you to name its fields at compile time. If the keys for your
     data aren’t known at compile time, a map is ideal.
+  id: totrans-109
   prefs: []
   type: TYPE_NORMAL
+  zh: 在某些情况下，映射输入参数或返回值是正确的选择。结构体要求在编译时命名其字段。如果你的数据键在编译时不是已知的，那么映射是理想的选择。
 - en: 'Meanwhile, passing a slice to a function has more complicated behavior: any
     modification to the slice’s contents is reflected in the original variable, but
     using `append` to change the length isn’t reflected in the original variable,
@@ -563,39 +802,61 @@
     is implemented as a struct with three fields: an `int` field for length, an `int`
     field for capacity, and a pointer to a block of memory. [Figure 6-5](#the_memory_layout_of_a_slice)
     demonstrates the relationship.'
+  id: totrans-110
   prefs: []
   type: TYPE_NORMAL
+  zh: 与此同时，将切片传递给函数具有更复杂的行为：对切片内容的任何修改都会反映在原始变量中，但使用 `append` 来改变长度则不会反映在原始变量中，即使切片的容量大于其长度。这是因为切片被实现为一个具有三个字段的结构体：一个
+    `int` 类型的长度字段，一个 `int` 类型的容量字段，以及指向内存块的指针。[图 6-5](#the_memory_layout_of_a_slice)
+    演示了它们之间的关系。
 - en: '![The memory layout of a slice](assets/lgo2_0605.png)'
+  id: totrans-111
   prefs: []
   type: TYPE_IMG
+  zh: '![切片的内存布局](assets/lgo2_0605.png)'
 - en: Figure 6-5\. The memory layout of a slice
+  id: totrans-112
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 6-5\. 切片的内存布局
 - en: When a slice is copied to a different variable or passed to a function, a copy
     is made of the length, capacity, and the pointer. [Figure 6-6](#the_memory_layout_of_a_slice_and_its_copy)
     shows how both slice variables point to the same memory.
+  id: totrans-113
   prefs: []
   type: TYPE_NORMAL
+  zh: 当切片被复制到另一个变量或传递给函数时，会复制长度、容量和指针。[图 6-6](#the_memory_layout_of_a_slice_and_its_copy)
+    展示了两个切片变量指向相同内存的情况。
 - en: '![The memory layout of a slice and its copy](assets/lgo2_0606.png)'
+  id: totrans-114
   prefs: []
   type: TYPE_IMG
+  zh: '![切片及其副本的内存布局](assets/lgo2_0606.png)'
 - en: Figure 6-6\. The memory layout of a slice and its copy
+  id: totrans-115
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 6-6\. 切片及其副本的内存布局
 - en: Changing the values in the slice changes the memory that the pointer points
     to, so the changes are seen in both the copy and the original. You see in [Figure 6-7](#modifying_the_contents_of_a_slice)
     how this looks in memory.
+  id: totrans-116
   prefs: []
   type: TYPE_NORMAL
+  zh: 修改切片中的值会改变指针指向的内存，因此更改会在副本和原始切片中都可见。你可以在[图 6-7](#modifying_the_contents_of_a_slice)
+    中看到内存中的变化。
 - en: '![Modifying the Contents of a Slice](assets/lgo2_0607.png)'
+  id: totrans-117
   prefs: []
   type: TYPE_IMG
+  zh: '![修改切片的内容](assets/lgo2_0607.png)'
 - en: Figure 6-7\. Modifying the contents of a slice
+  id: totrans-118
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 6-7\. 修改切片的内容
 - en: If the slice copy is appended to and there *is* enough capacity in the slice
     for the new values, the length changes in the copy, and the new values are stored
     in the block of memory that’s shared by the copy and the original. However, the
@@ -603,81 +864,114 @@
     slice from seeing those values since they are beyond the length of the original
     slice. [Figure 6-8](#changing_the_length_is_invisible_in_the_original) highlights
     the values that are visible in one slice variable but not in the other.
+  id: totrans-119
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果切片副本被追加，并且切片有足够的容量来存放新值，则副本的长度会改变，并且新值将存储在副本和原始切片共享的内存块中。然而，原始切片中的长度保持不变。由于这些值超出了原始切片的长度，Go
+    运行时阻止了原始切片看到这些值。[图 6-8](#changing_the_length_is_invisible_in_the_original) 强调了在一个切片变量中可见但在另一个中不可见的值。
 - en: '![Changing The Length Is Invisible In The Original](assets/lgo2_0608.png)'
+  id: totrans-120
   prefs: []
   type: TYPE_IMG
+  zh: '![改变长度在原始中是不可见的](assets/lgo2_0608.png)'
 - en: Figure 6-8\. Changing the length is invisible in the original
+  id: totrans-121
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 6-8\. 改变长度在原始中是不可见的
 - en: If the slice copy is appended to and there *isn’t* enough capacity in the slice
     for the new values, a new, bigger block of memory is allocated, values are copied
     over, and the pointer, length, and capacity fields in the copy are updated. Changes
     to the pointer, length, and capacity are not reflected in the original, because
     they are only in the copy. [Figure 6-9](#changing_the_capacity_changes_the_storage)
     shows how each slice variable now points to a different memory block.
+  id: totrans-122
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果切片副本被追加并且切片没有足够的容量来存放新值，那么会分配一个新的、更大的内存块，将值复制过去，并更新复制品中的指针、长度和容量字段。因为这些信息只在副本中，所以在原始切片中不会反映出这些更改。[图 6-9](#changing_the_capacity_changes_the_storage)展示了现在每个切片变量指向不同的内存块。
 - en: '![Changing The Capacity Changes the Storage](assets/lgo2_0609.png)'
+  id: totrans-123
   prefs: []
   type: TYPE_IMG
+  zh: '![改变容量改变存储](assets/lgo2_0609.png)'
 - en: Figure 6-9\. Changing the capacity changes the storage
+  id: totrans-124
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 6-9\. 改变容量改变存储
 - en: The result is that a slice that’s passed to a function can have its contents
     modified, but the slice can’t be resized. As the only usable linear data structure,
     slices are frequently passed around in Go programs. By default, you should assume
     that a slice is not modified by a function. Your function’s documentation should
     specify whether it modifies the slice’s contents.
+  id: totrans-125
   prefs: []
   type: TYPE_NORMAL
+  zh: 结果是，传递给函数的切片可以修改其内容，但切片本身无法调整大小。作为唯一可用的线性数据结构，切片经常在 Go 程序中传递。默认情况下，你应该假设一个函数不会修改切片。你的函数文档应该说明它是否修改了切片的内容。
 - en: Note
+  id: totrans-126
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: 'The reason you can pass a slice of any size to a function is that the data
     type that’s passed to the function is the same for any size slice: a struct of
     two `int` values and a pointer. The reason you can’t write a function that takes
     an array of any size is that the entire array is passed to the function, not just
     a pointer to the data.'
+  id: totrans-127
   prefs: []
   type: TYPE_NORMAL
+  zh: 你可以将任何大小的切片传递给函数的原因是，传递给函数的数据类型对于任何大小的切片都是相同的：一个包含两个`int`值和一个指针的结构体。你不能编写一个接受任何大小数组的函数的原因是，整个数组会传递给函数，而不仅仅是数据的指针。
 - en: There is one situation where the ability to modify the contents (but not the
     size) of a slice input parameter is very useful. This makes them ideal for reusable
     buffers.
+  id: totrans-128
   prefs: []
   type: TYPE_NORMAL
+  zh: 有一种情况非常有用，即能够修改切片输入参数的内容（但不能改变大小）。这使它们成为可重复使用的缓冲区的理想选择。
 - en: Slices as Buffers
+  id: totrans-129
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 作为缓冲区的切片
 - en: 'When reading data from an external resource (like a file or a network connection),
     many languages use code like this:'
+  id: totrans-130
   prefs: []
   type: TYPE_NORMAL
+  zh: 当从外部资源（如文件或网络连接）读取数据时，许多语言会使用如下代码：
 - en: '[PRE21]'
+  id: totrans-131
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE21]'
 - en: The problem with this pattern is that every time you iterate through that `while`
     loop, you allocate another `data_chunk` even though each one is used only once.
     This creates lots of unnecessary memory allocations, just as I discussed in [“Pointers
     Are a Last Resort”](#last_resort) when looking at the `Unmarshal` function. Garbage-collected
     languages handle those allocations for you automatically, but the work still needs
     to be done to clean them up when you are done processing.
+  id: totrans-132
   prefs: []
   type: TYPE_NORMAL
+  zh: 这种模式的问题在于，每次你通过那个`while`循环迭代时，都会分配另一个`data_chunk`，尽管每个都只使用一次。正如我在[“指针是最后的选择”](#last_resort)中讨论`Unmarshal`函数时所述，这样会产生大量不必要的内存分配。垃圾收集语言会自动处理这些分配，但在处理完成后仍需要进行清理工作。
 - en: 'Even though Go is a garbage-collected language, writing idiomatic Go means
     avoiding unneeded allocations. Rather than returning a new allocation each time
     you read from a data source, you create a slice of bytes once and use it as a
     buffer to read data from the data source:'
+  id: totrans-133
   prefs: []
   type: TYPE_NORMAL
+  zh: 即使 Go 是一种垃圾收集语言，编写符合惯用 Go 的代码意味着避免不必要的分配。与每次从数据源读取时返回新分配相比，你可以创建一个字节切片并将其用作从数据源读取数据的缓冲区：
 - en: '[PRE22]'
+  id: totrans-134
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE22]'
 - en: Remember that you can’t change the length or capacity of a slice when it is
     passed into a function, but you can change the contents up to the current length.
     In this code, you create a buffer of 100 bytes, and each time through the loop,
@@ -687,12 +981,16 @@
     it is returned. When `io.EOF` is returned as the error, there is no more data
     and the function returns `nil`. You’ll look at more details about I/O in [“io
     and Friends”](ch13.html#io_friends) and error handling is covered in [Chapter 9](ch09.html#unique_chapter_id_09).
+  id: totrans-135
   prefs: []
   type: TYPE_NORMAL
+  zh: 记住，当切片传递到函数时，你不能改变其长度或容量，但你可以改变当前长度内的内容。在这段代码中，你创建了一个100字节的缓冲区，每次循环时，你将下一个字节块（最多100个字节）复制到切片中。然后将填充好的缓冲区部分传递给`process`函数。如果发生错误（除了`io.EOF`，表示没有更多数据可读的特殊错误），则返回该错误。当返回`io.EOF`作为错误时，表示没有更多数据，函数返回`nil`。你将在[“io和朋友们”](ch13.html#io_friends)中详细了解更多关于I/O的细节，错误处理则在[第9章](ch09.html#unique_chapter_id_09)中涵盖。
 - en: Reducing the Garbage Collector’s Workload
+  id: totrans-136
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 减少垃圾收集器的工作负载
 - en: Using buffers is just one example of how you reduce the work done by the garbage
     collector. When programmers talk about “garbage,” what they mean is “data that
     has no more pointers pointing to it.” Once there are no more pointers pointing
@@ -703,8 +1001,10 @@
     collector, because decades of experience have shown that it is very difficult
     for people to properly manage memory manually. But just because you have a garbage
     collector doesn’t mean you should create lots of garbage.
+  id: totrans-137
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用缓冲区仅仅是减少垃圾收集器工作量的一个例子。当程序员谈论“垃圾”的时候，他们指的是“没有指针指向它的数据”。一旦某些数据没有指针指向它，那么这些数据占用的内存可以被重复使用。如果内存没有被回收，程序的内存使用将会持续增长，直到计算机的RAM用完。垃圾收集器的工作是自动检测未使用的内存并回收，以便可以重复使用。Go语言拥有垃圾收集器是非常棒的，因为数十年的经验表明，手动正确管理内存对人类来说非常困难。但是仅仅因为有了垃圾收集器，并不意味着你应该大量创建垃圾。
 - en: If you’ve spent time learning how programming languages are implemented, you’ve
     probably learned about the *heap* and the stack. If you’re unfamiliar, here’s
     how a stack works. A *stack* is a consecutive block of memory. Every function
@@ -718,18 +1018,24 @@
     calling function via the stack, and the stack pointer is moved back to the beginning
     of the stack frame for the exited function, deallocating all the stack memory
     that was used by that function’s local variables and parameters.
+  id: totrans-138
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果你花时间学习编程语言的实现方式，你可能已经了解了堆（*heap*）和栈（*stack*）。如果你不熟悉，这里是栈的工作原理。*栈*是连续的内存块。执行线程中的每个函数调用共享同一个栈。在栈上分配内存是快速且简单的。*栈指针*跟踪最后一次分配内存的位置。通过更改栈指针的值来进行额外的内存分配。当函数被调用时，为函数的数据创建一个新的*栈帧*。局部变量与传入函数的参数一起存储在栈上。每个新变量都会使栈指针移动相应值的大小。当函数退出时，其返回值通过栈复制回调用函数，并且栈指针移回已退出函数的栈帧开头，释放该函数的所有局部变量和参数使用的栈内存。
 - en: Note
+  id: totrans-139
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: Since version 1.17, Go uses a combination of registers (a small set of very
     high-speed memory that’s directly on the CPU) and the stack to pass values into
     and out of functions. It’s faster and more complicated, but the general concepts
     of stack-only function calls still apply.
+  id: totrans-140
   prefs: []
   type: TYPE_NORMAL
+  zh: 自版本1.17以来，Go语言使用寄存器（CPU上直接的一小块非常高速的内存）和栈来传递函数的输入和输出值。这样做更快速也更复杂，但仍然适用于仅栈的函数调用一般概念。
 - en: 'To store something on the stack, you have to know exactly how big it is at
     compile time. When you look at the value types in Go (primitive values, arrays,
     and structs), they all have one thing in common: you know exactly how much memory
@@ -737,12 +1043,16 @@
     for an array. Because their sizes are known, they can be allocated on the stack
     instead of the heap. The size of a pointer type is also known, and it is also
     stored on the stack.'
+  id: totrans-141
   prefs: []
   type: TYPE_NORMAL
+  zh: 要将东西存储在堆栈上，必须在编译时确切地知道它的大小。当你看 Go 中的值类型时（原始值、数组和结构体），它们都有一个共同点：你在编译时知道它们占用多少内存。这就是为什么数组的大小被视为类型的一部分的原因。因为它们的大小是已知的，所以它们可以在堆栈上分配，而不是在堆上。指针类型的大小也是已知的，并且也存储在堆栈上。
 - en: Note
+  id: totrans-142
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: Go is unusual in that it can increase the size of a stack while the program
     is running. This is possible because each goroutine has its own stack and goroutines
     are managed by the Go runtime, not by the underlying operating system (I discuss
@@ -751,8 +1061,12 @@
     (when the stack needs to grow, all data on the stack needs to be copied, which
     is slow). It’s also possible to write worst-case-scenario code that causes the
     stack to grow and shrink over and over.
+  id: totrans-143
   prefs: []
   type: TYPE_NORMAL
+  zh: Go 的一个不寻常之处在于它可以在程序运行时增加堆栈的大小。这是可能的，因为每个 goroutine 都有自己的堆栈，并且 goroutine 是由 Go
+    运行时管理的，而不是由底层操作系统管理的（我在讨论并发时会详细介绍 goroutine，参见[第 12 章](ch12.html#unique_chapter_id_12)）。这既有优势（Go
+    的堆栈从小开始，并且使用的内存较少），也有劣势（当堆栈需要增长时，需要复制堆栈上的所有数据，这是缓慢的）。还有可能编写最坏情况下的代码，导致堆栈反复增长和缩小。
 - en: The rules are more complicated when it comes to the data that the pointer points
     to. In order for Go to allocate the data the pointer points to on the stack, several
     conditions must be true. The data must be a local variable whose data size is
@@ -764,8 +1078,11 @@
     compiler determines that the data can’t be stored on the stack, we say that the
     data the pointer points to *escapes* the stack, and the compiler stores the data
     on the heap.
+  id: totrans-144
   prefs: []
   type: TYPE_NORMAL
+  zh: 当涉及到指针指向的数据时，规则变得更加复杂。为了让 Go 将指针指向的数据分配在堆栈上，必须满足几个条件。数据必须是一个局部变量，其数据大小在编译时是已知的。指针不能从函数中返回。如果将指针传递给函数，编译器必须能够确保这些条件仍然成立。如果大小未知，你无法通过移动堆栈指针来为其腾出空间。如果返回指针变量，当函数退出时，指针指向的内存将不再有效。当编译器确定无法将数据存储在堆栈上时，我们称指针指向的数据
+    *逃逸* 出堆栈，并且编译器将数据存储在堆上。
 - en: The heap is the memory that’s managed by the garbage collector (or by hand in
     languages like C and C++). I won’t discuss the details of garbage collector algorithm
     implementation, but they are much more complicated than moving a stack pointer.
@@ -775,25 +1092,35 @@
     becomes *garbage*, and it’s the job of the garbage collector to clear it out.
     This program on [The Go Playground](https://oreil.ly/VDi4t) demonstrates when
     data on the heap becomes garbage.
+  id: totrans-145
   prefs: []
   type: TYPE_NORMAL
+  zh: 堆是由垃圾回收器（或在像 C 和 C++ 这样的语言中手动管理）管理的内存。我不会讨论垃圾回收器算法实现的细节，但它们比移动堆栈指针要复杂得多。任何存储在堆上的数据在能够追溯到堆栈上的指针类型变量时都是有效的。一旦没有更多的指向该数据的堆栈变量，无论是直接还是通过指针链，该数据就变成了
+    *垃圾*，垃圾回收器的工作就是清理它。这个在[Go Playground](https://oreil.ly/VDi4t)上的程序演示了堆上的数据何时变成垃圾。
 - en: Note
+  id: totrans-146
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: A common source of bugs in C programs is returning a pointer to a local variable.
     In C, this results in a pointer pointing to invalid memory. The Go compiler is
     smarter. When it sees that a pointer to a local variable is returned, the local
     variable’s value is stored on the heap.
+  id: totrans-147
   prefs: []
   type: TYPE_NORMAL
+  zh: C 语言程序中常见的 bug 源自于返回指向局部变量的指针。在 C 语言中，这会导致指针指向无效的内存。Go 编译器更加智能。当它发现返回一个指向局部变量的指针时，局部变量的值会被存储在堆上。
 - en: The *escape analysis* done by the Go compiler isn’t perfect. In some cases,
     data that could be stored on the stack escapes to the heap. However, the compiler
     has to be conservative; it can’t take the chance of leaving a value on the stack
     when it might need to be on the heap because leaving a reference to invalid data
     causes memory corruption. Newer Go releases improve escape analysis.
+  id: totrans-148
   prefs: []
   type: TYPE_NORMAL
+  zh: Go 编译器进行的*逃逸分析*并不完美。在某些情况下，本应存储在栈上的数据会逃逸到堆上。然而，编译器必须保守，不能冒将值留在栈上的风险，因为留下对无效数据的引用会导致内存损坏。更新的
+    Go 发行版改进了逃逸分析。
 - en: 'You might be wondering: what’s so bad about storing things on the heap? Two
     problems arise related to performance. First, the garbage collector takes time
     to do its work. It isn’t trivial to keep track of all available chunks of free
@@ -811,18 +1138,26 @@
     However, if your Go program creates lots of garbage, the garbage collector won’t
     be able to find all the garbage during a cycle, slowing the collector and increasing
     memory usage.'
+  id: totrans-149
   prefs: []
   type: TYPE_NORMAL
+  zh: 也许你会想知道：将东西存储在堆上有什么不好？与性能相关的问题涉及两个方面。首先，垃圾收集器需要时间来执行其工作。追踪堆上所有可用的空闲内存块或跟踪仍具有有效指针的已使用内存块并非易事。这些时间会从程序本应执行的处理中抽取。已编写许多垃圾收集算法，并可以大致分为两类：设计用于更高吞吐量（在单次扫描中找到尽可能多的垃圾）或更低延迟（尽快完成垃圾扫描）。Jeffrey
+    Dean，Google 工程成功背后的天才之一，与其合作的2013年文章名为[“The Tail at Scale”](https://oreil.ly/cvLpa)。文章主张系统应优化以降低延迟，以保持响应时间低延迟。Go
+    运行时使用的垃圾收集器偏向于低延迟。每个垃圾收集周期被设计为“停止世界”（即暂停程序）少于 500 微秒。然而，如果你的 Go 程序创建大量垃圾，垃圾收集器在一个周期内可能无法找到所有垃圾，从而减慢收集器并增加内存使用。
 - en: Note
+  id: totrans-150
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: If you are interested in the implementation details, you may want to listen
     to the talk Rick Hudson gave at the International Symposium on Memory Management
     in 2018, describing the [history and implementation](https://oreil.ly/UUhGK) of
     the Go garbage collector.
+  id: totrans-151
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果你对实现细节感兴趣，可以听听 Rick Hudson 在 2018 年国际内存管理研讨会上的演讲，描述了 Go 垃圾收集器的[历史和实现](https://oreil.ly/UUhGK)。
 - en: The second problem deals with the nature of computer hardware. RAM might mean
     “random access memory,” but the fastest way to read from memory is to read it
     sequentially. A slice of structs in Go has all the data laid out sequentially
@@ -832,16 +1167,23 @@
     [blog post](https://oreil.ly/v_urr) that explores how much this can affect performance.
     His numbers indicate that it’s roughly two orders of magnitude slower to access
     data via pointers stored randomly in RAM.
+  id: totrans-152
   prefs: []
   type: TYPE_NORMAL
+  zh: 计算机硬件的第二个问题涉及其性质。RAM 可能意味着“随机存取存储器”，但从内存中读取最快的方式是顺序读取。在 Go 语言中，结构体切片的数据是顺序存储在内存中的。这使得加载和处理速度都非常快。指向结构体的指针切片（或者结构体的字段是指针）的数据则分散在
+    RAM 中，使得读取和处理速度要慢得多。Forrest Smith 写了一篇深入的[博客文章](https://oreil.ly/v_urr)，探讨了这对性能的影响有多大。他的数据表明，通过随机存储在
+    RAM 中存储的指针来访问数据大约慢了两个数量级。
 - en: This approach of writing software that’s aware of the hardware it’s running
     on is called *mechanical sympathy*. The term comes from the world of car racing,
     where the idea is that a driver who understands what the car is doing can best
     squeeze the last bits of performance out of it. In 2011, Martin Thompson began
     applying the term to software development. Following best practices in Go gives
     it to you automatically.
+  id: totrans-153
   prefs: []
   type: TYPE_NORMAL
+  zh: 编写软件时考虑到它运行的硬件的方法被称为*机械同情心*。这个术语源自汽车赛车界，意思是了解汽车正在做什么的司机可以最有效地挤出最后一点性能。2011年，Martin
+    Thompson开始将这个术语应用于软件开发。在Go中遵循最佳实践会自动带给你这种效果。
 - en: Compare Go’s approach to Java’s. In Java, local variables and parameters are
     stored in the stack, just as in Go. However, as discussed earlier, objects in
     Java are implemented as pointers. For every object variable instance, only the
@@ -857,8 +1199,10 @@
     lots of work, some optimized for throughput, some for latency, and all with configuration
     settings to tune them for the best performance. The virtual machines for Python,
     Ruby, and JavaScript are less optimized, and their performance suffers accordingly.
+  id: totrans-154
   prefs: []
   type: TYPE_NORMAL
+  zh: 比较Go和Java的方法。在Java中，本地变量和参数存储在堆栈中，与Go类似。然而，正如之前讨论的那样，Java中的对象实现为指针。对于每个对象变量实例，只在堆栈上分配指向它的指针；对象内部的数据分配在堆上。只有原始值（数字、布尔值和字符）完全存储在堆栈上。这意味着Java中的垃圾回收器需要做大量的工作。这也意味着Java中`List`接口的实现是使用指向指针数组的指针。尽管它们*看起来*像是线性数据结构，但实际上从中读取数据涉及通过内存跳转，这是非常低效的。Python、Ruby和JavaScript中的顺序数据类型有类似的行为。为了避免所有这些低效，Java虚拟机包含一些非常聪明的垃圾回收器，可以进行大量的工作，有些优化了吞吐量，有些优化了延迟，并且都有配置设置，可以调整它们以获得最佳性能。Python、Ruby和JavaScript的虚拟机则没有那么优化，它们的性能相应受到影响。
 - en: Now you can see why Go encourages you to use pointers sparingly. You reduce
     the garbage collector’s workload by making sure that as much as possible is stored
     on the stack. Slices of structs or primitive types have their data lined up sequentially
@@ -867,17 +1211,24 @@
     this approach work is to simply create less garbage in the first place. While
     focusing on optimizing memory allocations can feel like premature optimization,
     the idiomatic approach in Go is also the most efficient.
+  id: totrans-155
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在你可以看到为什么Go鼓励你节制地使用指针了。通过尽可能地将数据存储在堆栈上，你可以减少垃圾收集器的工作量。结构体或原始类型的切片在内存中按顺序排列，以便快速访问。当垃圾收集器确实进行工作时，它被优化为快速返回而不是收集大量垃圾。使这种方法奏效的关键是在第一次创建时减少垃圾。虽然专注于优化内存分配可能会感觉像是过早优化，但在Go中的惯用方法也是最有效的方法。
 - en: If you want to learn more about heap versus stack allocation and escape analysis
     in Go, excellent blog posts cover the topic, including ones by [Bill Kennedy of
     Ardan Labs](https://oreil.ly/juu44) and [Achille Roussel and Rick Branson of Segment](https://oreil.ly/c_gvC).
+  id: totrans-156
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果你想了解更多关于Go中堆与栈分配和逃逸分析的信息，可以阅读一些优秀的博客文章，包括[Bill Kennedy的Ardan Labs](https://oreil.ly/juu44)和[Achille
+    Roussel以及Rick Branson的Segment](https://oreil.ly/c_gvC)。
 - en: Tuning the Garbage Collector
+  id: totrans-157
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 调优垃圾回收器
 - en: A garbage collector doesn’t immediately reclaim memory as soon as it is no longer
     referenced. Doing so would seriously impact performance. Instead, it lets the
     garbage pile up for a bit. The heap almost always contains both live data and
@@ -887,32 +1238,45 @@
     and uses the formula `CURRENT_HEAP_SIZE + CURRENT_HEAP_SIZE*GOGC/100` to calculate
     the heap size that needs to be reached to trigger the next garbage-collection
     cycle.
+  id: totrans-158
   prefs: []
   type: TYPE_NORMAL
+  zh: 垃圾收集器并不会在不再被引用的内存立即回收。这样做会严重影响性能。相反，它会让垃圾堆积一段时间。堆中几乎总是包含既存数据又包含不再需要的内存。Go 运行时提供了一些设置来控制堆的大小。第一个是
+    `GOGC` 环境变量。垃圾收集器在垃圾收集周期结束时查看堆大小，并使用公式 `CURRENT_HEAP_SIZE + CURRENT_HEAP_SIZE*GOGC/100`
+    计算需要达到的堆大小以触发下一个垃圾收集周期。
 - en: Note
+  id: totrans-159
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: The `GOGC` heap size calculation is a little more complicated than just described.
     It takes into account not just the heap size, but the sizes of all the stacks
     of all the goroutines and the memory set aside to hold package-level variables.
     Most of the time, the heap size is far bigger than the size of these other memory
     areas, but in some situations they do have an effect.
+  id: totrans-160
   prefs: []
   type: TYPE_NORMAL
+  zh: '`GOGC` 的堆大小计算比刚刚描述的更复杂。它考虑的不仅仅是堆大小，还包括所有 goroutines 的所有堆栈的大小以及用于保存包级变量的内存。大多数情况下，堆大小远远大于这些其他内存区域的大小，但在某些情况下，它们确实会产生影响。'
 - en: By default, `GOGC` is set to `100`, which means that the heap size that triggers
     the next collection is roughly double the heap size at the end of the current
     collection. Setting `GOGC` to a smaller value will decrease the target heap size,
     and setting it to a larger value will increase it. As a rough estimate, doubling
     the value of `GOGC` will halve the amount of CPU time spent on GC.
+  id: totrans-161
   prefs: []
   type: TYPE_NORMAL
+  zh: 默认情况下，`GOGC` 设置为 `100`，这意味着触发下一个收集的堆大小大约是当前收集结束时堆大小的两倍。将 `GOGC` 设置为较小的值将减少目标堆大小，将其设置为较大的值将增加它。粗略估计，将
+    `GOGC` 的值翻倍将使 GC 消耗的 CPU 时间减少一半。
 - en: Setting `GOGC` to `off` disables garbage collection. This will make your programs
     run faster. However, turning off garbage collection on a long-running process
     will potentially use all available memory on your computer. This is not usually
     considered optimal behavior.
+  id: totrans-162
   prefs: []
   type: TYPE_NORMAL
+  zh: 将 `GOGC` 设置为 `off` 可以禁用垃圾收集。这将使你的程序运行更快。然而，在长时间运行的进程中关闭垃圾收集可能会使用计算机上的所有可用内存。这通常不被认为是最优的行为。
 - en: The second garbage-collection setting specifies a limit on the total amount
     of memory your Go program is allowed to use. Java developers are likely familiar
     with the `-Xmx` JVM argument, and `GOMEMLIMIT` is similar. By default, it is disabled
@@ -921,18 +1285,27 @@
     can optionally use the suffixes `B`, `KiB`, `MiB`, `GiB`, and `TiB`. For example,
     `GOMEMLIMIT=3GiB` sets the memory limit to 3 gibibytes (which is equal to 3,221,225,472
     bytes).
+  id: totrans-163
   prefs: []
   type: TYPE_NORMAL
+  zh: 第二个垃圾收集设置指定了你的 Go 程序允许使用的总内存量的限制。Java 开发者可能熟悉 `-Xmx` JVM 参数，而 `GOMEMLIMIT` 类似。默认情况下，它是禁用的（技术上设置为
+    `math.MaxInt64`，但你的计算机不太可能有那么多内存）。`GOMEMLIMIT` 的值以字节为单位指定，但你可以选择使用后缀 `B`、`KiB`、`MiB`、`GiB`
+    和 `TiB`。例如，`GOMEMLIMIT=3GiB` 将内存限制设置为 3 gibibytes（等于 3,221,225,472 字节）。
 - en: Note
+  id: totrans-164
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: If you haven’t seen these suffixes before, they are the official power-of-two
     analogues of the more commonly used power-of-ten KB, MB, GB, and TB. KiB is equal
     to 2^(10), MiB is equal to 2^(20), and so on. It is [technically correct](https://oreil.ly/W3XkL)
     to use KiB, MiB, and friends when dealing with computers.
+  id: totrans-165
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果你以前没有见过这些后缀，它们是更常用的十进制 KB、MB、GB 和 TB 的官方二进制对应物。KiB 等于 2^(10)，MiB 等于 2^(20)，以此类推。在处理计算机时使用
+    KiB、MiB 等朋友是 [技术上正确的](https://oreil.ly/W3XkL)。
 - en: It might seem counterintuitive that limiting the maximum amount of memory could
     improve a program’s performance, but there are good reasons this flag was added.
     The primary reason is that computers (or virtual machines or containers) don’t
@@ -941,8 +1314,11 @@
     available memory. This can cause memory to swap to disk, which is very slow. Depending
     on your operating system and its settings, it might crash your program. Specifying
     a maximum memory limit prevents the heap from growing beyond the computer’s resources.
+  id: totrans-166
   prefs: []
   type: TYPE_NORMAL
+  zh: 限制最大内存量可能会提高程序性能似乎有些违反直觉，但增加这个标志有很好的原因。主要原因是计算机（或虚拟机或容器）没有无限的 RAM。如果内存使用出现突然的临时峰值，仅依赖
+    `GOGC` 可能导致堆大小超过可用内存量。这会导致内存交换到磁盘，非常慢。根据操作系统及其设置，这可能会导致程序崩溃。指定最大内存限制可防止堆超出计算机资源。
 - en: '`GOMEMLIMIT` is a *soft* limit that can be exceeded in certain circumstances.
     A common problem occurs in garbage-collected systems when the collector is unable
     to free up enough memory to get within a memory limit or the garbage-collection
@@ -952,31 +1328,44 @@
     to happen, it chooses to end the current garbage-collection cycle and exceed the
     limit. This does mean that you should set `GOMEMLIMIT` below the absolute maximum
     amount of available memory so you have spare capacity.'
+  id: totrans-167
   prefs: []
   type: TYPE_NORMAL
+  zh: '`GOMEMLIMIT` 是一个在特定情况下可以超过的*软*限制。在垃圾回收系统中经常出现的问题是，当收集器无法释放足够的内存以达到内存限制或者垃圾回收周期频繁触发时，就会出现这种情况。被称为*抖动*，这导致程序除了运行垃圾回收器外什么也不做。如果
+    Go 运行时检测到抖动即将发生，它会选择结束当前的垃圾回收周期并超出限制。这意味着你应该将 `GOMEMLIMIT` 设定在可用内存的绝对最大量之下，以便有备用容量。'
 - en: If you specify a value for `GOMEMLIMIT`, you could set `GOGC` to `off` and not
     run out of memory, but this may not produce the desired performance effect. You
     are likely to find yourself trading frequent, very short pauses for infrequent,
     longer pauses. If you are running a web service, this produces inconsistent response
     times, which was one of the behaviors that Go’s garbage collection was designed
     to avoid.
+  id: totrans-168
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果为 `GOMEMLIMIT` 指定了一个值，你可以将 `GOGC` 设置为 `off` 而不会耗尽内存，但这可能不会产生期望的性能效果。你可能会发现自己在频繁且非常短暂的暂停之间进行交换，以换取不经常的更长暂停。如果你运行的是
+    web 服务，这会导致不一致的响应时间，而这正是 Go 垃圾回收设计的行为之一，它旨在避免这种情况。
 - en: The best option is to use these two environment variables together to ensure
     both a reasonable pace for garbage collection and a maximum that should be respected.
     You can learn more about how to use `GOGC` and `GOMEMLIMIT` by reading [“A Guide
     to the Go Garbage Collector”](https://oreil.ly/lM_X8) from Go’s development team.
+  id: totrans-169
   prefs: []
   type: TYPE_NORMAL
+  zh: 最佳选择是将这两个环境变量一起使用，以确保垃圾回收的合理节奏和应该遵守的最大值。你可以通过阅读[“Go 垃圾回收指南”](https://oreil.ly/lM_X8)来了解更多关于如何使用
+    `GOGC` 和 `GOMEMLIMIT` 的信息，这是由 Go 开发团队提供的。
 - en: Exercises
+  id: totrans-170
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 练习
 - en: Now that you have learned about pointers and memory in Go, work through these
     exercises to reinforce using pointers effectively. You can find answers to these
     exercises in the [Chapter 6 repository](https://oreil.ly/riOYA).
+  id: totrans-171
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在你已经了解了 Go 中的指针和内存，通过完成这些练习来加强有效使用指针。你可以在[第 6 章的代码库](https://oreil.ly/riOYA)中找到这些练习的答案。
 - en: 'Create a struct named `Person` with three fields: `FirstName` and `LastName`
     of type `string` and `Age` of type `int`. Write a function called `MakePerson`
     that takes in `firstName`, `lastName`, and `age` and returns a `Person`. Write
@@ -984,9 +1373,14 @@
     `age` and returns a `*Person`. Call both from `main`. Compile your program with
     `go build -gcflags="-m"`. This both compiles your code and prints out which values
     escape to the heap. Are you surprised about what escapes?'
+  id: totrans-172
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 创建一个名为 `Person` 的结构体，具有三个字段：类型为 `string` 的 `FirstName` 和 `LastName`，以及类型为 `int`
+    的 `Age`。编写一个名为 `MakePerson` 的函数，接受 `firstName`、`lastName` 和 `age`，并返回一个 `Person`。再编写一个名为
+    `MakePersonPointer` 的函数，接受 `firstName`、`lastName` 和 `age`，并返回一个 `*Person`。从 `main`
+    函数中调用这两个函数。使用 `go build -gcflags="-m"` 编译你的程序。这会同时编译你的代码并打印出哪些值逃逸到堆上。你对逃逸的结果感到惊讶吗？
 - en: Write two functions. The `UpdateSlice` function takes in a `[]string` and a
     `string`. It sets the last position in the passed-in slice to the passed-in `string`.
     At the end of `UpdateSlice`, print the slice after making the change. The `GrowSlice`
@@ -995,25 +1389,37 @@
     Call these functions from `main`. Print out the slice before each function is
     called and after each function is called. Do you understand why some changes are
     visible in `main` and why some changes are not?
+  id: totrans-173
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 编写两个函数。`UpdateSlice` 函数接收一个 `[]string` 和一个 `string`。它将传入切片的最后位置设置为传入的 `string`。在
+    `UpdateSlice` 结束时，打印修改后的切片。`GrowSlice` 函数也接收一个 `[]string` 和一个 `string`。它将 `string`
+    追加到切片中。在 `GrowSlice` 结束时，打印修改后的切片。从 `main` 函数中调用这些函数。在调用每个函数之前和之后打印出切片。你能理解为什么某些变化在
+    `main` 函数中可见，而某些变化则不可见吗？
 - en: Write a program that builds a `[]Person` with 10,000,000 entries (they could
     all be the same names and ages). See how long it takes to run. Change the value
     of `GOGC` and see how that affects the time it takes for the program to complete.
     Set the environment variable `GODEBUG=gctrace=1` to see when garbage collections
     happen and see how changing `GOGC` changes the number of garbage collections.
     What happens if you create the slice with a capacity of 10,000,000?
+  id: totrans-174
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 编写一个程序，用 10,000,000 个条目构建一个 `[]Person`（它们可以是相同的姓名和年龄）。看看运行所需的时间。更改 `GOGC` 的值，看看它如何影响程序完成所需的时间。设置环境变量
+    `GODEBUG=gctrace=1`，查看垃圾收集的发生时间，并查看更改 `GOGC` 如何改变垃圾收集的次数。如果创建容量为 10,000,000 的切片会发生什么？
 - en: Wrapping Up
+  id: totrans-175
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 总结
 - en: This chapter peeked under the covers a bit to help you understand pointers,
     what they are, how to use them, and, most importantly, when to use them. In the
     next chapter, you’ll take a look at Go’s implementation of methods, interfaces,
     and types, how they differ from other languages, and the power they possess.
+  id: totrans-176
   prefs: []
   type: TYPE_NORMAL
+  zh: 本章稍微揭示了一些底层细节，帮助你理解指针，它们是什么，如何使用它们，以及最重要的是什么时候使用它们。在下一章中，你将深入了解 Go 语言的方法、接口和类型的实现方式，以及它们与其他语言的不同之处及其所具有的强大能力。

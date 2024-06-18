@@ -1,7 +1,9 @@
 - en: Chapter 8\. Generics
+  id: totrans-0
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 第8章 泛型
 - en: “Don’t repeat yourself” is common software engineering advice. It’s better to
     reuse a data structure or a function than it is to re-create it, because it’s
     hard to keep code changes in sync between duplicated code. In a strongly typed
@@ -12,19 +14,26 @@
     via type parameters, which are colloquially referred to as *generics*. In this
     chapter you’ll learn why people want generics, what Go’s implementation of generics
     can do, what generics can’t do, and how to use them properly.
+  id: totrans-1
   prefs: []
   type: TYPE_NORMAL
+  zh: “不要重复你自己”是常见的软件工程建议。重用数据结构或函数比重新创建它更好，因为很难保持重复代码之间的代码变更同步。在像Go这样的强类型语言中，必须在编译时知道每个函数参数和每个结构字段的类型。这种严格性使编译器能够帮助验证您的代码是否正确，但有时当您希望重用函数中的逻辑或结构中的字段时，您可能需要不同类型的支持。通过类型参数（俗称泛型），Go提供了这种功能。在本章中，您将了解为什么人们需要泛型，Go的泛型实现可以做什么，泛型不能做什么以及如何正确使用它们。
 - en: Generics Reduce Repetitive Code and Increase Type Safety
+  id: totrans-2
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 泛型减少重复代码并增加类型安全性。
 - en: Go is a statically typed language, which means that the types of variables and
     parameters are checked when the code is compiled. Built-in types (maps, slices,
     channels) and functions (such as `len`, `cap`, or `make`) are able to accept and
     return values of different concrete types, but until Go 1.18, user-defined Go
     types and functions could not.
+  id: totrans-3
   prefs: []
   type: TYPE_NORMAL
+  zh: Go是一种静态类型语言，这意味着在编译代码时会检查变量和参数的类型。内置类型（映射、切片、通道）和函数（如`len`、`cap`或`make`）能够接受和返回不同具体类型的值，但是直到Go
+    1.18之前，用户定义的Go类型和函数不能。
 - en: 'If you are accustomed to dynamically typed languages, where types are not evaluated
     until the code runs, you might not understand what the fuss is about generics,
     and you might be a bit unclear on what they are. It helps to think of them as
@@ -32,84 +41,125 @@
     whose values are specified when the function is called. In [“Multiple Return Values”](ch05.html#multiple_return),
     the function `divAndRemainder` has two `int` parameters and returns two `int`
     values:'
+  id: totrans-4
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果您习惯于动态类型语言，其中类型直到运行代码时才会被评估，您可能不理解泛型的重要性，也可能对它们的含义有些不清楚。将它们视为“类型参数”会有所帮助。到目前为止，在本书中，您已经看到了接受参数的函数，这些参数的值在调用函数时指定。在[“多返回值”](ch05.html#multiple_return)中，函数`divAndRemainder`有两个`int`参数并返回两个`int`值：
 - en: '[PRE0]'
+  id: totrans-5
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE0]'
 - en: 'Similarly, you create structs by specifying the type for the fields when the
     struct is declared. Here, `Node` has a field of type `int` and another field of
     type `*Node`:'
+  id: totrans-6
   prefs: []
   type: TYPE_NORMAL
+  zh: 类似地，通过在声明结构体时为字段指定类型来创建结构体。在这里，`Node`有一个类型为`int`的字段和另一个类型为`*Node`的字段：
 - en: '[PRE1]'
+  id: totrans-7
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE1]'
 - en: In some situations, however, it’s useful to write functions or structs that
     leave the specific *type* of a parameter or field unspecified until it is used.
+  id: totrans-8
   prefs: []
   type: TYPE_NORMAL
+  zh: 然而，在某些情况下，编写函数或结构，留下参数或字段的具体*类型*未指定，也是有用的。
 - en: The case for generic types is easy to understand. In [“Code Your Methods for
     nil Instances”](ch07.html#nil_instances), you looked at a binary tree for `int`s.
     If you want a binary tree for strings or float64s and want type safety, you have
     a few options. The first possibility is writing a custom tree for each type, but
     having that much duplicated code is verbose and error-prone.
+  id: totrans-9
   prefs: []
   type: TYPE_NORMAL
+  zh: 泛型类型的优势很容易理解。在[“为nil实例编写您的方法”](ch07.html#nil_instances)中，您看到了一个`int`的二叉树。如果您想要一个字符串或float64的二叉树并且需要类型安全，您有几个选择。第一种可能性是为每种类型编写自定义树，但是这样大量重复的代码冗长且容易出错。
 - en: 'Without generics, the only way to avoid duplicated code would be to modify
     your tree implementation so that it uses an interface to specify how to order
     values. The interface would look like this:'
+  id: totrans-10
   prefs: []
   type: TYPE_NORMAL
+  zh: 没有泛型，避免重复代码的唯一方法将是修改您的树实现，使其使用接口来指定如何排序值。该接口将如下所示：
 - en: '[PRE2]'
+  id: totrans-11
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE2]'
 - en: 'Now that you have `Orderable`, you can modify your `Tree` implementation to
     support it:'
+  id: totrans-12
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在您有了`Orderable`，可以修改您的`Tree`实现以支持它：
 - en: '[PRE3]'
+  id: totrans-13
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE3]'
 - en: 'With an `OrderableInt` type, you can then insert `int` values:'
+  id: totrans-14
   prefs: []
   type: TYPE_NORMAL
+  zh: 有了`OrderableInt`类型，您可以插入`int`值：
 - en: '[PRE4]'
+  id: totrans-15
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE4]'
 - en: 'While this code works correctly, it doesn’t allow the compiler to validate
     that the values inserted into your data structure are all the same. If you also
     had an `OrderableString` type:'
+  id: totrans-16
   prefs: []
   type: TYPE_NORMAL
+  zh: 虽然此代码可以正确工作，但它不允许编译器验证插入到数据结构中的值是否都相同。如果您还有一个`OrderableString`类型：
 - en: '[PRE5]'
+  id: totrans-17
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE5]'
 - en: 'the following code compiles:'
+  id: totrans-18
   prefs: []
   type: TYPE_NORMAL
+  zh: 以下代码编译通过：
 - en: '[PRE6]'
+  id: totrans-19
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE6]'
 - en: 'The `Order` function uses `any` to represent the value that’s passed in. This
     effectively short-circuits one of Go’s primary advantages: checking compile-time
     type safety. When you compile code that attempts to insert an `OrderableString`
     into a `Tree` that already contains an `OrderableInt`, the compiler accepts the
     code. However, the program panics when run:'
+  id: totrans-20
   prefs: []
   type: TYPE_NORMAL
+  zh: 函数 `Order` 使用 `any` 来表示传入的值。这实际上绕过了 Go 的主要优势之一：检查编译时类型安全性。当你编译试图将 `OrderableString`
+    插入已包含 `OrderableInt` 的 `Tree` 的代码时，编译器接受该代码。然而，程序在运行时会出现恐慌：
 - en: '[PRE7]'
+  id: totrans-21
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE7]'
 - en: You can try out this code in the *sample_code/non_generic_tree* directory in
     the [Chapter 8 repository](https://oreil.ly/E0Ay8).
+  id: totrans-22
   prefs: []
   type: TYPE_NORMAL
+  zh: 您可以在[第 8 章存储库](https://oreil.ly/E0Ay8)的 *sample_code/non_generic_tree* 目录中尝试此代码。
 - en: With generics, there’s a way to implement a data structure once for multiple
     types and detect incompatible data at compile time. You’ll see how to properly
     use them in just a bit.
+  id: totrans-23
   prefs: []
   type: TYPE_NORMAL
+  zh: 有了泛型，可以为多个类型实现数据结构并在编译时检测不兼容的数据。稍后您将看到如何正确使用它们。
 - en: While data structures without generics are inconvenient, the real limitation
     is in writing functions. Several implementation decisions in Go’s standard library
     were made because generics weren’t originally part of the language. For example,
@@ -118,8 +168,12 @@
     which have a range big enough to represent nearly every other numeric type exactly.
     (The exceptions are an `int`, `int64`, or `uint` with a value greater than 2^(53)
     – 1 or less than –2^(53) – 1.)
+  id: totrans-24
   prefs: []
   type: TYPE_NORMAL
+  zh: 没有泛型的数据结构虽然不方便，但真正的限制在于编写函数。Go 标准库中的几个实现决策是因为泛型最初不是该语言的一部分。例如，而不是编写多个处理不同数值类型的函数，Go
+    使用 `float64` 参数实现了 `math.Max`、`math.Min` 和 `math.Mod` 函数，这些参数的范围足以准确表示几乎所有其他数值类型（除了值大于
+    2^(53) – 1 或小于 –2^(53) – 1 的 `int`、`int64` 或 `uint`）。
 - en: Some other things are impossible without generics. You cannot create a new instance
     of a variable that’s specified by an interface, nor can you specify that two parameters
     of the same interface type are also of the same concrete type. Without generics,
@@ -130,12 +184,17 @@
     be repeatedly implemented for each type of slice. While simple algorithms are
     easy enough to copy, many (if not most) software engineers find it grating to
     duplicate code simply because the compiler isn’t smart enough to do it automatically.
+  id: totrans-25
   prefs: []
   type: TYPE_NORMAL
+  zh: 没有泛型，一些其他事情是不可能的。您无法创建一个由接口指定的变量的新实例，也无法指定同一接口类型的两个参数也是相同的具体类型。没有泛型，您无法编写一个处理任何类型切片的函数，而不用反射并放弃一些性能以及编译时类型安全性（这就是
+    `sort.Slice` 的工作原理）。这意味着在泛型引入 Go 之前，操作切片的函数（如 `map`、`reduce` 和 `filter`）将被重复为每种切片类型实现。虽然简单的算法足够简单，但许多（如果不是大多数）软件工程师发现简单复制代码很烦人，只是因为编译器不足够智能而无法自动完成。
 - en: Introducing Generics in Go
+  id: totrans-26
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 引入 Go 中的泛型
 - en: Since the first announcement of Go, people have called for generics to be added
     to the language. Russ Cox, the development lead for Go, wrote a [blog post](https://oreil.ly/U4huA)
     in 2009 to explain why generics weren’t initially included. Go emphasizes a fast
@@ -143,18 +202,25 @@
     that they were aware of would allow them to include all three. After a decade
     studying the problem, the Go team has a workable approach, which is outlined in
     the [Type Parameters Proposal](https://oreil.ly/31ay7).
+  id: totrans-27
   prefs: []
   type: TYPE_NORMAL
+  zh: 自从 Go 首次发布以来，人们一直呼吁将泛型添加到该语言中。Go 的开发领导 Russ Cox 在 2009 年写了一篇[博客文章](https://oreil.ly/U4huA)，解释了为什么最初没有包含泛型。Go
+    强调快速编译器、可读性代码和良好执行时间，但他们所知的所有泛型实现都无法同时满足这三个要求。经过十年的研究，Go 团队提出了一种可行的方法，详见[类型参数提案](https://oreil.ly/31ay7)。
 - en: 'You can see how generics work in Go by looking at a stack. If you don’t have
     a computer science background, a stack is a data type where values are added and
     removed in LIFO order. It’s like a pile of dishes waiting to be washed; the ones
     that were placed first are at the bottom, and you get to them only by working
     through the ones that were added later. Let’s see how to make a stack using generics:'
+  id: totrans-28
   prefs: []
   type: TYPE_NORMAL
+  zh: 通过查看一个栈来了解泛型在Go中的工作原理。如果你没有计算机科学背景，栈是一种数据类型，其中的值按照LIFO顺序添加和删除。这就像一堆等待被清洗的盘子；最先放置的在底部，只有通过处理后来添加的才能得到它们。让我们看看如何使用泛型来制作一个栈：
 - en: '[PRE8]'
+  id: totrans-29
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE8]'
 - en: There are a few things to note. First, you have `[T any]` after the type declaration.
     Type parameter information is placed within brackets and has two parts. The first
     part is the type parameter name. You can pick any name for the type parameter,
@@ -163,185 +229,277 @@
     this is specified with the universe block identifier `any`, which you first saw
     in [“The Empty Interface Says Nothing”](ch07.html#empty_interface). Inside the
     `Stack` declaration, you declare `vals` to be of type `[]T`.
+  id: totrans-30
   prefs: []
   type: TYPE_NORMAL
+  zh: 有几件事需要注意。首先，在类型声明后面你有`[T any]`。类型参数信息放在括号内，有两部分。第一部分是类型参数的名称。你可以为类型参数选择任何名称，但使用大写字母是惯例。第二部分是*类型约束*，它使用Go接口指定哪些类型是有效的。如果任何类型都可以使用，可以使用宇宙块标识符`any`来指定，你首次在[“空接口不表达任何内容”](ch07.html#empty_interface)中看到它。在`Stack`声明内部，你声明`vals`的类型为`[]T`。
 - en: Next, look at the method declarations. Just as you used `T` in your `vals` declaration,
     you do the same here. You also refer to the type in the receiver section with
     `Stack[T]` instead of `Stack`.
+  id: totrans-31
   prefs: []
   type: TYPE_NORMAL
+  zh: 接下来，看一下方法声明。就像你在你的`vals`声明中使用了`T`一样，在这里也是一样。你还需要在接收器部分使用`Stack[T]`而不是`Stack`来引用类型。
 - en: Finally, generics make zero value handling a little interesting. In `Pop`, you
     can’t just return `nil`, because that’s not a valid value for a value type, like
     `int`. The easiest way to get a zero value for a generic is to simply declare
     a variable with `var` and return it, since by definition, `var` always initializes
     its variable to the zero value if no other value is assigned.
+  id: totrans-32
   prefs: []
   type: TYPE_NORMAL
+  zh: 最后，泛型使得零值处理有些有趣。在`Pop`中，你不能简单地返回`nil`，因为对于值类型（如`int`）来说，这不是有效的值。获取泛型的零值的最简单方法是使用`var`声明一个变量并返回它，因为根据定义，`var`始终将其变量初始化为零值，如果未分配其他值。
 - en: 'Using a generic type is similar to using a nongeneric one:'
+  id: totrans-33
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用泛型类型类似于使用非泛型类型：
 - en: '[PRE9]'
+  id: totrans-34
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE9]'
 - en: 'The only difference is that when you declare your variable, you include the
     type that you want to use with your `Stack`—in this case, `int`. If you try to
     push a string onto your stack, the compiler will catch it. Adding the line:'
+  id: totrans-35
   prefs: []
   type: TYPE_NORMAL
+  zh: 唯一的区别是，在声明变量时，你包括要与你的`Stack`一起使用的类型——在本例中是`int`。如果尝试将字符串推送到栈上，编译器将捕获它。添加以下行：
 - en: '[PRE10]'
+  id: totrans-36
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE10]'
 - en: 'produces the compiler error:'
+  id: totrans-37
   prefs: []
   type: TYPE_NORMAL
+  zh: 会产生编译错误：
 - en: '[PRE11]'
+  id: totrans-38
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE11]'
 - en: You can try out the generic stack on [The Go Playground](https://oreil.ly/9vzHB)
     or in the *sample_code/stack* directory in the [Chapter 8 repository](https://oreil.ly/E0Ay8).
+  id: totrans-39
   prefs: []
   type: TYPE_NORMAL
+  zh: 你可以在[Go Playground](https://oreil.ly/9vzHB)上或[第8章代码库](https://oreil.ly/E0Ay8)中的*sample_code/stack*目录中尝试这个泛型栈。
 - en: 'Add another method to your stack to tell you if the stack contains a value:'
+  id: totrans-40
   prefs: []
   type: TYPE_NORMAL
+  zh: 向你的栈添加另一个方法来告诉你栈是否包含一个值：
 - en: '[PRE12]'
+  id: totrans-41
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE12]'
 - en: 'Unfortunately, this does not compile. It gives an error:'
+  id: totrans-42
   prefs: []
   type: TYPE_NORMAL
+  zh: 不幸的是，这不会编译。它会产生一个错误：
 - en: '[PRE13]'
+  id: totrans-43
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE13]'
 - en: 'Just as `interface{}` doesn’t say anything, neither does `any`. You can only
     store values of `any` type and retrieve them. To use `==`, you need a different
     type. Since nearly all Go types can be compared with `==` and `!=`, a new built-in
     interface called `comparable` is defined in the universe block. If you change
     the definition of `Stack` to use `comparable`:'
+  id: totrans-44
   prefs: []
   type: TYPE_NORMAL
+  zh: 就像`interface{}`什么也不说一样，`any`也一样。你只能存储`any`类型的值并检索它们。要使用`==`，你需要不同的类型。由于几乎所有Go类型都可以使用`==`和`!=`进行比较，所以在宇宙块中定义了一个新的内置接口称为`comparable`。如果将`Stack`的定义更改为使用`comparable`：
 - en: '[PRE14]'
+  id: totrans-45
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE14]'
 - en: 'you can then use your new method:'
+  id: totrans-46
   prefs: []
   type: TYPE_NORMAL
+  zh: 然后可以使用你的新方法：
 - en: '[PRE15]'
+  id: totrans-47
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE15]'
 - en: 'This prints out the following:'
+  id: totrans-48
   prefs: []
   type: TYPE_NORMAL
+  zh: 这将输出以下内容：
 - en: '[PRE16]'
+  id: totrans-49
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE16]'
 - en: You can try out this updated stack on [The Go Playground](https://oreil.ly/Qc4J3)
     or in the *sample_code/comparable_stack* directory in the [Chapter 8 repository](https://oreil.ly/E0Ay8).
+  id: totrans-50
   prefs: []
   type: TYPE_NORMAL
+  zh: 你可以在[Go Playground](https://oreil.ly/Qc4J3)上或[第8章代码库](https://oreil.ly/E0Ay8)中的*sample_code/comparable_stack*目录中尝试这个更新的栈。
 - en: 'Later, you’ll see how to make a generic binary tree. First, I’ll cover some
     additional concepts: *generic functions*, how generics work with interfaces, and
     *type terms*.'
+  id: totrans-51
   prefs: []
   type: TYPE_NORMAL
+  zh: 稍后，您将看到如何制作一个通用二叉树。首先，我将介绍一些额外的概念：*通用函数*，通用函数如何与接口配合工作，以及*类型术语*。
 - en: Generic Functions Abstract Algorithms
+  id: totrans-52
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 通用函数抽象算法
 - en: 'As I have hinted, you can also write generic functions. Earlier I mentioned
     that not having generics made it difficult to write map, reduce, and filter implementations
     that work for all types. Generics make it easy. Here are implementations from
     the type parameters proposal:'
+  id: totrans-53
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如我所示，您也可以编写通用函数。我之前提到没有泛型使得编写适用于所有类型的映射、归约和过滤实现变得困难。泛型使这变得容易。以下是来自类型参数提案的实现：
 - en: '[PRE17]'
+  id: totrans-54
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE17]'
 - en: 'Functions place their type parameters after the function name and before the
     variable parameters. `Map` and `Reduce` have two type parameters, both of `any`
     type, while `Filter` has one. When you run the code:'
+  id: totrans-55
   prefs: []
   type: TYPE_NORMAL
+  zh: 函数在变量参数之前将其类型参数放在函数名称后。`Map`和`Reduce`有两个类型参数，都是`any`类型，而`Filter`只有一个。当您运行代码时：
 - en: '[PRE18]'
+  id: totrans-56
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE18]'
 - en: 'you get the output:'
+  id: totrans-57
   prefs: []
   type: TYPE_NORMAL
+  zh: 您将得到输出：
 - en: '[PRE19]'
+  id: totrans-58
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE19]'
 - en: Try it for yourself on [The Go Playground](https://oreil.ly/Ahf2b) or in the
     *sample_code/map_filter_reduce* directory in the [Chapter 8 repository](https://oreil.ly/E0Ay8).
+  id: totrans-59
   prefs: []
   type: TYPE_NORMAL
+  zh: 在[The Go Playground](https://oreil.ly/Ahf2b)或[第8章存储库](https://oreil.ly/E0Ay8)中的*sample_code/map_filter_reduce*目录上自行尝试。
 - en: Generics and Interfaces
+  id: totrans-60
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 泛型和接口
 - en: 'You can use any interface as a type constraint, not just `any` and `comparable`.
     For example, say you wanted to make a type that holds any two values of the same
     type, as long as the type implements `fmt.Stringer`. Generics make it possible
     to enforce this at compile time:'
+  id: totrans-61
   prefs: []
   type: TYPE_NORMAL
+  zh: 您可以使用任何接口作为类型约束，不仅仅是`any`和`comparable`。例如，假设您想制作一个类型，该类型持有任何两个相同类型的值，只要该类型实现了`fmt.Stringer`。泛型使得在编译时强制执行这一点成为可能：
 - en: '[PRE20]'
+  id: totrans-62
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE20]'
 - en: 'You can also create interfaces that have type parameters. For example, here’s
     an interface with a method that compares against a value of the specified type
     and returns a `float64`. It also embeds `fmt.Stringer`:'
+  id: totrans-63
   prefs: []
   type: TYPE_NORMAL
+  zh: 您还可以创建具有类型参数的接口。例如，这是一个带有方法的接口，该方法与指定类型的值进行比较并返回`float64`。它还嵌入了`fmt.Stringer`：
 - en: '[PRE21]'
+  id: totrans-64
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE21]'
 - en: 'You’ll use these two types to create a comparison function. The function takes
     in two `Pair` instances that have fields of type `Differ`, and returns the `Pair`
     with the closer values:'
+  id: totrans-65
   prefs: []
   type: TYPE_NORMAL
+  zh: 你将使用这两种类型来创建比较函数。该函数接受两个`Pair`实例，这些实例具有`Differ`类型的字段，并返回较接近数值的`Pair`：
 - en: '[PRE22]'
+  id: totrans-66
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE22]'
 - en: Note that `FindCloser` takes in `Pair` instances that have fields that meet
     the `Differ` interface. `Pair` requires that its fields are both of the same type
     and that the type meets the `fmt.Stringer` interface; this function is more selective.
     If the fields in a `Pair` instance don’t meet `Differ`, the compiler will prevent
     you from using that `Pair` instance with `FindCloser`.
+  id: totrans-67
   prefs: []
   type: TYPE_NORMAL
+  zh: 注意，`FindCloser`接受具有符合`Differ`接口的字段的`Pair`实例。`Pair`要求其字段都是相同类型，并且该类型满足`fmt.Stringer`接口；这使得该函数更具选择性。如果`Pair`实例中的字段不满足`Differ`，编译器将阻止您将其与`FindCloser`一起使用。
 - en: 'Now define a couple of types that meet the `Differ` interface:'
+  id: totrans-68
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在定义满足`Differ`接口的一对类型：
 - en: '[PRE23]'
+  id: totrans-69
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE23]'
 - en: 'And here’s what it looks like to use this code:'
+  id: totrans-70
   prefs: []
   type: TYPE_NORMAL
+  zh: 这是使用此代码的样子：
 - en: '[PRE24]'
+  id: totrans-71
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE24]'
 - en: Run it for yourself on [The Go Playground](https://oreil.ly/rnKj9) or in the
     *sample_code/generic_interface* directory in the [Chapter 8 repository](https://oreil.ly/E0Ay8).
+  id: totrans-72
   prefs: []
   type: TYPE_NORMAL
+  zh: 在[The Go Playground](https://oreil.ly/rnKj9)或[第8章存储库](https://oreil.ly/E0Ay8)中的*sample_code/generic_interface*目录上自行运行它。
 - en: Use Type Terms to Specify Operators
+  id: totrans-73
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 使用类型术语指定运算符
 - en: 'One more thing needs to be represented with generics: operators. The `divAndRemainder`
     function works fine with `int`, but using it with other integer types requires
     type casting, and `uint` allows you to represent values that are too big for an
     `int`. If you want to write a generic version of `divAndRemainder`, you need a
     way to specify that you can use `/` and `%`. Go generics do that with a *type
     element*, which is composed of one or more *type terms* within an interface:'
+  id: totrans-74
   prefs: []
   type: TYPE_NORMAL
+  zh: 泛型还需要表示运算符。`divAndRemainder`函数在`int`上运行良好，但在其他整数类型上使用需要类型转换，而`uint`允许您表示`int`无法处理的值。如果要编写`divAndRemainder`的通用版本，您需要一种指定可以使用`/`和`%`的方式。Go泛型通过*类型元素*实现这一点，该元素由一个或多个*类型术语*组成在接口内：
 - en: '[PRE25]'
+  id: totrans-75
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE25]'
 - en: In [“Embedding and Interfaces”](ch07.html#embed_interface), you learned about
     embedding interfaces to indicate that the method set of the containing interface
     includes the methods of the embedded interface. Type elements specify which types
@@ -350,54 +508,84 @@
     for *all* of the listed types. The modulus (`%`) operator is valid only for integers,
     so we list all integer types. (You can leave off `byte` and `rune` because they
     are type aliases for `uint8` and `int32`, respectively.)
+  id: totrans-76
   prefs: []
   type: TYPE_NORMAL
+  zh: 在 [“嵌入和接口”](ch07.html#embed_interface) 中，您学习了如何嵌入接口以指示包含接口的方法集包括嵌入接口的方法。类型元素指定可以分配给类型参数的类型和支持的操作符。它们列出了由
+    `|` 分隔的具体类型。允许的操作符是所有列出类型都有效的那些操作符。模数 (`%`) 操作符仅适用于整数，因此我们列出了所有整数类型（可以省略 `byte`
+    和 `rune`，因为它们分别是 `uint8` 和 `int32` 的类型别名）。
 - en: Be aware that interfaces with type elements are valid only as type constraints.
     It is a compile-time error to use them as the type for a variable, field, return
     value, or parameter.
+  id: totrans-77
   prefs: []
   type: TYPE_NORMAL
+  zh: 请注意，具有类型元素的接口仅作为类型约束有效。将它们用作变量、字段、返回值或参数的类型会导致编译时错误。
 - en: 'Now you can write your generic version of `divAndRemainder` and use it with
     the built-in `uint` type (or any of the other types listed in `Integer`):'
+  id: totrans-78
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在您可以编写您自己的 `divAndRemainder` 的通用版本，并将其与内置的 `uint` 类型（或 `Integer` 中列出的任何其他类型）一起使用。
 - en: '[PRE26]'
+  id: totrans-79
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE26]'
 - en: 'By default, type terms match exactly. If you try to use `divAndRemainder` with
     a user-defined type whose underlying type is one of the types listed in `Integer`,
     you’ll get an error. This code:'
+  id: totrans-80
   prefs: []
   type: TYPE_NORMAL
+  zh: 默认情况下，类型术语精确匹配。如果您尝试使用 `divAndRemainder` 与其底层类型为 `Integer` 中列出的类型之一的用户定义类型，将会收到错误。这段代码：
 - en: '[PRE27]'
+  id: totrans-81
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE27]'
 - en: 'produces the following error:'
+  id: totrans-82
   prefs: []
   type: TYPE_NORMAL
+  zh: 会产生以下错误：
 - en: '[PRE28]'
+  id: totrans-83
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE28]'
 - en: 'The error text gives a hint for how to solve this problem. If you want a type
     term to be valid for any type that has the type term as its underlying type, put
     a `~` before the type term. This changes the definition of `Integer` as follows:'
+  id: totrans-84
   prefs: []
   type: TYPE_NORMAL
+  zh: 错误文本提供了解决此问题的提示。如果您希望一个类型术语对任何具有该类型术语作为其底层类型的类型有效，可以在类型术语前加上 `~`。这将修改 `Integer`
+    的定义如下：
 - en: '[PRE29]'
+  id: totrans-85
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE29]'
 - en: You can look at the generic version of the `divAndRemainder` function on [The
     Go Playground](https://oreil.ly/OLd32) or in the *sample_code/type_terms* directory
     in the [Chapter 8 repository](https://oreil.ly/E0Ay8).
+  id: totrans-86
   prefs: []
   type: TYPE_NORMAL
+  zh: 您可以在 [The Go Playground](https://oreil.ly/OLd32) 上或在 [第 8 章存储库](https://oreil.ly/E0Ay8)
+    的 *sample_code/type_terms* 目录中查看 `divAndRemainder` 函数的通用版本。
 - en: 'The addition of type terms allows you to define a type that lets you write
     generic comparison functions:'
+  id: totrans-87
   prefs: []
   type: TYPE_NORMAL
+  zh: 添加类型术语使您可以定义一种类型，使您可以编写通用比较函数：
 - en: '[PRE30]'
+  id: totrans-88
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE30]'
 - en: The `Ordered` interface lists all types that support the `==`, `!=`, `<`, `>`,
     `<=`, and `>=` operators. Having a way to specify that a variable represents an
     orderable type is so useful that Go 1.21 added the [`cmp` package](https://oreil.ly/nXRdO),
@@ -406,253 +594,384 @@
     its first parameter is less than, equal to, or greater than its second parameter,
     and the `Less` function returns `true` if its first parameter is less than its
     second parameter.
+  id: totrans-89
   prefs: []
   type: TYPE_NORMAL
+  zh: '`Ordered` 接口列出了所有支持 `==`, `!=`, `<`, `>`, `<=`, 和 `>=` 操作符的类型。有一种方法可以指定一个变量表示一个可排序类型是如此有用，因此
+    Go 1.21 添加了 [`cmp` 包](https://oreil.ly/nXRdO)，该包定义了这个 `Ordered` 接口。该包还定义了两个比较函数。`Compare`
+    函数返回 -1、0 或 1，具体取决于其第一个参数是否小于、等于或大于其第二个参数，而 `Less` 函数在其第一个参数小于其第二个参数时返回 `true`。'
 - en: 'It is legal to have both type elements and method elements in an interface
     used for a type parameter. For example, you could specify that a type must have
     an underlying type of `int` and a `String() string` method:'
+  id: totrans-90
   prefs: []
   type: TYPE_NORMAL
+  zh: 在用于类型参数的接口中，同时具有类型元素和方法元素是合法的。例如，您可以指定一个类型必须具有 `int` 的底层类型和一个 `String() string`
+    方法：
 - en: '[PRE31]'
+  id: totrans-91
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE31]'
 - en: 'Be aware that Go will let you declare a type parameter interface that is impossible
     to actually instantiate. If you had used `int` instead of `~int` in `PrintableInt`,
     there would be no valid type that meets it, since `int` has no methods. This might
     seem bad, but the compiler still comes to your rescue. If you declare a type or
     function with an impossible type parameter, any attempt to use it causes a compiler
     error. Assume you declare these types:'
+  id: totrans-92
   prefs: []
   type: TYPE_NORMAL
+  zh: 请注意，Go语言允许您声明一个类型参数接口，但实际上无法实例化。如果在`PrintableInt`中使用`int`而不是`~int`，则没有任何有效的类型可以满足它，因为`int`没有方法。这可能看起来很糟糕，但编译器仍会帮助您。如果您声明了一个带有不可能类型参数的类型或函数，任何尝试使用它都会导致编译器错误。假设您声明了这些类型：
 - en: '[PRE32]'
+  id: totrans-93
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE32]'
 - en: 'Even though you cannot instantiate `ImpossibleStruct`, the compiler has no
     problem with any of these declarations. However, once you try using `ImpossibleStruct`,
     the compiler complains. This code:'
+  id: totrans-94
   prefs: []
   type: TYPE_NORMAL
+  zh: 即使您无法实例化`ImpossibleStruct`，编译器对所有这些声明也没有任何问题。但是，一旦尝试使用`ImpossibleStruct`，编译器就会抱怨。此代码：
 - en: '[PRE33]'
+  id: totrans-95
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE33]'
 - en: 'produces the following compile-time errors:'
+  id: totrans-96
   prefs: []
   type: TYPE_NORMAL
+  zh: 会产生以下编译时错误：
 - en: '[PRE34]'
+  id: totrans-97
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE34]'
 - en: Try this on [The Go Playground](https://oreil.ly/eFx6t) or in the *sample_code/impossible*
     directory in the [Chapter 8 repository](https://oreil.ly/E0Ay8).
+  id: totrans-98
   prefs: []
   type: TYPE_NORMAL
+  zh: 在[Go Playground](https://oreil.ly/eFx6t)或[第8章存储库](https://oreil.ly/E0Ay8)的*sample_code/impossible*目录中尝试这个。
 - en: In addition to built-in primitive types, type terms can also be slices, maps,
     arrays, channels, structs, or even functions. They are most useful when you want
     to ensure that a type parameter has a specific underlying type and one or more
     methods.
+  id: totrans-99
   prefs: []
   type: TYPE_NORMAL
+  zh: 除了内置的基本类型之外，类型项还可以是切片、映射、数组、通道、结构体，甚至函数。当您想要确保类型参数具有特定的基础类型和一个或多个方法时，它们非常有用。
 - en: Type Inference and Generics
+  id: totrans-100
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 类型推断和泛型
 - en: 'Just as Go supports type inference when using the `:=` operator, it also supports
     type inference to simplify calls to generic functions. You can see this in the
     calls to `Map`, `Filter`, and `Reduce` earlier. In some situations, type inference
     isn’t possible (for example, when a type parameter is used only as a return value).
     When that happens, all type arguments must be specified. Here’s a slightly silly
     bit of code that demonstrates a situation where type inference doesn’t work:'
+  id: totrans-101
   prefs: []
   type: TYPE_NORMAL
+  zh: 就像在使用`:=`运算符时Go支持类型推断一样，在调用泛型函数时也支持类型推断以简化调用。您可以在之前对`Map`、`Filter`和`Reduce`的调用中看到这一点。在某些情况下，类型推断是不可能的（例如，当类型参数仅用作返回值时）。发生这种情况时，必须指定所有类型参数。下面是一个稍微愚蠢的代码片段，演示了类型推断不起作用的情况：
 - en: '[PRE35]'
+  id: totrans-102
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE35]'
 - en: Try it out on [The Go Playground](https://oreil.ly/tWsu3) or in the *sample_code/type_inference*
     directory in the [Chapter 8 repository](https://oreil.ly/E0Ay8).
+  id: totrans-103
   prefs: []
   type: TYPE_NORMAL
+  zh: 在[Go Playground](https://oreil.ly/tWsu3)或[第8章存储库](https://oreil.ly/E0Ay8)的*sample_code/type_inference*目录中尝试它。
 - en: Type Elements Limit Constants
+  id: totrans-104
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 类型元素限制常量
 - en: 'Type elements also specify which constants can be assigned to variables of
     the generic type. Like operators, the constants need to be valid for all the type
     terms in the type element. There are no constants that can be assigned to every
     listed type in `Ordered`, so you cannot assign a constant to a variable of that
     generic type. If you use the `Integer` interface, the following code will not
     compile, because you cannot assign the value 1,000 to an 8-bit integer:'
+  id: totrans-105
   prefs: []
   type: TYPE_NORMAL
+  zh: 类型元素还指定了可以分配给泛型类型变量的常量。像运算符一样，这些常量需要对类型元素中的所有类型项有效。在`Ordered`中没有可以分配给每个列出的类型的常量，因此您不能将常量分配给该泛型类型的变量。如果使用`Integer`接口，则以下代码不会编译，因为您不能将值1,000分配给8位整数：
 - en: '[PRE36]'
+  id: totrans-106
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE36]'
 - en: 'However, this is valid:'
+  id: totrans-107
   prefs: []
   type: TYPE_NORMAL
+  zh: 然而，这是有效的：
 - en: '[PRE37]'
+  id: totrans-108
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE37]'
 - en: Combining Generic Functions with Generic Data Structures
+  id: totrans-109
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 将泛型函数与泛型数据结构结合起来
 - en: Let’s return to the binary tree example and see how to combine everything you’ve
     learned to make a single tree that works for any concrete type.
+  id: totrans-110
   prefs: []
   type: TYPE_NORMAL
+  zh: 让我们返回二叉树示例，并看看如何将您学到的所有内容结合起来，使得单个树适用于任何具体类型。
 - en: 'The secret is to realize that what your tree needs is a single generic function
     that compares two values and tells you their order:'
+  id: totrans-111
   prefs: []
   type: TYPE_NORMAL
+  zh: 关键是要意识到，您的树需要的是一个单一的泛型函数，它比较两个值并告诉您它们的顺序：
 - en: '[PRE38]'
+  id: totrans-112
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE38]'
 - en: 'Now that you have `OrderableFunc`, you can modify your tree implementation
     slightly. First, you’re going to split it into two types, `Tree` and `Node`:'
+  id: totrans-113
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在您有了`OrderableFunc`，可以稍微修改树的实现。首先，您将其拆分为两种类型，`Tree`和`Node`：
 - en: '[PRE39]'
+  id: totrans-114
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE39]'
 - en: 'You construct a new `Tree` with a constructor function:'
+  id: totrans-115
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用构造函数构建一个新的`Tree`：
 - en: '[PRE40]'
+  id: totrans-116
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE40]'
 - en: '`Tree` ’s methods are very simple, because they just call `Node` to do all
     the real work:'
+  id: totrans-117
   prefs: []
   type: TYPE_NORMAL
+  zh: '`Tree`的方法非常简单，因为它们只是调用`Node`来完成所有真正的工作。'
 - en: '[PRE41]'
+  id: totrans-118
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE41]'
 - en: 'The `Add` and `Contains` methods on `Node` are very similar to what you’ve
     seen before. The only difference is that the function you are using to order your
     elements is passed in:'
+  id: totrans-119
   prefs: []
   type: TYPE_NORMAL
+  zh: '`Node`上的`Add`和`Contains`方法与之前看到的非常相似。唯一的区别在于，你正在使用的函数用于排序元素的方式是通过参数传递的：'
 - en: '[PRE42]'
+  id: totrans-120
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE42]'
 - en: 'Now you need a function that matches the `OrderedFunc` definition. Luckily,
     you’ve already seen one: `Compare` in the `cmp` package. When you use it with
     your `Tree`, it looks like this:'
+  id: totrans-121
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在你需要一个函数来匹配`OrderedFunc`的定义。幸运的是，你已经见过一个：`cmp`包中的`Compare`。当你在`Tree`中使用它时，看起来像这样：
 - en: '[PRE43]'
+  id: totrans-122
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE43]'
 - en: 'For structs, you have two options. You can write a function:'
+  id: totrans-123
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于结构体，你有两个选项。你可以写一个函数：
 - en: '[PRE44]'
+  id: totrans-124
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE44]'
 - en: 'Then you can pass that function in when you create your tree:'
+  id: totrans-125
   prefs: []
   type: TYPE_NORMAL
+  zh: 然后，在创建树时，你可以将该函数传递进去：
 - en: '[PRE45]'
+  id: totrans-126
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE45]'
 - en: 'Instead of using a function, you can also supply a method to `NewTree`. As
     I talked about in [“Methods Are Functions Too”](ch07.html#method_function), you
     can use a method expression to treat a method like a function. Let’s do that here.
     First, write the method:'
+  id: totrans-127
   prefs: []
   type: TYPE_NORMAL
+  zh: 你也可以不使用函数，而是为`NewTree`提供一个方法。正如我在[“方法也是函数”](ch07.html#method_function)中所说的，你可以使用方法表达式将方法视为函数。我们在这里就这样做。首先，编写这个方法：
 - en: '[PRE46]'
+  id: totrans-128
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE46]'
 - en: 'And then use it:'
+  id: totrans-129
   prefs: []
   type: TYPE_NORMAL
+  zh: 然后使用它：
 - en: '[PRE47]'
+  id: totrans-130
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE47]'
 - en: You can find the code for this tree on [The Go Playground](https://oreil.ly/-tus2)
     or in the *sample_code/generic_tree* directory in the [Chapter 8 repository](https://oreil.ly/E0Ay8).
+  id: totrans-131
   prefs: []
   type: TYPE_NORMAL
+  zh: 你可以在[The Go Playground](https://oreil.ly/-tus2)找到此树的代码，或者在[第8章仓库](https://oreil.ly/E0Ay8)的*sample_code/generic_tree*目录中找到。
 - en: More on comparable
+  id: totrans-132
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 更多关于可比较性的内容
 - en: As you saw in [“Interfaces Are Comparable”](ch07.html#compare_interfaces), interfacesare
     one of the comparable types in Go. This means that you need to be careful when
     using `==` and `!=` with variables of the interface type. If the underlying type
     of the interface is not comparable, your code panics at runtime.
+  id: totrans-133
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如你在[“接口可比较”](ch07.html#compare_interfaces)中看到的那样，接口是Go语言中可比较的类型之一。这意味着在使用`==`和`!=`操作符时需要小心，如果接口的底层类型不可比较，你的代码会在运行时抛出异常。
 - en: 'This pothole still exists when using the `comparable` interface with generics.
     Say you’ve defined an interface and a couple of implementations:'
+  id: totrans-134
   prefs: []
   type: TYPE_NORMAL
+  zh: 当使用泛型与`comparable`接口时，这个坑仍然存在。假设你已经定义了一个接口和一些实现：
 - en: '[PRE48]'
+  id: totrans-135
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE48]'
 - en: 'You also define a generic function that accepts only values that are `comparable`:'
+  id: totrans-136
   prefs: []
   type: TYPE_NORMAL
+  zh: 你还定义了一个通用函数，只接受`comparable`的值：
 - en: '[PRE49]'
+  id: totrans-137
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE49]'
 - en: 'It’s legal to call this function with variables of type `int` or `ThingerInt`:'
+  id: totrans-138
   prefs: []
   type: TYPE_NORMAL
+  zh: 用`int`或`ThingerInt`类型的变量调用此函数是合法的。
 - en: '[PRE50]'
+  id: totrans-139
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE50]'
 - en: 'The compiler won’t allow you to call this function with variables of type `ThingerSlice`
     (or `[]int`):'
+  id: totrans-140
   prefs: []
   type: TYPE_NORMAL
+  zh: 编译器不允许你使用`ThingerSlice`（或`[]int`）类型的变量调用此函数：
 - en: '[PRE51]'
+  id: totrans-141
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE51]'
 - en: 'However, it’s perfectly legal to call it with variables of type `Thinger`.
     If you use `ThingerInt`, the code compiles and works as expected:'
+  id: totrans-142
   prefs: []
   type: TYPE_NORMAL
+  zh: 然而，用`Thinger`类型的变量调用它是完全合法的。如果使用`ThingerInt`，代码编译并按预期工作：
 - en: '[PRE52]'
+  id: totrans-143
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE52]'
 - en: 'But you can also assign `ThingerSlice` to variables of type `Thinger`. That’s
     where things go wrong:'
+  id: totrans-144
   prefs: []
   type: TYPE_NORMAL
+  zh: 但是你也可以将`ThingerSlice`分配给`Thinger`类型的变量。这就是问题所在：
 - en: '[PRE53]'
+  id: totrans-145
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE53]'
 - en: 'The compiler won’t stop you from building this code, but if you run it, your
     program will panic with the message `panic: runtime error: comparing uncomparable
     type main.ThingerSlice` (see [“panic and recover”](ch09.html#panic_recover) for
     more information). You can try this code yourself on [The Go Playground](https://oreil.ly/NVIA4)
     or in the *sample_code/more_comparable* directory in the [Chapter 8 repository](https://oreil.ly/E0Ay8).'
+  id: totrans-146
   prefs: []
   type: TYPE_NORMAL
+  zh: '编译器不会阻止你构建此代码，但如果运行它，你的程序会因为`panic: runtime error: comparing uncomparable type
+    main.ThingerSlice`而崩溃（详见[“panic和recover”](ch09.html#panic_recover)获取更多信息）。你可以在[The
+    Go Playground](https://oreil.ly/NVIA4)或者[第8章仓库](https://oreil.ly/E0Ay8)的*sample_code/more_comparable*目录中自己尝试这段代码。'
 - en: For more technical details on how comparable types and generics interact and
     why this design decision was made, read the blog post [“All Your Comparable Types”](https://oreil.ly/AsWs-)
     from Robert Griesemer on the Go team.
+  id: totrans-147
   prefs: []
   type: TYPE_NORMAL
+  zh: 想要了解有关可比较类型与泛型交互以及为何做出此设计决策的更多技术细节，请阅读Go团队成员Robert Griesemer的博文[“All Your Comparable
+    Types”](https://oreil.ly/AsWs-)。
 - en: Things That Are Left Out
+  id: totrans-148
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 遗漏的事情
 - en: Go remains a small, focused language, and the generics implementation for Go
     doesn’t include many features that are found in generics implementations in other
     languages. This section describes some of the features that are not in the initial
     implementation of Go generics.
+  id: totrans-149
   prefs: []
   type: TYPE_NORMAL
+  zh: Go保持一种小而集中的语言风格，而Go的泛型实现并未包含许多其他语言泛型实现中存在的功能。本节描述了Go泛型初始实现中缺少的一些功能。
 - en: While you can build a single tree that works with both user-defined and built-in
     types, languages like Python, Ruby, and C++ solve this problem in a different
     way. They include *operator overloading*, which allows user-defined types to specify
     implementations for operators. Go will not be adding this feature. This means
     that you can’t use `range` to iterate over user-defined container types or `[]`
     to index into them.
+  id: totrans-150
   prefs: []
   type: TYPE_NORMAL
+  zh: 虽然你可以构建一个适用于用户定义和内置类型的单一树，像 Python、Ruby 和 C++ 这样的语言通过不同的方式解决了这个问题。它们包括*运算符重载*，允许用户定义的类型指定操作符的实现。Go
+    将不会添加这个特性。这意味着你不能使用`range`来迭代用户定义的容器类型，也不能使用`[]`来对它们进行索引。
 - en: There are good reasons for leaving out operator overloading. For one thing,
     Go has a surprisingly large number of operators. Go also doesn’t have function
     or method overloading, and you’d need a way to specify different operator functionality
@@ -661,67 +980,99 @@
     means “shift bits left” for some types and “write the value on the right to the
     value on the left” for others). These are the sorts of readability issues that
     Go tries to avoid.
+  id: totrans-151
   prefs: []
   type: TYPE_NORMAL
+  zh: 不使用运算符重载有很多理由。首先，Go 有惊人数量的运算符。其次，Go 也没有函数或方法重载，你需要一种方式来为不同的类型指定不同的操作符功能。此外，运算符重载可能导致代码难以理解，因为开发人员会为符号创造聪明的含义（在
+    C++ 中，`<<`对某些类型意味着“左移位”，对其他类型意味着“将右侧的值写入左侧的值”）。这些是 Go 试图避免的可读性问题。
 - en: 'Another useful feature that’s been left out of the initial Go generics implementation
     is additional type parameters on methods. Looking back on the `Map/Reduce/Filter`
     functions, you might think they’d be useful as methods, like this:'
+  id: totrans-152
   prefs: []
   type: TYPE_NORMAL
+  zh: 另一个有用的特性被初始 Go 泛型实现忽略，即方法上的额外类型参数。回顾`Map/Reduce/Filter`函数，你可能会认为它们作为方法会很有用，就像这样：
 - en: '[PRE54]'
+  id: totrans-153
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE54]'
 - en: 'which you could use like this:'
+  id: totrans-154
   prefs: []
   type: TYPE_NORMAL
+  zh: 你可以像这样使用它：
 - en: '[PRE55]'
+  id: totrans-155
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE55]'
 - en: Unfortunately for fans of functional programming, this does not work. Rather
     than chaining method calls together, you need to either nest function calls or
     use the much more readable approach of invoking the functions one at a time and
     assigning the intermediate values to variables. The type parameter proposal goes
     into detail on the reasons for excluding parameterized methods.
+  id: totrans-156
   prefs: []
   type: TYPE_NORMAL
+  zh: 不幸的是，对于函数式编程的爱好者来说，这并不适用。与其将方法调用链在一起，你需要嵌套函数调用或者采用更可读的方法，逐个调用函数并将中间值赋给变量。类型参数提案详细说明了排除参数化方法的原因。
 - en: Go also has no variadic type parameters. As discussed in [“Variadic Input Parameters
     and Slices”](ch05.html#vararg), to implement a function that takes in a varying
     number of parameters, you specify that the last parameter type starts with `...`.
     For example, there’s no way to specify some sort of type pattern to those variadic
     parameters, such as alternating `string` and `int`. All variadic variables must
     match a single declared type, which can be generic or not.
+  id: totrans-157
   prefs: []
   type: TYPE_NORMAL
+  zh: Go 也没有可变类型参数。如 [“可变输入参数和切片”](ch05.html#vararg) 中所讨论的那样，要实现一个接受不同数量参数的函数，你需要指定最后一个参数类型以
+    `...` 开头。例如，没有办法为这些可变参数指定某种类型模式，比如交替的`string`和`int`。所有可变变量必须匹配一个声明的单一类型，可以是泛型或非泛型的。
 - en: 'Other features left out of Go generics are more esoteric. These include the
     following:'
+  id: totrans-158
   prefs: []
   type: TYPE_NORMAL
+  zh: Go 泛型中省略的其他特性更为奥秘。包括以下内容：
 - en: Specialization
+  id: totrans-159
   prefs: []
   type: TYPE_NORMAL
+  zh: 特化
 - en: A function or method can be overloaded with one or more type-specific versions
     in addition to the generic version. Since Go doesn’t have overloading, this feature
     is not under consideration.
+  id: totrans-160
   prefs: []
   type: TYPE_NORMAL
+  zh: 一个函数或方法可以在泛型版本之外重载为一个或多个特定于类型的版本。由于 Go 没有重载，这个特性不在考虑之列。
 - en: Currying
+  id: totrans-161
   prefs: []
   type: TYPE_NORMAL
+  zh: 柯里化
 - en: Allows you to partially instantiate a function or type based on another generic
     function or type by specifying some of the type parameters.
+  id: totrans-162
   prefs: []
   type: TYPE_NORMAL
+  zh: 允许你根据另一个泛型函数或类型部分实例化一个函数或类型，指定一些类型参数。
 - en: Metaprogramming
+  id: totrans-163
   prefs: []
   type: TYPE_NORMAL
+  zh: 元编程
 - en: Allows you to specify code that runs at compile time to produce code that runs
     at runtime.
+  id: totrans-164
   prefs: []
   type: TYPE_NORMAL
+  zh: 允许你指定在编译时运行的代码，以生成在运行时运行的代码。
 - en: Idiomatic Go and Generics
+  id: totrans-165
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: Go 的惯用方式和泛型
 - en: Adding generics clearly changes some of the advice for how to use Go idiomatically.
     The use of `float64` to represent any numeric type will end. You should use `any`
     instead of `interface{}` to represent an unspecified type in a data structure
@@ -729,39 +1080,58 @@
     But don’t feel the need to switch all your code over to using type parameters
     immediately. Your old code will still work as new design patterns are invented
     and refined.
+  id: totrans-166
   prefs: []
   type: TYPE_NORMAL
+  zh: 明显地，向 Go 中添加泛型改变了某些使用 Go 习惯的建议。使用 `float64` 来表示任何数值类型将不再适用。在数据结构或函数参数中，应该使用
+    `any` 而不是 `interface{}` 表示未指定类型。可以使用单个函数处理不同的切片类型。但不必立即将所有旧代码转换为使用类型参数。随着新的设计模式的发明和完善，你的旧代码仍将正常运行。
 - en: It’s still too early to judge the long-term impact of generics on performance.
     As of this writing, there’s no impact on compilation time. The Go 1.18 compiler
     was slower than previous versions, but the compiler in Go 1.20 resolved this issue.
+  id: totrans-167
   prefs: []
   type: TYPE_NORMAL
+  zh: 目前来看，判断泛型对性能的长期影响为时尚早。截至目前，编译时间没有影响。Go 1.18 编译器比以前的版本慢，但 Go 1.20 的编译器解决了这个问题。
 - en: Some research has also been done on the runtime impact of generics. Vicent Marti
     wrote a [detailed blog post](https://oreil.ly/YK4HT) exploring cases where generics
     result in slower code and the implementation details that explain why this is
     so. Conversely, Eli Bendersky wrote a [blog post](https://oreil.ly/2Mqms) that
     shows that generics make sorting algorithms faster.
+  id: totrans-168
   prefs: []
   type: TYPE_NORMAL
+  zh: 也有一些关于泛型运行时影响的研究。Vicent Marti 写了一篇[详细博文](https://oreil.ly/YK4HT)，探讨了泛型导致代码变慢的案例和解释其实现细节。相反，Eli
+    Bendersky 写了一篇[博文](https://oreil.ly/2Mqms)，展示了泛型使排序算法更快的情况。
 - en: 'In particular, do not change a function that has an interface parameter into
     a function with a generic type parameter in hopes of improving performance. For
     example, converting this trivial function:'
+  id: totrans-169
   prefs: []
   type: TYPE_NORMAL
+  zh: 特别是，不要为了提高性能而将具有接口参数的函数更改为具有泛型类型参数的函数。例如，将这个简单的函数：
 - en: '[PRE56]'
+  id: totrans-170
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE56]'
 - en: 'into:'
+  id: totrans-171
   prefs: []
   type: TYPE_NORMAL
+  zh: 转换为：
 - en: '[PRE57]'
+  id: totrans-172
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE57]'
 - en: makes the function call about 30% slower in Go 1.20\. (For a nontrivial function,
     there’s no significant performance difference.) You can run the benchmarks using
     the code in the *sample_code/perf* directory in the [Chapter 8 repository](https://oreil.ly/E0Ay8).
+  id: totrans-173
   prefs: []
   type: TYPE_NORMAL
+  zh: 在 Go 1.20 中，函数调用慢了约 30%。（对于非平凡函数，性能差异不显著。）你可以使用[第8章仓库](https://oreil.ly/E0Ay8)中
+    *sample_code/perf* 目录下的代码运行基准测试。
 - en: This might be surprising for developers experienced with generics in other languages.
     In C++, for example, the compiler uses generics on abstract data types to turn
     what is normally a runtime operation (figuring out which concrete type is being
@@ -772,26 +1142,36 @@
     function. To differentiate between the different types that are passed in to shared
     generated functions, the compiler adds additional runtime lookups. This causes
     the slowdown in performance.
+  id: totrans-174
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于其他语言中有泛型经验的开发人员，这可能会令人感到惊讶。例如，在 C++ 中，编译器使用泛型在抽象数据类型上执行正常的运行时操作（确定使用的具体类型），将其转换为编译时操作，为每个具体类型生成唯一的函数。这使得生成的二进制文件更大但更快。正如
+    Vicent 在他的博客文章中解释的那样，当前的 Go 编译器仅为不同的基础类型生成唯一的函数。此外，所有指针类型共享单个生成的函数。为了区分传递给共享生成函数的不同类型，编译器添加额外的运行时查找。这导致性能下降。
 - en: Again, as the generics implementation matures in future versions of Go, expect
     runtime performance to improve. As always, the goal is to write maintainable programs
     that are fast enough to meet your needs. Use the benchmarking and profiling tools
     that are discussed in [“Using Benchmarks”](ch15.html#benchmarking) to measure
     and improve your code.
+  id: totrans-175
   prefs: []
   type: TYPE_NORMAL
+  zh: 同样地，随着 Go 中泛型实现的成熟，预计运行时性能会改善。与往常一样，目标是编写可维护的程序，其速度足以满足您的需求。使用[“使用基准测试”](ch15.html#benchmarking)中讨论的基准测试和性能分析工具来衡量和改进您的代码。
 - en: Adding Generics to the Standard Library
+  id: totrans-176
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 向标准库添加泛型
 - en: The initial release of generics in Go 1.18 was very conservative. It added the
     new interfaces `any` and `comparable` to the universe block, but no API changes
     occurred in the standard library to support generics. A stylistic change has been
     made; virtually all uses of `interface{}` in the standard library were replaced
     with `any`.
+  id: totrans-177
   prefs: []
   type: TYPE_NORMAL
+  zh: Go 1.18 版本中泛型的初始发布非常保守。它在 universe 块中添加了新的接口`any`和`comparable`，但标准库中没有发生任何 API
+    更改来支持泛型。已进行了风格上的更改；标准库中几乎所有使用`interface{}`的地方都被替换为`any`。
 - en: Now that the Go community is more comfortable with generics, we are starting
     to see more changes. Starting with Go 1.21, the standard library includes functions
     that use generics to implement common algorithms for slices, maps, and concurrency.
@@ -806,12 +1186,18 @@
     or two values. Prefer using functions in these packages over writing your own
     implementations. Future versions of the standard library will likely include additional
     new functions and types that take advantage of generics.
+  id: totrans-178
   prefs: []
   type: TYPE_NORMAL
+  zh: 随着 Go 社区对泛型的适应越来越舒适，我们开始看到更多变化。从 Go 1.21 开始，标准库包括使用泛型来实现切片、映射和并发常见算法的函数。在[第
+    3 章](ch03.html#unique_chapter_id_03)中，我介绍了`slices`和`maps`包中的`Equal`和`EqualFunc`函数。这些包中的其他函数简化了切片和映射的操作。`slices`包中的`Insert`、`Delete`和`DeleteFunc`函数允许开发人员避免编写一些非常棘手的切片处理代码。`maps.Clone`函数利用
+    Go 运行时提供了创建映射的浅复制的更快方法。在[“仅运行代码一次”](ch12.html#sync_once)中，您将了解到`sync.OnceValue`和`sync.OnceValues`，它们使用泛型构建仅调用一次并返回一个或两个值的函数。建议使用这些包中的函数而不是编写自己的实现。标准库的未来版本可能会包含利用泛型的其他新函数和类型。
 - en: Future Features Unlocked
+  id: totrans-179
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 未来解锁的功能
 - en: 'Generics might be the basis for other future features. One possibility is *sum
     types*. Just as type elements are used to specify the types that can be substituted
     for a type parameter, they could also be used for interfaces in variable parameters.
@@ -825,50 +1211,73 @@
     types to represent enums. Given the weakness of Go’s current enum features, this
     might be an attractive solution, but it will take time for these ideas to be evaluated
     and explored.'
+  id: totrans-180
   prefs: []
   type: TYPE_NORMAL
+  zh: 泛型可能成为其他未来功能的基础。一个可能性是*总和类型*。正如类型元素用于指定可以替换为类型参数的类型一样，它们也可以用于变量参数中的接口。这将启用一些有趣的功能。今天，Go
+    在 JSON 中存在一个常见情况的问题：一个字段可以是单个值或值列表。即使有了泛型，处理这种情况的唯一方法仍然是使用类型为`any`的字段。添加总和类型将允许您创建一个接口，指定一个字段可以是字符串、字符串切片，以及其他内容。然后，类型开关可以完全枚举每个有效类型，提高类型安全性。这种指定一组有界类型的能力允许许多现代语言（包括
+    Rust 和 Swift）使用总和类型来表示枚举。鉴于 Go 当前枚举功能的弱点，这可能是一个吸引人的解决方案，但需要时间来评估和探索这些想法。
 - en: Exercises
+  id: totrans-181
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 练习
 - en: Now that you’ve seen how generics work, apply them to solve the following problems.
     Solutions are available in the *exercise_solutions* directory in the [Chapter
     8 repository](https://oreil.ly/E0Ay8).
+  id: totrans-182
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在你已经看到了泛型的工作原理，将其应用于解决以下问题。解决方案位于[第 8 章代码库](https://oreil.ly/E0Ay8)的*exercise_solutions*目录中。
 - en: Write a generic function that doubles the value of any integer or float that’s
     passed in to it. Define any needed generic interfaces.
+  id: totrans-183
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 编写一个通用函数，用于将传入的任何整数或浮点数的值加倍。定义所需的通用接口。
 - en: Define a generic interface called `Printable` that matches a type that implements
     `fmt.Stringer` and has an underlying type of `int` or `float64`. Define types
     that meet this interface. Write a function that takes in a `Printable` and prints
     its value to the screen using `fmt.Println`.
+  id: totrans-184
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 定义一个名为 `Printable` 的泛型接口，该接口匹配实现了 `fmt.Stringer` 并且底层类型为 `int` 或 `float64` 的类型。定义满足此接口的类型。编写一个函数，接受一个
+    `Printable` 并将其值使用 `fmt.Println` 打印到屏幕上。
 - en: 'Write a generic singly linked list data type. Each element can hold a comparable
     value and has a pointer to the next element in the list. The methods to implement
     are as follows:'
+  id: totrans-185
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 编写一个泛型的单链表数据类型。每个元素可以存储一个可比较的值，并且有一个指向列表中下一个元素的指针。要实现的方法如下：
 - en: '[PRE58]'
+  id: totrans-186
   prefs:
   - PREF_IND
   type: TYPE_PRE
+  zh: '[PRE58]'
 - en: Wrapping Up
+  id: totrans-187
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 结束语
 - en: In this chapter, you took a look at generics and how to use them to simplify
     your code. It’s still early days for generics in Go. It will be exciting to see
     how they help grow the language while still maintaining the spirit that makes
     Go special.
+  id: totrans-188
   prefs: []
   type: TYPE_NORMAL
+  zh: 在本章中，你已经了解了泛型以及如何使用它们来简化你的代码。对于 Go 语言而言，泛型仍处于早期阶段。看到它们如何帮助语言发展，同时仍保持 Go 语言特有的精神，这将是令人兴奋的。
 - en: 'In the next chapter, you are going to learn how to properly use one of Go’s
     most controversial features: errors.'
+  id: totrans-189
   prefs: []
   type: TYPE_NORMAL
+  zh: 在接下来的章节中，你将学习如何正确地使用 Go 语言中最具争议的特性之一：errors。
