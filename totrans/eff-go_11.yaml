@@ -1054,6 +1054,9 @@
   id: totrans-138
   prefs: []
   type: TYPE_NORMAL
+  zh: 不幸的是，细节隐藏在更多的信息中。我们只在一个好的情况下控制生命周期（即没有发生取消时）。如果我们的代码到达这一行，我们在这里做了一些不好的事情。我们无需关心
+    goroutine 生命周期而返回。我们没有停止它。我们没有等待它。更糟糕的是，这是一个永久泄漏，即带有`ComplexCalculation`的 goroutine
+    将被饿死，因为没有人从`respCh`通道读取。
 - en: While the goroutine looks like it’s controlled, it isn’t in all cases. This
     leaky code is commonly seen in the Go codebase because it requires a lot of detailed
     focus to not forget about every little edge case. As a result of these mistakes,
@@ -1062,6 +1065,8 @@
   id: totrans-139
   prefs: []
   type: TYPE_NORMAL
+  zh: 虽然 goroutine 看起来受到控制，但并非在所有情况下都是如此。这种有漏洞的代码在 Go 代码库中很常见，因为需要非常详细的关注来不遗漏每一个小的边缘情况。由于这些错误，我们倾向于推迟在我们的
+    Go 中使用 goroutine，因为很容易出现这样的泄漏。
 - en: The worst part about leaks is that our Go program might survive long before
     someone notices the adverse effects of such leaks. For example, running `Handle_VeryWrong`
     and cancelling it periodically will eventually OOM this Go program, but if we
@@ -1070,6 +1075,8 @@
   id: totrans-140
   prefs: []
   type: TYPE_NORMAL
+  zh: 泄漏最糟糕的部分是，我们的 Go 程序可能会在很长时间内幸存下来，直到有人注意到这些泄漏的不良影响。例如，周期性运行`Handle_VeryWrong`并定期取消它最终会导致这个
+    Go 程序OOM，但如果我们仅偶尔取消并定期重新启动我们的应用程序，如果没有良好的可观察性，我们可能永远不会注意到它！
 - en: Fortunately, an amazing tool allows us to discover those leaks at the unit test
     level. Therefore, I suggest using a leak test in every unit (or test file) that
     uses concurrent code. One of them is called [`goleak`](https://oreil.ly/4N4bb)
@@ -1077,11 +1084,14 @@
   id: totrans-141
   prefs: []
   type: TYPE_NORMAL
+  zh: 幸运的是，有一个神奇的工具可以让我们在单元测试级别发现这些泄漏。因此，我建议在每个使用并发代码的单元（或测试文件）中使用泄漏测试。其中之一是来自 Uber
+    的[`goleak`](https://oreil.ly/4N4bb)，其基本用法在[示例 11-3](#code-leakhandletest)中展示。
 - en: Example 11-3\. Testing for leaks in [Example 11-2](#code-leakhandle1) code
   id: totrans-142
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 11-3\. 在[示例 11-2](#code-leakhandle1)代码中进行泄漏测试
 - en: '[PRE2]'
   id: totrans-143
   prefs: []
@@ -1091,15 +1101,18 @@
   id: totrans-144
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_optimization_patterns_CO3-1)'
 - en: Let’s create tests that verify cancel behavior. This is where the leak is suspected
     to be triggered.
   id: totrans-145
   prefs: []
   type: TYPE_NORMAL
+  zh: 让我们创建测试来验证取消行为。这是可能触发泄漏的地方。
 - en: '[![2](assets/2.png)](#co_optimization_patterns_CO3-2)'
   id: totrans-146
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_optimization_patterns_CO3-2)'
 - en: To verify goroutine leaks, just defer [`goleak.VerifyNone`](https://oreil.ly/bgcwF)
     at the top of our test. It runs at the end of our test and fails if any unexpected
     goroutine is still running. We can also verify whole package tests using the [`goloak.VerifyTestMain`
@@ -1107,15 +1120,19 @@
   id: totrans-147
   prefs: []
   type: TYPE_NORMAL
+  zh: 要验证 goroutine 泄漏，只需在我们的测试顶部延迟[`goleak.VerifyNone`](https://oreil.ly/bgcwF)。它会在测试结束时运行，并且如果有任何意外的
+    goroutine 仍在运行，则测试失败。我们还可以使用[`goleak.VerifyTestMain`方法](https://oreil.ly/zyPjr)来验证整个包的测试。
 - en: Running such a test causes the test to fail with the output in [Example 11-4](#code-leakhandletest-out).
   id: totrans-148
   prefs: []
   type: TYPE_NORMAL
+  zh: 运行这样的测试会导致测试失败，并输出[示例 11-4](#code-leakhandletest-out)中的内容。
 - en: Example 11-4\. Output of two failed runs of [Example 11-3](#code-leakhandletest)
   id: totrans-149
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 11-4\. 两次失败运行[示例 11-3](#code-leakhandletest)的输出
 - en: '[PRE3]'
   id: totrans-150
   prefs: []
@@ -1125,33 +1142,39 @@
   id: totrans-151
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_optimization_patterns_CO4-1)'
 - en: We see the goroutines still running at the end of the test and what they were
     executing.
   id: totrans-152
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们看到测试结束时仍在运行的 goroutine 以及它们正在执行的操作。
 - en: '[![2](assets/2.png)](#co_optimization_patterns_CO4-2)'
   id: totrans-153
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_optimization_patterns_CO4-2)'
 - en: If we waited a few seconds after cancelling, we could see that the goroutine
     was still running. However, this time it was waiting on a read from `respCh`,
     which would never happen.
   id: totrans-154
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果我们在取消后等待几秒钟，我们会发现 goroutine 仍在运行。但是，这次它正在等待从`respCh`读取，这永远不会发生。
 - en: The solution to such an edge case leak is to fix the [Example 11-2](#code-leakhandle1)
     code. So let’s go through two potential solutions in [Example 11-5](#code-leakhandle2)
     that seem to fix the problem, but still leak in some way!
   id: totrans-155
   prefs: []
   type: TYPE_NORMAL
+  zh: 这种边缘情况泄漏的解决方案是修复[示例 11-2](#code-leakhandle1)代码。所以让我们看看在[示例 11-5](#code-leakhandle2)中似乎解决了问题的两个潜在解决方案，但仍然以某种方式泄漏！
 - en: Example 11-5\. (Still) leaking handlers. This time the goroutines left behind
     eventually stop.
   id: totrans-156
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 11-5\. （仍然）泄漏的处理程序。这次留下的 goroutine 最终会停止。
 - en: '[PRE4]'
   id: totrans-157
   prefs: []
@@ -1161,6 +1184,7 @@
   id: totrans-158
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_optimization_patterns_CO5-1)'
 - en: The only difference between this code and `HandleVeryWrong` in [Example 11-2](#code-leakhandle1)
     is that we create a channel with a buffer for one message. This allows the computation
     goroutine to push one message to this channel without waiting for someone to read
