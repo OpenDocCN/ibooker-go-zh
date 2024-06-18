@@ -1,1 +1,7 @@
 +   [100 个 Go 错误以及如何避免](docs/100-go-mstk/README.md)
++   [Go 云原生指南](docs/cldntv-go/README.md)
++   [Go 高效编程](docs/eff-go/README.md)
++   [Go 秘籍](docs/go-cb/README.md)
++   [gRPC 启动指南](docs/grpc-uprn/README.md)
++   [嗨翻 Go](docs/hd1st-go/README.md)
++   [Go 学习指南第二版](docs/lrn-go-2e/README.md)
