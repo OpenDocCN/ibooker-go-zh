@@ -1,0 +1,2182 @@
+- en: Chapter 6\. Efficiency Observability
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In [“Efficiency-Aware Development Flow”](ch03.html#ch-conq-eff-flow), you learned
+    to follow the TFBO (test, fix, benchmark, and optimize) flow to validate and achieve
+    the required efficiency results with the least effort. Around the elements of
+    the efficiency phase, observability takes one of the key roles, especially in
+    Chapters [7](ch07.html#ch-observability2) and [9](ch09.html#ch-observability3).
+    We focus on that phase in [Figure 6-1](#img-obs-intro).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![efgo 0601](assets/efgo_0601.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 6-1\. An excerpt from [Figure 3-5](ch03.html#img-opt-flow) focusing on
+    the part that requires good observability
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'In this chapter, I will explain the required observability and monitoring tools
+    for this part of the flow. First, we will learn what observability is and what
+    problems it solves. Then, we will discuss different observability signals, typically
+    divided into logs, tracing, metrics, and, recently, profiles. Next, we will explain
+    the first three signals in [“Example: Instrumenting for Latency”](#ch-obs-signals),
+    which takes latency as an example of the efficiency information we might want
+    to measure (profiling is explained in [Chapter 9](ch09.html#ch-observability3)).
+    Last but not least, we will go through the specific semantics and sources of metrics
+    related to our program efficiency in [“Efficiency Metrics Semantics”](#ch-obs-semantics).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: You Can’t Improve What You Don’t Measure!
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'This quote, often attributed to Peter Drucker, is a key to improving anything:
+    business revenues, car efficiency, family budget, body fat, or [even happiness](https://oreil.ly/eKiIR).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Especially when it comes to invisible waste that our inefficient software is
+    producing, we can say that it’s impossible to optimize software without assessing
+    and measuring before and after the change. Every decision must be data driven,
+    as our guesses in this virtual space are often wrong.
+  prefs: []
+  type: TYPE_NORMAL
+- en: With no further ado, let’s learn how to measure the efficiency of our software
+    in the easiest possible way—with the concept the industry calls observability.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Observability
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: To control software efficiency, we first need to find a structured and reliable
+    way to measure the latency and resource usage of our Go applications. The key
+    is to count these as accurately as possible and present them at the end as easy
+    to understand numeric values. This is why for consumption measurements, we sometimes
+    (not always!) use a “metric signal,” which is a pillar of the essential software
+    (or system) characteristics called observability.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Observability
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In the cloud-native infrastructure world, we often talk about the observability
+    of our applications. Unfortunately, observability is a very overloaded word.^([1](ch06.html#idm45606832729952))
+    It can be summarized as follows: an ability to deduce the state of a system inferred
+    from external signals.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The external signals the industry uses nowadays can be generally categorized
+    into four types: metrics, logs, traces, and profiling.^([2](ch06.html#idm45606832725840))'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Observability is a huge topic nowadays as it can help us in many situations
+    while developing and operating our software. Observability patterns allow us to
+    debug failures or unexpected behaviors of our programs, find root causes of incidents,
+    monitor healthiness, alert on unforeseen situations, perform billing, measure
+    [SLIs (service level indicators)](https://oreil.ly/hsdXJ), run analytics, and
+    much more. Naturally, we will focus only on the parts of observability that will
+    help us ensure that our software efficiency matches our requirements (the RAERs
+    mentioned in [“Efficiency Requirements Should Be Formalized”](ch03.html#ch-conq-req-formal)).
+    So what is an observability signal?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Metrics are a numeric representation of data measured over intervals of time.
+    Metrics can harness the power of mathematical modeling and prediction to derive
+    knowledge of the behavior of a system over intervals of time in the present and
+    future.
+  prefs:
+  - PREF_BQ
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'An event log is an immutable, timestamped record of discrete events that happened
+    over time. Event logs in general come in three forms but are fundamentally the
+    same: a timestamp and a payload of some context.'
+  prefs:
+  - PREF_BQ
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: A trace is a representation of a series of causally related distributed events
+    that encode the end-to-end request flow through a distributed system. Traces are
+    a representation of logs; the data structure of traces looks almost like that
+    of an event log. A single trace can provide visibility into both the path traversed
+    by a request as well as the structure of a request.
+  prefs:
+  - PREF_BQ
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: ''
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: Cindy Sridharan, [*Distributed Systems Observability*](https://oreil.ly/YrSIE)
+    (O’Reilly, 2018)
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: Generally, all those signals can be used to observe our Go applications’ latency
+    and resource consumption for optimization purposes. For example, we can measure
+    the latency of a specific operation and expose it as a metric. We can send that
+    value encoded into a log line or trace annotations (e.g., [“baggage”](https://oreil.ly/V5sQ6)
+    items). We can calculate latency by subtracting the timestamps of two log lines—when
+    the operation started and when it finished. We can use trace spans, which track
+    the latency of a span (individual unit of work done) by design.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'However, whatever we use to deliver that information to us (via metric-specific
+    tools, logs, traces, or profiles), in the end, it has to have metric semantics.
+    We need to derive information to a numeric value so we can gather it over time;
+    subtract; find max, min, or average; and aggregate over dimensions. We need the
+    information to visualize and analyze. We need it to allow tools to reactively
+    alert us when required, potentially build further automation that will consume
+    it, and compare other metrics. This is why an efficiency discussion will mostly
+    navigate through metric aggregations: the tail latency of our application, maximum
+    memory usage over time, etc.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: As we discussed, to optimize anything, you have to start measuring it, so the
+    industry has developed many metrics and instruments to capture the usage of various
+    resources. The process of observing or measuring always starts with the instrumentation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Instrumentation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Instrumentation is a process of adding or enabling instruments for our code
+    that will expose the observability signals we need.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Instrumentation can have many forms:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Manual instrumentation
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can add a few statements to our code that import a Go module that generates
+    an observability signal (for example, [Prometheus client for metrics](https://oreil.ly/AoWkJ),
+    [go-kit logger](https://oreil.ly/adTO3), or [a tracing](https://oreil.ly/o7uYH)
+    library) and hook it to the operations we do. Of course, this requires modifying
+    our Go code, but it usually leads to more personalized and rich signals with more
+    context. Usually, it represents [open box](https://oreil.ly/qMjUP) information
+    because we can collect information tailored to the program functionality.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Autoinstrumentation
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sometimes instrumentation means installing (and configuring) a tool that can
+    derive useful information by looking at outside effects. For example, a service
+    mesh gathers observability by looking at HTTP requests and responses, or a tool
+    hooks to the operating system and gathers information through [cgroups](https://oreil.ly/aCe6S)
+    or [eBPF](https://oreil.ly/QjxV9).^([3](ch06.html#idm45606832699376)) Autoinstrumentation
+    does not require changing and rebuilding code and usually represents [closed box
+    information](https://oreil.ly/UO0gK).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'On top of that, it’s helpful to categorize instrumentation based on the granularity
+    of the information:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Capturing raw events
+  prefs: []
+  type: TYPE_NORMAL
+- en: Instrumentation in this category will try to deliver a separate piece of information
+    for each event in our process. For example, suppose we would like to know how
+    many and what errors are happening in all HTTP requests served by our process.
+    In that case, we could have instrumentation that delivers a separate piece of
+    information about each request (e.g., as a log line). Furthermore, this information
+    usually has some metadata about its context, like the status code, user IP, timestamp,
+    and the process and code statement in which it happened (target metadata).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once ingested to some observability backend, such raw data is very rich in context
+    and, in theory, allows any ad hoc analysis. For example, we can scan through all
+    events to find an average number of errors or the percentile distributions (more
+    on that in [“Latency”](#ch-obs-latency)). We can navigate to every individual
+    error representing a single event to inspect it in detail. Unfortunately, this
+    kind of data is generally the most expensive to use, ingest, and store. We often
+    risk an inaccuracy here since it’s likely we’ll miss an individual event or two.
+    In extreme cases, it requires complex skills and automation for big data and data
+    mining explorations to find the information you want.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Capturing aggregated information
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can capture pre-aggregated data instead of raw events. Every piece of information
+    delivered by such instrumentation represents certain information about a group
+    of events. In our HTTP server example, we could count successful and failed requests,
+    and periodically deliver that information. Before forwarding this information,
+    we could go even further and pre-calculate the error ratio inside our code. It’s
+    worth mentioning that this kind of information also requires metadata, so we can
+    summarize, aggregate further, compare, and analyze those aggregated pieces of
+    information.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Pre-aggregated instrumentation forces Go processes or autoinstrumentation tools
+    to do more work, but the results are generally easier to use. On top of this,
+    because of the smaller amount of data, the complexity of the instrumentation,
+    signal delivery, and backend is lower, thereby increasing reliability and decreasing
+    cost significantly. There are trade-offs here as well. We lose some information
+    (commonly called the cardinality). The decision of what information to prebuild
+    is made up front, and is coded into instrumentation. If you suddenly have different
+    questions to be answered (e.g., how many errors an individual user had across
+    your processes) and your instrumentation was not set to pre-aggregate that information,
+    you have to change it, which takes time and resources. Yet if you roughly know
+    what you will be asking for ahead of time, aggregated type of information is an
+    amazing win and a more pragmatic approach.^([4](ch06.html#idm45606832688544))
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Last but not least, generally speaking we can design our observability flows
+    into push-and-pull collection models:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Push
+  prefs: []
+  type: TYPE_NORMAL
+- en: A system where a centralized remote process collects observability signals from
+    your applications (including your Go programs).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Pull
+  prefs: []
+  type: TYPE_NORMAL
+- en: A system where application processes push the signal to a remote centralized
+    observability system.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Push Versus Pull
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Each of the conventions has its pros and cons. You can push your metrics, logs,
+    and traces, but you can also pull all of them from your process. We can also use
+    a mixed approach, different for each observability signal.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Push versus pull method is sometimes a controversial topic. The industry is
+    polarized as to what is generally better, not only in observability but also for
+    any other architectures. We will discuss the pros and cons in [“Metrics”](#ch-obs-metrics),
+    but the difficult truth is that both ways can scale equally well, just with different
+    solutions, tools, and best practices.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'After learning about those three categories, we should be ready to dive further
+    into observability signals. To measure and deliver observability information for
+    efficiency optimizations, we can’t avoid learning more about instrumenting the
+    three common observability signals: logging, tracing, and metrics. In the next
+    section, let’s do that while keeping a practical goal in mind—measuring latency.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Example: Instrumenting for Latency'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'All three signals you will learn in this section can be used to build observability
+    that will fit in any of the three categorizations we discussed. Each signal can:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Be manually or autoinstrumented
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Give aggregated information or raw events
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Be pulled (collected, tailed, or scraped) from the process or pushed (uploaded)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Yet every signal—logging, tracing, or metric—might be better or worse fitted
+    in any of those jobs. In this section, we will discuss these predispositions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The best way to learn how to use observability signals and their trade-offs
+    is to focus on the practical goal. Let’s imagine we want to measure the latency
+    of a specific operation in our code. As mentioned in the introduction, we need
+    to start measuring the latency to assess it and decide if our code needs more
+    optimizations during every optimization iteration. As you will learn in this section,
+    we can get latency results using any of those observability signals. The details
+    around how information is presented, how complex instrumentation is, and so on
+    will help you understand what to choose in your journey. Let’s dive in!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Logging
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Logging might be the clearest signal to understand an instrument. So let’s explore
+    the most basic instrumentation that we might categorize as logging to collect
+    latency measurements. Taking basic latency measurements for a single operation
+    in Go code is straightforward, thanks to the standard [`time` package](https://oreil.ly/t9FDr).
+    Whether you do it by hand or use standard or third-party libraries to obtain latencies,
+    if they are written in Go, they use the pattern presented in [Example 6-1](#code-latency-simplest)
+    using the `time` package.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 6-1\. Manual and simplest latency measurement of a single operation
+    in Go
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_efficiency_observability_CO1-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`time.Now()` captures the current wall time (clock time) from our operating
+    system clock in the form `time.Time`. Note the `xTime`, example variable that
+    specifies the desired number of runs.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_efficiency_observability_CO1-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: After our `cooperation` functions finish, we can capture the time between `start`
+    and current time using `time.Since(start)`, which returns the handy `time.Duration`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_efficiency_observability_CO1-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can leverage such an instrument to deliver our metric sample. For example,
+    we can print the duration in nanoseconds to the standard output using the `.Nanoseconds()`
+    method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Arguably, [Example 6-1](#code-latency-simplest) represents the simplest form
+    of instrumentation and observability. We take a latency measurement and deliver
+    it by printing the result into standard output. Given that every operation will
+    output a new line, [Example 6-1](#code-latency-simplest) represents manual instrumentation
+    of raw event information.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unfortunately, this is a little naive. First of all, as we will learn in [“Reliability
+    of Experiments”](ch07.html#ch-obs-rel), a single measurement of anything can be
+    misleading. We have to capture more of those—ideally hundreds or thousands for
+    statistical purposes. When we have one process, and only one functionality we
+    want to test or benchmark, [Example 6-1](#code-latency-simplest) will print hundreds
+    of results that we can later analyze. However, to simplify the analysis, we could
+    try to pre-aggregate some results. Instead of logging raw events, we could pre-aggregate
+    using a mathematical average function and output that. [Example 6-2](#code-latency-simplest-aggr)
+    presents a modification of [Example 6-1](#code-latency-simplest) that aggregates
+    events into an easier-to-consume result.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 6-2\. Instrumenting Go to log the average latency of an operation in
+    Go
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_efficiency_observability_CO2-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Instead of printing raw latency, we can gather a sum and number of operations
+    in the sum.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_efficiency_observability_CO2-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Those two pieces of information can be used to calculate the accurate average
+    and present that for a group of events instead of the unique latency. For example,
+    one run printed the `188324467 ns/op` string on my machine.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Given that we stop presenting latency for raw events, [Example 6-2](#code-latency-simplest-aggr)
+    represents a manual, aggregated information observability. This method allows
+    us to quickly get the information we need without complex (and time-consuming)
+    tools analyzing our logging outputs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This example is how the Go benchmarking tool will do the average latency calculations.
+    We can achieve exactly the same logic as in [Example 6-2](#code-latency-simplest-aggr)
+    using the snippet in [Example 6-3](#code-latency-go-bench) in a file with the
+    *_test.go* suffix.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 6-3\. Simplest Go benchmark that will measure average latency per operation
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_efficiency_observability_CO3-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `for` loop with the `N` variable is essential in the benchmarking framework.
+    It allows the Go framework to try different `N` values to perform enough test
+    runs to fulfill the configured number of runs or test duration. For example, by
+    default, the Go benchmark runs to fit one second, which is often too short for
+    meaningful output reliability.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once we run [Example 6-3](#code-latency-go-bench) using `go test` (explained
+    in detail in [“Go Benchmarks”](ch08.html#ch-obs-micro-go)), it will print certain
+    output. One part of the information is a result line with a number of runs and
+    average nanoseconds per operation. One of the runs on my machine gave an output
+    latency of `197999371 ns/op`, which generally matches the result from [Example 6-2](#code-latency-simplest-aggr).
+    We can say that the Go benchmark is an autoinstrumentation with aggregated information
+    using logging signals for things like latency.
+  prefs: []
+  type: TYPE_NORMAL
+- en: On top of collecting latency about the whole operation, we can gain a lot of
+    insight from having different granularity of those measurements. For example,
+    we might wish to capture the latency of a few suboperations inside our single
+    operation. Finally, for more complex deployments, when our Go program is part
+    of a distributed system, as discussed in [“Macrobenchmarks”](ch08.html#ch-obs-macro),
+    we have potentially many processes we have to measure across. For those cases,
+    we have to use more sophisticated logging that will give us more metadata and
+    ways to deliver a logging signal, not only by simply printing to a file, but by
+    other means too.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The amount of information we have to attach to our logging signal results in
+    the pattern called a logger in Go (and other programming languages). A logger
+    is a structure that allows us to manually instrument our Go application with logs
+    in the easiest and most readable way. A logger hides complexities like:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Formatting of the log lines.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Deciding if we should log or not based on the logging level (e.g., debug, warning,
+    error, or more).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Delivering the log line to a configured place, such as the output file. Optionally,
+    more complex, push-based logging delivery is possible to remote backends, which
+    must support back-off retries, authorization, service discovery, etc.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Adding context-based metadata and timestamps.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The Go standard library is very rich with many useful utilities, including logging.
+    For example, the [`log` package](https://oreil.ly/JEUjT) contains a simple logger.
+    It can work well for many applications, but it is prone to some usage pitfalls.^([5](ch06.html#idm45606832254464))
+  prefs: []
+  type: TYPE_NORMAL
+- en: Be Mindful While Using the Go Standard Library Logger
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'There are a few things to remember if you want to use the standard Go logger
+    from the `log` package:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Don’t use the global `log.Default()` logger, so `log.Print` functions, and so
+    on. Sooner or later, it will bite you.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Never store or consume `*log.Logger` directly in your functions and structures,
+    especially when you write a library.^([6](ch06.html#idm45606832248016)) If you
+    do, users will be forced to use a very limited `log` logger instead of their own
+    logging libraries. Use a custom interface instead (e.g., [go-kit logger](https://oreil.ly/tCs2g)),
+    so users can adapt their loggers to what you use in your code.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Never use the `Fatal` method outside the main function. It panics, which should
+    not be your default error handling.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: To not accidentally get hit by these pitfalls, in the projects I worked on,
+    we decided to use the third-party popular [go-kit](https://oreil.ly/ziBdb)^([7](ch06.html#idm45606832242864))
+    logger. An additional advantage of the go-kit logger is that it is easy to maintain
+    some structure. Structure logic is essential to have reliable parsers for automatic
+    log analysis with logging backends like [OpenSearch](https://oreil.ly/RohpZ) or
+    [Loki](https://oreil.ly/Fw9I3). To measure latency, let’s go through an example
+    of logger usage in [Example 6-4](#code-latency-log). Its output is shown in [Example 6-5](#code-latency-log-result).
+    We use the [`go-kit` module](https://oreil.ly/vOafG), but other libraries follow
+    similar patterns.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 6-4\. Capturing latency though logging using the [`go-kit` logger](https://oreil.ly/9uCWi)
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_efficiency_observability_CO4-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We initialize the logger. Libraries usually allow you to output the log lines
+    to a file (e.g., standard output or error) or directly push it to some collections
+    tool, e.g., to [fluentbit](https://oreil.ly/pUcmX) or [vector](https://oreil.ly/S0aqR).
+    Here we choose to output all logs to standard error^([8](ch06.html#idm45606832090240))
+    with a timestamp attached to each log line. We also choose to format logs in the
+    human-accessible way with `NewLogfmtLogger` (still structured so that it can be
+    parsed by software, with space as the delimiter).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_efficiency_observability_CO4-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In [Example 6-1](#code-latency-simplest), we simply printed the latency number.
+    Here we add certain metadata to it to use that information more easily across
+    processes and different operations happening in the system. Notice that we maintain
+    a certain structure. We pass an even number of arguments representing key values.
+    This allows our log line to be structured for easier use by automation. Additionally,
+    we choose `level.Info`, meaning this log line will be not printed if we choose
+    levels like errors only.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 6-5\. Example output logs generated by [Example 6-4](#code-latency-log)
+    (wrapped for readability)
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_efficiency_observability_CO5-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Thanks to the log structure, it’s both readable to us and automation can clearly
+    distinguish among different fields like `msg`, `elapsed`, `info`, etc. without
+    expensive and error-prone fuzzy parsing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Logging with a logger might still be the simplest way to deliver our latency
+    information manually to us. We can tail the file (or use `docker log` if our Go
+    process was running in Docker, or `kubectl logs` if we deployed it on Kubernetes)
+    to read those log lines for further analysis. It is also possible to set up an
+    automation that tails those from files or pushes them directly to the collector,
+    adding further information. Collectors can be then configured to push those log
+    lines into free and open source logging backends like [OpenSearch](https://oreil.ly/RohpZ),
+    [Loki](https://oreil.ly/Fw9I3), [Elasticsearch](https://oreil.ly/EUlts), or many
+    of the paid vendors. As a result, you can keep log lines from many processes in
+    a single place, search, visualize, analyze them, or build further automation to
+    handle them as you want.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Is logging a good fit for our efficiency observability? Yes and no. For microbenchmarks
+    explained in [“Microbenchmarks”](ch08.html#ch-obs-micro), logging is our primary
+    tool of measurements because of its simplicity. On the other hand, on a macro
+    level, like [“Macrobenchmarks”](ch08.html#ch-obs-macro), we tend to use logging
+    for a raw event type of observability, which on such a scale gets very complex
+    and expensive to analyze and keep reliable. Still, because logging is so common,
+    we can find efficiency bottlenecks in a bigger system with logging.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Logging tools are also constantly evolving. For example, many tools allow us
+    to derive metrics from log lines, like Grafana Loki’s [Metric queries inside LogQL](https://oreil.ly/fdoNm).
+    In practice, however, simplicity has its cost. One of the problems stems from
+    the fact that sometimes logs are used directly by humans, and sometimes by automation
+    (e.g., deriving metrics or reacting to situations found in logs). As a result,
+    logs are often unstructured. Even with amazing loggers like go-kit in [Example 6-4](#code-latency-log),
+    logs are inconsistently structured, making it very hard and expensive to parse
+    for automation. For example, things like inconsistent units (as in [Example 6-5](#code-latency-log-result)
+    for latency measurements), which are great for humans, become almost impossible
+    to derive the value as a metric. Solutions like [Google mtail](https://oreil.ly/Q4wAC)
+    try to approach this with custom parsing language. Still, the complexity and ever-changing
+    logging structure make it hard to use this signal to measure our code’s efficiency.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s look at the next observability signal—tracing—to learn in which areas
+    it can help us with our efficiency goals.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tracing
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Given the lack of consistent structure in logging, tracing signals emerged to
+    tackle some of the logging problems. In contrast to logging, tracing is a piece
+    of structured information about your system. The structure is built around the
+    transaction, for example, requests-response architecture. This means that things
+    like status codes, the result of the operation, and the latency of operations
+    are natively encoded, thus easier to use by automation and tools. As a trade-off,
+    you need an additional mechanism (e.g., a user interface) to expose this information
+    to humans in a readable way.
+  prefs: []
+  type: TYPE_NORMAL
+- en: On top of that, operations, suboperations, and even cross-process calls (e.g.,
+    RPCs) can be linked together, thanks to context propagation mechanisms working
+    well with standard network protocols like HTTP. This feels like a perfect choice
+    for measuring latency for our efficiency needs, right? Let’s find out.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As with logging, there are many different manual instrumentation libraries you
+    can choose from. Popular, open source choices for Go are the [OpenTracing](https://oreil.ly/gJeAV)
+    library (currently deprecated but still viable), [OpenTelemetry](https://oreil.ly/uxKoW),
+    or clients from the dedicated tracing vendor. Unfortunately, at the moment of
+    writing, the OpenTelemetry library has a too-complex API to explain in this book,
+    plus it’s still changing, so I started a [small project called tracing-go](https://oreil.ly/rs6fQ)
+    that encapsulates the OpenTelemetry client SDK into minimal tracing instrumentation.
+    While tracing-go is my interpretation of the minimal set of tracing functionalities
+    to use, it should teach you the basics of context propagation and span logic.
+    Let’s explore an example manual instrumentation using tracing-go to measure dummy
+    `doOperation` function latency (and more!) using tracing in [Example 6-6](#code-latency-trace).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 6-6\. Capturing latencies of the operation and potential suboperations
+    using [tracing-go](https://oreil.ly/1027d)
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_efficiency_observability_CO6-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: As with everything, we have to initialize our library. In our example, usually,
+    it means creating an instance of `Tracer` that is capable of sending the spans
+    that will form traces. We push spans to some collector and eventually to the tracing
+    backend. This is why we have to specify some address to send to. In this example,
+    you could specify a gRPC `host:port` address of the collector (e.g., [OpenTelemetry
+    Collector](https://oreil.ly/z0Pjt)) endpoint that supports the [gRPC OTLP trace
+    protocol](https://oreil.ly/4IaBd).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_efficiency_observability_CO6-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: With the tracer, we can create an initial root `span`. The root means the span
+    that spans the whole transaction. A `traceID` is created during creation, identifying
+    all spans in the trace. Span represents individual work done. For example, we
+    can add a different name or even baggage items like logs or events. We also get
+    a `context.Context` instance as part of creation. This Go native context interface
+    can be used to create subspans if our `doOperation` function will do any subwork
+    pieces worth instrumenting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_efficiency_observability_CO6-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the manual instrumentation, we have to tell the tracing provider when the
+    work was done and with what result. In the `tracing-go` library, we can use `end.Stop(<error
+    or nil>)` for that. Once you stop the span, it will record the span’s latency
+    from its start, the potential error, and mark itself as ready to be sent asynchronously
+    by `Tracer`. Tracer exporter implementations usually won’t send spans straightaway
+    but buffer them for batch pushes. `Tracer` will also check if a trace containing
+    some spans can be sent to the endpoint based on the chosen sampling strategy (more
+    on that later).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_efficiency_observability_CO6-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once you have context with the injected span creator, we can add subspans to
+    it. It’s useful when you want to debug different parts and sequences involved
+    in doing one piece of work.
+  prefs: []
+  type: TYPE_NORMAL
+- en: One of the most valuable parts of tracing is context propagation. This is what
+    separates distributed tracing from nondistributed signals. I did not reflect this
+    in our examples, but imagine if our operation makes a network call to other microservices.
+    Distributed tracing allows passing various tracing information like `traceID`,
+    or sampling via a propagation API (e.g., certain encoding using HTTP headers).
+    See a [related blog post](https://oreil.ly/Qz6lF) about context propagation. For
+    that to work in Go, you have to add a special middleware or HTTP client with propagation
+    support, e.g., [OpenTelemetry HTTP transport](https://oreil.ly/Rvq6i).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Because of the complex structure, raw traces and spans are not readable by humans.
+    This is why many projects and vendors help users by providing solutions to use
+    tracing effectively. Open source solutions like [Grafana Tempo with Grafana UI](https://oreil.ly/CQ1Aq)
+    and [Jaeger](https://oreil.ly/enkG9) exist, which offer nice user interfaces and
+    trace collection so you can observe your traces. Let’s look at how our spans from
+    [Example 6-6](#code-latency-trace) look in the latter project. [Figure 6-2](#img-obs-tracing)
+    shows a multitrace search view, and [Figure 6-3](#img-obs-spans) shows what our
+    individual `doOperation` trace looks like.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![efgo 0602](assets/efgo_0602.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 6-2\. View of one hundred operations presented as one hundred traces
+    with their latency results
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: '![efgo 0603](assets/efgo_0603.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 6-3\. Click one trace to inspect all of its spans and associated data
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Tools and user interfaces can vary, but generally they follow the same semantics
+    I explain in this section. The view in [Figure 6-2](#img-obs-tracing) allows us
+    to search through traces based on their timestamp, durations, service involved,
+    etc. The current search matches our one hundred operations, which are then listed
+    on the screen. A convenient, interactive graph of its latencies is placed, so
+    we can navigate to the operation we want. Once clicked, the view in [Figure 6-3](#img-obs-spans)
+    is presented. In this view, we can see a distribution of spans for this operation.
+    If the operation spans multiple processes and we used network context propagation,
+    all linked spans will be listed here. For example, from [Figure 6-3](#img-obs-spans)
+    we can immediately tell that the first operation was responsible for most of the
+    latency, and the last operation introduced the error.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'All the benefits of tracing make it an excellent tool for learning the system
+    interactions, debugging, or finding fundamental efficiency bottlenecks. It can
+    also be used for ad hoc verification of system latency measurements (e.g., in
+    our TFBO flow to assess latency). But unfortunately, there are a few downsides
+    of tracing that you have to be aware of when planning to use it in practice for
+    efficiency or other needs:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Readability and maintainability
+  prefs: []
+  type: TYPE_NORMAL
+- en: The advantage of tracing is that you can put a huge amount of useful context
+    into your code. In extreme cases, you could potentially be able to rewrite the
+    whole program or even system just by looking at all traces and their emitted spans.
+    But there is a catch. All this manual instrumentation requires code lines. More
+    code lines connected to our existing code increases the complexity of our code,
+    which in turn decreases readability. We also need to ensure that our instrumentation
+    stays updated with ever-changing code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In practice, the tracing industry tends to prefer autoinstrumentation, which
+    in theory can add, maintain, and hide such instrumentation automatically. Proxies
+    like Envoy (especially with service mesh technologies) are great examples of successful
+    (yet simpler) autoinstrumentation tools for tracing that record the inter-process
+    HTTP calls. But unfortunately, more involved auto-instrumentation is not so easy.
+    The main problem is that the automation has to hook on to some generic path like
+    common database or library operations, HTTP requests, or syscalls (e.g., through
+    eBPF probes in Linux). Moreover, it is often hard for those tools to understand
+    what more you would like to capture in your application (e.g., the ID of the client
+    in a specific code variable). On top of that, tools like eBPF are pretty unstable
+    and dependent on the kernel version.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Hiding Instrumentation Under Abstractions
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: There is a middle ground between manual and fully autonomous instrumentation.
+    We can manually instrument only a few common Go functions and libraries, so all
+    code that uses them will be traced consistently implicitly (automatically!).
+  prefs: []
+  type: TYPE_NORMAL
+- en: For example, we could add a trace for every HTTP or gRPC request to our process.
+    There are already [HTTP middlewares](https://oreil.ly/wZ559) and [gRPC interceptors](https://oreil.ly/7gXVF)
+    for that purpose.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Cost and reliability
+  prefs: []
+  type: TYPE_NORMAL
+- en: Traces by design fall into the raw event category of observability. This means
+    that tracing is typically more expensive than pre-aggregated equivalents. The
+    reason is the sheer amount of data we send using tracing. Even if we are very
+    moderate with this instrumentation for a single operation, we ideally have dozens
+    of tracing spans. These days, systems have to sustain many QPS (queries per second).
+    In our example, even for 100 QPS, we would generate over 1,000 spans. Each span
+    must be delivered to some backend to be used effectively, with replication on
+    both the ingestion and storage sides. Then you need a lot of computation power
+    to analyze this data to find, for example, average latency across traces or spans.
+    This can easily surpass your price for running the systems without observability!
+  prefs: []
+  type: TYPE_NORMAL
+- en: The industry is aware of this, and this is why we have tracing sampling, so
+    some decision-making configuration or code decides what data to pass forward and
+    what to ignore. For example, you might want to only collect traces for failed
+    operations or operations that took more than 120 seconds.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unfortunately, sampling comes with its downsides. For example, it’s challenging
+    to perform tail sampling.^([9](ch06.html#idm45606831687072)) Last but not least,
+    sampling makes us miss some data (similar to profiling). In our latency example,
+    this might mean that the latency we measure represents only part of all operations
+    that happened. Sometimes it might be enough, but it’s easy to [get wrong conclusions
+    with sampling](https://oreil.ly/R4gtX), which might lead to wrong optimization
+    decisions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Short duration
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will discuss this in detail in [“Latency”](#ch-obs-latency), but tracing
+    won’t tell us much when we try to improve very fast functions that last only a
+    few milliseconds or less. Similar to the `time` package, the span itself introduces
+    some latency. On top of that, adding span for many small operations can add a
+    huge cost to the overall ingestion, storage, and querying of traces.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is especially visible in streamed algorithms like chunked encodings, compressions,
+    or iterators. If we perform partial operations, we are still often interested
+    in the latency of the sum of all iterations for certain logic. We can’t use tracing
+    for that, as we would need to create tiny spans for every iteration. For those
+    algorithms, [“Profiling in Go”](ch09.html#ch-obs-profiling) yields the best observability.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Despite some downsides, tracing becomes very powerful and even replaces the
+    logging signal in many cases. Vendors and projects add more features, for example,
+    [Tempo project’s metric generator](https://oreil.ly/SSLye) that allows recording
+    metrics from traces (e.g., average or tail latency for our efficiency needs).
+    Undoubtedly, tracing would not grow so quickly without the push from the [OpenTelemetry](https://oreil.ly/sPiw9)
+    community. Amazing things will come from this community if you are into tracing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The downsides of one framework are often strengths of other frameworks that
+    choose different trade-offs. For example, many tracing problems come from the
+    fact that it naturally represents raw events happening in the system (that might
+    trigger other events). Let’s now discuss a signal on the opposite spectrum—designed
+    to capture aggregations changing over time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Metrics
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Metrics is the observability signal that was designed to observe aggregated
+    information. Such aggregation-oriented metric instrumentations might be the most
+    pragmatic way of solving our efficiency goals. Metrics are also what I used the
+    most in my day-to-day job as a developer and SRE to observe and debug production
+    workloads. In addition, metrics are [the main signal used for monitoring at Google](https://oreil.ly/x6rNZ).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[Example 6-7](#code-latency-metric) shows pre-aggregated instrumentation that
+    can be used to measure latency. This example uses [Prometheus `client_golang`](https://oreil.ly/1r2zw).^([10](ch06.html#idm45606831665920))'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 6-7\. Measuring `doOperation` latency using the histogram metric with
+    Prometheus `client_golang`
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_efficiency_observability_CO7-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using the Prometheus library always starts with creating a new metric registry.^([11](ch06.html#idm45606831400064))
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_efficiency_observability_CO7-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The next step is to populate the registry with the metric definitions you want.
+    Prometheus allows a few types of metrics, yet the typical latency measurements
+    for efficiency are best done as histograms. So on top of type, help and histogram
+    buckets are required. We will talk more about buckets and the choice of histograms
+    later.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_efficiency_observability_CO7-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: As the last parameter, we define the dynamic dimension of this metric. Here
+    I propose to measure latency for different types of errors (or no error). This
+    is useful as, very often, failures have other timing characteristics.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_efficiency_observability_CO7-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We observe the exact latency with a floating number of seconds. We run all operations
+    in a simplified goroutine, so we can expose metrics while the functionality is
+    performing. The `Observe` method will add such latency into the histogram of buckets.
+    Notice that we observe this latency for certain errors. We also don’t take an
+    arbitrary error string—we sanitize it to a type using some custom `errorType`
+    function. This is important because the controlled number of values in the dimension
+    keeps our metric valuable and cheap.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_efficiency_observability_CO7-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The default way to consume those metrics is by allowing other processes (e.g.,
+    [Prometheus server](https://oreil.ly/2Sa3P)) to pull the current state of the
+    metrics. For example, in this simplified^([12](ch06.html#idm45606831336912)) code
+    we serve those metrics from our registry through an HTTP endpoint on the `8080`
+    port.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The Prometheus data model supports four metric types, which are well described
+    in the [Prometheus documentation](https://oreil.ly/mamdO): counters, gauges, histograms,
+    and summaries. There is a reason why I chose a more complex histogram for observing
+    latency instead of a counter or a gauge metric. I explain why in [“Latency”](#ch-obs-latency).
+    For now, it’s enough to say that histograms allow us to capture distributions
+    of the latencies, which is typically what we need when observing production systems
+    for efficiency and reliability. Such metrics, defined and instrumented in [Example 6-7](#code-latency-metric),
+    will be represented on an HTTP endpoint, as shown in [Example 6-8](#code-latency-metric-om).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 6-8\. Sample of the metric output from [Example 6-7](#code-latency-metric)
+    when consumed from the [OpenMetrics compatible HTTP endpoint](https://oreil.ly/aZ6GT)
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_efficiency_observability_CO8-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Each bucket represents a number (counters) of operations that had latency less
+    than or equal to the value specified in `le`. For example, we can immediately
+    see that we saw two successful operations from the process start. The first was
+    faster than 0.1 seconds; and the second was faster than 1 second, but slower than
+    0.1 seconds.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_efficiency_observability_CO8-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Every histogram also captures a number of observed operations and summarized
+    value (sum of observed latencies, in this case).
+  prefs: []
+  type: TYPE_NORMAL
+- en: As mentioned in [“Observability”](#ch-obs-observability), every signal can be
+    pulled or pushed. However, the Prometheus ecosystem defaults to the pull method
+    for metrics. Not the naive pull, though. In the Prometheus ecosystem, we don’t
+    pull a backlog of events or samples like we would when pulling (tailing) traces
+    of logs from, for example, a file. Instead, applications serve HTTP payload in
+    the OpenMetrics format (like in [Example 6-8](#code-latency-metric-om)), which
+    is then periodically collected (scraped) by Prometheus servers or Prometheus compatible
+    systems (e.g., Grafana Agent or OpenTelemetry collector). With the Prometheus
+    data model, we scrape the latest information about the process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To use Prometheus with our Go program instrumented in [Example 6-7](#code-latency-metric),
+    we have to start the Prometheus server and configure the scrape job that targets
+    the Go process server. For example, assuming we have the code in [Example 6-7](#code-latency-metric)
+    running, we could use the set of commands shown in [Example 6-9](#code-latency-metric-scrape)
+    to start metric collection.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 6-9\. The simplest set of commands to run Prometheus from the terminal
+    to start collecting metrics from [Example 6-7](#code-latency-metric)
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_efficiency_observability_CO9-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: For my demo purposes, I can limit the [Prometheus configuration](https://oreil.ly/4cPSa)
+    to a single scrape job. One of the first decisions is to specify the scrape interval.
+    Typically, it’s around 15–30 seconds for continuous, efficient metric collection.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_efficiency_observability_CO9-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: I also provide a target that points to our tiny instrumented Go program in [Example 6-7](#code-latency-metric).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_efficiency_observability_CO9-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Prometheus is just a single binary written in Go. We install it in [many ways](https://oreil.ly/9CxxD).
+    In the simplest configuration, we can point it to a created configuration. When
+    started, the UI will be available on the `localhost:9090`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: With the preceding setup, we can start analyzing the data using Prometheus APIs.
+    The simplest way is to use the Prometheus query language (PromQL) documented [here](https://oreil.ly/nY6Yi)
+    and [here](https://oreil.ly/jH3nd). With Prometheus server started as in [Example 6-9](#code-latency-metric-scrape),
+    we can use the Prometheus UI and query the data we collected.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For example, [Figure 6-4](#img-obs-metric-buckets) shows the result of the simple
+    query fetching the latest latency histogram numbers over time (from the moment
+    of the process start) for our `operation_duration_seconds` metric name that represents
+    successful operations. This generally matches the format we see in [Example 6-8](#code-latency-metric-om).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![efgo 0604](assets/efgo_0604.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 6-4\. PromQL query results for simple query for all `operation_duration_​sec⁠onds_bucket`
+    metrics graphed in the Prometheus UI
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: To obtain the average latency of a single operation, we can use certain mathematical
+    operations to divide the rates of `operation_duration_seconds_sum` by `oper⁠ation_duration_seconds_count`.
+    We use the `rate` function to ensure accurate results across many processes and
+    their restart. `rate` transforms Prometheus counters into a rate per second.^([13](ch06.html#idm45606831225328))
+    Then we can use `/` to divide the rates of those metrics. The result of such an
+    average query is presented in [Figure 6-5](#img-obs-metric-avg).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![efgo 0605](assets/efgo_0605.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 6-5\. PromQL query results representing average latency captured by the
+    [Example 6-7](#code-latency-metric) instrumentation graphed in the Prometheus
+    UI
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: With another query, we can check total operations or, even better, check the
+    rate per minute of those using the `increase` function on our `operation_duration_​sec⁠onds_count`
+    counter, as presented in [Figure 6-6](#img-obs-metric-incr).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![efgo 0606](assets/efgo_0606.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 6-6\. PromQL query results representing a rate of operations per minute
+    in our system graphed in the Prometheus UI
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: There are many other functions, aggregations, and ways of using metric data
+    in the Prometheus ecosystem. We will unpack some of it in later sections.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The amazing part about Prometheus with such a specific scrape technique is
+    that pulling metrics allows our Go client to be ultrathin and efficient. As a
+    result, the Go process does not need to:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Buffer data samples, spans, or logs in memory or on disk
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Maintain information (and automatically update it!) on where to send potential
+    data
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Implement complex buffering and persisting logic if the metric backend is down
+    temporarily
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Ensure a consistent sample push interval
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Know about any authentication, authorization, or TLS for metric payload
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'On top of that, the observability experience is better when you pull the data
+    in such a way that:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Metric users can easily control the scrape interval, targets, metadata, and
+    recordings from a central place. This makes the metric usage simpler, more pragmatic,
+    and generally cheaper.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: It is easier to predict the load of such a system, which makes it easier to
+    scale it and react to the situations that require scaling the collection pipeline.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Last but not least, pulling metrics allows you to reliably tell your application’s
+    health (if we can’t scrape metrics from it, it is most likely unhealthy or down).
+    We also typically know what sample is the last one for a metric (staleness).^([14](ch06.html#idm45606831205328))
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'As with everything, there are some trade-offs. Each pulled, tailed, or scraped
+    signal has its downsides. Typical problems of an observability pull-based system
+    include:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: It is generally harder to pull data from short-lived processes (e.g., CLI and
+    batch jobs).^([15](ch06.html#idm45606831202864))
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Not every system architecture allows ingress traffic.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: It is generally harder to ensure that all the pieces of information will land
+    safely in a remote place (e.g., this pulling is not suitable for auditing).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The Prometheus metrics are designed to mitigate downsides and leverage the strength
+    of the pull model. Most of the metrics we use are counters, which means they only
+    increase. This allows Prometheus to skip a few scrapes from the process but still,
+    in the end, have a perfectly accurate number for each metric within larger time
+    windows, like minutes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As mentioned before, in the end, metrics (as numeric values) are what we need
+    when it comes to assessing efficiency. It’s all about comparing and analyzing
+    numbers. This is why a metric observability signal is a great way to gather required
+    information pragmatically. We will use this signal extensively for [“Macrobenchmarks”](ch08.html#ch-obs-macro)
+    and [“Root Cause Analysis, but for Efficiency”](ch09.html#ch-obs-cause). It’s
+    simple, pragmatic, the ecosystem is huge (you can find metric exporters for almost
+    all kinds of software and hardware), it’s generally cheap, and it works great
+    with both human users and automation (e.g., alerting).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Metric observability signals, especially with the Prometheus data model, fit
+    into aggregated information instrumentation. We discussed the benefits, but some
+    limits and downsides are important to understand. All downsides come from the
+    fact that we generally cannot narrow pre-aggregated data down to a state before
+    aggregation, for example, a single event. We might know with metrics how many
+    requests failed, but we don’t know the exact stack trace, error message, and so
+    on for a singular error that happened. The most granular information we typically
+    have is a type of error (e.g., status code). This makes the surface of possible
+    questions we can ask a metric system smaller than if we would capture all raw
+    events. Another essential characteristic that might be considered a downside is
+    the cardinality of the metrics and the fact that it has to be kept low.
+  prefs: []
+  type: TYPE_NORMAL
+- en: High Metric Cardinality
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Cardinality means the uniqueness of our metric. For example, imagine in [Example 6-7](#code-latency-metric)
+    we would inject a unique error string instead of the `error_type` label. Every
+    new label value creates a new, possibly short-lived unique metric. A metric with
+    just a single or a few samples represents more of a raw event, not aggregation
+    over time. Unfortunately, if users try to push event-like information to a system
+    designed for metrics (like Prometheus), it tends to be expensive and slow.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It is very tempting to push more cardinal data to a system designed for metrics.
+    This is because it’s only natural to want to learn more from such cheap and reliable
+    signal-like metrics. Avoid that and keep your cardinality low with metric budgets,
+    recording rules, and allow-list relabeling. Switch to event-based systems like
+    logging and tracing if you wish to capture unique information like exact error
+    messages or the latency for a single, specific operation in the system!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Whether gathered from logs, traces, profiles, or metric signals, we already
+    touched on some metrics in previous chapters—for example, CPU core used per second,
+    memory bytes allocated on the heap, or residential memory bytes used per operation.
+    So let’s go through some of those in detail and talk about their semantics, how
+    we should interpret them, potential granularity, and example code that illustrates
+    them using signals you have just learned.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There Is No Observability Silver Bullet!
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Metrics are powerful. Yet as you learned in this chapter, logging and traces
+    also give enormous opportunities to improve the efficiency observability experience
+    with dedicated tools that allow us to derive metrics from them. In this book,
+    you will see me using all of those tools (together with profiling, which we haven’t
+    covered yet) to improve the efficiency of Go programs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The pragmatic system captures enough of each of those observability signals
+    that fit your use cases. It’s unlikely to build metric-only, trace-only, or profiling-only
+    systems!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Efficiency Metrics Semantics
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Observability feels like a vast and deep topic that takes years to grasp and
+    set up. The industry constantly evolves, and creating new solutions does not help.
+    However, it will be easier to understand once we start using observability for
+    a specific goal like the efficiency effort. Let’s talk about exactly which observability
+    bits are essential to start measuring latency and consumption of the resources
+    we care about, e.g., CPU and memory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Metrics As Numeric Value Versus Metric Observability Signal
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In [“Metrics”](#ch-obs-metrics), we discussed the metric observability signal.
+    Here we discuss specific metric semantics that are useful to capture for efficiency
+    efforts. To clarify, we can capture those specific metrics in various ways. We
+    can use metric observability signals, but we can also derive them from other signals,
+    like logs, traces, and profiling!
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Two things can define every metric:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Semantics
+  prefs: []
+  type: TYPE_NORMAL
+- en: What’s the meaning of that number? What do we measure? With what unit? How do
+    we call it?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Granularity
+  prefs: []
+  type: TYPE_NORMAL
+- en: How detailed is this information? For example, is it per a unique operation?
+    Is it per a result type of this operation (success versus error)? Per goroutine?
+    Per process?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Metric semantics and granularity both heavily depend on the instrumentation.
+    This section will focus on defining the semantics, granularity, and example instrumentation
+    for the typical metrics we can use to track resource consumption and latency of
+    our software. It is essential to understand the specific measurements we will
+    operate with to work effectively with the benchmark and profiling tools we will
+    learn in [“Benchmarking Levels”](ch07.html#ch-obs-benchmarking) and [“Profiling
+    in Go”](ch09.html#ch-obs-profiling). While iterating over those semantics, we
+    will uncover common best practices and pitfalls we have to be aware of. Let’s
+    go!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Latency
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: If we want to improve how fast our program performs certain operations, we need
+    to measure the latency. Latency means the duration of the operation from the start
+    to either success or failure. Thus, the semantics we need feel pretty simple at
+    first glance—we generally want the “amount of time” required to complete our software
+    operation. Our metric will usually have a name containing the words *latency*,
+    *duration*, or *elapsed* with the desired unit. But the devil is in the details,
+    and as you will learn in this section, measuring latency is prone to mistakes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The preferable unit of the typical latency measurement depends on what kind
+    of operations we measure. If we measure very short operations like compression
+    latency or OS context switch latencies, we must focus on granular nanoseconds.
+    Nanoseconds are also the most granular timing we can count on in typical modern
+    computers. This is why the Go standard library [`time.Time`](https://oreil.ly/QGCme)
+    and [`time.Duration`](https://oreil.ly/9agLb) structures measure time in nanoseconds.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Generally speaking, the typical measurements of software operations are almost
+    always in milliseconds, seconds, minutes, or hours. This is why it’s often enough
+    to measure latency in seconds, as a floating value, for up to nanoseconds granularity.
+    Using seconds has another advantage: it is a base unit. Using the base unit is
+    often what’s natural and consistent across many solutions.^([16](ch06.html#idm45606831155568))
+    Consistency is critical here. You don’t want to measure one part of the system
+    in nanoseconds, another in seconds, and another in hours if you can avoid it.
+    It’s easy enough to get confused by our data and have a wrong conclusion without
+    trying to guess a correct unit or writing transformations between those.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the code examples in [“Example: Instrumenting for Latency”](#ch-obs-signals),
+    we already mentioned many ways we can instrument latency using various observability
+    signals. Let’s extend [Example 6-1](#code-latency-simplest) in [Example 6-10](#code-latency-simplest-ext)
+    to show important details that ensure latency is measured as reliably as possible.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 6-10\. Manual and simplest latency measurement of a single operation
+    that can error out and has to prepare and tear down phases
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_efficiency_observability_CO10-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We capture the `start` time as close as possible to the start of our `doOperation`
+    invocation. This ensures nothing unexpected will get between `start` and operation
+    start that might introduce unrelated latency, which can mislead the conclusion
+    we might take from this metric further on. This, by design, should exclude any
+    potential preparation or setup we have to do for an operation we measure. Let’s
+    measure those explicitly as another operation. This is also why you should avoid
+    putting any newline (empty line) between `start` and the invocation of the operation.
+    As a result, the next programmer (or yourself, after some time) won’t add anything
+    in between, forgetting about the instrumentation you added.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_efficiency_observability_CO10-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Similarly, it’s important to capture the `finish` time using the `time.Since`
+    helper as soon as we finish, so no unrelated duration is captured. For example,
+    similar to excluding `prepare()` time, we want to exclude any potential close
+    or `tearDown()` duration. Moreover, if you are an advanced Go programmer, your
+    intuition is always to check errors when some functions finish. This is critical,
+    but we should do that for instrumentation purposes after we capture the latency.
+    Otherwise, we might increase the risk that someone will not notice our instrumentation
+    and will add unrelated statements between what we measure and `time.Since`. On
+    top of that, in most cases, you want to make sure you measure the latency of both
+    successful and failed operations to understand the complete picture of what your
+    program is doing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Shorter Latencies Are Harder to Measure Reliably
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The method for measuring operation latency shown in [Example 6-10](#code-latency-simplest-ext)
+    won’t work well for operations that finish under, let’s say, 0.1 microseconds
+    (100 nanoseconds). This is because the effort of taking the system clock number,
+    allocating variables, and further computing `time.Now()` and `time.Since` functions
+    can take its time too, which is significant for such short measurements.^([17](ch06.html#idm45606831016880))
+    Furthermore, as we will learn in [“Reliability of Experiments”](ch07.html#ch-obs-rel),
+    every measurement has some variance. The shorter latency, the more impactful this
+    noise can be.^([18](ch06.html#idm45606831013664)) This also applies to tracing
+    spans measuring latency.
+  prefs: []
+  type: TYPE_NORMAL
+- en: One solution for measuring very fast functions is used by the Go benchmark as
+    presented by [Example 6-3](#code-latency-go-bench), where we estimate average
+    latency per operation by doing many of them. More on that in [“Microbenchmarks”](ch08.html#ch-obs-micro).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Time Is Infinite; the Software Structures Measuring that Time Are Not!
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'When measuring latency, we have to be aware of the limitations of time or duration
+    measurements in software. Different types can contain different ranges of numeric
+    values, and not all of them can contain negative numbers. For example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`time.Time` can only measure time from January 1, 1885^([19](ch06.html#idm45606831005584))
+    up until 2157.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The `time.Duration` type can measure time (in nanoseconds) approximately between
+    -290 years before your “starting” point and up to 290 years after your “starting”
+    point.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: If you want to measure things outside of those typical values, you need to extend
+    those types or use your own. Last but not least, Go is prone [to the leap second
+    problem](https://oreil.ly/MeZ4b) and time skews of the operating systems. On some
+    systems, the `time.Duration` (monotonic clock) will also stop if the computer
+    goes to sleep (e.g., laptop or virtual machine suspend), which will lead to wrong
+    measurements, so keep that in mind.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We discussed some typical latency metric semantics. Now let’s move to the granularity
+    question. We can decide to measure the latency of operation A or B in our process.
+    We can measure a group of operations (e.g., transaction) or a single suboperation
+    of it. We can gather this data across many processes or look only at one, depending
+    on what we want to achieve.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To make it even more complex, even if we choose a single operation as our granularity
+    to measure latency, that single operation has many stages. In a single process
+    this can be represented by stack trace, but for multiprocess systems with some
+    network communication, we might need to establish additional boundaries.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s take some programs as an example, as the Caddy HTTP web server explained
+    in the previous chapter, with a simple [REST](https://oreil.ly/SHEor) HTTP call
+    to retrieve an HTML as our example operation. What latencies should we measure
+    if we install such a Go program in a cloud on production to serve our REST HTTP
+    call to the client (e.g., someone’s browser)? The example granularities we could
+    measure latency for are presented in [Figure 6-7](#img-obs-latency-stages).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![efgo 0607](assets/efgo_0607.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 6-7\. Example latency stages we can measure for in our Go web server
+    program communicating with the user’s web browser
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'We can outline five example stages:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Absolute (total) client-side latency
+  prefs: []
+  type: TYPE_NORMAL
+- en: The latency measured exactly from the moment the user hits Enter in the URL
+    input in the browser, up until the whole response is retrieved, content is loaded,
+    and the browser renders all.
+  prefs: []
+  type: TYPE_NORMAL
+- en: HTTP client-side latency (response time)
+  prefs: []
+  type: TYPE_NORMAL
+- en: The latency captured from the moment the first bytes of the HTTP request on
+    the client side are being written to a new or reused TCP connection, up until
+    the client receives all bytes of the response. This excludes everything that happens
+    before (e.g., DNS lookup) or after (rendering HTML and JavaScript in the browser)
+    on the client side.
+  prefs: []
+  type: TYPE_NORMAL
+- en: HTTP server-side latency
+  prefs: []
+  type: TYPE_NORMAL
+- en: The latency is measured from the moment the server receives the first bytes
+    of the HTTP request from the client, up until the server finishes writing all
+    bytes of the HTTP response. This is typically what we are measuring if we use
+    [the HTTP middlewares pattern](https://oreil.ly/Js0NO) in Go.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Server-side latency (service time)
+  prefs: []
+  type: TYPE_NORMAL
+- en: The latency of server-side computation required to answer the HTTP request,
+    measured without HTTP request parsing and response encoding. Latency is from the
+    moment of having the HTTP request parsed to the moment when we start encoding
+    and sending the HTTP response.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Server-side function latency
+  prefs: []
+  type: TYPE_NORMAL
+- en: The latency of a single server-side function computation from the moment of
+    invocation, up until the function work is finished and return arguments are in
+    the context of the caller function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: These are just some of the many permutations we can use to measure latency in
+    our Go programs or systems. Which one should we pick for our optimizations? Which
+    matters the most? It turns out that all of them have their use case. The priority
+    of what latency metric granularity we should use and when depends solely on our
+    goals, the accuracy of measurements as explained in [“Reliability of Experiments”](ch07.html#ch-obs-rel),
+    and the element we want to focus on as discussed in [“Benchmarking Levels”](ch07.html#ch-obs-benchmarking).
+    To understand the big picture and find the bottleneck, we have to measure a few
+    of those different granularities at once. As discussed in [“Root Cause Analysis,
+    but for Efficiency”](ch09.html#ch-obs-cause), tools like tracing and profiling
+    can help with that.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Whatever Metric Granularity You Choose, Understand and Document What You Measure!
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We waste a lot of time if we take the wrong conclusions from measurements. It
+    is easy to forget or misunderstand what parts of granularity we are measuring.
+    For example, you thought you were measuring server-side latency, but slow client
+    software is introducing latency you felt you didn’t include in your metric. As
+    a result, you might be trying to find a bottleneck on the server side, whereas
+    a potential problem might be in a different process.^([20](ch06.html#idm45606830976592))
+    Understand, document, and be explicit with your instrumentation to avoid those
+    mistakes
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In [“Example: Instrumenting for Latency”](#ch-obs-signals), we discussed how
+    we could gather latencies. We mentioned that generally, we use two main measuring
+    methods for efficiency needs in the Go ecosystem. Those two ways are typically
+    the most reliable and cheapest (useful when performing load tests and benchmarks):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Basic logging using [“Microbenchmarks”](ch08.html#ch-obs-micro) for isolated
+    functionality, single process measurements
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Metrics such as [Example 6-7](#code-latency-metric) for macro measurements that
+    involve larger systems with multiple processes
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Especially in the second case, as mentioned previously, we have to measure
+    latency many times for a single operation to get reliable efficiency conclusions.
+    We don’t have access to raw latency numbers for each operation with metrics—we
+    have to choose some aggregation. In [Example 6-2](#code-latency-simplest-aggr),
+    we proposed a simple average aggregation mechanism inside instrumentation. With
+    metric instrumentation, this would be trivial to achieve. It’s as easy as creating
+    two counters: one for the `sum` of latencies and one for the `count` of operations.
+    We can evaluate collected data with those two metrics into a mean (arithmetic
+    average).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unfortunately, the average is too naive an aggregation. We can miss lots of
+    important information about the characteristics of our latency. In [“Microbenchmarks”](ch08.html#ch-obs-micro),
+    we can do a lot with the mean for basic statistics (this is what the Go benchmarking
+    tool is using), but in measuring the efficiency of our software in the bigger
+    system with more unknowns, we have to be mindful. For example, imagine we want
+    to improve the latency of one operation that used to take around 10 seconds. We
+    made a potential optimization using our TFBO flow. We want to assess the efficiency
+    on the macro level. During our tests, the system performed 500 operations within
+    5 seconds (faster!), but 50 operations were extremely slow, with a 40-second latency.
+    Suppose we would stick to the average (8.1 seconds). In that case, we could make
+    the wrong conclusion that our optimization was successful, missing the potential
+    big problem that our optimization caused, leading to 9% of operations being extremely
+    slow.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is why it’s helpful to measure specific metrics (like latency) in percentiles.
+    This is what [Example 6-7](#code-latency-metric) instrumentation is for with the
+    metric histogram type for our latency measurements.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Most metrics are better thought of as distributions rather than averages. For
+    example, for a latency SLI [service level indicator], some requests will be serviced
+    quickly, while others will invariably take longer—sometimes much longer. A simple
+    average can obscure these tail latencies, as well as changes in them. (...) Using
+    percentiles for indicators allows you to consider the shape of the distribution
+    and its differing attributes: a high-order percentile, such as the 99th or 99.9th,
+    shows you a plausible worst-case value, while using the 50th percentile (also
+    known as the median) emphasizes the typical case.'
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: ''
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: C. Jones et al., [*Site Reliability Engineering*, “Service Level Objectives”](https://oreil.ly/rMBW3)
+    (O’Reilly, 2016)
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: The histogram metric I mentioned in [Example 6-8](#code-latency-metric-om) is
+    great for latency measurements, as it counts how many operations fit into a certain
+    latency range. In [Example 6-7](#code-latency-metric), I have chosen^([21](ch06.html#idm45606830952080))
+    exponential buckets `0.001, 0.01, 0.1, 1, 10, 100`. The largest bucket should
+    represent the longest operation duration you expect in your system (e.g., a timeout).^([22](ch06.html#idm45606830949872))
+  prefs: []
+  type: TYPE_NORMAL
+- en: In [“Metrics”](#ch-obs-metrics), we discussed how we can use metrics using `PromQL`.
+    For the histogram type of metrics and our latency semantics, the best way to understand
+    this is to use the `histogram_quantile` function. See the example output in [Figure 6-8](#img-obs-metric-perc-5)
+    for the median, and [Figure 6-9](#img-obs-metric-perc-9) for the 90th percentile.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![efgo 0608](assets/efgo_0608.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 6-8\. Fiftieth percentile (median) of latency across an operation per
+    error type from our [Example 6-7](#code-latency-metric) instrumentation
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: '![efgo 0609](assets/efgo_0609.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 6-9\. Ninetieth percentile of latency across the operation per error
+    type from our [Example 6-7](#code-latency-metric) instrumentation
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'Both results can lead to interesting conclusions for the program I measured.
+    We can observe a few things:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Half of the operations were generally faster than 590 milliseconds, while 90%
+    were faster than 1 second. So if our RAER ([“Resource-Aware Efficiency Requirements”](ch03.html#ch-conq-req))
+    states that 90% of operations should be less than 1 second, it could mean we don’t
+    need to optimize further.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Operations that failed with `error_type=error1` were considerably slower (most
+    likely some bottleneck exists in that code path).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Around 17:50 UTC, we can see a slight increase in latencies for all operations.
+    This might mean some side effect or change in the environment that caused my laptop’s
+    operating system to give less CPU to my test.^([23](ch06.html#idm45606830933632))
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Such measured and defined latency can help us determine if our latency is good
+    enough for our requirements and if any optimization we do helps or not. It can
+    also help us to find parts that cause slowness using different benchmarking and
+    bottleneck-finding strategies. We will explore those in [Chapter 7](ch07.html#ch-observability2).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'With the typical latency metric definition and example instrumentation, let’s
+    move to the next resource we might want to measure in our efficiency journey:
+    CPU usage.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: CPU Usage
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: In [Chapter 4](ch04.html#ch-hardware), you learned how CPU is used when we execute
+    our Go programs. I also explained that we look at CPU usage to reduce CPU-driven
+    latency^([24](ch06.html#idm45606830921280)) and cost, and to enable running more
+    processes on the same machine.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A variety of metrics allow us to measure different parts of our program’s CPU
+    usage. For example, with Linux tools like the [`proc` filesystem](https://oreil.ly/MJVHl)
+    and [`perf`](https://oreil.ly/QPMD9), we can measure our [Go program’s miss and
+    hit rates, CPU branch prediction hit rates](https://oreil.ly/VdENl), and other
+    low-level statistics. However, for basic CPU efficiency, we usually focus on the
+    CPU cycles, instructions, or time used:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: CPU cycles
+  prefs: []
+  type: TYPE_NORMAL
+- en: The total number of CPU clock cycles used to execute the program thread instructions
+    on each CPU core.
+  prefs: []
+  type: TYPE_NORMAL
+- en: CPU instructions
+  prefs: []
+  type: TYPE_NORMAL
+- en: The total number of CPU instructions of our program’s threads executed in each
+    CPU core. On some CPUs from the [RISC architecture](https://oreil.ly/ofvB7) (e.g.,
+    ARM processors), this might be equal to the number of cycles, as one instruction
+    always takes one cycle (amortized cost). However, on the CISC architecture (e.g.,
+    AMD and Intel x64 processors), different instructions might use additional cycles.
+    Thus, counting how many instructions our CPU had to do to complete some program’s
+    functionality might be more stable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Both cycles and instructions are great for comparing different algorithms with
+    each other. It is because they are less noisy as:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: They don’t depend on the frequency the CPU core had during the program run
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Latency of memory fetches, including different caches, misses, and RAM latency
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: CPU time
+  prefs: []
+  type: TYPE_NORMAL
+- en: The time (in seconds or nanoseconds) our program thread spends executing on
+    each CPU core. As you will learn in [“Off-CPU Time”](ch09.html#ch-obs-pprof-latency),
+    this time is different (longer or shorter) from the latency of our program, as
+    CPU time does not include I/O waiting time and OS scheduling time. Furthermore,
+    our program’s OS threads might execute simultaneously on multiple CPU cores. Sometimes
+    we also use CPU time divided by the CPU capacity, often referred to as CPU usage.
+    For example, 1.5 CPU usage in seconds means our program requires (on average)
+    one CPU core for 1 second and a second core for 0.5 seconds.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'On Linux, the CPU time is often split into User and System time:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: User time represents the time the program spends executing on the CPU in the
+    user space.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: System time is the CPU time spent executing certain functions in the kernel
+    space on behalf of the user, e.g., syscalls like [`read`](https://oreil.ly/xEQuM).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Usually, on higher levels such as containers, we don’t have the luxury of having
+    all three metrics. We mostly have to rely on CPU time. Fortunately, the CPU time
+    is typically a good enough metric to track down the work needed from our CPUs
+    to execute our workload. On Linux, the simplest way to retrieve the current CPU
+    time counted from the start of the process is to go to */proc/`<PID>`/stat* (where
+    `PID` means the process ID). We also have similar statistics on the thread level
+    in */proc/`<PID>`/tasks/`<TID>`/stat* (where `TID` means the thread ID). This
+    is exactly what utilities like `ps` or `htop` use.^([25](ch06.html#idm45606830897680))
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `ps` and `htop` tools might be indeed the simplest tools to measure the
+    CPU time in the current moment. However, we usually need to assess the CPU time
+    required for the full functionality we are optimizing. Unfortunately, [“Go Benchmarks”](ch08.html#ch-obs-micro-go)
+    is not providing CPU time (only latency and allocations) per operation. You could
+    perhaps obtain that number from the `stat` file, e.g., programmatically using
+    the [`procfs` Go library](https://oreil.ly/ZcCDn), but there are two main ways
+    I would suggest instead:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: CPU profiling, explained in [“CPU”](ch09.html#ch-obs-pprof-cpu).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Prometheus metric instrumentation. Let’s quickly look at that method next.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In [Example 6-7](#code-latency-metric), I showed a Prometheus instrumentation
+    that registers custom latency metrics. It’s also very easy to add the CPU time
+    metric, but the Prometheus [client library](https://oreil.ly/1r2zw) has already
+    built helpers for that. The recommended way is presented in [Example 6-11](#code-cpu-metric).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 6-11\. Registering `proc` `stat` instrumentation about your process
+    for Prometheus use
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_efficiency_observability_CO11-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The only thing you have to do to have the CPU time metric with Prometheus is
+    to register the `collectors.NewProcessCollector` that uses the `/proc` `stat`
+    file mentioned previously.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `collectors.ProcessCollector` provides multiple metrics, like `pro⁠cess_​open_fds`,
+    `process_max_fds`, `process_start_time_seconds`, and so on. But the one we are
+    interested in is `process_cpu_seconds_total`, which is a counter of CPU time used
+    from the beginning of our program. What’s special about using Prometheus for this
+    task is that it collects the values of this metric periodically from our Go program.
+    This means we can query Prometheus for the process CPU time for a certain time
+    window and map that to real time. We can do that with the [`rate`](https://oreil.ly/8BaUw)
+    function duration that gives us the per second rate of that CPU time in a given
+    time window. For example, `rate(process_cpu_sec⁠onds_​total{}[5m])` will give
+    us the average CPU per second time that our program had during the last five minutes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You will find an example CPU time analysis based on this kind of metric in [“Understanding
+    Results and Observations”](ch08.html#ch-obs-macro-results). However, for now,
+    I would love to show you one interesting and common case, where `process_cpu_seconds_total`
+    helps narrow down a major efficiency problem. Imagine your machine has only two
+    CPU cores (or we limit our program to use two CPU cores), you run the functionality
+    you want to assess, and you see the CPU time rate of your Go program looking like
+    [Figure 6-10](#img-obs-metric-cpu).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Thanks to this view, we can tell that the `labeler` process is experiencing
+    a state of CPU saturation. This means that our Go process requires more CPU time
+    than was available. Two signals tell us about the CPU saturation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The typical “healthy” CPU usage is spikier (e.g., as presented in [Figure 8-4](ch08.html#img-macrobench-cpu)
+    later in the book). This is because it’s unlikely that typical applications use
+    the same amount of CPU all the time. However, in [Figure 6-10](#img-obs-metric-cpu),
+    we see the same CPU usage for five minutes.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Because of this, we never want our CPU time to be so close to the CPU limit
+    (two in our case). In [Figure 6-10](#img-obs-metric-cpu), we can clearly see a
+    small choppiness around the CPU limit, which indicates full CPU saturation.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '![efgo 0610](assets/efgo_0610.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 6-10\. The Prometheus graph view of the CPU time for the `labeler` Go
+    program (we will use it in an example in [“Macrobenchmarks”](ch08.html#ch-obs-macro))
+    after a test
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Knowing when we are at saturation of our CPU is critical. First of all, it might
+    give the wrong impression that the current CPU time is the maximum that the process
+    needs. Moreover, this situation also significantly slows down our program’s execution
+    time (increases latency) or even stalls it completely. This is why the Prometheus-based
+    CPU time metric, as you learned here, has proven to be critical for me in learning
+    about such saturation cases. It is also one of the first things you must find
+    out when analyzing your program’s efficiency. When saturation happens, we have
+    to give more CPU cores to the process, optimize the CPU usage, or decrease the
+    concurrency (e.g., limit the number of HTTP requests it can do concurrently).
+  prefs: []
+  type: TYPE_NORMAL
+- en: On the other hand, CPU time allows us to find out about opposite cases where
+    the process might be blocked. For example, if you expect CPU-bound functionality
+    to run with 5 goroutines, and you see the CPU time of 0.5 (50% of one CPU core),
+    it might mean the goroutines are blocked (more on that in [“Off-CPU Time”](ch09.html#ch-obs-pprof-latency))
+    or whole machine and OS are busy.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s now look at memory usage metrics.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Memory Usage
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: As we learned in [Chapter 5](ch05.html#ch-hardware2), there are complex layers
+    of different mechanics on how our Go program uses memory. This is why the actual
+    physical memory (RAM) usage is one of the most tricky to measure and attribute
+    to our program. On most systems with an OS memory management mechanism like virtual
+    memory, paging, and shared pages, every memory usage metric will be only an estimation.
+    While imperfect, this is what we have to work with, so let’s take a short look
+    at what works best for the Go program.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are two main sources of memory usage information for our Go process:
+    the Go runtime heap memory statistics and the information that OS holds about
+    memory pages. Let’s start with the in-process runtime stats.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: runtime heap statistics
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: As we learned in [“Go Memory Management”](ch05.html#ch-hw-go-mem), the heap
+    segment of the Go program virtual memory can be an adequate proxy for memory usage.
+    This is because most bytes are allocated on the heap for typical Go applications.
+    Moreover, such memory is also never evicted from the RAM (unless the swap is enabled).
+    As a result, we can effectively assess our functionality’s memory usage by looking
+    at the heap size.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We are often most interested in assessing the memory space or the number of
+    memory blocks needed to perform a certain operation. To try to estimate this,
+    we usually use two semantics:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The total allocations of bytes or objects on the heap allow us to look at memory
+    allocations without often nondeterministic GC impact.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The number of currently in-use bytes or objects on the heap.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The preceding statistics are very accurate and quick to access because Go runtime
+    is responsible for heap management, so it tracks all the information we need.
+    Before Go 1.16, the recommended way to access those statistics programmatically
+    was using the [`runtime.ReadMemStats` function](https://oreil.ly/AwX75). It still
+    works for compatibility reasons, but unfortunately, it requires STW (stop the
+    world) events to gather all memory statistics. As a result of Go 1.16, we should
+    all use the [`runtime/metrics`](https://oreil.ly/WYiOd) package that provides
+    many cheap-to-collect insights about GC, memory allocations, and so on. The example
+    usage of this package to get memory usage metrics is presented in [Example 6-12](#code-rtm).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 6-12\. The simplest code prints total heap allocated bytes and currently
+    used ones
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_efficiency_observability_CO12-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: To read samples from `runtime/metrics`, we must first define them by referencing
+    the desired metric name. The full list of metrics might be different (mostly added
+    ones) across different Go versions, and you can see the list with descriptions
+    at [*pkg.go.dev*](https://oreil.ly/HWGUJ). For example, we can obtain the number
+    of objects in a heap.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_efficiency_observability_CO12-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Memory statistics are recorded right after a GC run, so we can trigger GC to
+    have the latest information about the heap.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_efficiency_observability_CO12-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`metrics.Read` populates the value of our samples. You can reuse the same sample
+    slice if you only care about the latest values.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_efficiency_observability_CO12-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Both metrics are of `uint64` type, so we use the `Uint64()` method to retrieve
+    the value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Programmatically accessing this information is useful for local debugging purposes,
+    but it’s not sustainable on every optimization attempt. That’s why in the community,
+    we typically see other ways to access that data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Go benchmarking, explained in [“Go Benchmarks”](ch08.html#ch-obs-micro-go)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Heap profiling, explained in [“Heap”](ch09.html#ch-obs-pprof-heap)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Prometheus metric instrumentation
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'To register `runtime/metric` as Prometheus metrics, we can add a single line
+    to [Example 6-11](#code-cpu-metric): `reg.MustRegister(collectors.NewGoCollector())`.
+    The Go collector is a structure that, by default, exposes [various memory statistics](https://oreil.ly/Ib8D2).
+    For historical reasons, those map to the `MemStats` Go structure, so the equivalents
+    to the metrics defined in [Example 6-12](#code-rtm) would be `go_mem⁠stats_​heap_alloc_bytes_total`
+    for a counter, and `go_memstats_heap_alloc_bytes` for a current usage gauge. We
+    will show an analysis of Go heap metrics in [“Go e2e Framework”](ch08.html#ch-obs-macro-example).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unfortunately, heap statistics are only an estimation. It is likely that the
+    smaller the heap on our Go program, the better the memory efficiency. However,
+    suppose you add some deliberate mechanisms like large off-heap memory allocations
+    using explicit `mmap` syscall or thousands of goroutines with large stacks. In
+    that case, that can cause an OOM on your machine, yet it’s not reflected in the
+    heap statistics. Similarly, in [“Go Allocator”](ch05.html#ch-hw-allocator), I
+    explained rare cases where only part of the heap space is allocated on physical
+    memory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Still, despite the downsides, heap allocations remain the most effective way
+    to measure memory usage in modern Go programs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: OS memory pages statistics
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: We can check the numbers the Linux OS tracks per thread to learn more realistic
+    yet more complex memory usage statistics. Similar to [“CPU Usage”](#ch-obs-cpu-usage),
+    `/proc/*<PID>*/statm` provides the memory usage statistics, measured in pages.
+    Even more accurate numbers can be retrieved from per memory mapping statistics
+    that we can see in `/proc/*<PID>*/smaps` ([“OS Memory Mapping”](ch05.html#ch-hw-memory-mmap-os)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Each page in this mapping can have a different state. A page might or might
+    not be allocated on physical memory. Some pages might be shared across processes.
+    Some pages might be allocated in physical memory and accounted for as memory used,
+    yet marked by the program as “free” (see the `MADV_FREE` release method mentioned
+    in [“Garbage Collection”](ch05.html#ch-hw-garbage)). Some pages might not even
+    be accounted for in the `smaps` file, because for example, [it’s part of filesystem
+    Linux cache buffers](https://oreil.ly/uchws). For these reasons, we should be
+    very skeptical about the absolute values observed in the following metrics. In
+    many cases, OS is lazy in releasing memory; e.g., part of the memory used by the
+    program is cached in the best way that will be released immediately as long as
+    somebody else is needing that.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are a few typical memory usage metrics we can obtain from the OS about
+    our process:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: VSS
+  prefs: []
+  type: TYPE_NORMAL
+- en: Virtual set size represents the number of pages (or bytes, depending on instrumentation)
+    allocated for the program. Not very useful metrics, as most virtual pages are
+    never allocated on RAM.
+  prefs: []
+  type: TYPE_NORMAL
+- en: RSS
+  prefs: []
+  type: TYPE_NORMAL
+- en: Residential set size represents the number of pages (or bytes) resident in RAM.
+    Note that different metrics might account for that differently; e.g., the [cgroups
+    RSS metric](https://oreil.ly/NL5Ab) does not include file-mapped memory, which
+    is tracked separately.
+  prefs: []
+  type: TYPE_NORMAL
+- en: PSS
+  prefs: []
+  type: TYPE_NORMAL
+- en: Proportional set size represents memory with shared memory pages divided equally
+    among all users.
+  prefs: []
+  type: TYPE_NORMAL
+- en: WSS
+  prefs: []
+  type: TYPE_NORMAL
+- en: Working set size estimates the number of pages (or bytes) currently used to
+    perform work by our program. It was initially [introduced by Brendan Gregg](https://oreil.ly/rWy8D)
+    as the hot, frequently used memory—the minimum memory requirement by the program.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The idea is that a program might have allocated 500 GB of memory, but within
+    a couple of minutes, it might use only 50 MB for some localized computation. The
+    rest of the memory could be, in theory, safely offloaded to disk.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are many implementations of WSS, but the most common I see is the [cadvisor
+    interpretation](https://oreil.ly/mXjA3) using the [cgroup memory controller](https://oreil.ly/ovSlH).
+    It calculates the WSS as the RSS (including file mapping), plus some part of the
+    cache pages (cache used for disk reads or writes), minus the `inactive_file` entry—so
+    file mapping that were not touched for some time. It does not include inactive
+    anonymous pages because the typical OS configuration can’t offload anonymous pages
+    to disk (swap is disabled).
+  prefs: []
+  type: TYPE_NORMAL
+- en: In practice, RSS or WSS is used to determine the memory usage of our Go program.
+    Which one highly depends on the other workloads on the same machine and follows
+    the flow of the RAM usage expanding to all available space, as mentioned in [“Do
+    We Have a Memory Problem?”](ch05.html#ch-hw-memory). The usefulness of each depends
+    on the current Go version and instrumentation that gives you those metrics. In
+    my experience, with the latest Go version and cgroup metrics, the RSS metric tends
+    to give more reliable results.^([26](ch06.html#idm45606830443712)) Unfortunately,
+    accurate or not, WSS is used in systems like [Kubernetes to trigger evictions
+    (e.g., OOM)](https://oreil.ly/lnDkI), thus we should use it to assess memory efficiency
+    that might lead to OOMs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Given my focus on infrastructure Go programs, I heavily lean on a metric exporter
+    called [cadvisor](https://oreil.ly/RJzKd) that converts cgroup metrics to Prometheus
+    metrics. I will explain using it in detail in [“Go e2e Framework”](ch08.html#ch-obs-macro-example).
+    It allows analyzing metrics like `container_memory_rss + container_memory_mapped_file`
+    and `container_memory_working_set_bytes`, which are commonly used in the community.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Modern observability offers a set of techniques essential for our efficiency
+    assessments and improvements. However, some argue that this kind of observability
+    designed primarily for DevOps, SREs, and cloud-native solutions can’t work for
+    developer use cases (in the past known as Application Performance Monitoring [APM]).
+  prefs: []
+  type: TYPE_NORMAL
+- en: I would argue that the same tools can be used for both developers (for those
+    efficiency and debugging journeys) and system admins, operators, DevOps, and SREs
+    to ensure the programs delivered by others are running effectively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, we discussed the three first observability signals: metrics,
+    logs, and tracing. Then, we went through example instrumentations for those in
+    Go. Finally, I explained common semantics for the latency, CPU time, and memory
+    usage measurements we will use in later chapters.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now it’s time to learn how to use that efficiency observability to make data-driven
+    decisions in practice. First, we will focus on how to simulate our program to
+    assess the efficiency on different levels.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([1](ch06.html#idm45606832729952-marker)) Some of you might ask why I am sticking
+    to the word *observability* and don’t mention monitoring. In my eyes, I have to
+    agree with my friend [Björn Rabenstein](https://oreil.ly/9ado0) that the difference
+    between monitoring and observability tends to be driven by marketing needs too
+    much. One might say that observability has become meaningless these days. In theory,
+    monitoring means answering known unknown problems (known questions), whereas observability
+    allows learning about unknown unknowns (any question you might have in the future).
+    In my eyes, monitoring is a subset of observability. In this book, we will stay
+    pragmatic. Let’s focus on how we can leverage observability practically, not using
+    theoretical concepts.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([2](ch06.html#idm45606832725840-marker)) The fourth signal, profiling, just
+    started to be considered by some as an observability signal. This is because only
+    recently did the industry see a value and need for gathering profiling continuously.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([3](ch06.html#idm45606832699376-marker)) As a recent example, we can give
+    [this repository](https://oreil.ly/sPlPe) that gathers information through eBPF
+    probes and tries to search popular functions or libraries.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([4](ch06.html#idm45606832688544-marker)) In some way, I am trying in this
+    book to establish helpful processes around optimizations and efficiency, which
+    by design yield standard questions we know up front. This aggregated information
+    is usually enough for us here.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([5](ch06.html#idm45606832254464-marker)) Given Go compatibility guarantees,
+    even if the community agrees to improve it, we cannot change it until Go 2.0.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([6](ch06.html#idm45606832248016-marker)) A nonexecutable module or package
+    intended to be imported by others.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([7](ch06.html#idm45606832242864-marker)) There are many Go libraries for logging.
+    `go-kit` has a good enough API that allows us to do all kinds of logging we need
+    in all the Go projects I have helped with so far. This does not mean `go-kit`
+    is without flaws (e.g., it’s easy to forget you have to put an even number of
+    arguments for the key-value–like logic). There is also a pending proposal from
+    the Go community on [structure logging in standard libraries (`slog` package)](https://oreil.ly/qnJ6y).
+    Feel free to use any other libraries, but make sure their API is simple, readable,
+    and useful. Also make sure that the library of your choice is not introducing
+    efficiency problems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([8](ch06.html#idm45606832090240-marker)) It’s a typical pattern allowing processes
+    to print something useful to standard output and keep logs separate in the `stderr`
+    Linux file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([9](ch06.html#idm45606831687072-marker)) Tail sampling is a logic that defers
+    the decision if the trace should be excluded or sampled at the end of the transaction,
+    for example, only after we know its status code. The problem with tail sampling
+    is that your instrumentation might have already assumed that all spans will be
+    sampled.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([10](ch06.html#idm45606831665920-marker)) I maintain this library together
+    with the Prometheus team. The `client_golang` is also the most used metric client
+    SDK for Go when writing this book, [with over 53,000 open source projects](https://oreil.ly/UW0fG)
+    using it. It is free and open source.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([11](ch06.html#idm45606831400064-marker)) It’s tempting to use global `prometheus.DefaultRegistry`.
+    Don’t do this. We try to get away from this pattern that can cause many problems
+    and side effects.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([12](ch06.html#idm45606831336912-marker)) Always check errors and perform
+    graceful termination on process teardown. See production-grade usage in the [Thanos
+    project](https://oreil.ly/yvvTM) that leverages the [run goroutine helper](https://oreil.ly/sDIwW).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([13](ch06.html#idm45606831225328-marker)) Note that doing `rate` on the gauges
+    type of metric will yield incorrect results.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([14](ch06.html#idm45606831205328-marker)) On the contrary, for the push-based
+    system, if you don’t see expected data, it’s hard to tell if it’s because the
+    sender is down or the pipeline to send is down.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([15](ch06.html#idm45606831202864-marker)) See our talk from [KubeCon EU 2022](https://oreil.ly/TtKwH)
+    about such cases.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([16](ch06.html#idm45606831155568-marker)) This is why the [Prometheus ecosystem
+    suggests base units](https://oreil.ly/oJozb).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([17](ch06.html#idm45606831016880-marker)) For example, on my machine `time.Now`
+    and `time.Since` take around 50–55 nanoseconds.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([18](ch06.html#idm45606831013664-marker)) This is why it’s better to make
+    thousands or even more of the same operation, measure the total latency, and get
+    the average by dividing it by a number of operations. As a result, this is what
+    Go benchmark is doing, as we will learn in [“Go Benchmarks”](ch08.html#ch-obs-micro-go).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([19](ch06.html#idm45606831005584-marker)) Did you know this date was picked
+    simply because of [*Back to the Future Part II*](https://oreil.ly/Oct6X)?
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([20](ch06.html#idm45606830976592-marker)) The noteworthy example from my experience
+    is measuring server-side latency of REST with a large response or HTTP/gRPC with
+    a streamed response. The server-side latency does not depend only on the server
+    but also on how fast the network and client side can consume those bytes (and
+    write back acknowledge packets within [TCP control flow](https://oreil.ly/jcrSF)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([21](ch06.html#idm45606830952080-marker)) Right now, the choice of buckets
+    in a histogram if you want to use Prometheus is manual. However, the Prometheus
+    community is working on [sparse histograms](https://oreil.ly/qFdC1) with a dynamic
+    number of buckets that adjust automatically.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([22](ch06.html#idm45606830949872-marker)) More on using histograms can be
+    read [here](https://oreil.ly/VrWGe).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([23](ch06.html#idm45606830933632-marker)) It makes sense. I was utilizing
+    my web browser heavily during the test, which confirms the knowledge we will discuss
+    in [“Reliability of Experiments”](ch07.html#ch-obs-rel).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([24](ch06.html#idm45606830921280-marker)) As a reminder, we can improve the
+    latency of our program’s functionality in many ways other than just by optimizing
+    its CPU usage. We can improve that latency using concurrent execution that often
+    increases total CPU time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([25](ch06.html#idm45606830897680-marker)) Also a useful [`procfs` Go library](https://oreil.ly/ZcCDn)
+    that allows retrieving `stats` file data number programmatically.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([26](ch06.html#idm45606830443712-marker)) One reason is the [issue](https://oreil.ly/LKmSA)
+    in cadvisor that includes some still-reclaimable memory in the WSS.
+  prefs: []
+  type: TYPE_NORMAL

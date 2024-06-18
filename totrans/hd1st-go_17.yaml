@@ -1,0 +1,1181 @@
+- en: 'Chapter 16\. a pattern to follow: HTML Templates'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0445-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Your web app needs to respond with HTML, not plain text.** Plain text is
+    fine for emails and social media posts. But your pages need to be formatted. They
+    need headings and paragraphs. They need forms where your users can submit data
+    to your app. To do any of that, you need HTML code.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: And eventually, you’ll need to insert data into that HTML code. That’s why Go
+    offers the `html/template` package, a powerful way to include data in your app’s
+    HTML responses. Templates are key to building bigger, better web apps, and in
+    this final chapter, we’ll show you how to use them!
+  prefs: []
+  type: TYPE_NORMAL
+- en: A guestbook app
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Let’s put everything we’ve learned in [Chapter 15](ch15.html#responding_to_requestscolon_web_apps)
+    to use. We’re going to build a simple guestbook app for a website. Your visitors
+    will be able to enter messages in a form, which will be saved to a file. They’ll
+    also be able to view a list of all the previous signatures.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0446-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: There’s a lot left to cover before we can get this app working, but don’t worry—we’ll
+    be breaking this process down into little steps. Let’s take a look at what will
+    be involved...
+  prefs: []
+  type: TYPE_NORMAL
+- en: We’ll need to set up our app and get it to respond to requests for the main
+    guestbook page. This part won’t be too difficult; we’ve already covered everything
+    we need to know in the previous chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Then we need to include HTML in our response. We’ll be creating a simple page
+    using just a few HTML tags, which we’ll store in a file. Then we’ll load the HTML
+    code in from the file and use that in our app’s response.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We’ll need to take the signatures that our visitors have entered, and incorporate
+    them into the HTML. We’ll show you how to do this, using the `html/template` package.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Then we’ll need to create a separate page with a form for adding a signature.
+    We can do this fairly easily using HTML.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Lastly, when a user submits the form, we’ll need to save the form contents as
+    a new signature. We’ll save it to a text file along with all the other submitted
+    signatures so we can load it back in later.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0446-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Functions to handle a request and check errors
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Our first task will be to display the main guestbook page. With all the practice
+    we’ve had writing sample web apps, this shouldn’t be too difficult. In our `main`
+    function, we’ll call `http.HandleFunc` and set up the app to call a function named
+    `viewHandler` for any request with a path of `"/guestbook"`. Then we’ll call `http.ListenAndServe`
+    to start the server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For now, the `viewHandler` function will look just like the handler functions
+    in our previous examples. It accepts an `http.ResponseWriter` and a pointer to
+    an `http.Request`, just like previous handlers. We’ll convert a string for the
+    response to a `[]byte`, and use the `Write` method on the `ResponseWriter` to
+    add it to the response.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `check` function is the only part of this code that’s really new. We’re
+    going to have a lot of potential `error` return values in this web app, and we
+    don’t want to repeat code to check and report them everywhere. So we’ll pass each
+    error to our new `check` function. If the `error` is nil, `check` does nothing,
+    but otherwise it logs the error and exits the program.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0447-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Calling `Write` on the `ResponseWriter` may or may not return an error, so we
+    pass the `error` return value to `check`. Notice that we *don’t* pass the `error`
+    return value from `http.ListenAndServe` to `check`, though. That’s because `ListenAndServe`
+    always returns an error. (If there is no error, `ListenAndServe` never returns.)
+    Since we know this error will never be `nil`, we just immediately call `log.Fatal`
+    on it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Setting up a project directory and trying the app
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We’ll be creating several files for this project, so you might want to take
+    a moment and create a new directory to hold them all. (It doesn’t have to be within
+    your Go workspace directory.) Save the preceding code within this directory, in
+    a file named *guestbook.go*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0448-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Let’s try running it. In your terminal, change to the directory where *guestbook.go*
+    is saved and run it using **`go run`**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0448-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Then visit this URL in your browser:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`*[http://localhost:8080/guestbook](http://localhost:8080/guestbook)*`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'It’s the same as the URLs for our previous apps, except for the */guestbook*
+    path on the end. Your browser will make a request to the app, which will respond
+    with our placeholder text:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0448-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Our app is now responding to requests. Our first task is complete!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0448-04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We’re just responding using plain text, though. Up next, we’re going to format
+    our response using HTML.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Making a signature list in HTML
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: So far, we’ve just been sending snippets of text to the browser. We need actual
+    HTML, so that we can apply formatting to the page. HTML uses tags to apply formatting
+    to text.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Don’t worry if you haven’t written HTML before; we’ll be covering the basics
+    as we go!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Save the HTML code below in the same directory as *guestbook.go*, in a file
+    named *view.html*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here are the HTML elements used in this file:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`<h1>`: A level-one heading. Usually shown in large, bold text.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`<div>`: A division element. Not directly visible on its own, but it’s used
+    for dividing the page into sections.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`<p>`: A paragraph of text. We’ll be treating each signature as a separate
+    paragraph.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`<a>`: Stands for “anchor.” Creates a link.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '![image](assets/f0449-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Now, let’s try viewing the HTML in a browser. Launch your favorite web browser,
+    choose “Open File…” from the menu, and open the HTML file you just saved.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0449-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Notice how the elements on the page correspond with the HTML code. Each element
+    has a opening tag (`<h1>`, `<div>`, `<p>`, etc.), and a corresponding closing
+    tag (`</h1>`, `</div>`, `</p>`, etc.). Any text between the opening and closing
+    tags is used as the element’s content on the page. It’s also possible for elements
+    to contain other elements (as the `<div>` elements on this page do).
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can click on the link if you want, but it will only produce a “Page not
+    found” error right now. Before we can fix that, we’ll need to figure out how to
+    serve this HTML via our web app...
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0449-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Making our app respond with HTML
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Our HTML works when we load it directly into our browser from the *view.html*
+    file, but we need to serve it via the app. Let’s update our *guestbook.go* code
+    to respond with the HTML we’ve created.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Go provides a package that will load the HTML in from the file *and* insert
+    signatures into it for us: the `html/template` package. For now, we’ll just load
+    the contents of *view.html* in as is; inserting signatures will be our next step.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We’ll need to update the `import` statement to add the `html/template` package.
+    The only other changes we’ll need to make are within the `viewHandler` function.
+    We’ll call the `template.ParseFiles` function and pass it the name of the file
+    we want to load: `"view.html"`. This will use the contents of *view.html* to create
+    a `Template` value. `ParseFiles` will return a pointer to this `Template`, and
+    possibly an `error` value, which we pass to our `check` function.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: To get output from the `Template` value, we call its `Execute` method with two
+    arguments... We pass our `ResponseWriter` value as the place to write the output.
+    The second value is the data we want to insert into the template, but since we’re
+    not inserting anything right now, we just pass `nil`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0450-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We’ll be learning more about the `html/template` package shortly, but for now
+    let’s just see if this works. In your terminal, run *guestbook.go*. (Make sure
+    you’re in your project directory when you do this, or the `ParseFiles` function
+    won’t be able to find *view.html*.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In your browser, go back to the URL:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*[http://localhost:8080/guestbook](http://localhost:8080/guestbook)*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Instead of the “signature list goes here” placeholder, you should see the HTML
+    from *view.html*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0450-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The “text/template” package
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Our app is responding with our HTML code. That’s two tasks complete!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Right now, though, we’re just showing a placeholder list of signatures that
+    we hardcoded. Our next task will be to use the `html/template` package to insert
+    a list of signatures into the HTML, one that will be updated when the list changes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0451-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The `html/template` package is based on the `text/template` package. You work
+    with the two packages in almost exactly the same way, but `html/template` has
+    some extra security features needed for working with HTML. Let’s learn how to
+    use the `text/template` package first, and then later we’ll take what we’ve learned
+    and apply it to the `html/template` package.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The program below uses `text/template` to parse and print a template string.
+    It prints its output to the terminal, so you won’t need your web browser to try
+    it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In `main`, we call the `text/template` package’s `New` function, which returns
+    a pointer to a new `Template` value. Then we call the `Parse` method on the `Template`,
+    and pass it the string `"Here's my template!\n"`. `Parse` uses its string argument
+    as the template’s text, unlike `ParseFiles`, which loads the template text in
+    from files. `Parse` returns the template and an `error` value. We store the template
+    in the `tmpl` variable, and pass the `error` to a `check` function (identical
+    to the one in *guestbook.go*) to report any non-`nil` errors.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Then we call the `Execute` method on the `Template` value in `tmpl`, just like
+    we did in *guestbook.go*. Instead of an `http.ResponseWriter`, though, we pass
+    `os.Stdout` as the place to write the output. This causes the `"Here's my template!\n"`
+    template string to be displayed as output when the program is run.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0451-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Using the io.Writer interface with a template’s Execute method
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0452-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The `os.Stdout` value is part of the `os` package. `Stdout` stands for “standard
+    output.” It acts like a file, but any data written to it is output to the terminal
+    instead of being saved to disk. (Functions like `fmt.Println`, `fmt.Printf`, and
+    so on write data to `os.Stdout` behind the scenes.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: How can `http.ResponseWriter` and `os.Stdout` both be valid arguments for `Template.Execute`?
+    Let’s bring up its documentation and see...
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0452-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Hmm, this says the first argument to `Execute` should be an `io.Writer`. What’s
+    that? Let’s check the documentation for the `io` package:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0452-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: It looks like `io.Writer` is an interface! It’s satisfied by any type with a
+    `Write` method that accepts a slice of `byte` values, and returns an `int` with
+    the number of bytes written and an `error` value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ResponseWriters and os.Stdout both satisfy io.Writer
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We’ve already seen that `http.ResponseWriter` values have a `Write` method.
+    We’ve used `Write` in several earlier examples:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0453-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'It turns out the `os.Stdout` value has a `Write` method, too! If you pass it
+    a slice of `byte` values, that data will be written to the terminal:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0453-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: That means both `http.ResponseWriter` values and `os.Stdout` satisfy the `io.Writer`
+    interface, and can be passed to a `Template` value’s `Execute` method. `Execute`
+    will write out the template by calling the `Write` method on whatever value is
+    passed to it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If you pass in an `http.ResponseWriter`, it means the template will be written
+    to the HTTP response. And if you pass in `os.Stdout`, it means the template will
+    be written to the output in the terminal:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0453-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Inserting data into templates using actions
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The second parameter to a `Template` value’s `Execute` method allows you to
+    pass in data to insert in the template. Its type is the empty interface, meaning
+    you can pass in a value of any type you want.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0454-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'So far, our templates haven’t provided any places to insert data, so we’ve
+    just been passing `nil` for the data value:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0454-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: To insert data in a template, you add **actions** to the template text. Actions
+    are denoted with double curly braces, `{{ }}`. Inside the double braces, you specify
+    data you want to insert or an operation you want the template to perform. Whenever
+    the template encounters an action, it will evaluate its contents, and insert the
+    result into the template text in place of the action.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Within an action, you can reference the data value that was passed to the `Execute`
+    method with a single period, called “dot.”
+  prefs: []
+  type: TYPE_NORMAL
+- en: This code sets up a template with a single action. It then calls `Execute` on
+    the template several times, with a different data value each time. `Execute` replaces
+    the action with the data value before writing the result to `os.Stdout`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0454-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: There are lots of other things you can do with template actions, too. Let’s
+    set up an `executeTemplate` function that will let us experiment with them more
+    easily. It will take a template string that we’ll pass to `Parse` to create a
+    new template, and a data value that we’ll pass to `Execute` on that template.
+    As before, each template will be written to `os.Stdout`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0455-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: As we mentioned, you can use a single period to refer to “dot,” the current
+    value within the data the template is working with. Although the value of dot
+    can change in various contexts within the template, initially it refers to the
+    value that was passed to `Execute`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0455-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Making parts of a template optional with “if” actions
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: A section of a template between an `{{if}}` action and its corresponding `{{end}}`
+    marker will be included only if a condition is true. Here we execute the same
+    template text twice, once when dot is `true` and once when it’s `false`. Thanks
+    to the `{{if}}` action, the “Dot is true!” text is only included in the output
+    when dot is `true`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0455-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Repeating parts of a template with “range” actions
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: A section of a template between a `{{range}}` action and its corresponding `{{end}}`
+    marker will be repeated for each value collected in an array, slice, map, or channel.
+    Any actions within that section will also be repeated.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Within the repeated section, the value of dot will be set to the current element
+    from the collection, allowing you to include each element in the output or do
+    other processing with it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This template includes a `{{range}}` action that will output each element in
+    a slice. Before and after the loop, the value of dot will be the slice itself.
+    But *within* the loop, dot refers to the current element of the slice. You’ll
+    see this reflected in the output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0456-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: This template works with a slice of `float64` values, which it will display
+    as a list of prices.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0456-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'If the value provided to the `{{range}}` action is empty or `nil`, the loop
+    won’t be run at all:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0456-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Inserting struct fields into a template with actions
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Simple types usually can’t hold the variety of information needed to fill in
+    a template, though. It’s more common to use struct types when executing a template.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If the value in dot is a struct, then an action with dot followed by a field
+    name will insert that field’s value in the template. Here we create a `Part` struct
+    type, then set up a template that will output a `Part` value’s `Name` and `Count`
+    fields:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0457-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Finally, below we declare a `Subscriber` struct type and a template that prints
+    them. The template will output the `Name` field regardless, but it uses an `{{if}}`
+    action to output the `Rate` field only if the `Active` field is set to `true`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0457-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'There’s a lot more you can do with templates, and we don’t have space to cover
+    it all here. To learn more, look up the documentation for the `text/template`
+    package:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0457-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Reading a slice of signatures in from a file
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now that we know how to insert data into a template, we’re almost ready to insert
+    signatures into the guestbook page. But first, we’re going to need signatures
+    that we can insert.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In your project directory, save a few lines of text to a plain-text file named
+    *signatures.txt*. These are going to serve as our “signatures” for now.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now we need the ability to load these signatures into our app. In *guestbook.go*,
+    add a new `getStrings` function. This function will work a lot like the `datafile.GetStrings`
+    function we wrote back in [Chapter 7](ch07_split_000.html#labeling_datacolon_maps),
+    reading a file and appending each line to a slice of strings, which it then returns.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0458-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: But there are a couple differences. First, the new `getStrings` will rely on
+    our `check` function to report errors rather than returning them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Second, if the file doesn’t exist, `getStrings` will just return `nil` in place
+    of the slice of strings, rather than reporting an error. It does this by passing
+    any `error` value it gets from `os.Open` to the `os.IsNotExist` function, which
+    will return `true` if the error indicates that the file doesn’t exist.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0458-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We’ll also make a small change to the `viewHandler` function, adding a call
+    to `getStrings` and a temporary `fmt.Printf` call to show us what was loaded from
+    the file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0459-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Let’s try the `getStrings` function out. In your terminal, change to your project
+    directory, and run *guestbook.go*. Visit *[http://localhost:8080/guestbook](http://localhost:8080/guestbook)*
+    in your browser, so that the `viewHandler` function is called. It will call `getStrings`,
+    which will load and return a slice with the contents of *signatures.txt*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0459-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: there are no Dumb Questions
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**Q: What happens if the signatures.txt file doesn’t exist, and `getStrings`
+    returns `nil`? Won’t that cause problems rendering the template?**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**A:** There’s no need to worry. Just as we’ve already seen with the `append`
+    function, other functions in Go are generally set up to treat `nil` slices and
+    maps as if they were empty. For example, the `len` function simply returns `0`
+    if it’s passed a `nil` slice:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0459-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: And template actions treat `nil` slices and maps as if they were empty, too.
+    As we learned, for example, the `{{range}}` action simply skips outputting its
+    contents if it’s given a `nil` value. So having `getStrings` return `nil` instead
+    of a slice will be fine; if no signatures are loaded from the file, the template
+    will just skip outputting any signatures.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A struct to hold the signatures and signature count
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now, we could just pass this slice of signatures to our HTML template’s `Execute`
+    method, and have the signatures inserted into the template. But we also want our
+    main guestbook page to show the *number* of signatures we’ve received, along with
+    the signatures themselves.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We only get to pass one value to the template’s `Execute` method, though. So
+    we’ll need to create a struct type that will hold both the total number of signatures
+    as well as the slice with the signatures themselves.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0460-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Near the top of the *guestbook.go* file, add a new declaration for a new `Guestbook`
+    struct type. It should have two fields: a `SignatureCount` field to hold the number
+    of signatures, and a `Signatures` field to hold the slice with the signatures
+    themselves.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0460-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Now we need to update `viewHandler` to create a new `Guestbook` struct and pass
+    it to the template. First, we won’t be needing the `fmt.Printf` call that displays
+    the contents of the `signatures` slice anymore, so remove that. (You’ll also need
+    to remove `"fmt"` from the `import` section.) Then, create a new `Guestbook` value.
+    Set its `SignatureCount` field to the length of the `signatures` slice, and set
+    its `Signatures` field to the `signatures` slice itself. Finally, we need to actually
+    pass the data into the template. So change the data value being passed as the
+    second argument to the `Execute` method from `nil` to our new `Guestbook` value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0460-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Updating our template to include our signatures
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now let’s update the template text in *view.html* to display the list of signatures.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We’re passing the `Guestbook` struct into the template’s `Execute` method,
+    so within the template, dot represents that `Guestbook` struct. In the first `div`
+    element, replace the `X` placeholder in `X total signatures` with an action that
+    inserts the `Guestbook`’s `SignatureCount` field: `{{.SignatureCount}}`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The second `div` element holds a series of `p` (paragraph) elements, one for
+    each signature. Use a `range` action to loop over each signature in the `Signatures`
+    slice: `{{range .Signatures}}`. (Don’t forget the corresponding `{{end}}` marker
+    before the end of the `div` element.) Within the `range` action, include a `p`
+    HTML element with an action that outputs dot nested inside it: `<p>{{.}}</p>`.
+    Remember that dot gets set to each element of a slice in turn, so this will cause
+    a `p` element to be output for each signature in the slice, with its content set
+    to that signature’s text.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0461-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Finally, we can test out our template with our data included! Restart the *guestbook.go*
+    app, and visit *[http://localhost:8080/guestbook](http://localhost:8080/guestbook)*
+    in your browser again. The response should show your template. The total number
+    of signatures should be at the top, and each signature should appear within its
+    own `<p>` element!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0461-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: there are no Dumb Questions
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**Q: You mentioned the `html/template` package has some “security features.”
+    What are they?**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**A:** The `text/template` package inserts values into a template as is, no
+    matter what they contain. But that means that visitors could add HTML code as
+    a “signature,” and it would be treated as part of the page’s HTML.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You can try this yourself. In *guestbook.go*, change the `html/template` import
+    to `text/template`. (You won’t need to change any other code, because the names
+    of all the functions in the two packages are identical.) Then, add the following
+    as a new line in your *signatures.txt* file:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`<script>alert("hi!");</script>`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is an HTML tag containing JavaScript code. If you try running the app and
+    reload the signatures page, you’ll see an annoying alert pop up, because the `text/template`
+    package included this code in the page as is.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now go back to *guestbook.go*, change the import back to `html/template`, and
+    restart the app. If you reload the page, instead of an alert pop up, you’ll see
+    text that looks just like the above script tag in the page.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'But that’s because the `html/template` package automatically “escaped” the
+    HTML, replacing the characters that cause it to be treated as HTML with code that
+    causes it to appear in the page’s text instead (where it’s harmless). Here’s what
+    actually gets inserted into the response:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`&lt;script&gt;alert(&#34;hi!&#34;);&lt;/script&gt;`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Inserting script tags like this is just one of many ways unscrupulous users
+    can insert malicious code into your web pages. The `html/template` package makes
+    it easy to protect against this and many other attacks!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Letting users add data with HTML forms
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'That’s another task complete. We’re getting close: only two tasks left to go!'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Up next, we need to allow visitors to add their own signature. We’ll need to
+    create an HTML *form* where they can type a signature in. A form usually provides
+    one or more fields that a user can enter data into, and a submit button that allows
+    them to send the data to the server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0464-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'In your project directory, create a file called *new.html* with the HTML code
+    below. There are some tags here that we haven’t seen before:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**`<form>`**: This element encloses all the other form components.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**`<input>` with a `type` attribute of `"text"`**: A text field where the user
+    can enter a string. Its `name` attribute will be used to label the field’s value
+    in the data sent to the server (kind of like a map key).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**`<input>` with a `type` attribute of `"submit"`**: Creates a button that
+    the user can click to submit the form’s data.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '![image](assets/f0464-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'If we were to load this HTML in the browser, it would look like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0464-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Responding with the HTML form
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We already have an “Add Your Signature” link in *view.html* that points to
+    a path of */guestbook/new*. Clicking on this link will take you to a new path
+    on the same server, so it’s just like typing in this URL:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*[http://localhost:8080/guestbook/new](http://localhost:8080/guestbook/new)*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0465-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: But visiting this path right now just responds with the error “404 page not
+    found.” We’ll need to set up the app to respond with the form in *new.html* when
+    users click the link.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In *guestbook.go*, add a `newHandler` function. It will look much like the early
+    versions of our `viewHandler` function. Just like `viewHandler`, `newHandler`
+    should take an `http.ResponseWriter` and a pointer to an `http.Request` as parameters.
+    It should call `template.ParseFiles` on the *new.html* file. And then it should
+    call `Execute` on the resulting template, so that the contents of *new.html* get
+    written to the HTTP response. We won’t be inserting any data into this template,
+    so we pass `nil` as the data value for the call to `Execute`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Then we need to ensure that the `newHandler` function is called when the “Add
+    Your Signature” link is clicked. In the `main` function, add another call to `http.HandleFunc`,
+    and set up `newHandler` as the handler function for requests with a path of */guestbook/new*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0465-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: If we save the above code and restart *guestbook.go*, then click the “Add Your
+    Signature” link, we’ll be taken to the */guestbook/new* path. The `newHandler`
+    function will be called, which will load our form HTML from *new.html* and include
+    it in the response.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0465-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Form submission requests
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We’ve completed yet another task. Just one to go!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0466-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: When someone visits the */guestbook/new* path, either by entering it directly
+    or by clicking a link, our form for entering a signature is displayed. But if
+    you fill in that form and click Submit, nothing useful happens.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0466-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The browser will just make another request for the */guestbook/new* path. The
+    content of the `"signature"` form field will be added as an ugly-looking parameter
+    on the end of the URL. And because our `newHandler` function doesn’t know how
+    to do anything useful with the form data, it will simply be discarded.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0466-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Our app can respond to requests to display the form, but there’s no way for
+    the form to submit its data back to the app. We’ll need to fix this before we
+    can save visitors’ signatures.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Path and HTTP method for form submissions
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Submitting a form actually requires *two* requests to the server: one to *get*
+    the form, and a second to *send* the user’s entries back to the server. Let’s
+    update the form’s HTML to specify where and how this second request should be
+    sent.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Edit *new.html*, and add two new HTML attributes to the `form` element. The
+    first attribute, `action`, will specify the path to use for the submission request.
+    Instead of letting the path default back to */guestbook/new*, we’ll specify a
+    new path: */guestbook/create*.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We’ll also need a second attribute, named `method`, which should have a value
+    of `"POST"`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0467-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'That `method` attribute requires a little explanation... HTTP defines several
+    *methods* that a request can use. These aren’t the same as methods on a Go value,
+    but the meaning is similar. GET and POST are among the most common methods:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**GET**: Used when your browser needs to *get* something from the server, usually
+    because you entered a URL or clicked a link. This could be an HTML page, an image,
+    or some other resource.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '**POST**: Used when your browser needs to *add* some data to the server, usually
+    because you submitted a form with new data.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'We’re adding new data to the server: a new guestbook signature. So it seems
+    like we should submit the data using a POST request.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Forms are submitted using GET requests by default, though. This is why we needed
+    to add a `method` attribute with a value of `"POST"` to the `form` element.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, if we reload the */guestbook/new* page and resubmit the form, the request
+    will use a path of */guestbook/create* instead. We’ll get a “404 page not found”
+    error, but that’s because we haven’t set up a handler for the */guestbook/create*
+    path yet.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0467-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We’ll also see that the form data is no longer added onto the end of the URL.
+    This is because the form is being submitted using a POST request.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0467-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Getting values of form fields from the request
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now that we’re submitting the form using a POST request, the form data is embedded
+    in the request itself, rather than being appended to the request path as a parameter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s address that “404 page not found” error we get when form data is submitted
+    to the */guestbook/create* path. When we do, we’ll also see how to access the
+    form data from the POST request.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As usual, we’ll do this by adding a request handler function. In the `main`
+    function of *guestbook.go*, call `http.HandleFunc`, and assign requests with a
+    path of `"/guestbook/create"` to a new `createHandler` function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Then add a definition for the `createHandler` function itself. It should accept
+    an `http.ResponseWriter` and a pointer to an `http.Request`, just like the other
+    handler functions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unlike the other handler functions, though, `createHandler` is meant to work
+    with form data. That data can be accessed through the `http.Request` pointer that
+    gets passed to the handler function. (That’s right, after ignoring `http.Request`
+    values all this time, we finally get to use one!)
+  prefs: []
+  type: TYPE_NORMAL
+- en: For now, let’s just take a look at the data the request contains. Call the `FormValue`
+    method on the `http.Request`, and pass it the string `"signature"`. This will
+    return a string with the value of the `"signature"` form field. Store it in a
+    variable named `signature`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s write the field value to the response so we can see it in the browser.
+    Call the `Write` method on the `http.ResponseWriter`, and pass `signature` to
+    it (but convert it to a slice of bytes first, of course). As always, `Write` will
+    return a number of bytes written and an `error` value. We’ll ignore the number
+    of bytes by assigning it to `_`, and call `check` on the `error`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0468-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Let’s see if our form submissions are getting through to the `createHandler`
+    function. Restart *guestbook.go*, visit the */guestbook/new* page, and submit
+    the form again.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0469-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: You’ll be taken to the */guestbook/create* path, and instead of a “404 page
+    not found” error, the app will respond with the value you entered in the `"signature"`
+    field!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0469-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: If you want, you can click your browser’s back button to return to the */guestbook/new*
+    page, and try different submissions. Whatever you enter will be echoed to the
+    browser.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Setting up a handler for HTML form submissions was a big step. We’re getting
+    close!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Saving the form data
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Our `createHandler` function is receiving the request with the form data, and
+    is able to retrieve the guestbook signature from it. Now all we need to do is
+    add that signature to our *signatures.txt* file. We’ll handle that within the
+    `createHandler` function itself.
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, we’ll get rid of the call to the `Write` method on the `ResponseWriter`;
+    we only needed that to confirm we could access the signature form field.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now, let’s add the code below. The `os.OpenFile` function is called in a slightly
+    unusual way, and the details aren’t directly relevant to writing a web app, so
+    we won’t describe it fully here. (See [Appendix A](app01.html#understanding_osdotopenfile_opening_file)
+    if you want more info.) For now, all you need to know is that this code does three
+    basic things:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: It opens the *signatures.txt* file, creating it if it doesn’t exist.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: It adds a line of text to the end of the file.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: It closes the file.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![image](assets/f0470-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The `fmt.Fprintln` function adds a line of text to a file. It takes the file
+    to write to and the string to write (no need to convert to a `[]byte`) as arguments.
+    Just like the `Write` methods we saw earlier in this chapter, `Fprintln` returns
+    the number of bytes successfully written to the file (which we ignore), and any
+    error encountered (which we pass to the `check` function).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, we call the `Close` method on the file. You might notice that we did
+    *not* use the `defer` keyword. This is because we’re writing to the file, rather
+    than reading from it. Calling `Close` on a file you’re writing to can result in
+    errors that we need to handle, and we can’t readily do that if we use `defer`.
+    So, we simply call `Close` as part of the regular program flow and then pass its
+    return value to `check`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Save the previous code and restart *guestbook.go*. Fill in and submit the form
+    on the */guestbook/go* page.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0471-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Your browser will load the */guestbook/create* path, which shows as a totally
+    blank page now (because `createHandler` is no longer writing anything to the `http.ResponseWriter`).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0471-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: But if you look at the contents of the *signatures.txt* file, you’ll see a new
+    signature saved at the end!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0471-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: And if you visit the list of signatures at */guestbook*, you’ll see the signature
+    count has increased by one, and the new signature appears in the list!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0471-04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: HTTP redirects
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We have our `createHandler` function saving new signatures. There’s just one
+    more thing we need to take care of. When a user submits the form, their browser
+    loads the */guestbook/create* path, which shows a blank page.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0472-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: There’s nothing useful to show at the */guestbook/create* path anyway; it’s
+    just there to accept requests to add a new signature. Instead, let’s have the
+    browser load the */guestbook* path, so the user can see their new signature in
+    the guestbook.
+  prefs: []
+  type: TYPE_NORMAL
+- en: At the end of the `createHandler` function, we’ll add a call to `http.Redirect`,
+    which sends a response to the browser directing it to load a different resource
+    than the one it requested. `Redirect` takes an `http.ResponseWriter` and a `*http.Request`
+    as its first two arguments, so we’ll just give it the values from the `writer`
+    and `request` parameters to `createHandler`. Then `Redirect` needs a string with
+    a path to redirect the browser to; we’ll redirect to `"/guestbook"`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The last argument to `Redirect` needs to be a status code to give the browser.
+    Every HTTP response needs to include a status code. Our responses so far have
+    had their codes set automatically for us: successful responses had a code of 200
+    (“OK”), and requests for nonexistent pages had a code of 404 (“Not found”). We
+    need to specify a code for `Redirect`, though, so we’ll use the constant `http.StatusFound`,
+    which will cause the redirect response to have a status of 302 (“Found”).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0472-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Now that we’ve added the call to `Redirect`, submitting the signature form
+    should work something like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The browser submits an HTTP POST request to the */guestbook/create* path.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The app responds with a redirect to */guestbook*.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The browser sends a GET request for the */guestbook* path.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Let’s try it all out!
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Let’s see if the redirect works! Restart *guestbook.go*, and visit the */guestbook/new*
+    path. Fill in the form and submit it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0473-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The app will save the form contents to *signatures.txt*, then immediately redirect
+    the browser to the */guestbook* path. When the browser requests */guestbook*,
+    the app will load the updated *signatures.txt* file, and the user will see their
+    new signature in the list!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0473-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Our app is saving signatures submitted from the form and displaying them along
+    with all the others. All our features are complete.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It took quite a few components to make it all work, but you now have a usable
+    web app!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0473-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Our complete app code
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The code for our app has gotten so long, we’ve only been able to look at it
+    in bits and pieces. Let’s take one more moment to look at all the code in one
+    place!
+  prefs: []
+  type: TYPE_NORMAL
+- en: The *guestbook.go* file makes up the bulk of the code for the app. (In an app
+    intended for wide use, we might have split some of this code into multiple packages
+    and source files within our Go workspace directory, and you can do that yourself
+    if you want.) We’ve gone through and added comments documenting the `Guestbook`
+    type and each of the functions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0474-01.png)![image](assets/f0475-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The *view.html* file provides the HTML template for the list of signatures.
+    Template actions provide places to insert the number of signatures, as well as
+    the entire signature list.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0476-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The *new.html* file simply holds the HTML form for new signatures. No data will
+    be inserted into it, so no template actions are present.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0476-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: And that’s it—a complete web app that can store user-submitted signatures and
+    retrieve them again later!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Writing web apps can be complex, but the `net/http` and `html/template` packages
+    leverage the power of Go to make the whole process simpler for you!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0476-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Your Go Toolbox
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0477-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**That’s it for [Chapter 16](ch16_split_000.html#a_pattern_to_follow_html_templates)!
+    You’ve added templates to your toolbox.**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0477-02.png)'
+  prefs: []
+  type: TYPE_IMG

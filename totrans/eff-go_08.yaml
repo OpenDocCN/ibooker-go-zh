@@ -1,0 +1,2631 @@
+- en: Chapter 8\. Benchmarking
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Hopefully, your Go IDE is ready and warmed up for some action! It’s time to
+    stress our Go code to find its efficiency characteristics on the micro and macro
+    levels mentioned in [Chapter 7](ch07.html#ch-observability2).
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, we will start with [“Microbenchmarks”](#ch-obs-micro), where
+    we will go through the basics of microbenchmarking and introduce Go native benchmarking.
+    Next, I will explain how to interpret the output with tools like `benchstat`.
+    Then I will go through the microbenchmark aspects and tricks that I learned that
+    are incredibly useful for the practical use of microbenchmarks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the second half of this chapter, we’ll go through [“Macrobenchmarks”](#ch-obs-macro),
+    which is rarely in the scope of programming books due to its size and complexity.
+    In my opinion, macrobenchmarking is as critical to Go development as microbenchmarking,
+    so every developer caring about efficiency should be able to work with that level
+    of testing. Next, in [“Go e2e Framework”](#ch-obs-macro-example) we will go through
+    a complete example of a macro test written fully in Go using containers. We will
+    discuss results and common observability in the process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Without further ado, let’s jump into the most agile way of assessing the efficiency
+    of smaller parts of the code, namely microbenchmarking.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Microbenchmarks
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'A benchmark can be called a microbenchmark if it’s focused on a single, isolated
+    functionality on a small piece of code running in a single process. You can think
+    of microbenchmarks as a tool for efficiency assessment of optimizations made for
+    a single component on the code or algorithm level (discussed in [“Optimization
+    Design Levels”](ch03.html#ch-conq-opt-levels)). Anything more complex might be
+    challenging to benchmark on the micro level. By more complex, I mean, for example,
+    trying to benchmark:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Multiple functionalities at once.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Long-running functionalities (over 5–10 seconds long).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Bigger multistructure components.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Multiprocess functionalities. Multigoroutine functionalities are acceptable
+    if they don’t spin too many goroutines (e.g., over one hundred) during our tests.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Functionalities that require more resources to run than a moderate development
+    machine (e.g., allocating 40 GB of memory to compute an answer or prepare a test
+    dataset).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: If your code violates any of those elements, you might consider splitting it
+    into smaller microbenchmarks or consider using macrobenchmarks on ones with different
+    frameworks (see [“Macrobenchmarks”](#ch-obs-macro)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Keep Microbenchmarks Micro
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The more we are benchmarking at once on a micro level, the more time it takes
+    to implement and perform such benchmarks. This results in cascading consequences—we
+    try to make benchmarks more reusable and spend even more time building more abstractions
+    over them. Ultimately, we try to make them stable and harder to change.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is a problem because microbenchmarks were designed for agility. We change
+    code often, so we want benchmarks to be updated quickly and not get in our way.
+    So you write them quickly, keep them simple, and change them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: On top of that, Go benchmarks do not have (and should not have!) sophisticated
+    observability, which is another reason to keep them small.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The benchmark definition means that it’s very rare for the microbenchmark to
+    validate if your program matches the high-level user RAER for certain functionality,
+    e.g., “The p95 of this API should be under one minute.” In other words, it is
+    usually not well suited to answer questions requiring absolute data. Therefore,
+    while writing microbenchmarks, we should instead focus on answers that relate
+    to a certain baseline or pattern, for example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Learning about runtime complexity
+  prefs: []
+  type: TYPE_NORMAL
+- en: Microbenchmarks are a fantastic way to learn more about the Go function or method
+    efficiency behavior over certain dimensions. For example, how is latency impacted
+    by different shares and sizes of the input and test data? Do allocations grow
+    in an unbounded way with the size of input? What are the constant factors and
+    the overhead of the algorithm you chose?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Thanks to the quick feedback loop, it’s easy to manually play with test inputs
+    and see what your function efficiency looks like for various test data and cases.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A/B testing
+  prefs: []
+  type: TYPE_NORMAL
+- en: A/B tests are defined by performing the same test on version A of your program
+    and then on version B, which is different (ideally) only by one thing (e.g., you
+    reused one slice). They can tell us the relative impact of our changes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Microbenchmarks are a great way to assess if a new change of the code, configuration,
+    or hardware can potentially affect the efficiency. For example, suppose we know
+    that the absolute latency of some requests is two minutes, and we know that 60%
+    of that latency is caused by a certain Go function in a code we develop. In this
+    case, we can try optimizing this function and perform a microbenchmark before
+    and after. As long as our test data is reliable, if after optimization, our microbenchmark
+    shows our optimization makes our code 20% faster, the full system will also be
+    18% faster.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sometimes the absolute numbers on microbenchmarking for latency might matter
+    less. For example, it doesn’t tell us much if our microbenchmark shows 900 ms
+    per operation on our machine. On a different laptop, it might show 500 ms. What
+    matters is that on the same machine, with as few changes to the environment as
+    possible and running one benchmark after another, the latency between version
+    A and B is higher or lower. As we learned in [“Reproducing Production”](ch07.html#ch-obs-rel-repro),
+    there are high chances that this relation is then reproducible in any other environment
+    where you will benchmark those versions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The best way to implement and run microbenchmarks in Go is through its native
+    benchmarking framework built into the `go test` tool. It is battle tested, integrated
+    into testing flows, has native support for profiling, and you can see many benchmark
+    examples in the Go community. I already mentioned the basics around the Go benchmark
+    framework with [Example 6-3](ch06.html#code-latency-go-bench), and we saw some
+    preprocessed results in [Example 7-2](ch07.html#code-sum-bench2) outputs, but
+    it’s now time to dive into details!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Go Benchmarks
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Creating [microbenchmarks in Go](https://oreil.ly/0h0y0) starts by creating
+    a particular function with a specific signature. Go tooling is not very picky—a
+    function has to satisfy three elements to be considered a benchmark:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The file where the function is created must end with the *_test.go* suffix.^([1](ch08.html#idm45606829538272))
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The function name must start with the case-sensitive `Benchmark` prefix, e.g.,
+    `BenchmarkSum`.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The function must have exactly one function argument of the type `*testing.B`.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In [“Complexity Analysis”](ch07.html#ch-hw-complexity), we discussed the space
+    complexity of the [Example 4-1](ch04.html#code-sum) code. In [Chapter 10](ch10.html#ch-opt),
+    I will show you how to optimize this code with a few different requirements. I
+    wouldn’t be able to optimize those successfully without Go benchmarks. I used
+    them to obtain estimated numbers for the number of allocations and latency. Let’s
+    now see how that benchmarking process looks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Go Benchmark Naming Convention
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'I try to follow the consistent naming pattern^([2](ch08.html#idm45606829527136))
+    for the `<NAME>` part on all types of functions in the Go testing framework, like
+    benchmarks (`Benchmark<NAME>`), tests (`Test<NAME>`), fuzzing tests (`Fuzz<NAME>`),
+    and examples (`Example<NAME>`). The idea is simple:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Calling a test `BenchmarkSum` means it tests the `Sum` function efficiency.
+    `BenchmarkSum_withDuplicates` means the same, but the suffix (notice it starts
+    with a lowercase letter) tells us a certain condition we test in.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`BenchmarkCalculator_Sum` means it tests a method `Sum` from the `Calculator`
+    struct. As above, we can add a suffix if we have more tests for the same method
+    to distinguish between cases, e.g., `BenchmarkCalculator_Sum_withDuplicates`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Additionally, you can put an input size as yet another suffix e.g., `BenchmarkCalculator_Sum_10M`.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Given that `Sum` in [Example 4-1](ch04.html#code-sum) is a single-purpose short
+    function, one good microbenchmark should suffice to tell its efficiency. So I
+    created a new function in the *sum_test.go* file with the name `BenchmarkSum`.
+    However, before I did anything else, I added the raw template of the small boilerplate
+    required for most benchmarks, as presented in [Example 8-1](#code-sum-go-bench-simple).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 8-1\. Core Go benchmark elements
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_benchmarking_CO1-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Optional [method](https://oreil.ly/ootGE) that tells the Go benchmark to provide
+    the number of allocations and the total amount of allocated memory. It’s equivalent
+    to setting the `-benchmem` flag when running the test. While it might, in theory,
+    add a tiny overhead to measured latency, it is only visible in very fast functions.
+    I rarely need to remove allocation tracing in practice, so I always have it on.
+    Often, it’s useful to see a number of allocations even if you expect the job to
+    be only CPU sensitive. As mentioned in [“Memory Relevance”](ch05.html#ch-hw-mem),
+    some allocations can be surprising!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_benchmarking_CO1-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In most cases, we don’t want to benchmark the resources required to initialize
+    the test data, structure, or mocked dependencies. To do this “outside” of the
+    latency clock and allocation tracking, [reset the timer](https://oreil.ly/5et2N)
+    right before the actual benchmark. If we don’t have any initialization, we can
+    remove it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_benchmarking_CO1-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: This exact `for` loop sequence with `b.N` is a mandatory element of any Go benchmark.
+    Never change it or remove it! Similarly, never use `i` from the loop for your
+    function. It can be confusing at the start, but to run your benchmark, `go test`
+    might run `BenchmarkSum` multiple times to find the right `b.N`, depending on
+    how we run it. By default, `go test` will aim to run this benchmark for at least
+    1 second. This means it will execute our benchmark once with `b.N` that equals
+    1 m only to assess a single iteration duration. Based on that, it will try to
+    find the smallest `b.N` that will make the whole `BenchmarkSum` execute at least
+    1 second.^([3](ch08.html#idm45606829392480))
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `Sum` function I wanted to benchmark takes one argument—the filename containing
+    a list of the integers to sum. As we discussed in [“Complexity Analysis”](ch07.html#ch-hw-complexity),
+    the algorithm used in [Example 4-1](ch04.html#code-sum) depends on the number
+    of integers in the file. In this case, space and time complexity are `O(N)`, where
+    `N` is a number of integers. This means that `Sum` with a single integer will
+    be faster and allocate less memory than `Sum` with thousands of integers. As a
+    result, the choice of input will significantly change the efficiency results.
+    But how do we find the correct test input for our benchmark? Unfortunately, there
+    is no single answer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Choice of Test Data and Conditions for Our Benchmarks
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Generally, we want the smallest possible (thus quickest and cheapest to use!)
+    dataset, which will give us enough knowledge and confidence in our program efficiency
+    characteristic patterns. On the other hand, it should be big enough to trigger
+    potential limits and bottlenecks that users might experience. As we mentioned
+    in [“Reproducing Production”](ch07.html#ch-obs-rel-repro), the test data should
+    simulate the production workload as much as possible. We aim for “typicality.”
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, if our functionality has a massive problem for specific input, we should
+    also include that in our benchmarks!
+  prefs: []
+  type: TYPE_NORMAL
+- en: To make things more difficult, we are additionally constrained with the data
+    size for microbenchmarks. Typically, we want to ensure those benchmarks can run
+    at maximum within a matter of minutes and in our development environments for
+    the best agility and shortest feedback loop possible. On the bright side, there
+    are ways to find some efficiency pattern of your program, run benchmarks with
+    a couple of times smaller dataset than the potential production dataset, and extrapolate
+    the possible results.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For example, on my machine it takes [Example 4-1](ch04.html#code-sum) about
+    78.4 ms to sum 2 million integers. If I benchmark with 1 million integers, it
+    takes 30.5 ms. Given these two numbers, we could assume with some confidence^([4](ch08.html#idm45606829378320))
+    that our algorithm, on average, requires around 29 nanoseconds to sum a single
+    integer.^([5](ch08.html#idm45606829377392)) If our RAER specifies, for example,
+    that we have to sum 2 billion integers under 30 seconds, we can assume our implementation
+    is too slow as 29 ns * 2 billion is around 58 seconds.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For those reasons, I decided to stick with 2 million integers for the [Example 4-1](ch04.html#code-sum)
+    benchmark. It is a big enough number to show some bottlenecks and efficiency patterns
+    but small enough to keep our program relatively quick (on my machine, it can perform
+    around 14 operations within 1 second.)^([6](ch08.html#idm45606829374944)) For
+    now, I created a *testdata* directory (excluded from the compilation) and manually
+    created a file called *test.2M.txt* with 2 million integers. With the test data
+    and [Example 8-1](#code-sum-go-bench-simple), I added the functionality I want
+    to test, as presented in [Example 8-2](#code-sum-go-bench).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 8-2\. Simplest Go benchmark for assessing efficiency of the `Sum` function
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: To run this benchmark, we can use the `go test` command, which is available
+    when we [install Go](https://oreil.ly/dQ57t) on our machine. `go test` allows
+    us to run all specified tests, fuzzing tests, or benchmarks. For benchmarks, `go
+    test` has many options that allow us to control how it will execute our benchmark
+    and what artifacts it will produce after a run. Let’s go through example options,
+    presented in [Example 8-3](#code-sum-go-bench-run).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 8-3\. Example commands we can use to run [Example 8-2](#code-sum-go-bench)
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_benchmarking_CO2-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: This command executes a single benchmark function with the explicit name `BenchmarkSum`.
+    You can use the [RE2 regex language](https://oreil.ly/KDIL9) to filter the tests
+    you want to run. Notice the `-run` flag that strictly matches no functional test.
+    This is to make sure no unit test will be run, allowing us to focus on the benchmark.
+    Empty `-run` flags mean that all unit tests will be executed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_benchmarking_CO2-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: With `-benchtime`, we can control how long or how many iterations (functional
+    operations) our benchmark should execute. In this example, we choose to have as
+    many iterations as can fit in a 10-second interval.^([7](ch08.html#idm45606829214608))
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_benchmarking_CO2-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can choose to set `-benchtime` to the exact amount of iterations. This is
+    used less often because, as a microbenchmark user, you want to focus on a quick
+    feedback loop. When iterations are specified, we don’t know when the test will
+    end and if we need to wait 10 seconds or 2 hours. This is why it’s often preferred
+    to limit the benchmark time, and if we see too few iterations, increase the number
+    in `-benchtime` a little, or change the benchmark implementation or test data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_benchmarking_CO2-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can also repeat the benchmark cycle with the `-count` flag. Doing so is very
+    useful, as it allows us to calculate the variance between runs (with tools explained
+    in [“Understanding the Results”](#ch-obs-micro-res)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The full list of options is pretty long, and you can list them anytime using
+    [`go help testflag`](https://oreil.ly/F2wTM).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Running Go Benchmarks Through IDE
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Almost all modern IDEs allow us to simply click on the Go benchmark function
+    and execute it from the IDE. So feel free to do it. Just set up the correct options,
+    or at least be aware of what options are there by default!
+  prefs: []
+  type: TYPE_NORMAL
+- en: I use the IDE to trigger initial, one-second benchmark runs, but I prefer good
+    old CLI commands for more complex cases. They are easy to use and it’s easy to
+    share the test run configuration with others. In the end, use what you feel the
+    most comfortable with!
+  prefs: []
+  type: TYPE_NORMAL
+- en: For my `Sum` benchmark, I created a helpful one-liner with all the options I
+    need, presented in [Example 8-4](#code-sum-go-bench-all).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 8-4\. One-line shell command to benchmark [Example 4-1](ch04.html#code-sum)
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_benchmarking_CO3-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: It is very tempting to write complex scripts or frameworks to save the result
+    in the correct place, create automation that compares results for your use, etc.
+    In many cases, that is a trap because Go benchmarks are typically ephemeral and
+    easy to run. Still, I decided to add a tiny amount of bash scripting to ensure
+    the artifacts my benchmark will produce have the same name I can refer to later.
+    When I benchmark a new code version with optimizations, I can manually adjust
+    the `ver` variable to different values like `v2`, `v3`, or `v2-with-streaming`
+    for later comparisons.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_benchmarking_CO3-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sometimes if we aim to optimize latency via concurrent code, as in [“Optimizing
+    Latency Using Concurrency”](ch10.html#ch-opt-latency-concurrency-example), it
+    is important to control the number of CPU cores the benchmarks were allowed to
+    use. This can be achieved with the `-cpu` flag. It sets the correct `GOMAXPROCS`
+    setting. As we mentioned in [“Performance Nondeterminism”](ch07.html#ch-obs-rel-unkn),
+    the choice of the exact value highly depends on what the production environment
+    looks like and how many CPUs your development machine has.^([8](ch08.html#idm45606829011072))
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_benchmarking_CO3-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: There is no point in optimizing latency if our optimization allocates an extreme
+    amount of memory which, as we learned in [“Memory Relevance”](ch05.html#ch-hw-mem),
+    might be our first enemy. In my experience, the memory allocations cause more
+    problems than CPU usage, so I always try to pay attention to allocations with
+    `-benchmem`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_benchmarking_CO3-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you run your microbenchmark and see results you are not happy with, your
+    first question is probably what caused that slowdown or high memory usage. This
+    is why the Go benchmark has built-in support for profiling, explained in [Chapter 9](ch09.html#ch-observability3).
+    I am lazy, so I usually keep those options on by default, similar to `-benchtime`.
+    As a result, I can always dive into the profile to find the line of code that
+    contributed to suspicious resource usage. Similar to `-benchtime` and `ReportAllocs`,
+    those are turned off by default because they add a slight overhead to latency
+    measurements. However, it’s usually safe to leave them turned on unless you measure
+    ultra-low latency operations (tens of nanoseconds). Especially the `-cpuprofile`
+    option adds some allocations and latency in the background.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_benchmarking_CO3-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: By default, `go test` prints results to standard output. However, to reliably
+    compare and not get lost in what results correspond to what runs, I recommend
+    saving them in temporary files. I recommend using `tee` to write both to file
+    and standard output, so you can follow the progress of the benchmark.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'With the benchmark implementation, input file, and execution command, it’s
+    time to perform our benchmark. I executed [Example 8-4](#code-sum-go-bench-all)
+    in the directory of the test file on my machine, and after 32 seconds, it finished.
+    It created three files: *v1.cpu.pprof*, *v1.mem.pprof*, and *v1.txt*. In this
+    chapter, we are most interested in the last file, so you can learn how to read
+    and understand the Go benchmark output. Let’s do that in the next section.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Understanding the Results
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: After each run, the `go test` benchmark prints the result in a consistent format.^([9](ch08.html#idm45606828985008))
+    [Example 8-5](#code-sum-go-bench-out) presents the output runs executed with [Example 8-4](#code-sum-go-bench-all)
+    on the code presented in [Example 4-1](ch04.html#code-sum).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 8-5\. The output of the *v1.txt* file produced by the [Example 8-4](#code-sum-go-bench-all)
+    command
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_benchmarking_CO4-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Every benchmark run captures some basic information about the environment like
+    architecture, operating system type, the package we run the benchmark in, and
+    the CPU on the machine. Unfortunately, as we discussed in [“Reliability of Experiments”](ch07.html#ch-obs-rel),
+    there are many more elements that could be worth capturing^([10](ch08.html#idm45606828962032))
+    that can impact the benchmark.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_benchmarking_CO4-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Every row represents a single run (i.e., if you ran the benchmark with `-count=1`,
+    you would have just a single line). The line consists of three or more columns.
+    The number depends on the benchmark configuration, but the order is consistent.
+    From the left, we have:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Name of the benchmark with the suffix representing the number of CPUs available
+    (in theory^([11](ch08.html#idm45606828942480))) for this benchmark. This tells
+    us what we can expect for concurrent implementations.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Number of iterations in this benchmark run. Pay attention to this number; if
+    it’s too low, the numbers in the other columns might not reflect reality.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Nanoseconds per operation resulting from `-benchtime` divided by a number of
+    runs.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Allocated bytes per operation on the heap. As you learned in [Chapter 5](ch05.html#ch-hardware2),
+    remember that this does not tell us how much memory is allocated in any other
+    segments, like manual mappings, caches, and stack! This column is present only
+    if the `-benchmem` flag was set (or `ReportAllocs`).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Number of allocations per operation on the heap (also only present with the
+    `-benchmem` flag set).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Optionally, you can report your own metrics per operation using the `b.ReportMetric`
+    method. See this [example](https://oreil.ly/IuwYl). This will appear as further
+    columns and can be aggregated similarly with the tooling explained later.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: If you run [Example 8-4](#code-sum-go-bench-all) and you see no output for a
+    long time, it might mean that the first run of your microbenchmark is taking that
+    long. If your `-benchtime` is time based, the `go test` quickly checks how long
+    it takes to run a single iteration to find the estimated number of iterations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If it takes too much time, unless you want to run 30+ minute tests, you might
+    need to optimize the benchmark setup, reduce the data size, or split the microbenchmark
+    into smaller functionality. Otherwise, you won’t achieve hundreds or dozens of
+    required iterations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you see the initial output (`goos`, `goarch`, `pkg`, and benchmark name),
+    a single iteration run has completed, and a proper benchmark has started.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The results presented in [Example 8-5](#code-sum-go-bench-out) can be read directly,
+    but there are some challenges. First of all, the numbers are in the base unit—it’s
+    not obvious at first glance to see if we allocate 600 MB, 60 MB, or 6 MB. It’s
+    the same if we translate our latency to seconds. Secondly, we have five measurements,
+    so which one do we choose? Finally, how do we compare a second microbenchmark
+    result done for the code with the optimization?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Fortunately, the Go community created another CLI tool, [`benchstat`](https://oreil.ly/PWSN4),
+    that performs further processing and statistical analysis of one or multiple benchmark
+    results for easier assessment. As a result, it has become the most popular solution
+    for presenting and interpreting Go microbenchmark results in recent years.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can install `benchstat` using the standard `go install` tooling, for example,
+    `go install golang.org/x/perf/cmd/benchstat@latest`. Once completed, it will be
+    present in your $GOBIN or *$GOPATH/bin* directory. You can then use it to present
+    the results we got in [Example 8-5](#code-sum-go-bench-out); see the example usage
+    in [Example 8-6](#code-sum-go-bench-benchstat).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 8-6\. Running `benchstat` on the results presented in [Example 8-5](#code-sum-go-bench-out)
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_benchmarking_CO5-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can run `benchstat` with the *v1.txt* containing [Example 8-5](#code-sum-go-bench-out).
+    The `benchstat` can parse the format of the `go test` tooling from one or multiple
+    benchmarks performed once or multiple times on the same code version.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_benchmarking_CO5-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: For each benchmark, `benchstat` calculates the mean (average) of all runs and
+    `±` the variance across runs (1% in this case). This is why it’s essential to
+    run `go test` benchmarks multiple times (e.g., with the `-count` flag); otherwise,
+    with just a single run, the variance will indicate a misleading 0%. Running more
+    tests allows us to assess the repeatability of the result, as we discussed in
+    [“Performance Nondeterminism”](ch07.html#ch-obs-rel-unkn). Run `benchstat --help`
+    to see more options.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once we have confidence in our test run, we can call it baseline results. We
+    typically want to assess the efficiency of our code with the new optimization
+    by comparing it with our baseline. For example, in [Chapter 10](ch10.html#ch-opt)
+    we will optimize the `Sum`, and one of the optimized versions will be twice as
+    fast. I found this by changing the `Sum` function visible in [Example 4-1](ch04.html#code-sum)
+    to `ConcurrentSum3` (the code is presented in [Example 10-12](ch10.html#code-sum-concurrent3)).
+    Then I ran the benchmark implemented in [Example 8-2](#code-sum-go-bench) using
+    exactly the same command shown in [Example 8-4](#code-sum-go-bench-all), just
+    changing `ver=v1` to `ver=v2` to produce *v2.txt* and *v2.cpu.pprof* and *v2.mem.pprof*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `benchstat` helped us calculate variance and provided human-readable units.
+    But there is another helpful feature: comparing results from different benchmark
+    runs. For example, [Example 8-7](#code-sum-go-bench-benchstat2) shows how I checked
+    the difference between the naive and improved concurrent implementation.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 8-7\. Running `benchstat` to compare results from v1.txt and v2.txt
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_benchmarking_CO6-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Running `benchstat` with two files enables comparison mode.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_benchmarking_CO6-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In comparison mode, `benchstat` provides a delta column showing the delta between
+    two means in a percentage or `~` if the significance test fails. The significance
+    test is defaulted to the [Mann-Whitney U test](https://oreil.ly/ESCAz) and can
+    be disabled with `-delta-test=none`. The significance test is an extra statistical
+    analysis that calculates the [p-value](https://oreil.ly/6K0zl), which by default
+    should be smaller than `0.05` (configurable with `-alpha`). It gives us additional
+    information on top of the variance (after `±`) if the results can be safely compared.
+    The `n=5+5` represents the sample sizes in both results (both benchmark runs were
+    done with `-count=5`).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Thanks to `benchstat` and Go benchmarks, we can tell with some confidence that
+    our concurrent implementation is around 50% faster and does not impact allocations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Careful readers might notice that the allocation size failed the significance
+    test of `benchstat` (`p` is higher than 0.05). I could improve that by running
+    benchmarks with a higher `-count` (e.g., 8 or 10).
+  prefs: []
+  type: TYPE_NORMAL
+- en: I left this significance test failing on purpose to show you that there are
+    cases when you can apply common reasoning. Both results indicate large 60.8 MB
+    allocations with minimal variance. We can clearly say that both implementations
+    use a similar amount of memory. Do we care whether one implementation uses a few
+    KB more or less? Probably not, so we can skip the `benchstat` significance test
+    that verifies if we can trust the delta. No need to spend more time here than
+    needed!
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Analyzing microbenchmarks might be confusing initially, but hopefully, the
+    presented flow using `benchstat` taught you how to assess efficiencies of different
+    implementations without having a degree in data science! Generally, while using
+    `benchstat`, remember to:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Run more tests than one (`-count`) to be able to spot the noise.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Check that the variance number after `±` is not higher than 3–5%. Be especially
+    vigilant in variance for smaller numbers.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: To rely on an accurate delta across results with higher variance, check the
+    significance test (p-value).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: With this in mind, let’s go through a few common advanced tricks that you might
+    find very useful in your day-to-day work with Go benchmarks!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tips and Tricks for Microbenchmarking
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The best practices for microbenchmarking are often learned from your own mistakes
+    and rarely shared with others. Let’s break that up by mentioning some of the common
+    aspects of Go microbenchmarks that are worth being aware of.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Too-High Variance
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: As we learned in [“Performance Nondeterminism”](ch07.html#ch-obs-rel-unkn),
+    knowing the variance of our tests is critical. If the difference between microbenchmarks
+    is more than, let’s say, 5%, it indicates potential noise, and we might not be
+    able to rely on those results entirely.
+  prefs: []
+  type: TYPE_NORMAL
+- en: I had this case when preparing [“Optimizing Latency Using Concurrency”](ch10.html#ch-opt-latency-concurrency-example).
+    When benchmarking, my results had way too large a variance as the `benchstat`
+    result suggested. The results from that run are presented in [Example 8-8](#code-sum-go-bench-benchstat-unr).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 8-8\. `benchstat` indicating large variance in latency results
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_benchmarking_CO7-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Nineteen percent variance is quite scary. We should ignore such results and
+    stabilize the benchmark before making any conclusions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: What can we do in this case? We already mentioned a few things in [“Performance
+    Nondeterminism”](ch07.html#ch-obs-rel-unkn). We should consider running the benchmark
+    longer, redesigning our benchmark, or running it in different environmental conditions.
+    In my case I had to close my browser and increase `-benchtime` from 5 s to 15
+    s to achieve the 2% variance run in [Example 8-7](#code-sum-go-bench-benchstat2).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Find Your Workflow
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'In [“Go Benchmarks”](#ch-obs-micro-go), you followed me through my efficiency
+    assessment cycle on a micro level. Of course, this can vary, but it is generally
+    based on `git` branches, and can be summarized as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: I check for any existing microbenchmark implementation for what I want to test.
+    If none exists, I will create one.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: In my terminal, I execute a command similar to [Example 8-4](#code-sum-go-bench-all)
+    to run the benchmark several times (5–10). I save results to something like *v1.txt*,
+    save profiles, and assume that as my baseline.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: I assess the *v1.txt* results to check if the resource consumption is roughly
+    what I expect from my understanding of the implementation and the input size.
+    To confirm or reject, I perform the bottleneck analysis explained in [Chapter 9](ch09.html#ch-observability3).
+    I might perform more benchmarks for different inputs at this stage to learn more.
+    This tells me roughly if there is room for some easy optimizations, should I invest
+    in more dangerous and deliberate optimization, or should I move to optimizations
+    on a different level.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Assuming room for some optimizations, I create a new [`git` branch](https://oreil.ly/AcM1D)
+    and implement it.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Following the TFBO flow, I test my implementation first.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: I commit the changes, run the benchmarking function with the same command, and
+    save it to, e.g., *v2.txt*.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: I compare the results with `benchstat` and adjust the benchmark or optimizations
+    to achieve the best results.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: If I want to try a different optimization, I create yet another `git` branch
+    or build new commits on the same branch and repeat the process (e.g., produce
+    *v3.txt*, *v4.txt*, and so on). This allows me to get back to previous optimizations
+    if an attempt makes me pessimistic.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: I jot findings in my notes, commit message, or repository change set (e.g.,
+    pull requests), and discard my *.txt* results (expiration date!).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'This flow works for me, but you might want to try a different one! As long
+    as it’s not confusing for you, is reliable, and follows the TFBO pattern we discussed
+    in [“Efficiency-Aware Development Flow”](ch03.html#ch-conq-eff-flow), use it.
+    There are many other options, for example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can use your terminal history to track benchmarking results.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: You can create different functions for the same functionality with different
+    optimizations. Then you can swap what function you use in your benchmark functions
+    if you don’t want to use `git` here.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Use `git stash` instead of commits.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Finally, you can follow the [Dave Cheney flow](https://oreil.ly/1MJNT) that
+    uses the `go test -c` command to build the testing framework and your code into
+    a separate binary. You can then save this binary and perform benchmarks without
+    rebuilding source code or saving your test results.^([12](ch08.html#idm45606828737680))
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: I would propose trying different flows and learning what helps you the most!
+  prefs: []
+  type: TYPE_NORMAL
+- en: I would suggest avoiding writing too complex automation for our local microbenchmarking
+    workflow (e.g., complex bash script to automate some steps). Microbenchmarks are
+    meant to be more interactive, where you can manually dig information you care
+    for. Writing complex automation might mean more overhead and a longer feedback
+    loop than needed. Still, if this is working for you, do it!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Test Your Benchmark for Correctness!
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: One of the most common mistakes we make in benchmarking is assessing the efficiency
+    of the function that does not provide correct results. Due to the nature of deliberate
+    optimizations, it is easy to introduce a bug that breaks the functionality of
+    our code. Sometimes, optimizing failed executions is important,^([13](ch08.html#idm45606828728032))
+    but it should be an explicit decision.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The “Testing” part in TFBO, explained in [“Efficiency-Aware Development Flow”](ch03.html#ch-conq-eff-flow),
+    is not there by mistake. Our priority should be to write a unit test for the same
+    functionality we will benchmark. An example unit test for our `Sum` function can
+    look like [Example 8-9](#code-sum-go-test).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 8-9\. Example unit test to assess the correctness of the `Sum` function
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: Having the unit test ensures that with the right CI configured, when we propose
+    our change to the main repository (perhaps via a [pull request](https://oreil.ly/r24MR)
+    [PR]), we will notice if our code is correct or not. So this already improves
+    the reliability of our optimization job.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'However, there are still things we could do to improve this process. If you
+    only test as the last development step, you might have already performed all the
+    effort of benchmarking and optimizing without realizing that the code is broken.
+    This can be mitigated by manually running the unit test in [Example 8-10](#code-sum-go-bench-test)
+    before each benchmarking run, e.g., the [Example 8-2](#code-sum-go-bench) code.
+    This helps, but there are still some slight problems:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: It is tedious to run yet another thing after our changes. So it’s too tempting
+    to skip that manual process of running functional tests after the change to save
+    time and achieve an even quicker feedback loop.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The function might be well tested in the unit test, but there are differences
+    between how you invoke your function in the unit test and the benchmark.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Additionally, as you learned in [“Comparison to Functional Testing”](ch07.html#ch-obs-bench-intro-fun),
+    for benchmarks we need different inputs. A new thing means a new place for making
+    an error! For example, when preparing the benchmark for this book in [Example 8-2](#code-sum-go-bench),
+    I accidentally made a typo in the filename (*testdata/test2M.txt* instead of *testdata/test.2M.txt*).
+    When I ran my benchmark, it passed with very low latency results. Turns out the
+    `Sum` did not work other than failing with the file does not exist error. Because
+    in [Example 8-2](#code-sum-go-bench) I ignored all errors for simplicity, I missed
+    that information. Only intuition told me that my benchmark ran a bit too quickly
+    to be true, so I double-checked what `Sum` actually returned.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: During benchmarking at higher load, new errors might appear. For example, perhaps
+    we could not open another file due to the limit of file descriptors on the machine,
+    or our code does not clean files on disk, so we can’t write changes to the file
+    due to a lack of disk space.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Fortunately, an easy solution to that problem is adding a quick error check
+    to the benchmark iteration. It could look like [Example 8-10](#code-sum-go-bench-test).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 8-10\. Go benchmark for assessing the efficiency of the `Sum` function
+    with error check
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_benchmarking_CO8-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Asserting `Sum` does not return an error on every iteration loop.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It’s important to notice that the efficiency metrics we get after the benchmark
+    will include the latency contributed by the `testutil.Ok(b, err)` invocation,^([14](ch08.html#idm45606828555728))
+    even if there is no error. This is because we invoke this function in our `b.N`
+    loop, so it adds a certain overhead.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Should we accept this overhead? This is the same question we have about including
+    `-benchmem` and profile generation for tests, which also can add small noise.
+    Such overhead is unacceptable if we try to benchmark very fast operations (let’s
+    say under milliseconds fast). For the majority of benchmarks, however, such an
+    assertion will not change your benchmarking results. One would even argue that
+    such error assertion will exist in production, so it should be included in the
+    efficiency assessment.^([15](ch08.html#idm45606828553248)) Similar to `-benchmem`
+    and profiles, I add that assertion to almost all microbenchmarks I work with.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In some ways, we are still prone to mistakes. Perhaps with the large input,
+    the `Sum` function does not provide a correct answer without returning an error.
+    As with all testing, we will never stop all mistakes—there has to be a balance
+    between the effort of writing, executing, and maintaining extra tests and confidence.
+    It’s up to you to decide how much you trust your workflow.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you want to choose the preceding case for more confidence, you can add a
+    check that compares the returned sum with the expected result. In our case, it
+    will not be a big overhead to add `testutil.Equals(t, <expected number>, ret)`,
+    but usually it is more expensive and thus inappropriate to add for microbenchmarks.
+    For those purposes, I created a small [`testutil.TB` object](https://oreil.ly/wMX6O)
+    that allows you to run a single iteration of your microbenchmark for unit test
+    purposes. This allows it to be always up-to-date in terms of correctness, which
+    is especially challenging in bigger shared code repositories. For example, continuous
+    testing of our `Sum` benchmark could look like [Example 8-11](#code-sum-go-bench-test2).^([16](ch08.html#idm45606828507296))
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 8-11\. Testable Go benchmark for assessing the efficiency of the `Sum`
+    function
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_benchmarking_CO9-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`testutil.TB` is an interface that allows running a function as both benchmarks
+    and a unit test. Furthermore, it allows us to design our code, so the same benchmark
+    is executed by other functions, e.g., with extra profiling, as shown in [Example 10-2](ch10.html#code-sum-go-bench-fgprof).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_benchmarking_CO9-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `tb.N()` method returns `b.N` for the benchmark, allowing normal microbenchmark
+    execution. It returns `1` to perform one test run for unit tests.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_benchmarking_CO9-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can now put the extra code that might be more expensive (e.g., more complex
+    test assertions) in the space unreachable for benchmarks, thanks to the `tb.IsBenchmark()`
+    method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To sum up, please test your microbenchmark code. It will save you and your team
+    time in the long run. On top of that, it can provide a natural countermeasure
+    against unwanted compiler optimizations, explained in [“Compiler Optimizations
+    Versus Benchmark”](#ch-obs-micro-comp).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sharing Benchmarks with the Team (and Your Future Self)
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Once you finish your TFBO cycle and are happy with your next optimization iteration,
+    it’s time to commit to new code. Share what you found or achieved with your team
+    for more than your small one-person project. When someone proposes an optimization
+    change, it’s not uncommon to see the optimization in the production code and only
+    a small description: “I benchmarked it, and it was 30% faster.” This is not ideal
+    for multiple reasons:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: It’s hard for the reviewer to validate the benchmark without seeing the actual
+    microbenchmark code you use. It’s not that reviewers should not trust that you
+    tell the truth, but rather it’s easy to make a mistake, forget a side effect,
+    or benchmark wrongly.^([17](ch08.html#idm45606828284848)) For example, the input
+    has to be of a certain size to trigger the problem, or the input does not reflect
+    the expected use cases. This can only be validated by another person looking at
+    your benchmarking code. It’s especially important when we work remotely with the
+    team and in open source projects, where strong communication is essential.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Once merged, it’s likely any other change that touches this code might accidentally
+    introduce efficiency regression.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: If you or anyone else wants to try to improve the same part of code, they have
+    no other option than to re-create the benchmark and go through the same effort
+    you did in your pull request because the previous benchmark implementation is
+    gone (or stored on your machine).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The solution here is to provide as much context as possible on your experiment
+    details, input, and implementation of the benchmark. Of course, we can provide
+    that in some form of documentation (e.g., in the description of the pull report),
+    but there is nothing better than committing the actual microbenchmark next to
+    your production code! In practice, however, it isn’t so simple. Some extra pieces
+    are worth adding before sharing the microbenchmark with others.
+  prefs: []
+  type: TYPE_NORMAL
+- en: I optimized our `Sum` function and explained my benchmarking process. However,
+    you don’t want to write an entire chapter to explain the optimization you made
+    to your team (and your future self)! Instead, you could provide all that is needed
+    in a single piece of code as presented in [Example 8-12](#code-sum-go-bench2).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 8-12\. Well-documented, reusable Go benchmark for assessing concurrent
+    implementations of the `Sum` function
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_benchmarking_CO10-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: It might feel excessive for a simple benchmark, but good documentation significantly
+    increases the reliability of your and your team’s benchmarking. Mention any surprising
+    facts around this benchmark, dataset choice, conditions, or prerequisites in the
+    commentary.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_benchmarking_CO10-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: I recommend commenting on the benchmark with the suggested way to invoke it.
+    It’s not to force anything but rather to describe how you envisioned running this
+    benchmark (e.g., for how long). Future you or your team members will thank you!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_benchmarking_CO10-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Provide the exact input you intend to run your benchmark with. You could create
+    a static file for unit tests and commit it to your repository. Unfortunately,
+    the benchmarking inputs are often too big to be committed to your source code
+    (e.g., `git`). For this purpose, I created a small `createTestInput` function
+    that can generate a dynamic number of lines. Notice the use of [`b.TempDir()`](https://oreil.ly/elBJa),
+    which creates a temporary directory and cares about cleaning it manually afterward.^([18](ch08.html#idm45606828161072))
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_benchmarking_CO10-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Because you want to reuse this benchmark in the future, and it will also be
+    used by other team members, it makes sense to ensure others do not measure the
+    wrong thing, thus testing for basic error modes even in the benchmark.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Thanks to `b.ResetTimer()`, even if the input file creation is relatively slow,
+    latency and resource usage won’t be visible in the benchmarking results. However,
+    it might not be very pleasant for you while repeatedly running that benchmark.
+    Even more, you will experience that slowness more than once after. As we learned
+    in [“Go Benchmarks”](#ch-obs-micro-go), Go can run the benchmark multiple times
+    to find the correct `N` value. If the initialization takes too much time and impacts
+    your feedback loop, you can add the code that will cache test the input on the
+    filesystem. See [Example 8-13](#code-sum-go-bench3) for how you can add a simple
+    `os.Stat` to achieve this.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 8-13\. Example of the benchmark with input creation executed only once
+    and cached on disk
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_benchmarking_CO11-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`t.Helper` tells the testing framework to point out the line that invokes `lazyCreateTestInput`
+    when a potential error happens.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_benchmarking_CO11-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`os.Stat` stops executing `createTestInput` if the file exists. Be careful
+    when changing the characteristics or size of the input file. If you don’t change
+    the filename, the risk is that people who ran those tests will have a cached old
+    version of the input. However, that small risk is worth it if the creation of
+    the input is slower than a few seconds or so.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Such a benchmark provides elegant and concise information about the benchmark
+    implementation, purpose, input, run command, and prerequisites. Moreover, it allows
+    you and your team to replicate or reuse the same benchmark with little effort.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Running Benchmarks for Different Inputs
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: It’s often helpful to learn how the efficiency of our implementation changes
+    for different sizes and types of input. Sometimes it’s fine to manually change
+    the input in our code and rerun our benchmark, but sometimes we would like to
+    program benchmarks for the same piece of code against different inputs in our
+    source code (e.g., for our team to use later). Table tests are perfect for such
+    use cases. Typically, we see this pattern in functional tests, but we can use
+    it in microbenchmarks, as presented in [Example 8-14](#code-sum-go-bench-cases).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 8-14\. Table benchmark using a common pattern with `b.Run`
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_benchmarking_CO12-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: An inlined slice of anonymous structures works well here because you don’t need
+    to reference this type anywhere. Feel free to add any fields here to map test
+    cases as you need.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_benchmarking_CO12-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the test case loop, we can run `b.Run` that tells `go test` about a subbenchmark.
+    If you put the `""` empty string as the name, `go test` will use numbers as your
+    test case identification. I decided to present a number of lines as a unique description
+    of each test case. The test case identification will be added as a suffix, so
+    `BenchmarkSum/<test-case>`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_benchmarking_CO12-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: For these tests, `go test` ignores any `b.ReportAllocs` and other benchmark
+    methods outside the `b.Run`, so make sure to repeat them here.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_benchmarking_CO12-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A common pitfall here is to accidentally use `b` from the main function, not
+    from the closure created for the inner function. This is common if you try to
+    avoid shadowing the `b` variable and use a different variable name for the inner
+    `*testing.B,` e.g., `b.Run("", func(b2 *testing.B)`. These problems are hard to
+    debug, so I recommend always using the same name, e.g., `b`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Amazingly, we can use the same recommended `run` command presented in [Example 8-4](#code-sum-go-bench-all)
+    for a nontable test. The example run output processes by `benchstat` will then
+    look like [Example 8-15](#code-sum-go-bench-test-out).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 8-15\. `benchstat` output on results from the [Example 8-14](#code-sum-go-bench-cases)
+    test
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: I find the table tests great for quickly learning about the estimated complexity
+    (discussed in [“Complexity Analysis”](ch07.html#ch-hw-complexity)) of our application.
+    Then, after I learn more, I can trim the number of cases to those that can truly
+    trigger bottlenecks we saw in the past. In addition, committing such a benchmark
+    to our team’s source code will increase the chances that other team members (and
+    yourself!) will reuse it and run a microbenchmark with all cases that matter for
+    the project.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Microbenchmarks Versus Memory Management
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The simplicity of microbenchmarks has many benefits but also downsides. One
+    of the most surprising problems is that the memory statistics reported in the
+    `go test` benchmarks don’t tell a lot. Unfortunately, given how memory management
+    is implemented in Go ([“Go Memory Management”](ch05.html#ch-hw-go-mem)), we can’t
+    reproduce all the aspects of memory efficiency of our Go programs with microbenchmarks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As we saw in [Example 8-6](#code-sum-go-bench-benchstat), the naive implementation
+    of `Sum` in [Example 4-1](ch04.html#code-sum) allocates around 60 MB of memory
+    on the heap with the 1.6 million objects to calculate a sum for 2 million integers.
+    This tells us less about memory efficiency than we might think. It only tells
+    us three things:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Some of the latency we experience in microbenchmark results inevitably come
+    from the sole fact of making so many allocations (and we can confirm with profiles
+    how much it matters).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We can compare that number and size of allocations with other implementations.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We can compare the number and size of the allocation with expected space complexity
+    ([“Complexity Analysis”](ch07.html#ch-hw-complexity)).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Unfortunately, any other conclusion based on those numbers is in the realm of
+    estimations, which only can be verified when we run [“Macrobenchmarks”](ch07.html#ch-obs-benchmarking-macro)
+    or [“Benchmarking in Production”](ch07.html#ch-obs-benchmarking-prod). The reason
+    is very simple—there is no special GC schedule for benchmarks because we want
+    to ensure as close to production simulation as possible. They run on a normal
+    schedule like in production code, which means that during our 100 iterations of
+    our benchmark, the GC might run 1,000 times, 10 times, or for fast benchmarks
+    it might not run at all! Therefore, any attempts to manually trigger `runtime.GC()`
+    are also poor options, given that it’s not how it will be running in production
+    and might clash with normal GC schedules.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As a result, the microbenchmark will not give us a clear idea and the following
+    memory efficiency questions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: GC latency
+  prefs: []
+  type: TYPE_NORMAL
+- en: As we learned in [“Go Memory Management”](ch05.html#ch-hw-go-mem), a bigger
+    heap (more objects in a heap) will mean more work for the GC, which always translates
+    to increased CPU usage or, more often, GC cycles (even with fair 25% CPU usage
+    mechanisms). Because of nondeterministic GC and quick benchmarking operations,
+    we most likely won’t see GC impact on a microbenchmark level.^([19](ch08.html#idm45606827504960))
+  prefs: []
+  type: TYPE_NORMAL
+- en: Maximum memory usage
+  prefs: []
+  type: TYPE_NORMAL
+- en: If a single operation allocates 60 MB, does it mean that the program performing
+    one such operation at the time will need no more and no less than ~60 MB of memory
+    in our system? Unfortunately, for the same reason mentioned previously, we can’t
+    tell with microbenchmarks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It might be that our single operation doesn’t need all objects for the full
+    duration. This might mean that the maximum usage of memory will be, for example,
+    only 10 MB, despite the 60 MB allocation number, as the GC can do clean-up runs
+    multiple times in practice.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You might even have the opposite situation too! Especially for [Example 4-1](ch04.html#code-sum),
+    most of the memory is kept during the whole operation (it is kept in the file
+    buffer—we can tell that from profiling, explained in [“Profiling in Go”](ch09.html#ch-obs-profiling)).
+    On top of that, the GC might not clean the memory fast enough, resulting in the
+    next operation allocating 60 MB on top of the original 60 MB, requiring 120 MB
+    in total from the OS. This situation can be even worse if we do a larger concurrency
+    of our operations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is unfortunate, as the preceding problems are often seen in our Go code.
+    If we could verify those problems on microbenchmarks, it would be easier to tell
+    if we can reuse memory better (e.g., through [“Memory Reuse and Pooling”](ch11.html#ch-basic-pool))
+    or if we should straight reduce allocation and to what level. Unfortunately, to
+    tell for sure, we need to move to [“Macrobenchmarks”](#ch-obs-macro).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Still, the microbenchmark allocation information is incredibly useful if we
+    assume that, generally, more allocations can cause more problems. This is why
+    simply focusing on reducing the number of allocations or allocated space in our
+    micro-optimization cycle is still very effective. What we need to acknowledge,
+    however, is that those numbers from just microbenchmarking might not give us complete
+    confidence about whether the end GC overhead or maximum memory usage will be acceptable
+    or problematic. We can try to estimate this, but we won’t know for sure until
+    we move to the macro level to assess that.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Compiler Optimizations Versus Benchmark
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: There is a very interesting “meta” dynamic between microbenchmarking and compiler
+    optimizations, which is sometimes controversial. It is worth knowing about this
+    problem, the potential consequences, and how to mitigate them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Our goal when microbenchmarking is to assess the efficiency of the small part
+    of our production code with as high confidence as possible (given the amount of
+    time available and problem constraints). For this reason, the Go compiler treats
+    our [“Go Benchmarks”](#ch-obs-micro-go) benchmarking function like any other production
+    code. The same AST conversions, type safety, memory safety, dead code elimination,
+    and optimizations rules discussed in [“Understanding Go Compiler”](ch04.html#ch-hw-compilation)
+    are performed by the compiler on all parts of the code—no special exceptions for
+    benchmarks. Therefore, we are reproducing all production conditions, including
+    the compilation stage.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This premise is great, but what gets in the way of this philosophy is that
+    microbenchmarks are a little special. From the runtime process perspective, there
+    are three main differences between how this code is executed on production and
+    when we want to learn about production code efficiency:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: No other user code is running at the same time in the same process.^([20](ch08.html#idm45606827483632))
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We are invoking the same code in a loop.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We typically don’t use the output or return arguments.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Those three elements might not seem like a big difference, but as we learned
+    in [“CPU and Memory Wall Problem”](ch04.html#ch-hw-mem-wall), modern CPUs can
+    already run differently in those cases due to, e.g., different branch prediction
+    and L-cache locality. On top of that, you can imagine a smart enough compiler
+    that will adjust the machine code differently based on those cases too!
+  prefs: []
+  type: TYPE_NORMAL
+- en: This problem is especially visible when programming in Java because some compilation
+    phases are done in runtime, thanks to the mature just-in-time (JIT) compiler.
+    As a result, Java engineers must be [very careful when benchmarking](https://oreil.ly/OJKNS)
+    and use special [frameworks](https://oreil.ly/Cil2Z) for Java to ensure simulating
+    production conditions with warm-up phases and other tricks to increase the reliability
+    of benchmarks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In Go, things are simpler. The compiler is less mature than Java’s, and no JIT
+    compilation exists. While JIT is not even planned, some form of [runtime profile-guided
+    compiler optimization (PGO)](https://oreil.ly/yFYut) is being [considered for
+    Go](https://oreil.ly/jDYqF), which might make our microbenchmark more complex
+    in future. Time will tell.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, even if we focus on the current compiler, it sometimes can apply unwanted
+    optimizations to our benchmarking code. One of the known problems is called [dead
+    code elimination](https://oreil.ly/QG1y1). Let’s consider a low-level function
+    representing [`population count` instruction](https://oreil.ly/lnuMl) and the
+    naive microbenchmark in [Example 8-16](#code-bench-popcnt).^([21](ch08.html#idm45606827468608))
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 8-16\. `popcnt` function with the naive implementation of microbenchmark
+    impacted by compiler optimizations
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_benchmarking_CO13-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the original issue #14813, the input for the function was taken from `uint64(i)`,
+    which is a huge anti-pattern. You should never use `i''` from the `b.N` loop!
+    I want to focus on the surprising compiler optimization risk in this example,
+    so let’s imagine we want to assess the efficiency of `popcnt` working on the largest
+    unsigned integer possible (using `math.MaxInt64` to obtain it). This also will
+    expose us to an unexpected behavior mentioned below.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: If we execute this benchmark for a second, we will get slightly concerning output,
+    as presented in [Example 8-17](#code-bench-popcnt-out).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 8-17\. The output of the `BenchmarkPopcnt` benchmark from [Example 8-16](#code-bench-popcnt)
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_benchmarking_CO14-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Every time you see your benchmark making a billion iterations (maximum number
+    of iterations `go test` will do), you know your benchmark is wrong. It means we
+    will see a loop overhead rather than the latency we are measuring. This can be
+    caused by the compiler optimizing away your code or by measuring something too
+    fast to be measured with a Go benchmark (e.g., single instruction).
+  prefs: []
+  type: TYPE_NORMAL
+- en: What is happening? The first problem is that the Go compiler inlines the `popcnt`
+    code, and further optimization phases detected that no other code is using the
+    result of the inlined calculation. The compiler detects that no change in observable
+    behavior would occur if we remove this code, so it elides that inlined code part.
+    If we would list assembly code using `-gcflags=-S` on `go build` or `go test`,
+    you would notice there is no code responsible for performing statements behind
+    `popcnt` (we run an empty loop!). This can also be confirmed by running `GOSSAFUNC=BenchmarkPopcnt
+    go build` and opening *ssa.html* in your browser, which also lists the generated
+    assembly more interactively. We can verify this problem by running a test with
+    `-gcflags=-N`, which turns off all compiler optimizations. Executing or looking
+    at the assembly will show you the large difference.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The second problem is that all the iterations of our benchmark run `popcnt`
+    with the same constant number—the largest unsigned integer. Even if code elimination
+    did not happen, with inlining, the Go compiler is smart enough to precompute some
+    logic (sometimes referred to as [`intrinsic`](https://oreil.ly/NEOyQ)). The result
+    of `popcnt(math.MaxUint64)` is always 64, no matter how many times and where we
+    run it; thus, the machine code will simply use `64` instead of calculating `popcnt`
+    in every iteration.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Generally, there are three practical countermeasures against compiler optimization
+    in benchmarks:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Move to the macro level.
+  prefs: []
+  type: TYPE_NORMAL
+- en: On a macro level, there is no special code within the same binary, so we can
+    use the same machine code for both benchmarks and production code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Microbenchmark more complex functionality.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If compiler optimizations impact, you might be optimizing Go on a too low level.
+  prefs: []
+  type: TYPE_NORMAL
+- en: I personally haven’t been impacted by compiler optimization, because I tend
+    to microbenchmark on higher-level functionalities. If you benchmark really small
+    functions like [Example 8-16](#code-bench-popcnt), typically inlined and a few
+    nanoseconds fast, expect the CPU and compiler effect to impact you more. For more
+    complex code, the compiler typically is not as clever to inline or adjust the
+    machine code for benchmarking purposes. The number of instructions and data on
+    bigger macrobenchmarks will also more likely break the CPU branch predictor and
+    cache locality like it would at production.^([22](ch08.html#idm45606827194896))
+  prefs: []
+  type: TYPE_NORMAL
+- en: Outsmart compiler in microbenchmark.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you want to microbenchmark such a tiny function like [Example 8-16](#code-bench-popcnt),
+    there is no other way to obfuscate the compiler code analysis. What typically
+    works is using exported global variables. They are hard to predict given the current
+    per-package Go compilation logic^([23](ch08.html#idm45606827192512)) or using
+    `runtime.KeepAlive`, which is a newer way to tell compile that “this variable
+    is used” (which is a side effect of telling the GC to keep this variable on the
+    heap). The `//go:noinline` directive that stops the compiler from inlining function
+    might also work, but it’s not recommended as on production, your code might be
+    inlined and optimized, which we want to benchmark too.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If we would like to improve the Go benchmark shown in [Example 8-16](#code-bench-popcnt),
+    we could add the `Sink` pattern^([24](ch08.html#idm45606827188416)) and global
+    variable for input, as presented in [Example 8-18](#code-bench-popcnt2). This
+    works in Go 1.18 with the `gc` compiler, but it’s not prone to future improvements
+    in the Go compiler.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 8-18\. `Sink` pattern and variable input countermeasure unwanted compiler
+    optimization on microbenchmarks
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_benchmarking_CO15-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The global `Input` variable masks the fact that `math.MaxUint64` is constant.
+    This forces the compiler to not be lazy and do the work in our benchmark iteration.
+    This works because the compiler can’t tell if anyone else will change this variable
+    in runtime before or during experiments.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_benchmarking_CO15-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`Sink` is a similar global variable to `Input`, but it hides from the compiler
+    that the value of our function is never used, so the compiler won’t assume it’s
+    a dead code.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_benchmarking_CO15-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Notice that we don’t assign a value directly to the global variable as it’s
+    [more expensive](https://oreil.ly/yvNAi), thus potentially adding even more overhead
+    to our benchmark.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Thanks to the techniques presented in [Example 8-18](#code-bench-popcnt2), I
+    can assess that such an operation on my machine takes around 1.6 nanoseconds.
+    Unfortunately, although I got a stable result that (one would hope) is realistic,
+    assessing efficiency for such low-level code is fragile and complicated. Outsmarting
+    the compiler or disabling optimizations are quite controversial techniques—they
+    go against the philosophy that benchmarked code should be as close to production
+    code as possible.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Don’t Put Sinks Everywhere!
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: This section might feel scary and complicated. Initially, when I learned about
+    these complex compilation impacts, I was putting a sink to all my microbenchmarks
+    or assert errors only to avoid potential elision problems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: That is unnecessary. Be pragmatic, be vigilant of benchmarking results you can’t
+    explain (as mentioned in [“Human Errors”](ch07.html#ch-obs-rel-err)), and add
+    those special countermeasures.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Personally, I’d rather not see sinks appear everywhere until they are needed.
+    In many cases they won’t be, and the code is clearer without them. My advice is
+    to wait until the benchmark is clearly optimized away and only then put them in.
+    The details of the sink can depend on the context. If you have a function returning
+    an int, it’s fine to sum them up and then assign the result to a global, for example.
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: ''
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: Russ Cox (rsc), “Benchmarks vs Dead Code Elimination,” [email thread](https://oreil.ly/xGDYr)
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: In summary, be mindful of how the compiler can impact your microbenchmark. It
+    does not happen too often, especially if you are benchmarking on a reasonable
+    level, but when it happens, you should now know how to mitigate those problems.
+    My recommendation is to avoid relying on a microbenchmark at such a low level.
+    Instead, unless you are an experienced engineer interested in the ultra-high performance
+    of your Go code for a specific use case, move to a higher level by testing more
+    complex functionality. Fortunately, most of the code you will work with will likely
+    be too complex to trigger such a “battle” with the Go compiler.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Macrobenchmarks
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Programming books that cover performance and optimization topics don’t usually
+    describe benchmarking on a larger level than micro. This is because testing on
+    a macro level is a gray area for developers. Typically, it is the responsibility
+    of dedicated tester teams or QA engineers. However, for backend applications and
+    services, such macrobenchmarking involves experience, skills, and tools to work
+    with many dependencies, orchestration systems, and generally bigger infrastructure.
+    As a result, such activity used to be the domain of operation teams, system administrators,
+    and DevOps engineers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, things are changing a bit, especially for the infrastructure software,
+    which is my area of expertise. The cloud-native ecosystem makes infrastructure
+    tools more accessible for developers, with standards and technologies like [Kubernetes](https://kubernetes.io),
+    containers, and paradigms like [Site Reliability Engineering (SRE)](https://sre.google).
+    On top of that, the popular microservice architecture allows breaking functional
+    pieces into smaller programs with clear APIs. This allows developers to take more
+    responsibility for their areas of expertise. Therefore, in the last decades, we
+    are seeing the move toward making testing (and running) software on all levels
+    easier for developers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Participate in Macrobenchmarks That Touch Your Software!
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As a developer, it is extremely insightful to participate in testing your software,
+    even on a macro level. Seeing your software’s bugs and slowdowns gives crystal
+    clarity to the priority. Additionally, if you catch those problems on the setup
+    you control or are familiar with, it is easier to debug the problem or find the
+    bottleneck, ensuring a quick fix or optimization.
+  prefs: []
+  type: TYPE_NORMAL
+- en: I would like to break the mentioned convention and introduce you to some basic
+    concepts required for effective macrobenchmarking. Especially for backend applications,
+    developers these days have much more to say when it comes to accurate efficiency
+    assessment and bottleneck analysis at higher levels. So let’s use this fact and
+    discuss some basic principles and provide a practical example of running a macrobenchmark
+    via `go test`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Basics
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: As we learned in [“Benchmarking Levels”](ch07.html#ch-obs-benchmarking), macrobenchmarks
+    focus on testing your code at the product level (application, service, or system)
+    close to your functional and efficiency requirements (as described in [“Efficiency
+    Requirements Should Be Formalized”](ch03.html#ch-conq-req-formal)). As a result,
+    we could compare macrobenchmarking to integration or end-to-end (e2e) functional
+    testing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this section, I will mostly focus on benchmarking server-side, multicomponent
+    Go backend applications. There are three reasons why:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: That’s my speciality.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: It’s the typical target environment of applications written in the Go language.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: This application typically involves working with nontrivial infrastructure and
+    many complex dependencies.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Especially the last two items make it beneficial for me to focus on backend
+    applications, as other types of programs (CLI, frontend, mobile) might require
+    less-complex architecture. Still, all types will reuse some patterns and learnings
+    from this section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For instance, in [“Microbenchmarks”](#ch-obs-micro), we assessed the efficiency
+    of the `Sum` function ([Example 4-1](ch04.html#code-sum)) in our Go code, but
+    that function might have been a bottleneck for a much bigger product or service.
+    Imagine that our team’s task is to develop and maintain a bigger microservice
+    called `labeler` that uses the `Sum`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `labeler` will run in a container and connect to an object storage^([25](ch08.html#idm45606827011232))
+    with various files. Each file has potentially millions of integers in each new
+    line (the same input as in our `Sum` problem). The `labeler` job is to return
+    a label—the metadata and some statistics of the specified object when the user
+    calls the HTTP `GET` method `/label_object`. The returned label contains attributes
+    like the object name, object size, checksum, and more. One of the key label fields
+    is the sum of all numbers in the object.^([26](ch08.html#idm45606827007440))
+  prefs: []
+  type: TYPE_NORMAL
+- en: You learned first how to assess the efficiency of the smaller `Sum` function
+    on a micro level because it’s simpler. On the product level the situation is much
+    more complex. That’s why to perform reliable benchmarking (or bottleneck analysis)
+    on a macro level, there are a few differences to notice and extra components to
+    have. Let’s go through them, as presented in [Figure 8-1](#img-opt-macro-bench).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![efgo 0801](assets/efgo_0801.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 8-1\. Common elements required for the macrobenchmark, for example, to
+    benchmark the `labeler` service
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'The specific differences from our `Sum` microbenchmark can be outlined as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Our Go program as a separate process
+  prefs: []
+  type: TYPE_NORMAL
+- en: Thanks to [“Go Benchmarks”](#ch-obs-micro-go), we understand the efficiency
+    of the `Sum` function and can optimize it. But what if another part of the code
+    is now a bigger bottleneck in our flow? This is why we typically want to benchmark
+    our Go program with its full user flow on a macro level. This means running the
+    process in a similar fashion and configuration as in production. But unfortunately,
+    this also means we can’t run the `go test` benchmarking framework anymore as we
+    benchmark on the process level.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Dependencies, e.g., object storage
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'One of the key elements of macrobenchmarks is that we typically want to analyze
+    the efficiency of the full system, including all key dependencies. This is especially
+    important when our code might rely on certain efficiency characteristics of the
+    dependency. In our `labeler` example, we use object storage, which usually means
+    transferring bytes over the network. There might be little point in optimizing
+    `Sum` if the object storage communication is the main bottleneck in latency or
+    resource consumption. There are generally three ways of handling dependencies
+    on a macro level:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can try to use realistic dependency (e.g., in our example, the exact object
+    storage provider that will be used on production, with a similar dataset size).
+    This is typically the best idea if we want to test the end-to-end efficiency of
+    the whole system.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We can try to implement or use a [fake](https://oreil.ly/06UmC) or adapter that
+    will simulate production problems. However, this often takes too much effort and
+    it’s hard to simulate the exact behavior of, for example, a slow TCP connection
+    or server.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We could implement the simplest fake for our dependency and assess the isolated
+    efficiency of our program. In our example, this might mean running local, open
+    source object storage like [Minio](https://min.io). It will not reflect all the
+    problems we might have with production dependencies, but it will give us some
+    estimates on the problems and overhead for our program. We will use this in [“Go
+    e2e Framework”](#ch-obs-macro-example) for simplicity.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Observability
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: We can’t use [“Go Benchmarks”](#ch-obs-micro-go) on a macro level, so we don’t
+    have built-in support for latency, allocations, and custom metrics. So we have
+    to provide our observability and monitoring solution. Fortunately, we already
+    discussed instrumentation and observability for Go programs in [Chapter 6](ch06.html#ch-observability),
+    which we can use on a macro level. In [“Go e2e Framework”](#ch-obs-macro-example),
+    I will show you a framework that has built-in support for the open source [Prometheus](https://prometheus.io)
+    project, which allows gathering latency, usage, and custom benchmarking metrics.
+    You can enrich this setup with other tools like tracing, logging, and continuous
+    profiling to debug the functional and efficiency problems even easier.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Load tester
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Another consequence of getting out of the Go benchmark framework is the missing
+    logic of triggering the experiment cases. Go benchmark was executing our code
+    the desired amount of times with desired arguments. On the macro level, we might
+    want to use this service as the user would use the HTTP REST API for web services
+    like `labeler`. This is why we need some load-tester code that understands our
+    APIs and will call them the desired amount of times and arguments.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: You can implement your own to simulate the user traffic, which unfortunately
+    is prone to errors.^([27](ch08.html#idm45606826978976)) There are ways to “fork”
+    or replay production traffic to the testing product using more advanced solutions
+    like Kafka. Perhaps the easiest solution is to pick an off-the-shelf framework
+    like an open source [k6](https://k6.io) project, which is designed and battle-tested
+    for load-testing purposes. I will present an example of using k6 in [“Go e2e Framework”](#ch-obs-macro-example).
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Continuous Integration (CI) and Continuous Deployment (CD)
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Finally, we rarely run macrobenchmarks on local development machines for more
+    complex systems. This means we might want to invest in automation that schedules
+    the load test and deploys required components with the desired version.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: With such architecture, we can perform the efficiency analysis on a macro level.
+    Our goals are similar to what we have for [“Microbenchmarks”](#ch-obs-micro),
+    just on a more complex system, such as A/B testing and learning the space and
+    runtime complexity of your system functionality. However, given that we are closer
+    to how users use our system, we can also treat it as an acceptance test that will
+    validate efficiency with our RAER.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The theory is important, but how does it look in practice? Unfortunately, there
+    is no consistent way of performing macrobenchmarks with Go, as it highly depends
+    on your use case, environment, and goals. However, I would like to provide an
+    example of a pragmatic and fast macrobenchmark of `labeler` that we can perform
+    on our local development machine using Go code! So let’s dive into the next section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Go e2e Framework
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Backend macrobenchmarking does not necessarily always mean using the same deployment
+    mechanism we have in production (e.g., Kubernetes). However, to reduce the feedback
+    loop, we can try macrobenchmarking with all the required dependencies, dedicated
+    load tester, and observability on our developer machine or small virtual machine
+    (VM). In many cases, it might give you reliable enough results on a macro level.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For experiments, you can manually deploy all the elements mentioned in [“Basics”](#ch-obs-macro-basics)
+    on your machine. For example, you can write a bash script or [Ansible](https://oreil.ly/x9LTf)
+    runbook. However, since we are Go developers looking to improve the efficiency
+    of our code, what about implementing such a benchmark in Go code and saving it
+    next to your benchmarked code?
+  prefs: []
+  type: TYPE_NORMAL
+- en: For this purpose, I would like to introduce you to the [`e2e`](https://oreil.ly/f0IJo)
+    Go framework that allows running interactive or automated experiments on a single
+    machine using Go code and Docker containers. [The container](https://oreil.ly/aMXxz)
+    is a concept that allows running processes in an isolated, secure sandbox environment
+    while reusing the host’s kernel. In this concept, we execute software inside predefined
+    container images. This means we must build (or download) a required image of the
+    software we want to run beforehand. Alternatively, we can build our container
+    image and add required software like pre-build binary of our Go program, e.g.,
+    `labeler`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A container is not a first-class citizen on any OS. Instead, it can be constructed
+    with existing Linux mechanisms like `cgroups`, `namespaces`, and Linux Security
+    Modules ([LSMs](https://oreil.ly/C4h3z)). Docker provides one implementation of
+    the container engine, among others.^([28](ch08.html#idm45606826953008)) Containers
+    are also heavily used for large cloud-native infrastructure thanks to orchestration
+    systems like Kubernetes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To leverage all benefits of containers, run only one process per container!
+    Putting more processes (e.g., local database) into one container is tempting.
+    But that defies the point of observing and isolating containers. Tools like Kubernetes
+    or Docker are designed for singular processes per container, so put auxiliary
+    processes in sidecar containers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s go through a complete macrobenchmark implementation divided into two parts,
+    Examples [8-19](#code-macrobench) and [8-20](#code-macrobench2), that assess latency
+    and memory usage of our `labeler` service introduced in [“Basics”](#ch-obs-macro-basics).
+    For convenience, our implementation can be scripted and executed as a normal `go
+    test` guarded by `t.Skip` or [build tag](https://oreil.ly/tyue6) to execute it
+    manually or in a different cadence than functional tests.^([30](ch08.html#idm45606826932640))
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 8-19\. Go test running the macrobenchmark in interactive mode (part
+    1)
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_benchmarking_CO16-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The e2e project is a Go module that allows the creation of end-to-end testing
+    environments. It currently supports running the components (in any language) in
+    [Docker containers](https://oreil.ly/iXrgX), which allows clean isolation for
+    both filesystems, network, and observability. Containers can talk to each other
+    but can’t connect with the host. Instead, the host can connect to the container
+    via mapped `localhost` ports printed at the container start.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_benchmarking_CO16-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `e2emonitoring.Start` method starts Prometheus and [cadvisor](https://oreil.ly/v9gEL).
+    The latter translates cgroups related to our containers to Prometheus metric format
+    so it can collect them. Prometheus will also automatically collect metrics from
+    all containers started using `e2e.New​InstrumentedRunnable`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_benchmarking_CO16-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: For an interactive exploration of resource usage and application metrics, we
+    can invoke `mon.OpenUserInterfaceInBrowser()` that will open the Prometheus UI
+    in our browser (if running on a desktop).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_benchmarking_CO16-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`Labeler` uses object storage dependency. As mentioned in [“Basics”](#ch-obs-macro-basics),
+    I simplified this benchmark by focusing on `labeler` Go program efficiency without
+    the impact of remote object storage. For that purpose, local `Minio` container
+    is suitable.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_benchmarking_CO16-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, it’s time to start our `labeler` Go program in the container. It is
+    worth noticing that I set the container CPU limit to `4` (enforced by Linux `cgroups`)
+    to ensure our local benchmark is not saturating all the CPUs my machines have.
+    Finally, we inject object storage configuration to connect with the local `minio`
+    instance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![6](assets/6.png)](#co_benchmarking_CO16-6)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: I used the `labeler:test` image that is built locally. I often add a script
+    in `Makefile` to produce such an image, e.g., `make docker`. You risk forgetting
+    to build the image with the desired Go program version you want to benchmark,
+    so be mindful of what you are testing!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 8-20\. Go test running the macrobenchmark in interactive mode (part
+    2)
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_benchmarking_CO17-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We have to upload some test data. In our simple test, we upload a single file
+    with two million lines, using a similar pattern we used in [“Go Benchmarks”](#ch-obs-micro-go).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_benchmarking_CO17-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: I choose `k6` as my load tester. `k6` works as a batch job, so I first have
+    to create a long-running empty container. I can then execute new processes in
+    the `k6` environment to put the desired load on my `labeler` service. As a shell
+    command, I pass the load-testing script as an input to the `k6` CLI. I also specify
+    the number of virtual users (`-u` or `--vus`) I want. VUS represents the workers
+    or threads running load-test functions specified in the script. To keep our tests
+    and results simple, let’s stick to one user for now to avoid simultaneous HTTP
+    calls. The `-d` (short flag for `--duration`) is similar to the `-benchtime` flag
+    in our [“Go Benchmarks”](#ch-obs-micro-go). See more tips about using [`k6` here](https://oreil.ly/AbLOD).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_benchmarking_CO17-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`k6` accepts load-testing logic programmed in simple JavaScript code. My load
+    test is simple. Make an HTTP `GET` call to the `labeler` path I want to benchmark.
+    I choose to sleep 500 ms after each HTTP call to give the `labeler` server time
+    to clean resources after each call.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_benchmarking_CO17-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Similar to [“Test Your Benchmark for Correctness!”](#ch-obs-micro-corr), we
+    have to test the output. If we trigger a bug in the `labeler` code or macrobenchmark
+    implementation, we might be measuring the wrong thing! Using the `check` JavaScript
+    functions allows us to assert the expected HTTP code and output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_benchmarking_CO17-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We might want to add here the automatic assertion rules that pass these tests
+    when latency or memory usage is within a certain threshold. However, as we learned
+    in [“Comparison to Functional Testing”](ch07.html#ch-obs-bench-intro-fun), finding
+    reliable assertion for efficiency is difficult. Instead, I recommend learning
+    about our `labeler` efficiency in a more interactive way. The `e2einteractive.RunUntilEndpointHit()`
+    stops the `go test` benchmark until you hit the printed HTTP URL. It allows us
+    to explore all outputs and our observability signals, e.g., collected metrics
+    about `labeler` and the test in Prometheus.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The code snippet might be long, but it’s relatively small and readable compared
+    to how many things it orchestrates. On the other hand, it has to describe quite
+    a complex macrobenchmark to configure and schedule five processes in one reliable
+    benchmark with rich instrumentation for containers and internal Go metrics.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Keep Your Container Images Versioned!
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: It is important to ensure you benchmark against a deterministic version of dependencies.
+    This is why you should avoid using `:latest` tags, as it is very common to update
+    them without noticing them transparently. Furthermore, it’s quite upsetting to
+    realize after the second benchmark that you cannot compare it to the result of
+    the first one because the dependency version changed, which might (or might not!)
+    potentially impact the results.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can start the benchmark in [Example 8-19](#code-macrobench) either via your
+    IDE or a simple `go test . -v -run TestLabeler_LabelObject` command. Once the
+    `e2e` framework creates a new Docker network, start Prometheus, cadvisor, `labeler`,
+    and `k6` containers, and stream their output to your terminal. Finally, the `k6`
+    load test will be executed. After the specified five minutes, we should have results
+    printed with summarized statistics around correctness and latency for our tested
+    functionality. The test will stop when we hit the printed URL. If we do that,
+    the test will remove all containers and the Docker network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Duration of Macrobenchmarks
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In [“Go Benchmarks”](#ch-obs-micro-go), it was often enough to run a benchmark
+    for 5–15 seconds. Why do I choose to run the macro load test for five minutes?
+    Two main reasons:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Generally, the more complex functionality we benchmark, the more time and iterations
+    we want to repeat to stabilize all the system components. For example, as we learned
+    in [“Microbenchmarks Versus Memory Management”](#ch-obs-micro-mem), microbenchmarks
+    do not give us an accurate impact that GC might have on our code. With macrobenchmarks,
+    we run a full `labeler` process, so we want to see how the Go GC will cope with
+    the `labeler` work. However, to see the frequency, the impact of GC, and maximum
+    memory usage, we need to run our program longer under stress.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: For sustainable and cheaper observability and monitoring in production, we avoid
+    measuring the state of our application too often. This is how the recommended
+    Prometheus collection (scrape) interval is around 15 to 30 s. As a result, we
+    might want to run our test through a couple of collection periods to obtain accurate
+    measurements while also sharing the same observability as production.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In the next section, I will go through the outputs this experiment gives us
+    and potential observations we can make.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Understanding Results and Observations
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: As we saw in [“Understanding the Results”](#ch-obs-micro-res), experimenting
+    is only half of the success. The second half is to correctly interpret the results.
+    After running [Example 8-19](#code-macrobench) for around seven minutes, we should
+    see `k6` output^([31](ch08.html#idm45606826232800)) that might look like [Example 8-21](#code-macrobench-k6-out).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 8-21\. Last 24 lines of the macrobenchmark output from a 7-minute test
+    with one virtual user (VUS) using `k6`
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_benchmarking_CO18-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Check this line to ensure you measure successful calls!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_benchmarking_CO18-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`http_req_duration` is the most important measurement if we want to track the
+    latency of the total HTTP request latency.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_benchmarking_CO18-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: It’s also important to note the total number of calls we made (the more iterations
+    we have, the more reliable it will be).
+  prefs: []
+  type: TYPE_NORMAL
+- en: From the client’s perspective, the `k6` results can tell us much about the achieved
+    throughput and latencies of different HTTP stages. It seems that with just one
+    “worker” calling our method and waiting 500 ms, we reached around 1.6 calls per
+    second (`http_reqs`) and the average client latency of 128.9 ms (`http_req_duration`).
+    As we learned in [“Latency”](ch06.html#ch-obs-latency), tail latency might be
+    more relevant for latency measurements. For that, `k6` calculates the percentiles
+    as well, which indicates that 90% of requests (`p90`) were faster than 160 ms.
+    In [“Go Benchmarks”](#ch-obs-micro-go), we learned that the `Sum` function involved
+    in the process is taking 79 ms on average, which means it accounts for most of
+    the average latency or even total `p90` latency. If we care about optimizing latency
+    in this case, we should try to optimize `Sum`. We will learn how to verify that
+    percentage and identify other bottlenecks in [Chapter 9](ch09.html#ch-observability3)
+    with tools like profiling.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another important result we should check is the variance of our runs. I wish
+    `k6` provided out-of-the-box variance calculation because it’s hard to tell how
+    repeatable our iterations were without it. For example, we see that the fastest
+    request took 92 ms, while the slowest took 229 ms. This looks concerning, but
+    it’s normal to have first requests take longer. To tell for sure, we would need
+    to perform the same test twice and measure the average and percentile values variance.
+    For example, on my machine, the next run of the same 5-minute test gave me an
+    average of 129 ms and a `p90` of 163 ms, which suggests the variance is small.
+    Still, it’s best to gather those numbers in some spreadsheet and calculate the
+    standard deviation to find the variance percentage. There might be room for a
+    quick CLI tool like `benchstat` that would give us a similar analysis. This is
+    important, as the same [“Reliability of Experiments”](ch07.html#ch-obs-rel) aspects
+    apply to macrobenchmarks. If our results are not repeatable, we might want to
+    improve our testing environment, reduce the number of unknowns, or test longer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `k6` output is not everything we have! The beauty of macrobenchmarks with
+    good usage monitoring and observability, like Prometheus, is that we can assess
+    and debug many efficiency problems and questions. In the [Example 8-19](#code-macrobench)
+    setup, we have instrumentation that gives us `cgroup` metrics about containers
+    and processes thanks to `cadvisor`, built-in process and heap metrics from the
+    `labeler` Go runtime, and application-level HTTP metrics I manually instrumented
+    in `labeler` code. As a result, we can check the usage metrics we care for based
+    on our goals and the RAER (see [“Efficiency-Aware Development Flow”](ch03.html#ch-conq-eff-flow)),
+    for example, the metrics we discussed in [“Efficiency Metrics Semantics”](ch06.html#ch-obs-semantics)
+    and more.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s go through some metric visualizations I could see in Prometheus after
+    my run.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Server-side latency
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: In our local tests, we use a local network, so there should be almost no difference
+    between server and client latency (we talked about this difference in [“Latency”](ch06.html#ch-obs-latency)).
+    However, more complex macro tests that may load test systems from different servers
+    or remote devices in another geolocation might introduce network overhead that
+    we may want or don’t want to account for in our results. If we don’t, we can query
+    Prometheus for the average request duration server handled for our `/label_object`
+    path, as presented in [Figure 8-2](#img-macrobench-avglat).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![efgo 0803](assets/efgo_0803.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 8-2\. Dividing `http_request_duration_seconds` histogram sum by count
+    rates to obtain server-side latency
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The results confirm what we saw in [Example 8-21](#code-macrobench-k6-out).
+    The observed average latency is around 0.12–0.15 seconds, depending on the moment.
+    The metric comes from manually created HTTP middleware I added in Go using the
+    [`prometheus/client_golang` library](https://oreil.ly/j1k4E).^([32](ch08.html#idm45606826182432))
+  prefs: []
+  type: TYPE_NORMAL
+- en: Prometheus Rate Duration
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Notice I am using `[1m]` range vectors for Prometheus counters in queries for
+    this macrobenchmark. This is because we only run our tests for 5 minutes. With
+    a 15-second scrape, 1 minute should have enough samples for `rate` to make sense,
+    but also I can see more details in my metric value with one-time minute window
+    granularity.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'When it comes to the server-side percentile, we rely on a bucketed histogram.
+    This means that the accuracy of the result is up to the nearest bucket. In [Example 8-21](#code-macrobench-k6-out),
+    we saw that results are 92 ms to 229 ms, with `p90` equal to 136 ms. At the moment
+    of benchmark, the buckets were defined in `labeler` as follows: `0.001, 0.01,
+    0.1, 0.3, 0.6, 1, 3, 6, 9, 20, 30, 60, 90, 120, 240, 360, 720`. As a result, we
+    can only tell that 90% of requests were faster than 300 ms, as presented in [Figure 8-3](#img-macrobench-p90).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![efgo 0804](assets/efgo_0804.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 8-3\. Using the `http_request_duration_seconds` histogram to calculate
+    the `p90` quantile of the `/label_object` request
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: To find more accurate results, we might need to adjust buckets manually or use
+    a new sparse histogram feature in the upcoming Prometheus 2.40 version. The default
+    buckets work well in cases when we don’t care if the request was handled in 100
+    ms or 300 ms, but we care if it was suddenly 1 second.
+  prefs: []
+  type: TYPE_NORMAL
+- en: CPU time
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Latency is one thing, but CPU time can tell us how much time the CPU needs to
+    fulfill its job, how much concurrency can help, and if our process is CPU or I/O
+    bound. We can also tell if we gave enough CPU for the current process load. As
+    we learned in [Chapter 4](ch04.html#ch-hardware), higher latency of our iterations
+    might be a result of the CPU saturation—our program using all available CPU cores
+    (or close to the limit), in effect slowing the execution of all goroutines.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In our benchmark we can use either the Go runtime `process_cpu_seconds_total`
+    counter or the `cadvisor` `container_cpu_usage_seconds_total` counter to find
+    that number. This is because `labeler` is the only process in its container. Both
+    metrics look similar, with the latter presented in [Figure 8-4](#img-macrobench-cpu).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![efgo 0805](assets/efgo_0805.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 8-4\. Using the `container_cpu_usage_seconds_total` counter to assess
+    `labeler` CPU usage
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The value oscillates between 0.25–0.27 CPU seconds, which represents the amount
+    of CPU time the `labeler` needed for this load. I limited `labeler` to 4 CPU cores,
+    but it used a maximum of 27% of a single CPU. This means that, most likely, the
+    CPUs are not saturated (unless there are a lot of noisy neighbors running at the
+    same moment, which we would see in the latency numbers). The 270 ms of CPU time
+    per second seems like a sane value given that our requests take, on average, 128.9
+    ms, and after that, `k6` was waiting for 500 ms. This gives us 20%^([33](ch08.html#idm45606826151952))
+    of load-testing time, so the `k6` was actually demanding some work from `labeler`,
+    which might not all be used on CPU, but also on I/O time. The `labeler` `/label_object`
+    execution in our current version is sequential, but there are some background
+    tasks, like listening to signal, metric collection, GC, and HTTP background goroutines.
+    Again, see [“Profiling in Go”](ch09.html#ch-obs-profiling) as the best way to
+    tell exactly what’s taking the CPU here.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Memory
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: In [“Microbenchmarks”](#ch-obs-micro), we learned how much memory `Sum` allocates,
+    but `Sum` is not the only logic `labeler` has to perform. Therefore, if we want
+    to assess the memory efficiency of `labeler`, we need to look at the process or
+    container level memory metrics we gathered during our benchmark. On top of that,
+    we mentioned in [“Microbenchmarks Versus Memory Management”](#ch-obs-micro-mem)
+    that only on the macro level do we have a chance to learn more about GC impact
+    and maximum memory usage of our `labeler` process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Looking at the heap metric presented in [Figure 8-5](#img-macrobench-heap),
+    we can observe that a single `/label_object` is using the nontrivial amount of
+    memory. This is not unexpected after seeing the `Sum` function microbenchmarks
+    results in [Example 8-7](#code-sum-go-bench-benchstat2) showing 60.8 MB per iteration.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This observation shows us the eventuality of GC that might cause problems. Given
+    a single “worker” (VUS) in `k6`, the `labeler` should never need more than ~61
+    MB of live memory if the `Sum` is the main bottleneck. However, we can see that
+    for durations of 2 scrapes (30 seconds) and then 1 scrape, the memory got bumped
+    to 118 MB. Most likely, GC had not released memory from the previous HTTP `/label_object`
+    call before the second call started. If we account for spikes, the overall maximum
+    heap size is stable at around 120 MB, which should tell us there are no immediate
+    memory leaks.^([34](ch08.html#idm45606826132608))
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![efgo 0806](assets/efgo_0806.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 8-5\. Using the `go_memstats_heap_alloc_bytes` gauge to assess `labeler`
+    heap usage
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Unfortunately, as we learned in [“OS Memory Management”](ch05.html#ch-hw-memory-os)
+    and [“Memory Usage”](ch06.html#ch-obs-mem-usage), the memory used by the heap
+    is only a portion of the RAM space that is used by the Go program. The space allocated
+    for goroutine stacks, manually created memory maps, and kernel cache (e.g., for
+    file access) requires the OS to reserve more pages on the physical memory. We
+    can see that when we look at our container-level RSS metric presented in [Figure 8-6](#img-macrobench-rss).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![efgo 0807](assets/efgo_0807.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 8-6\. Using the `container_memory_rss` gauge to assess `labeler` physical
+    RAM usage
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Fortunately, nothing unexpected on the RSS side as well. The active memory pages
+    were more or less the size of the heap and returned to a smaller level as soon
+    as the test finished. So we can assess that `labeler` requires around 130 MB of
+    memory for this load.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To sum up, we assessed the efficiency of latency and resources like CPU and
+    memory on a macro level. In practice, we can assess much more, depending on our
+    efficiency goals like disk, network, I/O devices, DB usage, and more. The `k6`
+    configuration was straightforward in our test—single worker and sequential calls
+    with a pause. Let’s explore other variations and possibilities in the next section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Common Macrobenchmarking Workflows
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The example test in [“Go e2e Framework”](#ch-obs-macro-example) should give
+    you some awareness of how to configure the example load-testing tool, hook in
+    dependencies, and set up and use pragmatic observability for efficiency analysis.
+    On top of that, you can expand such local `e2e` tests in the direction you and
+    your project need based on the efficiency goals. For example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Load test your system with more than one worker to assess how many resources
+    it takes to sustain a given request per second (RPS) rate while sustaining a desired
+    `p90` latency.^([36](ch08.html#idm45606826102992))
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Run `k6` or other load-testing tools to simulate realistic client traffic in
+    a different location.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Deploy the macrobenchmark on remote servers, perhaps with the same hardware
+    as your production.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Deploy dependencies in a remote location; e.g., in our `labeler` example, use
+    the [AWS S3 service](https://oreil.ly/pzeua) instead of the local object storage
+    instance.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Scale out your macro test and services to multiple replicas to check if the
+    traffic can be load balanced properly, so the system’s efficiency stays predictable.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Similar to [“Find Your Workflow”](#ch-obs-micro-workflow), you should find
+    the workflow for performing such experiments and analysis that suits you the most.
+    For example, for myself and the teams I worked with, the process of designing
+    and using the macrobenchmark like in [“Go e2e Framework”](#ch-obs-macro-example)
+    might look as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: As a team, we plan the macrobenchmark elements, dependencies, what aspects we
+    want to benchmark, and what load we want to put on it.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: I ensure a clean code state for `labeler` and macrobenchmark code. I commit
+    all the changes to know what I am testing and with what benchmark. Let’s say we
+    end up with a benchmark as in [“Go e2e Framework”](#ch-obs-macro-example).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Before starting the benchmark, I create a shared Google Document^([37](ch08.html#idm45606826088720))
+    and note all the experiment details like environmental conditions and software
+    version.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'I perform the benchmark to assess the efficiency of a given program version:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: I run my macrobenchmarks, e.g., by starting the `go test` with the Go e2e framework
+    (see [“Go e2e Framework”](#ch-obs-macro-example)) in Goland IDE and waiting until
+    the load test finishes.
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: I confirm no functional errors are present.
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: I save the `k6` results to Google Documents.
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: I gather interesting observations of the resources I want to focus on, for example,
+    heap and RSS to assess memory efficiency. I capture screenshots and paste them
+    to my Google document.^([38](ch08.html#idm45606826080928)) Finally, I note all
+    conclusions I made.
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Optionally, I gather profiles for the [“Profiling in Go”](ch09.html#ch-obs-profiling)
+    process.
+  prefs:
+  - PREF_IND
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: If the findings allowed me to find the optimization in my code, I implement
+    it and save it as a new `git` commit. Then I benchmark again (see step 5) and
+    save the new results to the same Google Doc under a different version, so I can
+    compare my A/B test later on.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The preceding workflow allows us to analyze the results and conclude an efficiency
+    assessment given the assumptions that can be formulated thanks to the document
+    I create. Linking the exact benchmark, which ideally is committed to the source
+    code, allows others to reproduce the same test to verify results or perform further
+    benchmarks and tests. Again, feel free to use any practice you need as long as
+    you care for the elements mentioned in [“Reliability of Experiments”](ch07.html#ch-obs-rel).
+    There is no single consistent procedure and framework for macrobenchmarking, and
+    it all highly depends on the type of software, production conditions, and price
+    you want to invest in to ensure your product’s efficiency.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It’s also worth mentioning that macrobenchmarking is not so far from [“Benchmarking
+    in Production”](ch07.html#ch-obs-benchmarking-prod). You can reuse many elements
+    for macrobenchmarks like load tester and observability tooling in benchmarking
+    against production (and vice versa). Such interoperability allows us to save time
+    on building and learning new tools. The main difference in performing benchmarks
+    in a production environment is to assure the quality of the production users—either
+    by ensuring basic qualities of a new software version on different testing and
+    benchmarking levels, or by leveraging beta testers or canary deployments.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Congratulations! With this chapter, you should now understand how to practically
+    perform micro- and macrobenchmarks, which are core ways to understand if we have
+    to optimize our software further, what to optimize if we have to, and how much.
+    Moreover, both micro- and macrobenchmarks are also invaluable in other aspects
+    of software development connected to efficiency like capacity planning and scalability.^([39](ch08.html#idm45606826071280))
+  prefs: []
+  type: TYPE_NORMAL
+- en: In my daily career in software development, I lean heavily on micro- and macrobenchmarks.
+    Thanks to the micro-level fast feedback loop, I often do them for smaller functions
+    in the critical path to decide how the implementation should go. They are easy
+    to write and easy to delete.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Macrobenchmarks require more investment, so I especially recommend creating
+    and doing such benchmarks:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: As an acceptance test against the RAER assessment of the entire system after
+    a bigger feature or release.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: When debugging and optimizing regressions or incidents that trigger efficiency
+    problems.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The experimentation involved in both micro- and macrobenchmarks is useful for
+    efficiency assessment and in [“6\. Find the main bottleneck”](ch03.html#ch-conq-eff-flow-6).
+    However, during that benchmark, we can also perform profiling of our Go program
+    to deduce the main efficiency bottlenecks. Let’s see how to do that in action
+    in the next chapter!
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([1](ch08.html#idm45606829538272-marker)) For bigger projects, I would suggest
+    adding the *_bench_test.go* suffix for an easier way of discovering benchmarks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([2](ch08.html#idm45606829527136-marker)) It is well explained in the [testing
+    package’s Example documentation](https://oreil.ly/PRrlW).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([3](ch08.html#idm45606829392480-marker)) If we would remove `b.N` completely,
+    the Go benchmark will try to increase a number of `N` until the whole `BenchmarkSum`
+    will take at least 1 second. Without the `b.N` loop, our benchmark will never
+    exceed 1 second as it does not depend on `b.N`. Such a benchmark will stop at
+    `b.N` being equal to 1 billion iterations, but with just a single iteration being
+    executed, the benchmark results will be wrong.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([4](ch08.html#idm45606829378320-marker)) As mentioned earlier, microbenchmarks
+    are always based on some amount of assumptions; we cannot simulate everything
+    in such a small test.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([5](ch08.html#idm45606829377392-marker)) Note that it definitely will not
+    take 29 nanoseconds for a benchmark with a single integer. This number is a latency
+    we see for a larger number of integers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([6](ch08.html#idm45606829374944-marker)) Note that it is acceptable to change
+    test data in future versions of our program and benchmark. Usually, our optimizations
+    over time make our test dataset “too small,” so we can increase it over time to
+    spot different problems if we need to optimize further.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([7](ch08.html#idm45606829214608-marker)) As explained previously, note that
+    the full benchmarking process can take longer than 10 seconds because the Go framework
+    will try to find a correct number of iterations. The more variance in the test
+    results—potentially the longer the test will last.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([8](ch08.html#idm45606829011072-marker)) You can also provide multiple numbers
+    after a comma. For example, `-cpu=1,2,3` will run a test with `GOMAXPROCS` set
+    to 1, then to 2, and the third run with 3 CPUs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([9](ch08.html#idm45606828985008-marker)) The internal representation of that
+    format can be explored by looking at [`BenchmarkResult` type](https://oreil.ly/90wO2).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([10](ch08.html#idm45606828962032-marker)) Things like the Go version, Linux
+    kernel version, other processes running at the same time, CPU mode, etc. Unfortunately,
+    the full list is almost impossible to capture.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([11](ch08.html#idm45606828942480-marker)) The Go testing framework does not
+    check how many CPUs are free to be used for this benchmark. As you learned in
+    [Chapter 4](ch04.html#ch-hardware), CPUs are shared fairly across other processes,
+    so with more processes in the system, the four CPUs, in my case, are not fully
+    reserved for the benchmark. On top of that, programmatic changes to `runtime.GOMAXPROCS`
+    are not reflected here.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([12](ch08.html#idm45606828737680-marker)) Make sure to strictly control the
+    Go version you use to build those binaries. Testing binaries built using a different
+    Go version might create misleading results. For example, you can build a binary
+    and add a suffix to its name with the `git` hash of the version of your source
+    code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([13](ch08.html#idm45606828728032-marker)) This is especially important for
+    distributed systems and user-facing applications that handle errors very often,
+    and it’s part of the normal program life cycle. For example, I often worked with
+    code that was fast for database writes, but was allocating an extreme amount of
+    memory on failed runs, causing cascading failures.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([14](ch08.html#idm45606828555728-marker)) In my benchmarks, on my machine,
+    this instruction alone takes 244 ns and allocates zero bytes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([15](ch08.html#idm45606828553248-marker)) Profiling, explained in [“Profiling
+    in Go”](ch09.html#ch-obs-profiling), can also help determine how much your benchmark
+    affects those overheads.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([16](ch08.html#idm45606828507296-marker)) Note that `TB` is my own invention
+    and it’s not common or recommended by the Go community, so use with care!
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([17](ch08.html#idm45606828284848-marker)) In fact, we should not even trust
+    ourselves there! A second careful reviewer is always a good idea.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([18](ch08.html#idm45606828161072-marker)) Note that the `t.TempDir` and `b.TempDir`
+    methods create a new, unique directory every time they are invoked!
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([19](ch08.html#idm45606827504960-marker)) For longer microbenchmarks, you
+    might see the GC latency. Some tutorials also recommend running [microbenchmarks
+    without GC](https://oreil.ly/7v3oE) (using `GOGC=off`), but I found this not useful
+    in practice. Ideally, move to the macro level to understand the full impact.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([20](ch08.html#idm45606827483632-marker)) Unless you run with the parallel
+    option I discouraged in [“Performance Nondeterminism”](ch07.html#ch-obs-rel-unkn).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([21](ch08.html#idm45606827468608-marker)) The idea behind this function comes
+    from amazing Dave’s [tutorial](https://oreil.ly/BKZfr) and [issue 14813](https://oreil.ly/m3Yiy),
+    with some modifications.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([22](ch08.html#idm45606827194896-marker)) I am not discouraging microbenchmarks
+    on super low-level functions. You can still compare things, but be mindful that
+    production numbers might surprise you.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([23](ch08.html#idm45606827192512-marker)) This does not mean that the future
+    Go compiler won’t be able to be smarter and consider optimization with global
+    variables.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([24](ch08.html#idm45606827188416-marker)) The `sink` pattern is also popular
+    in C++ for [the same reasons](https://oreil.ly/UpGFo).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([25](ch08.html#idm45606827011232-marker)) Object storage is cheap cloud storage
+    with simple APIs for uploading objects and reading them or their byte ranges.
+    It treats all data in the form of objects with a certain ID that typically looks
+    similar to the file path.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([26](ch08.html#idm45606827007440-marker)) You can find simplified microservice
+    code in the [`labeler` package](https://oreil.ly/myFWw).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([27](ch08.html#idm45606826978976-marker)) One common pitfall is to implement
+    inefficient load-testing code. There is a risk that your application does not
+    allow the throughput you want only because the client is not sending the traffic
+    fast enough!
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([28](ch08.html#idm45606826953008-marker)) This space expanded quite quickly
+    with two separate specifications (CRI and OCI) and various implementations of
+    various parts of the container ecosystem. Read more about it [here](https://oreil.ly/yKSL8).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([29](ch08.html#idm45606826944448-marker)) This is often underestimated. Creating
+    reusable dashboards, learning about your instrumentation, and what metrics mean
+    takes a nontrivial amount of work. If our local testing and production environment
+    share the same metrics and other signals, it saves us a lot of time and increases
+    the chances our observability is high quality.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([30](ch08.html#idm45606826932640-marker)) You can run this code yourself or
+    explore the `e2e` framework to see how it configures all components [here](https://oreil.ly/ftAY1).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([31](ch08.html#idm45606826232800-marker)) There is also a way to push those
+    results directly to [Prometheus](https://oreil.ly/1UdNR).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([32](ch08.html#idm45606826182432-marker)) See the [example code](https://oreil.ly/22YQp)
+    that `labeler` uses.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([33](ch08.html#idm45606826151952-marker)) 128.9 ms divided by 128.9+500 milliseconds
+    to tell what portion of time the load tester was actively load-testing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([34](ch08.html#idm45606826132608-marker)) Looking on `go_goroutines` also
+    helps. If we see a visible trend, we might forget to close some resources.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([35](ch08.html#idm45606826124784-marker)) The solution is to use counters.
+    For memory, it would mean using the existing `rate(go_memstats_alloc_bytes_total[1m])`
+    and dividing it by the rate of bytes released by the GC. Unfortunately, the Prometheus
+    Go collector does not expose such metrics. Go [allows us to get this information](https://oreil.ly/Noqnp),
+    so it is possible to get it added in the future.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([36](ch08.html#idm45606826102992-marker)) For bigger tests, consider making
+    sure your load tester has enough resources. For `k6`, see [this guide](https://oreil.ly/v4DGs).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([37](ch08.html#idm45606826088720-marker)) Any other medium like Jira ticket
+    comments or GitHub issue works too. Just ensure you can easily paste screenshots
+    so it’s less fuss and there are fewer occasions to make mistakes on what screenshot
+    was for what experiment!
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([38](ch08.html#idm45606826080928-marker)) Don’t just make it all screenshots
+    first and delay describing them until later. Try to iterate on each observation
+    in Google Documents, as it’s easy to forget later what situation you were capturing.
+    Additionally, I saw many incidents of thinking screenshots were saved in my laptop’s
+    local directory, then losing all benchmarking results.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '^([39](ch08.html#idm45606826071280-marker)) Explained well in [Martin Kleppmann’s
+    book *Designing Data-Intensive Applications: The Big Ideas Behind Reliable, Scalable,
+    and Maintainable Systems*](https://oreil.ly/M9RYQ) (O’Reilly).'
+  prefs: []
+  type: TYPE_NORMAL

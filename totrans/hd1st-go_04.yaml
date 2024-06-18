@@ -1,0 +1,1090 @@
+- en: 'Chapter 3\. call me: Functions'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0079-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**You’ve been missing out**. You’ve been calling functions like a pro. But
+    the only functions you could call were the ones Go defined for you. Now, it’s
+    your turn. We’re going to show you how to create your own functions. We’ll learn
+    how to declare functions with and without parameters. We’ll declare functions
+    that return a single value, and we’ll learn how to return multiple values so that
+    we can indicate when there’s been an error. And we’ll learn about **pointers**,
+    which allow us to make more memory-efficient function calls.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Some repetitive code
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Suppose we need to calculate the amount of paint needed to cover several walls.
+    The manufacturer says each liter of paint covers 10 square meters. So, we’ll need
+    to multiply each wall’s width (in meters) by its height to get its area, and then
+    divide that by 10 to get the number of liters of paint needed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0080-01.png)![image](assets/f0080-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'This works, but it has a couple problems:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The calculations seem to be off by a tiny fraction, and are printing oddly precise
+    floating-point values. We really only need a couple decimal places of precision.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: There’s a fair amount of repeated code, even now. This will get worse as we
+    add more walls.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Both items will take a little explanation to address, so let’s just look at
+    the first issue for now...
+  prefs: []
+  type: TYPE_NORMAL
+- en: The calculations are slightly off because ordinary floating-point arithmetic
+    on computers is ever-so-slightly inaccurate. (Usually by a few quadrillionths.)
+    The reasons are a little too complicated to get into here, but this problem isn’t
+    exclusive to Go.
+  prefs: []
+  type: TYPE_NORMAL
+- en: But as long as we round the numbers to a reasonable degree of precision before
+    displaying them, we should be fine. Let’s take a brief detour to look at a function
+    that will help us do that.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/common3.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Formatting output with Printf and Sprintf
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/common3.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Floating-point numbers in Go are kept with a high degree of precision. This
+    can be cumbersome when you want to display them:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0081-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: To deal with these sorts of formatting issues, the `fmt` package provides the
+    `Printf` function. `Printf` stands for “**print**, with **f**ormatting.” It takes
+    a string and inserts one or more values into it, formatted in specific ways. Then
+    it prints the resulting string.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0081-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The `Sprintf` function (also part of the `fmt` package) works just like `Printf`,
+    except that it returns a formatted string instead of printing it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0081-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'It looks like `Printf` and `Sprintf` *can* help us limit our displayed values
+    to the correct number of places. The question is, *how*? First, to be able to
+    use the `Printf` function effectively, we’ll need to learn about two of its features:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Formatting verbs (the `%0.2f` in the strings above is a verb)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Value widths (that’s the `0.2` in the middle of the verb)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Formatting verbs
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/common3.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The first argument to `Printf` is a string that will be used to format the output.
+    Most of it is formatted exactly as it appears in the string. Any percent signs
+    (`%`), however, will be treated as the start of a **formatting verb**, a section
+    of the string that will be substituted with a value in a particular format. The
+    remaining arguments are used as values with those verbs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0082-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The letter following the percent sign indicates which verb to use. The most
+    common verbs are:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| Verb | Output |'
+  prefs: []
+  type: TYPE_TB
+- en: '| --- | --- |'
+  prefs: []
+  type: TYPE_TB
+- en: '| %f | Floating-point number |'
+  prefs: []
+  type: TYPE_TB
+- en: '| %d | Decimal integer |'
+  prefs: []
+  type: TYPE_TB
+- en: '| %s | String |'
+  prefs: []
+  type: TYPE_TB
+- en: '| %t | Boolean (`true` or `false`) |'
+  prefs: []
+  type: TYPE_TB
+- en: '| %v | Any value (chooses an appropriate format based on the supplied value’s
+    type) |'
+  prefs: []
+  type: TYPE_TB
+- en: '| %#v | Any value, formatted as it would appear in Go program code |'
+  prefs: []
+  type: TYPE_TB
+- en: '| %T | Type of the supplied value (`int`, `string`, etc.) |'
+  prefs: []
+  type: TYPE_TB
+- en: '| %% | A literal percent sign |'
+  prefs: []
+  type: TYPE_TB
+- en: '![image](assets/f0082-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Notice, by the way, that we are making sure to add a newline at the end of each
+    formatting string using the `\n` escape sequence. This is because unlike `Println`,
+    `Printf` does not automatically add a newline for us.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/common3.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We want to point out the `%#v` formatting verb in particular. Because it prints
+    values the way they would appear in Go code, rather than how they normally appear,
+    `%#v` can show you some values that would otherwise be hidden in your output.
+    In this code, for example, `%#v` reveals an empty string, a tab character, and
+    a newline, all of which were invisible when printed with `%v`. We’ll use `%#v`
+    more, later in the book!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0083-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Formatting value widths
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: So the `%f` formatting verb is for floating-point numbers. We can use `%f` in
+    our program to format the amount of paint needed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0083-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: It looks like our value is being rounded to a reasonable number. But it’s still
+    showing six places after the decimal point, which is really too much for our current
+    purpose.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For situations like this, formatting verbs let you specify the *width* of the
+    formatted value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s say we want to format some data in a plain-text table. We need to ensure
+    the formatted value fills a minimum number of spaces, so that the columns align
+    properly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can specify the minimum width after the percent sign for a formatting verb.
+    If the argument matching that verb is shorter than the minimum width, it will
+    be padded with spaces until the minimum width is reached.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0083-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Formatting fractional number widths
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/common3.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'And now we come to the part that’s important for today’s task: you can use
+    value widths to specify the precision (the number of displayed digits) for floating-point
+    numbers. Here’s the format:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0084-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The minimum width of the entire number includes decimal places and the decimal
+    point. If it’s included, shorter numbers will be padded with spaces at the start
+    until this width is reached. If it’s omitted, no spaces will ever be added.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The width after the decimal point is the number of decimal places to show. If
+    a more precise number is given, it will be rounded (up or down) to fit in the
+    given number of decimal places.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here’s a quick demonstration of various width values in action:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0084-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: That last format, `"%.2f"`, will let us take floating-point numbers of any precision
+    and round them to two decimal places. (It also won’t do any unnecessary padding.)
+    Let’s try it with the overly precise values from our program to calculate paint
+    volumes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0084-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: That’s much more readable. It looks like the `Printf` function can format our
+    numbers for us. Let’s get back to our paint calculator program, and apply what
+    we’ve learned there.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/common4.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Using Printf in our paint calculator
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now we have a `Printf` verb, `"%.2f"`, that will let us round a floating-point
+    number to two decimal places. Let’s update our paint quantity calculation program
+    to use it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0085-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: At last, we have reasonable-looking output! The tiny imprecisions introduced
+    by floating-point arithmetic have been rounded away.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0085-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Good point. Go lets us declare our own functions, so perhaps we should move
+    this code into a function**.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As we mentioned way back at the start of [Chapter 1](ch01.html#letapsos_get_going_syntax_basics),
+    a function is a group of one or more lines of code that you can call from other
+    places in your program. And our program has two groups of lines that look very
+    similar:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0085-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Let’s see if we can convert these two sections of code into a single function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Declaring functions
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'A simple function declaration might look like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0086-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: A declaration begins with the `func` keyword, followed by the name you want
+    the function to have, a pair of parentheses `()`, and then a block containing
+    the function’s code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once you’ve declared a function, you can call it elsewhere in your package simply
+    by typing its name, followed by a pair of parentheses. When you do, the code in
+    the function’s block will be run.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0086-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Notice that when we call `sayHi`, we’re not typing the package name and a dot
+    before the function name. When you call a function that’s defined in the current
+    package, you should not specify the package name. (Typing `main.sayHi()` would
+    result in a compile error.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The rules for function names are the same as the rules for variable names:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A name must begin with a letter, followed by any number of additional letters
+    and numbers. (You’ll get a compile error if you break this rule.)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Functions whose name begins with a capital letter are *exported*, and can be
+    used outside the current package. If you only need to use a function inside the
+    current package, you should start its name with a lowercase letter.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Names with multiple words should use `camelCase`.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '![image](assets/f0086-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Declaring function parameters
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: If you want calls to your function to include arguments, you’ll need to declare
+    one or more parameters. A **parameter** is a variable, local to a function, whose
+    value is set when the function is called.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0087-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: You can declare one or more parameters between the parentheses in the function
+    declaration, separated by commas. As with any variable, you’ll need to provide
+    a name followed by a type (`float64`, `bool`, etc.) for each parameter you declare.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**A parameter is a variable, local to a function, whose value is set when the
+    function is called.**'
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: If a function has parameters defined, then you’ll need to pass a matching set
+    of arguments when calling it. When the function is run, each parameter will be
+    set to a copy of the value in the corresponding argument. Those parameter values
+    are then used within the code in the function block.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0087-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Using functions in our paint calculator
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now that we know how to declare our own functions, let’s see if we can get rid
+    of the repetition in our paint calculator.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0088-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We’ll move the code to calculate the amount of paint to a function named `paintNeeded`.
+    We’ll get rid of the separate `width` and `height` variables, and instead take
+    those as function parameters. Then, in our `main` function, we’ll just call `paintNeeded`
+    for each wall we need to paint.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0088-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: No more repeated code, and if we want to calculate the paint needed for additional
+    walls, we just add more calls to `paintNeeded`. This is much cleaner!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Functions and variable scope
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Our `paintNeeded` function declares an `area` variable within its function
+    block:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0090-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'As with conditional and loop blocks, variables declared within a function block
+    are only in scope within that function block. So if we were to try to access the
+    `area` variable outside of the `paintNeeded` function, we’d get a compile error:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0090-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: But, also as with conditional and loop blocks, variables declared *outside*
+    a function block will be in scope within that block. That means we can declare
+    a variable at the package level, and access it within any function in that package.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0090-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Function return values
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Suppose we wanted to total the amount of paint needed for all the walls we’re
+    going to paint. We can’t do that with our current `paintNeeded` function; it just
+    prints the amount and then discards it!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0091-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: So instead, let’s revise the `paintNeeded` function to return a value. Then,
+    whoever calls it can print the amount, do additional calculations with it, or
+    do whatever else they need.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Functions always return values of a specific type (and only that type). To declare
+    that a function returns a value, add the type of that return value following the
+    parameters in the function declaration. Then use the `return` keyword in the function
+    block, followed by the value you want to return.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0091-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Callers of the function can then assign the return value to a variable, pass
+    it directly to another function, or do whatever else they need to do with it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0091-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: When a `return` statement runs, the function exits immediately, without running
+    any code that follows it. You can use this together with an `if` statement to
+    exit the function in conditions where there’s no point in running the remaining
+    code (due to an error or some other condition).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0092-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: That means that it’s possible to have code that never runs under any circumstances,
+    if you include a `return` statement that isn’t part of an `if` block. This almost
+    certainly indicates a bug in the code, so Go helps you detect this situation by
+    requiring that any function that declares a return type must end with a `return`
+    statement. Ending with any other statement will cause a compile error.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0092-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: You’ll also get a compile error if the type of your return value doesn’t match
+    the declared return type.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0092-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Using a return value in our paint calculator
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now that we know how to use function return values, let’s see if we can update
+    our paint program to print the total amount of paint needed in addition to the
+    amount needed for each wall.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We’ll update the `paintNeeded` function to return the amount needed. We’ll use
+    that return value in the `main` function, both to print the amount for the current
+    wall, and to add to a `total` variable that tracks the total amount of paint needed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0093-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: It works! Returning the value allowed our `main` function to decide what to
+    do with the calculated amount, rather than relying on the `paintNeeded` function
+    to print it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Breaking Stuff is Educational!
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0094-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here’s our updated version of the `paintNeeded` function that returns a value.
+    Try making one of the changes below and try to compile it. Then undo your change
+    and try the next one. See what happens!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: '| If you do this... | ...it will break because... |'
+  prefs: []
+  type: TYPE_TB
+- en: '| --- | --- |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Remove the `return` statement: `func paintNeeded(width float64, height float64)
+    float64 { area := width * height ~~return area / 10.0~~ }` | If your function
+    declares a return type, Go requires that it include a `return` statement. |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Add a line *after* the `return` statement: `func paintNeeded(width float64,
+    height float64) float64 { area := width * height return area / 10.0 fmt.Println(area
+    / 10.0) }` | If your function declares a return type, Go requires that its last
+    statement be a `return` statement. |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Remove the return type declaration: `func paintNeeded(width float64, height
+    float64) float64 { area := width * height return area / 10.0 }` | Go doesn’t allow
+    you to return a value you haven’t declared. |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Change the type of value being returned: `func paintNeeded(width float64,
+    height float64) float64 { area := width * height return int(area / 10.0) }` |
+    Go requires that the type of the returned value match the declared type. |'
+  prefs: []
+  type: TYPE_TB
+- en: The paintNeeded function needs error handling
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0095-01.png)![image](assets/f0095-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: It looks like the `paintNeeded` function had no idea the argument passed to
+    it was invalid. It went right ahead and used that invalid argument in its calculations,
+    and returned an invalid result. This is a problem—even if you knew a store where
+    you could purchase a negative number of liters of paint, would you really want
+    to apply that to your house? We need a way of detecting invalid arguments and
+    reporting an error.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In [Chapter 2](ch02.html#which_code_runs_nextquestcolon_condition), we saw a
+    couple different functions that, in addition to their main return value, also
+    return a second value indicating whether there was an error. The `strconv.Atoi`
+    function, for example, attempted to convert a string to an integer. If the conversion
+    was successful, it returned an error value of `nil`, meaning our program could
+    proceed. But if the error value *wasn’t* `nil`, it meant the string couldn’t be
+    converted to a number. In that event, we chose to print the error value and exit
+    the program.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0095-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'If we want to do the same when calling the `paintNeeded` function, we’re going
+    to need two things:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The ability to create a value representing an error
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The ability to return an additional value from `paintNeeded`
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Let’s get started figuring this out!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Error values
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Before we can return an error value from our `paintNeeded` function, we need
+    an error value to return. An error value is any value with a method named `Error`
+    that returns a string. The simplest way to create one is to pass a string to the
+    `errors` package’s `New` function, which will return a new error value. If you
+    call the `Error` method on that error value, you’ll get the string you passed
+    to `errors.New`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0096-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: But if you’re passing the error value to a function in the `fmt` or `log` packages,
+    you probably don’t need to call its `Error` method. Functions in `fmt` and `log`
+    have been written to check whether the values passed to them have `Error` methods,
+    and print the return value of `Error` if they do.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0096-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: If you need to format numbers or other values for use in your error message,
+    you can use the `fmt.Errorf` function. It inserts values into a format string
+    just like `fmt.Printf` or `fmt.Sprintf`, but instead of printing or returning
+    a `string`, it returns an error value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0096-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Declaring multiple return values
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now we need a way to specify that our `paintNeeded` function will return an
+    error value along with the amount of paint needed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To declare multiple return values for a function, place the return value types
+    in a *second* set of parentheses in the function declaration (after the parentheses
+    for the function parameters), separated with commas. (The parentheses around the
+    return values are optional when there’s only one return value, but are required
+    if there’s more than one return value.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: From then on, when calling that function, you’ll need to account for the additional
+    return values, usually by assigning them to additional variables.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0097-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: If it makes the purpose of the return values clearer, you can supply names for
+    each one, similar to parameter names. The main purpose of named return values
+    is as documentation for programmers reading the code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0097-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Using multiple return values with our paintNeeded function
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As we saw on the previous page, it’s possible to return multiple values of any
+    type. But the most common use for multiple return values is to return a primary
+    return value, followed by an additional value indicating whether the function
+    encountered an error. The additional value is usually set to `nil` if there were
+    no problems, or an error value if an error occurred.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We’ll follow that convention with our `paintNeeded` function as well. We’ll
+    declare that it returns two values, a `float64` and an `error`. (Error values
+    have a type of `error`.) The first thing we’ll do in the function block is to
+    check whether the parameters are valid. If either the `width` or `height` parameter
+    is less than `0`, we’ll return a paint amount of `0` (which is meaningless, but
+    we do have to return something), and an error value that we generate by calling
+    `fmt.Errorf`. Checking for errors at the start of the function allows us to easily
+    skip the rest of the function’s code by calling `return` if there’s a problem.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If there were no problems with the parameters, we proceed to calculate and return
+    the paint amount just like before. The only other difference in the function code
+    is that we return a second value of `nil` along with the paint amount, to indicate
+    there were no errors.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0098-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: In the `main` function, we add a second variable to record the error value from
+    `paintNeeded`. We print the error (if any), and then print the paint amount.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If we pass an invalid argument to `paintNeeded`, we’ll get an error return value,
+    and print that error. But we also get `0` as the amount of paint. (As we said,
+    this value is meaningless when there’s an error, but we had to use *something*
+    for the first return value.) So we wind up printing the message “0.00 liters needed”!
+    We’ll need to fix that...
+  prefs: []
+  type: TYPE_NORMAL
+- en: Always handle errors!
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: When we pass an invalid argument to `paintNeeded`, we get an error value back,
+    which we print for the user to see. But we also get an (invalid) amount of paint,
+    which we print as well!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0099-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: When a function returns an error value, it usually has to return a primary return
+    value as well. But any other return values that accompany an error value should
+    be considered unreliable, and ignored.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When you call a function that returns an error value, it’s important to test
+    whether that value is `nil` before proceeding. If it’s anything other than `nil`,
+    it means there’s an error that must be handled.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*How* the error should be handled depends on the situation. In the case of
+    our `paintNeeded` function, it might be best to simply skip the current calculation
+    and proceed with the rest of the program:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0099-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: But since this is such a short program, you could instead call `log.Fatal` to
+    display the error message and exit the program.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0099-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The important thing to remember is that you should always check the return values
+    to see whether there *is* an error. What you do with the error at that point is
+    up to you!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Breaking Stuff is Educational!
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0100-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here’s a program that calculates the square root of a number. But if a negative
+    number is passed to the `squareRoot` function, it will return an error value.
+    Make one of the changes below and try to compile it. Then undo your change and
+    try the next one. See what happens!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: '| If you do this... | ...it will break because... |'
+  prefs: []
+  type: TYPE_TB
+- en: '| --- | --- |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Remove one of the arguments to `return`: `return math.Sqrt(number)~~, nil~~`
+    | The number of arguments to `return` must always match the number of return values
+    in the function declaration. |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Remove one of the variables the return values are assigned to: `root~~, err~~
+    := squareRoot(-9.3)` | If you use any of the return values from a function, Go
+    requires you to use all of them. |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Remove the code that uses one of the return values: `root, err := squareRoot(-9.3)
+    ~~if err != nil {~~ ~~fmt.Println(err)~~ ~~} else {~~ fmt.Printf("%0.3f", root)
+    ~~}~~` | Go requires that you use every variable you declare. This is actually
+    a really useful feature when it comes to error return values, because it helps
+    keep you from accidentally ignoring an error. |'
+  prefs: []
+  type: TYPE_TB
+- en: Pool Puzzle
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0101-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Your **job** is to take code snippets from the pool and place them into the
+    blank lines in the code. **Don’t** use the same snippet more than once, and you
+    won’t need to use all the snippets. Your **goal** is to make code that will run
+    and produce the output shown.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0101-02.png)![image](assets/f0101-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Note: each snippet from the pool can only be used once!**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/arrow.png) Answers in [“Pool Puzzle Solution”](#pool_puzzle_solution_2).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Function parameters receive copies of the arguments
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As we mentioned, when you call a function that has parameters declared, you
+    need to provide arguments to the call. The value in each argument is *copied*
+    to the corresponding parameter variable. (Programming languages that do this are
+    sometimes called “pass-by-value.”)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Go is a “pass-by-value” language; function parameters receive a copy of the
+    arguments from the function call.**'
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: This is fine in most cases. But if you want to pass a variable’s value to a
+    function and have it *change* the value in some way, you’ll run into trouble.
+    The function can only change the *copy* of the value in its parameter, not the
+    original. So any changes you make within the function won’t be visible outside
+    it!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here’s an updated version of the `double` function we showed earlier. It takes
+    a number, multiplies it by 2, and prints the result. (It uses the `*=` operator,
+    which works just like `+=` , but it multiplies the value the variable holds instead
+    of adding to it.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0102-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Suppose we wanted to move the statement that prints the doubled value from the
+    `double` function back to the function that calls it, though. It won’t work, because
+    `double` only alters its *copy* of the value. Back in the calling function, when
+    we try to print, we’ll get the original value, not the doubled one!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0102-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We need a way to allow a function to alter the original value a variable holds,
+    rather than a copy. To learn how to do that, we’ll need to make one more detour
+    away from functions, to learn about *pointers*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/common3.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Pointers
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/common3.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: You can get the *address* of a variable using `&` (an ampersand), which is Go’s
+    “address of” operator. For example, this code initializes a variable, prints its
+    value, and then prints the variable’s address...
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0103-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We can get addresses for variables of any type. Notice that the address differs
+    for each variable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0103-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: And what are these “addresses,” exactly? Well, if you want to find a particular
+    house in a crowded city, you use its address...
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0103-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Just like a city, the memory your computer sets aside for your program is a
+    crowded place. It’s full of variable values: booleans, integers, strings, and
+    more. Just like the address of a house, if you have the address of a variable,
+    you can use it to find the value that variable contains.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0103-04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Values that represent the address of a variable are known as **pointers**, because
+    they *point* to the location where the variable can be found.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0103-05.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Pointer types
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/common3.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The type of a pointer is written with a `*` symbol, followed by the type of
+    the variable the pointer points to. The type of a pointer to an `int` variable,
+    for example, would be written `*int` (you can read that aloud as “pointer to `int`”).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can use the `reflect.TypeOf` function to show us the types of our pointers
+    from the previous program:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0104-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We can declare variables that hold pointers. A pointer variable can only hold
+    pointers to one type of value, so a variable might only hold `*int` pointers,
+    only `*float64` pointers, and so on.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0104-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'As with other types, if you’ll be assigning a value to the pointer variable
+    right away, you can use a short variable declaration instead:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0104-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Getting or changing the value at a pointer
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/common3.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: You can get the value of the variable a pointer refers to by typing the `*`
+    operator right before the pointer in your code. To get the value at `myIntPointer`,
+    for example, you’d type `*myIntPointer`. (There’s no official consensus on how
+    to read `*` aloud, but we like to pronounce it as “value at,” so `*myIntPointer`
+    is “value at `myIntPointer`.”)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0105-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The `*` operator can also be used to update the value at a pointer:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0105-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: In the code above, `*myIntPointer = 8` accesses the variable at `myIntPointer`
+    (that is, the `myInt` variable) and assigns a new value to it. So not only is
+    the value of `*myIntPointer` updated, but `myInt` is as well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Code Magnets
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0106-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: A Go program that uses a pointer variable is scrambled up on the fridge. Can
+    you reconstruct the code snippets to make a working program that will produce
+    the given output?
+  prefs: []
+  type: TYPE_NORMAL
+- en: The program should declare `myInt` as an integer variable, and `myIntPointer`
+    as a variable that holds an integer pointer. Then it should assign a value to
+    `myInt`, and assign a pointer to `myInt` as the value of `myIntPointer`. Finally,
+    it should print the value at `myIntPointer`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0106-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![image](assets/arrow.png) Answers in [“Code Magnets Solution”](#code_magnets_solution_3).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using pointers with functions
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/common3.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: It’s possible to return pointers from functions; just declare that the function’s
+    return type is a pointer type.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0107-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: (By the way, unlike in some other languages in Go, it’s okay to return a pointer
+    to a variable that’s local to a function. Even though that variable is no longer
+    in scope, as long as you still have the pointer, Go will ensure you can still
+    access the value.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can also pass pointers to functions as arguments. Just specify that the
+    type of one or more parameters should be a pointer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0107-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Make sure you only use pointers as arguments, if that’s what the function declares
+    it will take. If you try to pass a value directly to a function that’s expecting
+    a pointer, you’ll get a compile error.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0107-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Now you know the basics of using pointers in Go. We’re ready to end our detour,
+    and fix our `double` function!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/common4.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Fixing our “double” function using pointers
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We have a `double` function that takes an `int` value and multiplies it by 2\.
+    We want to be able to pass a value in and have that value doubled. But, as we
+    learned, Go is a pass-by-value language, meaning that function parameters receive
+    a *copy* of any arguments from the caller. Our function is doubling its copy of
+    the value and leaving the original untouched!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0108-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here’s where our detour to learn about pointers is going to be useful. If we
+    pass a pointer to the function and then alter the value at that pointer, the changes
+    will still be effective outside the function!
+  prefs: []
+  type: TYPE_NORMAL
+- en: We only need to make a few small changes to get this working. In the `double`
+    function, we need to update the type of the `number` parameter to take a `*int`
+    rather than an `int`. Then we’ll need to change the function code to update the
+    value at the `number` pointer, rather than updating a variable directly. Finally,
+    in the `main` function, we just need to update our call to `double` to pass a
+    pointer rather than a direct value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0108-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: When we run this updated code, a pointer to the `amount` variable will be passed
+    to the `double` function. The `double` function will take the value at that pointer
+    and double it, thereby changing the value in the `amount` variable. When we return
+    to the `main` function and print the `amount` variable, we’ll see our doubled
+    value!
+  prefs: []
+  type: TYPE_NORMAL
+- en: You’ve learned a lot about writing your own functions in this chapter. The benefits
+    of some of these features may not be clear right now. Don’t worry—as our programs
+    get more complex in later chapters, we’ll be making good use of everything you’ve
+    learned!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Your Go Toolbox
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0110-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**That’s it for [Chapter 3](#call_mecolon_functions)! You’ve added function
+    declarations and pointers to your toolbox.**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0110-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Pool Puzzle Solution
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0112-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Code Magnets Solution
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0112-02.png)'
+  prefs: []
+  type: TYPE_IMG

@@ -1,0 +1,743 @@
+- en: 'Chapter 7\. labeling data: Maps'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0205-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Throwing things in piles is fine, until you need to find something again.**
+    You’ve already seen how to create lists of values using *arrays* and *slices*.
+    You’ve seen how to apply the same operation to *every value* in an array or slice.
+    But what if you need to work with a *particular* value? To find it, you’ll have
+    to start at the beginning of the array or slice, and *look through Every. Single.
+    Value.*'
+  prefs: []
+  type: TYPE_NORMAL
+- en: What if there were a kind of collection where every value had a label on it?
+    You could quickly find just the value you needed! In this chapter, we’ll look
+    at **maps**, which do just that.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Counting votes
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: A seat on the Sleepy Creek County School Board is up for grabs this year, and
+    polls have been showing that the election is really close. Now that it’s election
+    night, the candidates are excitedly watching the votes roll in.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: This is another example that debuted in Head First Ruby, in the hashes chapter.
+    Ruby hashes are a lot like Go maps, so this example works great here, too!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0206-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Name: Amber Graham'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Occupation: Manager**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0206-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Name: Brian Martin'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Occupation: Accountant**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are two candidates on the ballot, Amber Graham and Brian Martin. Voters
+    also have the option to “write in” a candidate’s name (that is, type in a name
+    that doesn’t appear on the ballot). Those won’t be as common as the main candidates,
+    but we can expect a few such names to appear.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The electronic voting machines in use this year record the votes to text files,
+    one vote per line. (Budgets are tight, so the city council chose the cheap voting
+    machine vendor.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here’s a file with all the votes for District A:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0206-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We need to process each line of the file and tally the total number of times
+    each name occurs. The name with the most votes will be our winner!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Reading names from a file
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Our first order of business is to read the contents of the *votes.txt* file.
+    The `datafile` package from previous chapters already has a `GetFloats` function
+    that reads each line of a file into a slice, but `GetFloats` can only read `float64`
+    values. We’re going to need a separate function that can return the file lines
+    as a slice of `string` values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So let’s start by creating a *strings.go* file alongside the *floats.go* file
+    in the *datafile* package directory. In that file, we’ll add a `GetStrings` function.
+    The code in `GetStrings` will look much like the code in `GetFloats` (we’ve grayed
+    out the code that’s identical below). But instead of converting each line to a
+    `float64` value, `GetStrings` will just add the line directly to the slice we’re
+    returning, as a `string` value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0207-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Now let’s create the program that will actually count the votes. We’ll name
+    it `count`. Within your Go workspace, go into the *[src/github.com/headfirstgo](http://src/github.com/headfirstgo)*
+    directory and create a new directory named *count*. Then create a file named *main.go*
+    within the *count* directory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Before writing the full program, let’s confirm that our `GetStrings` function
+    is working. At the top of the `main` function, we’ll call `datafile.GetStrings`,
+    passing it `"votes.txt"` as the name of the file to read from. We’ll store the
+    returned slice of strings in a new variable named `lines`, and any error in a
+    variable named `err`. As usual, if `err` is not `nil`, we’ll log the error and
+    exit. Otherwise, we’ll simply call `fmt.Println` to print out the contents of
+    the `lines` slice.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0208-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: As we’ve done with other programs, you can compile this program (plus any packages
+    it depends on, `datafile` in this case) by running `go install` and providing
+    it the package import path. If you used the directory structure shown above, that
+    import path should be `github.com/headfirstgo/count`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0208-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: That will save an executable file named *count* (or *count.exe* on Windows)
+    in the *bin* subdirectory of your Go workspace.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As with the *data.txt* file in previous chapters, we need to ensure a *votes.txt*
+    file is saved in the current directory when we run our program. In the *bin* subdirectory
+    of your Go workspace, save a file with the contents shown at right. In your terminal,
+    use the `**cd**` command to change to that same subdirectory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0209-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Now you should be able to run the executable by typing `**./count**` (or `**count.exe**`
+    on Windows). It should read every line of *votes.txt* into a slice of strings,
+    then print that slice out.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0209-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Counting names the hard way, with slices
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Reading a slice of names from the file didn’t require learning anything new.
+    But now comes the challenge: how do we count the number of times each name occurs?
+    We’ll show you two ways, first with slices, and then with a new data structure,
+    *maps*.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: For our first solution, we’ll create two slices, each with the same number of
+    elements, in a specific order. The first slice would hold the names we found in
+    the file, with each name occurring once. We could call that one `names`. The second
+    slice, `counts`, would hold the number of times each name was found in the file.
+    The element `counts[0]` would hold the count for `names[0]`, `counts[1]` would
+    hold the count for `names[1]`, and so on.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0209-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Let’s update the `count` program to actually count the number of times each
+    name occurs in the file. We’ll try this plan of using a `names` slice to hold
+    each unique candidate name, and a corresponding `counts` slice to track the number
+    of times each name occurs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0210-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: As always, we can recompile the program with `go install`. If we run the resulting
+    executable, it will read the *votes.txt* file and print each name it finds, along
+    with the number of times that name occurs!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0210-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Let’s take a closer look at how this works...
+  prefs: []
+  type: TYPE_NORMAL
+- en: Our `count` program uses a loop nested *inside* another loop to tally the name
+    counts. The outer loop assigns lines of the file to the `line` variable, one at
+    a time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0211-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The *inner* loop searches each element of the `names` slice, looking for a name
+    equal to the current line from the file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0211-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Say someone adds a write-in candidate to their ballot, causing a line from the
+    text file to be loaded with the string `"Carlos Diaz"`. The program will check
+    the elements of `names`, one by one, to see if any of them equal `"Carlos Diaz"`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0211-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: If none matches, the program will append the string `"Carlos Diaz"` to the `names`
+    slice, and a corresponding count of `1` to the `counts` slice (because this line
+    represents the first vote for `"Carlos Diaz"`).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0211-04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: But suppose the next line is the string `"Brian Martin"`. Because that string
+    already exists in the `names` slice, the program will find it and add `1` to the
+    corresponding value in `counts` instead.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0211-05.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Maps
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'But here’s the problem with storing the names in slices: for each and every
+    line of the file, you have to search through many (if not all) of the values in
+    the `names` slice to compare them. That may work okay in a small district like
+    Sleepy Creek County, but in a bigger district with lots of votes, this approach
+    will be way too slow!'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0212-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Putting data in a slice is like stacking it in a big pile; you can get particular
+    items back out, but you’ll have to search through *everything* to find them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0212-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Slice**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Go has another way of storing collections of data: *maps*. A **map** is a collection
+    where each value is accessed via a *key*. Keys are an easy way to get data back
+    out of your map. It’s like having neatly labeled file folders instead of a messy
+    pile.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0212-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Map**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Whereas arrays and slices can only use *integers* as indexes, a map can use
+    *any* type for keys (as long as values of that type can be compared using `==`).
+    That includes numbers, strings, and more. The values all have to be of the same
+    type, and the keys all have to be of the same type, but the keys don’t have to
+    be the same type as the values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To declare a variable that holds a map, you type the `map` keyword, followed
+    by square brackets (`[]`) containing the key type. Then, following the brackets,
+    provide the value type.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0213-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Just as with slices, declaring a map variable doesn’t automatically create a
+    map; you need to call the `make` function (the same function you can use to create
+    slices). Instead of a slice type, you can pass `make` the type of the map you
+    want to create (which should be the same as the type of the variable you’re going
+    to assign it to).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0213-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'You may find it’s easier to just use a short variable declaration, though:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0213-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The syntax to assign values to a map and get them back out again looks a lot
+    like the syntax to assign and get values for arrays or slices. But while arrays
+    and slices only let you use integers as element indexes, you can choose almost
+    any type to use for a map’s keys. The `ranks` map uses `string` keys:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0213-04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Arrays and slices only let you use integer indexes. But you can choose almost
+    any type to use for a map’s keys.**'
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: 'Here’s another map with strings as keys and strings as values:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0213-05.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Here’s a map with integers as keys and booleans as values:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0213-06.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Map literals
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Just as with arrays and slices, if you know keys and values that you want your
+    map to have in advance, you can use a **map literal** to create it. A map literal
+    starts with the map type (in the form `map[*KeyType*]*ValueType*`). This is followed
+    by curly braces containing key/value pairs you want the map to start with. For
+    each key/value pair, you include the key, a colon, and then the value. Multiple
+    key/value pairs are separated by commas.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0214-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Here are a couple of the preceding map examples, re-created using map literals:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0214-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: As with slice literals, leaving the curly braces empty creates a map that starts
+    empty.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0214-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Zero values within maps
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As with arrays and slices, if you access a map key that hasn’t been assigned
+    to, you’ll get a zero value back.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0215-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Depending on the value type, the zero value may not actually be `0`. For maps
+    with a value type of `string`, for example, the zero value will be an empty string.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0215-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: As with arrays and slices, zero values can make it safe to manipulate a map
+    value even if you haven’t explicitly assigned to it yet.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0215-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The zero value for a map variable is nil
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'As with slices, the zero value for the map variable itself is `nil`. If you
+    declare a `map` variable, but don’t assign it a value, its value will be `nil`.
+    That means no map exists to add new keys and values to. If you try, you’ll get
+    a panic:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0215-04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Before attempting to add keys and values, create a map using `make` or a map
+    literal, and assign it to your map variable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0215-05.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: How to tell zero values apart from assigned values
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Zero values, although useful, can sometimes make it difficult to tell whether
+    a given key has been assigned the zero value, or if it has never been assigned.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here’s an example of a program where this could be an issue. This code erroneously
+    reports that the student `"Carl"` is failing, when in reality he just hasn’t had
+    any grades logged:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0216-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: To address situations like this, accessing a map key optionally returns a second,
+    Boolean value. It will be `true` if the returned value has actually been assigned
+    to the map, or `false` if the returned value just represents the default zero
+    value. Most Go developers assign this Boolean value to a variable named `ok` (because
+    the name is nice and short).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0216-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The Go maintainers refer to this as the “comma ok idiom.” We’ll see it again
+    with type assertions in [Chapter 11](ch11_split_000.html#what_can_you_doquestcolon_interfaces).
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you only want to test whether a value is present, you can have the value
+    itself ignored by assigning it to the `_` blank identifier.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0216-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The second return value can be used to decide whether you should treat the value
+    you got from the map as an assigned value that just happens to match the zero
+    value for that type, or as an unassigned value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here’s an update to our code that tests whether the requested key has actually
+    had a value assigned before it reports a failing grade:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0217-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Removing key/value pairs with the “delete” function
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'At some point after assigning a value to a key, you may want to remove it from
+    your map. Go provides the built-in `delete` function for this purpose. Just pass
+    the `delete` function two things: the map you want to delete a key from, and the
+    key you want deleted. That key and its corresponding value will be removed from
+    the map.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the code below, we assign values to keys in two different maps, then delete
+    them again. After that, when we try accessing those keys, we get a zero value
+    (which is `0` for the `ranks` map, `false` for the `isPrime` map). The secondary
+    Boolean value is also `false` in each case, which means that the key is not present.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0218-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Updating our vote counting program to use maps
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now that we understand maps a bit better, let’s see if we can use what we’ve
+    learned to simplify our vote counting program.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0219-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Previously, we used a pair of slices, one called `names` that held candidate
+    names, and one called `counts` held vote counts for each name. For each name we
+    read from the file, we had to search through the slice of names, one by one, for
+    a match. We then incremented the vote count for that name in the corresponding
+    element of the `counts` slice.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0219-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Using a map will be much simpler. We can replace the two slices with a single
+    map (which we’ll also call `counts`). Our map will use candidate names as its
+    keys, and integers (which will hold the vote counts for that name) as its values.
+    Once that’s set up, all we have to do is use each candidate name we read from
+    the file as a map key, and increment the value that key holds.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here’s some simplified code that creates a map and increments the values for
+    some candidate names directly:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0219-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Our previous program needed separate logic to add new elements to both slices
+    if the name wasn’t found...
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0219-04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: But we don’t need to do that with a map. If the key we’re accessing doesn’t
+    already exist, we’ll get the zero value back (literally `0` in this case, since
+    our values are integers). We then increment that value, giving us `1`, which gets
+    assigned to the map. When we encounter that name again, we’ll get the assigned
+    value, which we can then increment as normal.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Next, let’s try incorporating our `counts` map into the actual program, so it
+    can tally the votes from the actual file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0220-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We’ll be honest; after all that work to learn about maps, the final code looks
+    a little anticlimactic! We replace the two slice declarations with a single map
+    declaration. Next is the code in the loop that processes strings from the file.
+    We replace the original 11 lines of code there with a single line, which increments
+    the count in the map for the current candidate name. And we replace the loop at
+    the end that prints the results with a single line that prints the whole `counts`
+    map.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0220-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Trust us, though, the code only *looks* anticlimactic. There are still complex
+    operations going on here. But the map is handling them all for you, which means
+    you don’t have to write as much code!
+  prefs: []
+  type: TYPE_NORMAL
+- en: As before, you can recompile the program using the `go install` command. When
+    we rerun the executable, the *votes.txt* file will be loaded and processed. We’ll
+    see the `counts` map printed, with the number of times each name was encountered
+    in the file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0220-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Using for...range loops with maps
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0221-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Name: Kevin Wagner'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Occupation: Election Volunteer**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'That’s true. A format of one name and one vote count per line would probably
+    be better:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0221-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: To format each key and value from the map as a separate line, we’re going to
+    need to loop through each entry in the map.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The same `for`...`range` loop we’ve been using to process array and slice elements
+    works on maps, too. Instead of assigning an integer index to the first variable
+    you provide, however, the current map key will be assigned.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0221-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The `for`...`range` loop makes it easy to loop through a map’s keys and values.
+    Just provide a variable to hold each key, and another to hold the corresponding
+    value, and it will automatically loop through each entry in the map.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0222-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'If you only need to loop through the keys, you can omit the variable that holds
+    the values:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0222-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'And if you only need the values, you can assign the keys to the `_` blank identifier:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0222-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: But there’s one potential issue with this example... If you save the preceding
+    example to a file and run it with `go run`, you’ll find that the map keys and
+    values are printed in a random order. If you run the program multiple times, you’ll
+    get a different order each time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: '(Note: The same is not true of code run via the online Go Playground site.
+    There, the order will still be random, but it will produce the same output each
+    time it’s run.)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0222-04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The for...range loop handles maps in random order!
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The `for`...`range` loop processes map keys and values in a random order because
+    a map is an *unordered* collection of keys and values. When you use a `for`...`range`
+    loop with a map, you never know what order you’ll get the map’s contents in! Sometimes
+    that’s fine, but if you need more consistent ordering, you’ll need to write the
+    code for that yourself.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here’s an update to the previous program that always prints the names in alphabetical
+    order. It does using two separate `for` loops. The first loops over each key in
+    the map, ignoring the values, and adds them to a slice of strings. Then, the slice
+    is passed to the `sort` package’s `Strings` function to sort it alphabetically,
+    in place.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The second `for` loop doesn’t loop over the map, it loops over the sorted slice
+    of names. (Which, thanks to the preceding code, now contains every key from the
+    map in alphabetical order.) It prints the name and then gets the value that matches
+    that name from the map. It still processes every key and value in the map, but
+    it gets the keys from the sorted slice, not the map itself.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0223-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: If we save the above code and run it, this time the student names are printed
+    in alphabetical order. This will be true no matter how many times we run the program.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If it doesn’t matter what order your map data is processed in, using a `for`...`range`
+    loop directly on the map will probably work for you. But if order matters, you
+    may want to consider setting up your own code to handle the processing order.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0223-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Updating our vote counting program with a for...range loop
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: There aren’t a lot of candidates in Sleepy Creek County, so we don’t see a need
+    to sort the output by name. We’ll just use a `for`...`range` loop to process the
+    keys and values directly from the map.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0224-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: It’s a pretty simple change to make; we just replace the line that prints the
+    entire map with a `for`...`range` loop. We’ll assign each key to a `name` variable,
+    and each value to a `count` variable. Then we’ll call `Printf` to print the current
+    candidate name and vote count.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0224-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Another compilation via `go install`, another run of the executable, and we’ll
+    see our output in its new format. Each candidate name and their vote count is
+    here, neatly formatted on its own line.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0224-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The vote counting program is complete!
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0225-01.png)![image](assets/f0225-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Our vote counting program is complete!
+  prefs: []
+  type: TYPE_NORMAL
+- en: When the only data collections we had available were arrays and slices, we needed
+    a lot of extra code and processing time to look values up. But maps have made
+    the process easy! Anytime you need to be able to find a collection’s values again,
+    you should consider using a map!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Code Magnets
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/bag.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: A Go program that uses a `for`...`range` loop to print out the contents of a
+    map is scrambled up on the fridge. Can you reconstruct the code snippets to make
+    a working program that will produce the given output? (It’s okay if the output
+    order differs between runs of the program.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0226-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![image](assets/arrow.png) Answers in [“Code Magnets Solution”](ch07_split_001.html#code_magnets_solution_5).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Your Go Toolbox
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0227-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**That’s it for [Chapter 7](ch07_split_000.html#labeling_datacolon_maps)! You’ve
+    added maps to your toolbox.**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0227-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Code Magnets Solution
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0229-01.png)'
+  prefs: []
+  type: TYPE_IMG

@@ -1,0 +1,1592 @@
+- en: Chapter 4\. Cloud Native Patterns
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Progress is possible only if we train ourselves to think about programs without
+    thinking of them as pieces of executable code.^([1](ch04.xhtml#idm45983640248920))
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: ''
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: Edsger W. Dijkstra, August 1979
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: 'In 1991, while still at Sun Microsystems, L Peter Deutsch^([2](ch04.xhtml#idm45983640246616))
+    formulated the *Fallacies of Distributed Computing*, which lists some of the false
+    assumptions that programmers new (and not so new) to distributed applications
+    often make:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*The network is reliable*: switches fail, routers get misconfigured'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Latency is zero*: it takes time to move data across a network'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Bandwidth is infinite*: a network can only handle so much data at a time'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*The network is secure*: don’t share secrets in plain text; encrypt everything'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Topology doesn’t change*: servers and services come and go'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*There is one administrator*: multiple admins lead to heterogeneous solutions'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Transport cost is zero*: moving data around costs time and money'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*The network is homogeneous*: every network is (sometimes very) different'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'If I might be so audacious, I’d like to add a ninth one as well:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Services are reliable*: services that you depend on can fail at any time'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In this chapter, I’ll present a selection of idiomatic patterns—tested, proven
+    development paradigms—designed to address one or more of the conditions described
+    in Deutsch’s Fallacies, and demonstrate how to implement them in Go. None of the
+    patterns discussed in this book are original to this book—some have been around
+    for as long as distributed applications have existed—but most haven’t been previously
+    published together in a single work. Many of them are unique to Go or have novel
+    implementations in Go relative to other languages.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unfortunately, this book won’t cover infrastructure-level patterns like the
+    [Bulkhead](https://oreil.ly/0hxmU) or [Gatekeeper](https://oreil.ly/0v5Jc) patterns.
+    Largely, this is because our focus is on application-layer development in Go,
+    and those patterns, while indispensable, function at an entirely different abstraction
+    level. If you’re interested in learning more, I recommend *Cloud Native Infrastructure*
+    by Justin Garrison and Kris Nova (O’Reilly) and *Designing Distributed Systems*
+    by Brendan Burns (O’Reilly).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Context Package
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Most of the code examples in this chapter make use of the `context` package,
+    which was introduced in Go 1.7 to provide an idiomatic means of carrying deadlines,
+    cancellation signals, and request-scoped values between processes. It contains
+    a single interface, `context.Context`, whose methods are listed in the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: Three of these methods can be used to learn something about a `Context` value’s
+    cancellation status or behavior. The fourth, `Value`, can be used to retrieve
+    a value associated with an arbitrary key. `Context`’s `Value` method is the focus
+    of some controversy in the Go world, and will be discussed more in [“Defining
+    Request-Scoped Values”](#section_ch04_context_request_scoped_values).
+  prefs: []
+  type: TYPE_NORMAL
+- en: What Context Can Do for You
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: A `context.Context` value is used by passing it directly to a service request,
+    which may in turn pass it to one or more subrequests. What makes this useful is
+    that when the `Context` is cancelled, all functions holding it (or a derived `Context`;
+    more on this in Figures [4-1](#img_ch04_context1), [4-2](#img_ch04_context2),
+    and [4-3](#img_ch04_context3)) will receive the signal, allowing them to coordinate
+    their cancellation and reduce the amount of wasted effort.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Take, for example, a request from a user to a service, which in turn makes a
+    request to a database. In an ideal scenario, the user, application, and database
+    requests can be diagrammed as in [Figure 4-1](#img_ch04_context1).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![cngo 0401](Images/cngo_0401.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 4-1\. A successful request from a user, to a service, to a database
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: But what if the user terminates their request before it’s fully completed? In
+    most cases, oblivious to the overall context of the request, the processes will
+    continue to live on anyway ([Figure 4-2](#img_ch04_context2)), consuming resources
+    in order to provide a result that’ll never be used.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![cngo 0402](Images/cngo_0402.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 4-2\. Subprocesses, unaware of a cancelled user request, will continue
+    anyway
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: However, by sharing a `Context` to each subsequent request, all long-running
+    processes can be sent a simultaneous “done” signal, allowing the cancellation
+    signal to be coordinated among each of the processes ([Figure 4-3](#img_ch04_context3)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![cngo 0403](Images/cngo_0403.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 4-3\. By sharing context, cancellation signals can be coordinated among
+    processes
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Importantly, `Context` values are also thread safe, i.e., they can be safely
+    used by multiple concurrently executing goroutines without fear of unexpected
+    behaviors.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating Context
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'A brand-new `context.Context` can be obtained using one of two functions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`func Background() Context`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Returns an empty `Context` that’s never cancelled, has no values, and has no
+    deadline. It is typically used by the main function, initialization, and tests,
+    and as the top-level `Context` for incoming requests.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`func TODO() Context`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Also provides an empty `Context`, but it’s intended to be used as a placeholder
+    when it’s unclear which `Context` to use or when a parent `Context` is not yet
+    available.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Defining Context Deadlines and Timeouts
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The `context` package also includes a number of methods for creating *derived*
+    `Context` values that allow you to direct cancellation behavior, either by applying
+    a timeout or by a function hook that can explicitly trigger a cancellation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`func WithDeadline(Context, time.Time) (Context, CancelFunc)`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Accepts a specific time at which the `Context` will be cancelled and the `Done`
+    channel will be closed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`func WithTimeout(Context, time.Duration) (Context, CancelFunc)`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Accepts a duration after which the `Context` will be cancelled and the `Done`
+    channel will be closed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`func WithCancel(Context) (Context, CancelFunc)`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unlike the previous functions, `WithCancel` accepts nothing, and only returns
+    a function that can be called to explicitly cancel the `Context`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: All three of these functions return a derived `Context` that includes any requested
+    decoration, and a `context.CancelFunc`, a zero-parameter function that can be
+    called to explicitly cancel the `Context` and all of its derived values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: When a `Context` is cancelled, all `Context`s that are *derived from it* are
+    also cancelled. `Context`s that *it was derived from* are not.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Defining Request-Scoped Values
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Finally, the `context` package includes a function that can be used to define
+    an arbitrary *request-scoped* key-value pair that can be accessed from the returned
+    `Context`—and all `Context` values derived from it—via the `Value` method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`func WithValue(parent Context, key, val interface{}) Context`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`WithValue` returns a derivation of `parent` in which `key` is associated with
+    the value `val`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using a Context
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: When a service request is initiated, either by an incoming request or triggered
+    by the `main` function, the top-level process will use the `Background` function
+    to create a new `Context` value, possibly decorating it with one or more of the
+    `context.With*` functions, before passing it along to any subrequests. Those subrequests
+    then need only watch the `Done` channel for cancellation signals.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For example, take a look at the following `Stream` function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: '`Stream` receives a `ctx Context` as an input parameter, which it sends to
+    `WithTimeout` to create `dctx`, a derived `Context` with a 10-second timeout.
+    Because of this decoration, the `SlowOperation(dctx)` call could possibly time
+    out after ten seconds and return an error. Functions using the original `ctx`,
+    however, will not have this timeout decoration, and will not time out.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Further down, the original `ctx` value is used in a `for` loop around a `select`
+    statement to retrieve values from the `res` channel provided by the `SlowOperation`
+    function. Note the `case <-ctx.Done()` statement, which is executed when the `ctx.Done`
+    channel closes to return an appropriate error value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Layout of this Chapter
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The general presentation of each pattern in this chapter is loosely based on
+    the one used in the famous “Gang of Four” *Design Patterns* book,^([3](ch04.xhtml#idm45983639950216))
+    but simpler and less formal. Each pattern opens with a very brief description
+    of its purpose and the reasons for using it, and is followed by the following
+    sections:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Applicability
+  prefs: []
+  type: TYPE_NORMAL
+- en: Context and descriptions of where this pattern may be applied.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Participants
+  prefs: []
+  type: TYPE_NORMAL
+- en: A listing of the components of the pattern and their roles.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementation
+  prefs: []
+  type: TYPE_NORMAL
+- en: A discussion of the solution and its implementation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sample code
+  prefs: []
+  type: TYPE_NORMAL
+- en: A demonstration of how the code may be implemented in Go.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Stability Patterns
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The stability patterns presented here address one or more of the assumptions
+    called out by the Fallacies of Distributed Computing. They’re generally intended
+    to be applied by distributed applications to improve their own stability and the
+    stability of the larger system they’re a part of.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Circuit Breaker
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Circuit Breaker automatically degrades service functions in response to a likely
+    fault, preventing larger or cascading failures by eliminating recurring errors
+    and providing reasonable error responses.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Applicability
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: If the *Fallacies of Distributed Computing* were to be distilled to one point,
+    it would be that errors and failures are an undeniable fact of life for distributed,
+    cloud native systems. Services become misconfigured, databases crash, networks
+    partition. We can’t prevent it; we can only accept and account for it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Failing to do so can have some rather unpleasant consequences. We’ve all seen
+    them, and they aren’t pretty. Some services might keep futilely trying to do their
+    job and returning nonsense to their client; others might fail catastrophically
+    and maybe even fall into a crash/restart death spiral. It doesn’t matter, because
+    in the end they’re all wasting resources, obscuring the source of original failure,
+    and making cascading failures even more likely.
+  prefs: []
+  type: TYPE_NORMAL
+- en: On the other hand, a service that’s designed with the assumption that its dependencies
+    can fail at any time can respond reasonably when they do. The Circuit Breaker
+    allows a service to detect such failures and to “open the circuit” by temporarily
+    ceasing to execute requests, instead providing clients with an error message consistent
+    with the service’s communication contract.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For example, imagine a service that (ideally) receives a request from a client,
+    executes a database query, and returns a response. What if the database fails?
+    The service might continue futilely trying to query it anyway, flooding the logs
+    with error messages and eventually timing out or returning useless errors. Such
+    a service can use a Circuit Breaker to “open the circuit” when the database fails,
+    preventing the service from making any more doomed database requests (at least
+    for a while), and allowing it to respond to the client immediately with a meaningful
+    notification.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Participants
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'This pattern includes the following participants:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Circuit
+  prefs: []
+  type: TYPE_NORMAL
+- en: The function that interacts with the service.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Breaker
+  prefs: []
+  type: TYPE_NORMAL
+- en: A closure with the same function signature as *Circuit*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementation
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Essentially, the Circuit Breaker is just a specialized [Adapter](https://oreil.ly/bEeru)
+    pattern, with `Breaker` wrapping `Circuit` to add some additional error handling
+    logic.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Like the electrical switch from which this pattern derives its name, `Breaker`
+    has two possible states: *closed* and *open*. In the closed state everything is
+    functioning normally. All requests received from the client by `Breaker` are forwarded
+    unchanged to `Circuit`, and all responses from `Circuit` are forwarded back to
+    the client. In the open state, `Breaker` doesn’t forward requests to `Circuit`.
+    Instead it “fails fast” by responding with an informative error message.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`Breaker` internally tracks the errors returned by `Circuit`; if the number
+    of consecutive errors returned by `Circuit` returns exceeds a defined threshold,
+    `Breaker` *trips* and its state switches to *open*.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Most implementations of Circuit Breaker include some logic to automatically
+    close the circuit after some period of time. Keep in mind, though, that hammering
+    an already malfunctioning service with lots of retries can cause its own problems,
+    so it’s standard to include some kind of *backoff*, logic that reduces the rate
+    of retries over time. The subject of backoff is actually fairly nuanced, but it
+    will be covered in detail in in [“Play It Again: Retrying Requests”](ch09.xhtml#section_ch09_retries).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In a multinode service, this implementation may be extended to include some
+    shared storage mechanism, such as a Memcached or Redis network cache, to track
+    the circuit state.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sample code
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'We begin by creating a `Circuit` type that specifies the signature of the function
+    that’s interacting with your database or other upstream service. In practice,
+    this can take whatever form is appropriate for your functionality. It should include
+    an `error` in its return list, however:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: In this example, `Circuit` is a function that accepts a `Context` value, which
+    was described in depth in [“The Context Package”](#section_ch04_context). Your
+    implementation may vary.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `Breaker` function accepts any function that conforms to the `Circuit`
+    type definition, and an unsigned integer representing the number of consecutive
+    failures allowed before the circuit automatically opens. In return it provides
+    another function, which also conforms to the `Circuit` type definition:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `Breaker` function constructs another function, also of type `Circuit`,
+    which wraps `circuit` to provide the desired functionality. You may recognize
+    this from [“Anonymous Functions and Closures”](ch03.xhtml#section_ch03_anonymous_functions_and_closures)
+    as a closure: a nested function with access to the variables of its parent function.
+    As you will see, all of the “stability” functions implemented for this chapter
+    work this way.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The closure works by counting the number of consecutive errors returned by `circuit`.
+    If that value meets the failure threshold, then it returns the error “service
+    unreachable” without actually calling `circuit`. Any successful calls to `circuit`
+    cause `consecutiveFailures` to reset to 0, and the cycle begins again.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The closure even includes an automatic reset mechanism that allows requests
+    to call `circuit` again after several seconds, with an *exponential backoff* in
+    which the durations of the delays between retries roughly doubles with each attempt.
+    Though simple and quite common, this actually isn’t the ideal backoff algorithm.
+    We’ll review exactly why in [“Backoff Algorithms”](ch09.xhtml#section_ch09_backoff_algorithms).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Debounce
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Debounce limits the frequency of a function invocation so that only the first
+    or last in a cluster of calls is actually performed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Applicability
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Debounce is the second of our patterns to be labeled with an electrical circuit
+    theme. Specifically, it’s named after a phenomenon in which a switch’s contacts
+    “bounce” when they’re opened or closed, causing the circuit to fluctuate a bit
+    before settling down. It’s usually no big deal, but this “contact bounce” can
+    be a real problem in logic circuits where a series of on/off pulses can be interpreted
+    as a data stream. The practice of eliminating contact bounce so that only one
+    signal is transmitted by an opening or closing contact is called “debouncing.”
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the world of services, we sometimes find ourselves performing a cluster of
+    potentially slow or costly operations where only one would do. Using the Debounce
+    pattern, a series of similar calls that are tightly clustered in time are restricted
+    to only one call, typically the first or last in a batch.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This technique has been used in the JavaScript world for years to limit the
+    number of operations that could slow the browser by taking only the first in a
+    series of user events or to delay a call until a user is ready. You’ve probably
+    seen an application of this technique in practice before. We’re all familiar with
+    the experience of using a search bar whose autocomplete pop-up doesn’t display
+    until after you pause typing, or spam-clicking a button only to see the clicks
+    after the first ignored.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Those of us who specialize in backend services can learn a lot from our frontend
+    brethren, who have been working for years to account for the reliability, latency,
+    and bandwidth issues inherent to distributed systems. For example, this approach
+    could be used to retrieve some slowly updating remote resource without bogging
+    down, wasting both client and server time with wasteful requests.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This pattern is similar to [“Throttle”](#section_ch04_throttle), in that it
+    limits how often a function can be called. But where Debounce restricts clusters
+    of invocations, Throttle simply limits according to time period. For more on the
+    difference between the Debounce and Throttle patterns, see [“What’s the Difference
+    Between Throttle and Debounce?”](#sidebar_ch04_debounce_vs_throttle).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Participants
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'This pattern includes the following participants:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Circuit
+  prefs: []
+  type: TYPE_NORMAL
+- en: The function to regulate.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Debounce
+  prefs: []
+  type: TYPE_NORMAL
+- en: A closure with the same function signature as *Circuit*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementation
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'The Debounce implementation is actually very similar to the one for Circuit
+    Breaker in that it wraps *Circuit* to provide the rate-limiting logic. That logic
+    is actually quite straightforward: on each call of the outer function—regardless
+    of its outcome—a time interval is set. Any subsequent call made before that time
+    interval expires is ignored; any call made afterwards is passed along to the inner
+    function. This implementation, in which the inner function is called once and
+    subsequent calls are ignored, is called *function-first*, and is useful because
+    it allows the initial response from the inner function to be cached and returned.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A *function-last* implementation will wait for a pause after a series of calls
+    before calling the inner function. This variant is common in the JavaScript world
+    when a programmer wants a certain amount of input before making a function call,
+    such as when a search bar waits for a pause in typing before autocompleting. Function-last
+    tends to be less common in backend services because it doesn’t provide an immediate
+    response, but it can be useful if your function doesn’t need results right away.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sample code
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Just like in the Circuit Breaker implementation, we start by defining a function
+    type with the signature of the function we want to limit. Also like Circuit Breaker,
+    we call it `Circuit`; it’s identical to the one declared in that example. Again,
+    `Circuit` can take whatever form is appropriate for your functionality, but it
+    should include an `error` in its returns:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The similarity with the Circuit Breaker implementation is quite intentional:
+    their compatibility makes them “chainable,” as demonstrated in the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The function-first implementation of Debounce—`DebounceFirst`—is very straightforward
+    compared to function-last because it only needs to track the last time it was
+    called and return a cached result if it’s called again less than `d` duration
+    after:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: This implementation of `DebounceFirst` takes pains to ensure thread safety by
+    wrapping the entire function in a mutex. While this will force overlapping calls
+    at the start of a cluster to have to wait until the result is cached, it also
+    guarantees that `circuit` is called exactly once, at the very beginning of a cluster.
+    A `defer` ensures that the value of `threshold`, representing the time when a
+    cluster ends (if there are no further calls), is reset with every call.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Our function-last implementation is a bit more awkward because it involves
+    the use of a `time.Ticker` to determine whether enough time has passed since the
+    function was last called, and to call `circuit` when it has. Alternatively, we
+    could create a new `time.Ticker` with every call, but that can get quite expensive
+    if it’s called frequently:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: Like `DebounceFirst`, `DebounceLast` uses a value called `threshold` to indicate
+    the end of a cluster of calls (assuming there are no additional calls). The similarity
+    largely ends there however.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You’ll notice that almost the entire function is run inside of the `Do` method
+    of a `sync.Once` value, which ensures that (as its name suggests) the contained
+    function is run *exactly* once. Inside this block, a `time.Ticker` is used to
+    check whether `threshold` has been passed and to call `circuit` if it has. Finally,
+    the `time.Ticker` is stopped, the `sync.Once` is reset, and the cycle is primed
+    to repeat.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Retry
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Retry accounts for a possible transient fault in a distributed system by transparently
+    retrying a failed operation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Applicability
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Transient errors are a fact of life when working with complex distributed systems.
+    These can be caused by any number of (hopefully) temporary conditions, especially
+    if the downstream service or network resource has protective strategies in place,
+    such as throttling that temporarily rejects requests under high workload, or adaptive
+    strategies like autoscaling that can add capacity when needed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: These faults typically resolve themselves after a bit of time, so repeating
+    the request after a reasonable delay is likely (but not guaranteed) to be successful.
+    Failing to account for transient faults can lead to a system that’s unnecessarily
+    brittle. On the other hand, implementing an automatic retry strategy can considerably
+    improve the stability of the service that can benefit both it and its upstream
+    consumers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Participants
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'This pattern includes the following participants:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Effector
+  prefs: []
+  type: TYPE_NORMAL
+- en: The function that interacts with the service.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Retry
+  prefs: []
+  type: TYPE_NORMAL
+- en: A function that accepts *Effector* and returns a closure with the same function
+    signature as *Effector*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementation
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: This pattern works similarly to Circuit Breaker or Debounce in that there is
+    a type, *Effector*, that defines a function signature. This signature can take
+    whatever form is appropriate for your implementation, but when the function executing
+    the potentially-failing operation is implemented, it must match the signature
+    defined by *Effector*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The *Retry* function accepts the user-defined *Effector* function and returns
+    an *Effector* function that wraps the user-defined function to provide the retry
+    logic. Along with the user-defined function, *Retry* also accepts an integer describing
+    the maximum number of retry attempts that it will make, and a `time.Duration`
+    that describes how long it’ll wait between each retry attempt. If the `retries`
+    parameter is 0, then the retry logic will effectively become a no-op.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Although not included here, retry logic will typically include some kind of
+    a backoff algorithm.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sample code
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'The signature for function argument of the `Retry` function is `Effector`.
+    It looks exactly like the function types for the previous patterns:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `Retry` function itself is relatively straightforward, at least when compared
+    to the functions we’ve seen so far:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You may have already noticed what it is that keeps the `Retry` function so
+    slender: although it returns a function, that function doesn’t have any external
+    state. This means we don’t need any elaborate mechanisms to support concurrency.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To use `Retry`, we can implement the function that executes the potentially-failing
+    operation and whose signature matches the `Effector` type; this role is played
+    by `EmulateTransientError` in the following example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the `main` function, the `EmulateTransientError` function is passed to `Retry`,
+    providing the function variable `r`. When `r` is called, `EmulateTransientError`
+    is called, and called again after a delay if it returns an error, according to
+    the retry logic shown previously. Finally, after the fourth attempt, `EmulateTransientError`
+    returns a `nil` error and exits.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Throttle
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Throttle limits the frequency of a function call to some maximum number of invocations
+    per unit of time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Applicability
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'The Throttle pattern is named after a device used to manage the flow of a fluid,
+    such as the amount of fuel going into a car engine. Like its namesake mechanism,
+    Throttle restricts the number of times that a function can be called during over
+    a period of time. For example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A user may only be allowed 10 service requests per second.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: A client may restrict itself to call a particular function once every 500 milliseconds.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: An account may only be allowed three failed login attempts in a 24-hour period.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Perhaps the most common reason to apply a Throttle is to account for sharp activity
+    spikes that could saturate the system with a possibly unreasonable number of requests
+    that may be expensive to satisfy, or lead to service degradation and eventually
+    failure. While it may be possible for a system to scale up to add sufficient capacity
+    to meet user demand, this takes time, and the system may not be able to react
+    quickly enough.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Participants
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'This pattern includes the following participants:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Effector
+  prefs: []
+  type: TYPE_NORMAL
+- en: The function to regulate.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Throttle
+  prefs: []
+  type: TYPE_NORMAL
+- en: A function that accepts *Effector* and returns a closure with the same function
+    signature as *Effector*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementation
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'The Throttle pattern is similar to many of the other patterns described in
+    this chapter: it’s implemented as a function that accepts an effector function,
+    and returns a `Throttle` closure with the same signature that provides the rate-limiting
+    logic.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The most common algorithm for implementing rate-limiting behavior is the [*token
+    bucket*](https://oreil.ly/5A5aP), which uses the analogy of a bucket that can
+    hold some maximum number of tokens. When a function is called, a token is taken
+    from the bucket, which then refills at some fixed rate.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The way that a `Throttle` treats requests when there are insufficient tokens
+    in the bucket to pay for it can vary depending according to the needs of the developer.
+    Some common strategies are:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Return an error
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is the most basic strategy and is common when you’re only trying to restrict
+    unreasonable or potentially abusive numbers of client requests. A RESTful service
+    adopting this strategy might respond with a status `429 (Too Many Requests)`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Replay the response of the last successful function call
+  prefs: []
+  type: TYPE_NORMAL
+- en: This strategy can be useful when a service or expensive function call is likely
+    to provide an identical result if called too soon. It’s commonly used in the JavaScript
+    world.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Enqueue the request for execution when sufficient tokens are available
+  prefs: []
+  type: TYPE_NORMAL
+- en: This approach can be useful when you want to eventually handle all requests,
+    but it’s also more complex and may require care to be taken to ensure that memory
+    isn’t exhausted.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sample code
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'The following example implements a very basic “token bucket” algorithm that
+    uses the “error” strategy:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: This `Throttle` implementation is similar to our other examples in that it wraps
+    an effector function `e` with a closure that contains the rate-limiting logic.
+    The bucket is initially allocated `max` tokens; each time the closure is triggered
+    it checks whether it has any remaining tokens. If tokens are available, it decrements
+    the token count by one and triggers the effector function. If not, an error is
+    returned. Tokens are added at a rate of `refill` tokens every duration `d`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Timeout
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Timeout allows a process to stop waiting for an answer once it’s clear that
+    an answer may not be coming.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Applicability
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The first of the Fallacies of Distributed Computing is that “the network is
+    reliable,” and it’s first for a reason. Switches fail, routers and firewalls get
+    misconfigured; packets get blackholed. Even if your network is working perfectly,
+    not every service is thoughtful enough to guarantee a meaningful and timely response—or
+    any response at all—if and when it malfunctions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Timeout represents a common solution to this dilemma, and is so beautifully
+    simple that it barely even qualifies as a pattern at all: given a service request
+    or function call that’s running for a longer-than-expected time, the caller simply…stops
+    waiting.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, don’t mistake “simple” or “common” for “useless.” On the contrary,
+    the ubiquity of the timeout strategy is a testament to its usefulness. The judicious
+    use of timeouts can provide a degree of fault isolation, preventing cascading
+    failures and reducing the chance that a problem in a downstream resource becomes
+    *your* problem.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Participants
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'This pattern includes the following participants:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Client
+  prefs: []
+  type: TYPE_NORMAL
+- en: The client who wants to execute *SlowFunction*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: SlowFunction
+  prefs: []
+  type: TYPE_NORMAL
+- en: The long-running function that implements the functionality desired by *Client*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Timeout
+  prefs: []
+  type: TYPE_NORMAL
+- en: A wrapper function around *SlowFunction* that implements the timeout logic.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementation
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: There are several ways to implement a timeout in Go, but the idiomatic way is
+    to use the functionality provided by the `context` package. See [“The Context
+    Package”](#section_ch04_context) for more information.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In an ideal world, any possibly long-running function will accept a `context.Context`
+    parameter directly. If so, your work is fairly straightforward: you need only
+    pass it a `Context` value decorated with the `context.WithTimeout` function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: However, this isn’t always the case, and with third party libraries you don’t
+    always have the option of refactoring to accept a `Context` value. In these cases,
+    the best course of action may be to wrap the function call in such a way that
+    it *does* respect your `Context`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For example, imagine you have a potentially long-running function that not only
+    doesn’t accept a `Context` value, but comes from a package you don’t control.
+    If *Client* were to call *SlowFunction* directly it would be forced to wait until
+    the function completes, if indeed it ever does. Now what?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Instead of calling *SlowFunction* directly, you can call it in a goroutine.
+    In this way, you can capture the results it returns, if it returns them in an
+    acceptable period of time. However, this also allows you to move on if it doesn’t.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To do this, we can leverage a few tools that we’ve seen before: `context.Context`
+    for timeouts, channels for communicating results, and `select` to catch whichever
+    one acts first.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sample code
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'The following example imagines the existence of the fictional function, `Slow`,
+    whose execution may or may not complete in some reasonable amount of time, and
+    whose signature conforms with the following type definition:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Rather than calling `Slow` directly, we instead provide a `Timeout` function,
+    which wraps a provided `SlowFunction` in a closure and returns a `WithContext`
+    function, which adds a `context.Context` to the `SlowFunction`’s parameter list:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: Within the function that `Timeout` constructs, `Slow` is run in a goroutine,
+    with its return values being sent into channels constructed for that purpose,
+    if and when it ever completes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The following goroutine statement is a `select` block on two channels: the
+    first of the `Slow` function response channels, and the `Context` value’s `Done`
+    channel. If the former completes first, the closure will return the `Slow` function’s
+    return values; otherwise it returns the error provided by the `Context`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Using the `Timeout` function isn’t much more complicated than consuming `Slow`
+    directly, except that instead of one function call, we have two: the call to `Timeout`
+    to retrieve the closure, and the call to the closure itself:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: Finally, although it’s usually preferred to implement service timeouts using
+    `context.Context`, channel timeouts *can* also be implemented using the channel
+    provided by the `time.After` function. See [“Implementing channel timeouts”](ch03.xhtml#section_ch03_implementing_channel_timeouts)
+    for an example of how this is done.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Concurrency Patterns
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: A cloud native service will often be called upon to efficiently juggle multiple
+    processes and handle high (and highly variable) levels of load, ideally without
+    having to suffer the trouble and expense of scaling up. As such, it needs to be
+    highly concurrent and able to manage multiple simultaneous requests from multiple
+    clients. While Go is known for its concurrency support, bottlenecks can and do
+    happen. Some of the patterns that have been developed to prevent them are presented
+    here.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Fan-In
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Fan-in multiplexes multiple input channels onto one output channel.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Applicability
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Services that have some number of workers that all generate output may find
+    it useful to combine all of the workers’ outputs to be processed as a single unified
+    stream. For these scenarios we use the fan-in pattern, which can read from multiple
+    input channels by multiplexing them onto a single destination channel.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Participants
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'This pattern includes the following participants:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sources
+  prefs: []
+  type: TYPE_NORMAL
+- en: A set of one or more input channels with the same type. Accepted by *Funnel*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Destination
+  prefs: []
+  type: TYPE_NORMAL
+- en: An output channel of the same type as *Sources*. Created and provided by *Funnel*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Funnel
+  prefs: []
+  type: TYPE_NORMAL
+- en: Accepts *Sources* and immediately returns *Destination*. Any input from any
+    *Sources* will be output by *Destination*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementation
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: '*Funnel* is implemented as a function that receives zero to N input channels
+    (*Sources*). For each input channel in *Sources*, the *Funnel* function starts
+    a separate goroutine to read values from its assigned channel and forward them
+    to a single output channel shared by all of the goroutines (*Destination*).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sample code
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'The `Funnel` function is a variadic function that receives `sources`: zero
+    to N channels of some type (`int` in the following example):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: For each channel in the list of `sources`, `Funnel` starts a dedicated goroutine
+    that reads values from its assigned channel and forwards them to `dest`, a single-output
+    channel shared by all of the goroutines.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note the use of a `sync.WaitGroup` to ensure that the destination channel is
+    closed appropriately. Initially, a `WaitGroup` is created and set to the total
+    number of source channels. If a channel is closed, its associated goroutine exits,
+    calling `wg.Done`. When all of the channels are closed, the WaitGroup’s counter
+    reaches zero, the lock imposed by `wg.Wait` is released, and the `dest` channel
+    is closed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Using `Funnel` is reasonably straightforward: given N source channels (or a
+    slice of N channels), pass the channels to `Funnel`. The returned destination
+    channel may be read in the usual way, and will close when all source channels
+    close:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: This example creates a slice of three `int` channels, into which the values
+    from 1 to 5 are sent before being closed. In a separate goroutine, the outputs
+    of the single `dest` channel are printed. Running this will result in the appropriate
+    15 lines being printed before `dest` closes and the function ends.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Fan-Out
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Fan-out evenly distributes messages from an input channel to multiple output
+    channels.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Applicability
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Fan-out receives messages from an input channel, distributing them evenly among
+    output channels, and is a useful pattern for parallelizing CPU and I/O utilization.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For example, imagine that you have an input source, such as a `Reader` on an
+    input stream, or a listener on a message broker, that provides the inputs for
+    some resource-intensive unit of work. Rather than coupling the input and computation
+    processes, which would confine the effort to a single serial process, you might
+    prefer to parallelize the workload by distributing it among some number of concurrent
+    worker processes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Participants
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'This pattern includes the following participants:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Source
+  prefs: []
+  type: TYPE_NORMAL
+- en: An input channel. Accepted by *Split*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Destinations
+  prefs: []
+  type: TYPE_NORMAL
+- en: An output channel of the same type as *Source*. Created and provided by *Split*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Split
+  prefs: []
+  type: TYPE_NORMAL
+- en: A function that accepts *Source* and immediately returns *Destinations*. Any
+    input from *Source* will be output to a *Destination*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementation
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Fan-out may be relatively conceptually straightforward, but the devil is in
+    the details.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Typically, fan-out is implemented as a *Split* function, which accepts a single
+    *Source* channel and integer representing the desired number of *Destination*
+    channels. The *Split* function creates the *Destination* channels and executes
+    some background process that retrieves values from *Source* channel and forwards
+    them to one of the *Destinations*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The implementation of the forwarding logic can be done in one of two ways:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using a single goroutine that reads values from *Source* and forwards them to
+    the *Destinations* in a round-robin fashion. This has the virtue of requiring
+    only one master goroutine, but if the next channel isn’t ready to read yet, it’ll
+    slow the entire process.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Using separate goroutines for each *Destination* that compete to read the next
+    value from *Source* and forward it to their respective *Destination*. This requires
+    slightly more resources, but is less likely to get bogged down by a single slow-running
+    worker.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The next example uses the latter approach.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sample code
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: In this example, the `Split` function accepts a single receive-only channel,
+    `source`, and an integer describing the number of channels to split the input
+    into, `n`. It returns a slice of `n` send-only channels with the same type as
+    `source`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Internally, `Split` creates the destination channels. For each channel created,
+    it executes a goroutine that retrieves values from `source` in a `for` loop and
+    forwards them to their assigned output channel. Effectively, each goroutine competes
+    for reads from `source`; if several are trying to read, the “winner” will be randomly
+    determined. If `source` is closed, all goroutines terminate and all of the destination
+    channels are closed:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Given a channel of some specific type, the `Split` function will return a number
+    of destination channels. Typically, each will be passed to a separate goroutine,
+    as demonstrated in the following example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: This example creates an input channel, `source`, which it passes to `Split`
+    to receive its output channels. Concurrently it passes the values 1 to 10 into
+    `source` in a goroutine, while receiving values from `dests` in five others. When
+    the inputs are complete, the `source` channel is closed, which triggers closures
+    in the output channels, which ends the read loops, which causes `wg.Done` to be
+    called by each of the read goroutines, which releases the lock on `wg.Wait`, and
+    allows the function to end.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Future
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Future provides a placeholder for a value that’s not yet known.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Applicability
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Futures (also known as Promises or Delays^([4](ch04.xhtml#idm45983637370152)))
+    are a synchronization construct that provide a placeholder for a value that’s
+    still being generated by an asynchronous process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This pattern isn’t used as frequently in Go as in some other languages because
+    channels can be often used in a similar way. For example, the long-running blocking
+    function `BlockingInverse` (not shown) can be executed in a goroutine that returns
+    the result (when it arrives) along a channel. The `ConcurrentInverse` function
+    does exactly that, returning a channel that can be read when a result is available:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Using `ConcurrentInverse`, one could then build a function to calculate the
+    inverse product of two matrices:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This doesn’t seem so bad, but it comes with some baggage that makes it undesirable
+    for something like a public API. First, the caller has be careful to call `ConcurrentInverse`
+    with the correct timing. To see what I mean, take a close look at the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: See the problem? Since the computation isn’t started until `ConcurrentInverse`
+    is actually called, this construct would be effectively executed serially, requiring
+    twice the runtime.
+  prefs: []
+  type: TYPE_NORMAL
+- en: What’s more, when using channels in this way, functions with more than one return
+    value will usually assign a dedicated channel to each member of the return list,
+    which can become awkward as the return list grows or when the values need to be
+    read by more than one goroutine.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Future pattern contains this complexity by encapsulating it in an API that
+    provides the consumer with a simple interface whose method can be called normally,
+    blocking all calling routines until all of its results are resolved. The interface
+    that the value satisfies doesn’t even have to be constructed specially for that
+    purpose; any interface that’s convenient for the consumer can be used.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Participants
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'This pattern includes the following participants:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Future
+  prefs: []
+  type: TYPE_NORMAL
+- en: The interface that is received by the consumer to retrieve the eventual result.
+  prefs: []
+  type: TYPE_NORMAL
+- en: SlowFunction
+  prefs: []
+  type: TYPE_NORMAL
+- en: A wrapper function around some function to be asynchronously executed; provides
+    *Future*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: InnerFuture
+  prefs: []
+  type: TYPE_NORMAL
+- en: Satisfies the *Future* interface; includes an attached method that contains
+    the result access logic.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementation
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'The API presented to the consumer is fairly straightforward: the programmer
+    calls *SlowFunction*, which returns a value that satisfies the *Future* interface.
+    *Future* may be a bespoke interface, as in the following example, or it may be
+    something more like an `io.Reader` that can be passed to its own functions.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In actuality, when *SlowFunction* is called, it executes the core function of
+    interest as a goroutine. In doing so, it defines channels to capture the core
+    function’s output, which it wraps in *InnerFuture*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*InnerFuture* has one or more methods that satisfy the *Future* interface,
+    which retrieve the values returned by the core function from the channels, cache
+    them, and return them. If the values aren’t available on the channel, the request
+    blocks. If they have already been retrieved, the cached values are returned.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sample code
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'In this example, we use a `Future` interface that the `InnerFuture` will satisfy:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `InnerFuture` struct is used internally to provide the concurrent functionality.
+    In this example, it satisfies the `Future` interface, but could just as easily
+    choose to satisfy something like `io.Reader` by attaching a `Read` method, for
+    example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: In this implementation, the struct itself contains a channel and a variable
+    for each value returned by the `Result` method. When `Result` is first called,
+    it attempts to read the results from the channels and send them back to the `InnerFuture`
+    struct so that subsequent calls to `Result` can immediately return the cached
+    values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Note the use of `sync.Once` and `sync.WaitGroup`. The former does what it says
+    on the tin: it ensures that the function that’s passed to it is called exactly
+    once. The `WaitGroup` is used to make this function call thread safe: any calls
+    after the first will be blocked at `wg.Wait` until the channel reads are complete.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`SlowFunction` is a wrapper around the core functionality that you want to
+    run concurrently. It has the job of creating the results channels, running the
+    core function in a goroutine, and creating and returning the `Future` implementation
+    (`InnerFuture`, in this example):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To make use of this pattern, you need only call the `SlowFunction` and use
+    the returned `Future` as you would any other value:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: This approach provides a reasonably good user experience. The programmer can
+    create a `Future` and access it as they wish, and can even apply timeouts or deadlines
+    with a `Context`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sharding
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '*Sharding* splits a large data structure into multiple partitions to localize
+    the effects of read/write locks.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Applicability
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The term *sharding* is typically used in the context of distributed state to
+    describe data that is partitioned between server instances. This kind of *horizontal
+    sharding* is commonly used by databases and other data stores to distribute load
+    and provide redundancy.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A slightly different issue can sometimes affect highly concurrent services that
+    have a shared data structure with a locking mechanism to protect it from conflicting
+    writes. In this scenario, the locks that serve to ensure the fidelity of the data
+    can also create a bottleneck when processes start to spend more time waiting for
+    locks than they do doing their jobs. This unfortunate phenomenon is called *lock
+    contention*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: While this might be resolved in some cases by scaling the number of instances,
+    this also increases complexity and latency, because distributed locks need to
+    be established, and writes need to establish consistency. An alternative strategy
+    for reducing lock contention around shared data structures within an instance
+    of a service is *vertical sharding*, in which a large data structure is partitioned
+    into two or more structures, each representing a part of the whole. Using this
+    strategy, only a portion of the overall structure needs to be locked at a time,
+    decreasing overall lock contention.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Participants
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'This pattern includes the following participants:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: ShardedMap
+  prefs: []
+  type: TYPE_NORMAL
+- en: An abstraction around one or more *Shards* providing read and write access as
+    if the *Shards* were a single map.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Shard
+  prefs: []
+  type: TYPE_NORMAL
+- en: An individually lockable collection representing a single data partition.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementation
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: While idiomatic Go strongly prefers the use of [memory sharing via channels](https://oreil.ly/BipeP)
+    over using locks to protect shared resources,^([5](ch04.xhtml#idm45983636786552))
+    this isn’t always possible. Maps are particularly unsafe for concurrent use, making
+    the use of locks as a synchronization mechanism a necessary evil. Fortunately,
+    Go provides `sync.RWMutex` for precisely this purpose.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`RWMutex` provides methods to establish both read and write locks, as demonstrated
+    in the following. Using this method, any number of processes can establish simultaneous
+    read locks as long as there are no open write locks; a process can establish a
+    write lock only when there are no existing read or write locks. Attempts to establish
+    additional locks will block until any locks ahead of it are released:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: This strategy generally works perfectly fine. However, because locks allow access
+    to only one process at a time, the average amount of time spent waiting for locks
+    to clear in a read/write intensive application can increase dramatically with
+    the number of concurrent processes acting on the resource. The resulting lock
+    contention can potentially bottleneck key functionality.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Vertical sharding reduces lock contention by splitting the underlying data structure—usually
+    a map—into several individually lockable maps. An abstraction layer provides access
+    to the underlying shards as if they were a single structure (see [Figure 4-5](#vertical-sharding-a-map)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![cngo 0405](Images/cngo_0405.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 4-5\. Vertically sharding a map by key hash
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Internally, this is accomplished by creating an abstraction layer around what
+    is essentially a map of maps. Whenever a value is read or written to the map abstraction,
+    a hash value is calculated for the key, which is then modded by the number of
+    shards to generate a shard index. This allows the map abstraction to isolate the
+    necessary locking to only the shard at that index.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sample code
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'In the following example, we use the standard `sync` and `crypto/sha1` packages
+    to implement a basic sharded map: `ShardedMap`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Internally, `ShardedMap` is just a slice of pointers to some number of `Shard`
+    values, but we define it as a type so we can attach methods to it. Each `Shard`
+    includes a `map[string]interface{}` that contains that shard’s data, and a composed
+    `sync.RWMutex` so that it can be individually locked:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Go doesn’t have any concept of constructors, so we provide a `NewShardedMap`
+    function to retrieve a new `ShardedMap`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: '`ShardedMap` has two unexported methods, `getShardIndex` and `getShard`, which
+    are used to calculate a key’s shard index and retrieve a key’s correct shard,
+    respectively. These could be easily combined into a single method, but slitting
+    them this way makes them easier to test:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Note that the previous example has an obvious weakness: because it’s effectively
+    using a `byte`-sized value as the hash value, it can only handle up to 255 shards.
+    If for some reason you want more than that, you can sprinkle some binary arithmetic
+    on it: `hash := int(sum[13]) << 8 | int(sum[17])`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Finally, we add methods to `ShardedMap` to allow a user to read and write values.
+    Obviously these don’t demonstrate all of the functionality a map might need. The
+    source for this example is in the GitHub repository associated with this book,
+    however, so please feel free to implement them as an exercise. A `Delete` and
+    a `Contains` method would be nice:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'When you do need to establish locks on all of the tables, it’s generally best
+    to do so concurrently. In the following, we implement a `Keys` function using
+    goroutines and our old friend `sync.WaitGroup`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Using `ShardedMap` isn’t quite like using a standard map unfortunately, but
+    while it’s different, it’s no more complicated:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: Perhaps the greatest downside of the `ShardedMap` (besides its complexity, of
+    course) is the loss of type safety associated with the use of `interface{}`, and
+    the subsequent requirement of type assertions. Hopefully, with the impending release
+    of generics for Go, this will soon be (or perhaps already is, depending on when
+    you read this) a problem of the past!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: This chapter covered quite a few very interesting—and useful—idioms. There are
+    probably many more,^([6](ch04.xhtml#idm45983635908552)) but these are the ones
+    I felt were most important, either because they’re somehow practical in a directly
+    applicable way, or because they showcase some interesting feature of the Go language.
+    Often both.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In [Chapter 5](ch05.xhtml#chapter_5) we’ll move on to the next level, taking
+    some of the things we discussed in Chapters [3](ch03.xhtml#chapter_3) and [4](#chapter_4),
+    and putting them into practice by building a simple key-value store from scratch!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '^([1](ch04.xhtml#idm45983640248920-marker)) Spoken August 1979\. Attested to
+    by Vicki Almstrum, Tony Hoare, Niklaus Wirth, Wim Feijen, and Rajeev Joshi. In
+    Pursuit of Simplicity: A Symposium Honoring Professor Edsger Wybe Dijkstra, 12–13
+    May 2000.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([2](ch04.xhtml#idm45983640246616-marker)) L (yes, his legal name is L) is
+    a brilliant and fascinating human being. Look him up some time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '^([3](ch04.xhtml#idm45983639950216-marker)) Erich Gamma et al. *Design Patterns:
+    Elements of Reusable Object-Oriented Software*, 1st edition. Addison-Wesley Professional,
+    1994).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([4](ch04.xhtml#idm45983637370152-marker)) While these terms are often used
+    interchangeably, they can also have shades of meaning depending on their context.
+    I know. Please don’t write me any angry letters about this.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([5](ch04.xhtml#idm45983636786552-marker)) See the article, “Share Memory By
+    Communicating,” on *The Go Blog*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([6](ch04.xhtml#idm45983635908552-marker)) Did I leave out your favorite? Let
+    me know, and I’ll try to include it in the next edition!
+  prefs: []
+  type: TYPE_NORMAL

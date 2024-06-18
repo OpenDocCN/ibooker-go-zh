@@ -1,0 +1,832 @@
+- en: Chapter 8\. The gRPC Ecosystem
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we’ll explore some of the projects that are not part of the
+    core gRPC implementation but could be quite useful in building and running gRPC
+    applications for a real-world use case. These projects are part of the gRPC Ecosystem
+    parent project, and none of the technologies mentioned here are mandatory to run
+    gRPC applications. If you have a similar requirement that a given project offers,
+    explore and evaluate those technologies.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s begin our discussion with the gRPC gateway.
+  prefs: []
+  type: TYPE_NORMAL
+- en: gRPC Gateway
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The gRPC gateway plug-in enables the protocol buffer compiler to read the gRPC
+    service definition and generate a reverse proxy server, which translates a RESTful
+    JSON API into gRPC. This is specifically written for Go, to support invoking gRPC
+    service from both gRPC and HTTP client applications. [Figure 8-1](#grpc_gateway)illustrates
+    how it provides the ability to invoke gRPC service in both gRPC and RESTful ways.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As shown in the figure, we have a `ProductInfo` service contract and using the
+    contract we build a gRPC service called `ProductInfoService`. Earlier we built
+    a gRPC client to talk with this gRPC service. But here, instead of building a
+    gRPC client we will build a reverse proxy service, which exposes RESTful API for
+    each remote method in the gRPC service and accepts HTTP requests from REST clients.
+    Once it receives an HTTP request, it translates the request into a gRPC message
+    and calls the remote method in the backend service. The response message from
+    the backend server again converts back to an HTTP response and replies to the
+    client.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![gRPC gateway](assets/grpc_0801.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 8-1\. gRPC gateway
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: To generate a reverse proxy service for the service definition, we first need
+    to map the gRPC methods to the HTTP resources by updating the service definition.
+    Let’s get the same `ProductInfo` service definition we created, to add mapping
+    entries. [Example 8-1](#EX8-1) shows the updated protocol buffer definition.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 8-1\. Updates protocol buffer definition of ProductInfo service
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_the_grpc_ecosystem_CO1-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Import the *google/api/annotations.proto* proto file to add annotation support
+    to the protocol definition.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_the_grpc_ecosystem_CO1-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Add gRPC/HTTP mapping to the `addProduct` method. Specify the URL path template
+    (`/v1/product`), the HTTP method (“post”), and what the message body looks like.
+    `*` is used in the body mapping to define that every field not bound by the path
+    template should be mapped to the request body.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_the_grpc_ecosystem_CO1-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Add gRPC/HTTP mapping to the `getProduct` method. Here it is a GET method with
+    the URL path template as `/v1/product/{value}` and the `ProductID` passed as the
+    path parameter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are additional rules we need to know when we are mapping gRPC methods
+    to HTTP resources. A few important rules are listed next. You can refer to the
+    [Google API Documentation](https://oreil.ly/iYyZC) for more details about HTTP
+    to gRPC mapping:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Each mapping needs to specify a URL path template and an HTTP method.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The path template can contain one or more fields in the gRPC request message.
+    But those fields should be nonrepeated fields with primitive types.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Any fields in the request message that are not in the path template automatically
+    become HTTP query parameters if there is no HTTP request body.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Fields that are mapped to URL query parameters should be either a primitive
+    type or a repeated primitive type or a nonrepeated message type.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: For a repeated field type in query parameters, the parameter can be repeated
+    in the URL as `...?param=A&param=B`.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: For a message type in query parameters, each field of the message is mapped
+    to a separate parameter, such as `...?foo.a=A&foo.b=B&foo.c=C`.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Once we write the service definition, we need to compile it using the protocol
+    buffer compiler and generate a source code of reverse proxy service. Let’s talk
+    about how to generate code and implement the server in the Go language.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Before we can compile the service definition, we need to get a few dependent
+    packages. Use the following command to download the packages:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'After downloading the packages, execute the following command to compile the
+    service definition (*product_info.proto*) and to generate the stub:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: Once we execute the command, it will generate a stub (*product_info.pb.go*)
+    in the same location. Apart from the generated stub, we also need to create a
+    reverse proxy service to support RESTful client invocation. This reverse proxy
+    service can be generated by the gateway plug-in supported in the Go compiler.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The gRPC gateway is only supported in Go, which means we cannot compile and
+    generate a reverse proxy service for the gRPC gateway in other languages.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s generate a reverse proxy service from service definition by executing
+    the following command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: Once we execute the command, it will generate a reverse proxy service (*product_info.pb.gw.go*)
+    in the same location.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s create the listener endpoint for the HTTP server and run the reverse proxy
+    service we just created. [Example 8-2](#EX8-2) illustrates how to create a new
+    server instance and register the service to listen to the inbound HTTP requests.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 8-2\. HTTP reverse proxy in Go language
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_the_grpc_ecosystem_CO2-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Import the package to where the generated reverse-proxy code exists.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_the_grpc_ecosystem_CO2-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Specify the gRPC server endpoint URL. Make sure the backend gRPC server is running
+    properly in the mentioned endpoint. Here we used the same gRPC service created
+    in [Chapter 2](ch02.html#ch_02).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_the_grpc_ecosystem_CO2-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Register the gRPC server endpoint with the proxy handler. At runtime, the request
+    multiplexer matches HTTP requests to patterns and invokes the corresponding handler.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_the_grpc_ecosystem_CO2-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Start listening to the HTTP requests on the port (8081).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once we build an HTTP reverse-proxy server, we can test it by running both the
+    gRPC server and the HTTP server. In this case, the gRPC server is listening on
+    port 50051 and the HTTP server is listening on port 8081.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s make a few HTTP requests from curl and observe the behavior:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Add a new product to the `ProductInfo` service.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Get the existing product using `ProductID`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Added to the reverse proxy service, the gRPC gateway also supports generating
+    the swagger definition of the reverse proxy service by executing the following
+    command:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Once we execute the command, it generates a swagger definition for the reverse
+    proxy service (*product_info.swagger.json*) in the same location. For our `ProductInfo`
+    service, generated swagger definition looks like this:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: So now we have implemented the HTTP reverse proxy service for our gRPC service
+    using the gRPC gateway. This way we can expose our gRPC server to use in HTTP
+    client applications. You can get more information about gateway implementation
+    from the [gRPC gateway repository](https://oreil.ly/rN1WK).
+  prefs: []
+  type: TYPE_NORMAL
+- en: As we mentioned earlier, the gRPC gateway is only supported in Go. The same
+    concept is also known as HTTP/JSON transcoding. Let’s talk more about HTTP/JSON
+    transcoding in the next section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: HTTP/JSON Transcoding for gRPC
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '*Transcoding* is the process of translating HTTP JSON calls to RPC calls and
+    passing them to the gRPC service. This is useful when the client applications
+    don’t have support for gRPC and need to provide access to talk to the gRPC service
+    via JSON over HTTP. There is a library written in C++ languages to support the
+    HTTP/JSON transcoding called grpc-httpjson-transcoding, and it is currently used
+    in [Istio](https://oreil.ly/vWllM) and [Google cloud endpoint](https://oreil.ly/KR5_X).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The [Envoy proxy](https://oreil.ly/33hyY) also supports transcoding by providing
+    an HTTP/JSON interface to the gRPC service. Similar to the gRPC gateway, we need
+    to provide the service definition with HTTP mapping for the gRPC service. It uses
+    the same mapping rules specified in the [Google API documentation](https://oreil.ly/H6ysW).
+    So the service definition we modified in [Example 8-1](#EX8-1) can also be applied
+    to the HTTP/JSON transcoding.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For example, the `Product Info` service’s `getProduct` method is defined in
+    the *.proto* file with its request and response types like the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: If a client calls this method by sending a GET to the URL http://localhost:8081/v1/product/2,
+    the proxy server creates a *google.protobuf.StringValue* with a value of 2 and
+    then calls the gRPC method `getProduct()` with it. The gRPC backend then returns
+    the requested `Product` with the ID 2, which the proxy server converts to JSON
+    format and returns to the client.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that we’ve covered HTTP/JSON transcoding, in the next section, we’ll discuss
+    another important concept, called gRPC server reflection.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The gRPC Server Reflection Protocol
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '*Server reflection* is a service defined on a gRPC server that provides information
+    about publicly accessible gRPC services on that server. In simple terms, server
+    reflection provides service definitions of the services registered on a server
+    to the client application. So the client doesn’t need precompiled service definitions
+    to communicate with the services.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: As we discussed in [Chapter 2](ch02.html#ch_02), for the client application
+    to connect and communicate with the gRPC service, it must have the service definition
+    of that service. We first need to compile the service definition and generate
+    the corresponding client stub. Then we need to create client application calling
+    methods of the stub. With the gRPC server reflection, we don’t need to precompile
+    service definitions to communicate with the service.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The service reflection is useful when we build a command-line (CLI) tool for
+    debugging the gRPC server. We don’t need to provide service definitions for the
+    tool, but instead we provide the method and the text payload. It sends the binary
+    payload to the server and takes the response back to the user in a human-readable
+    format. In order to use service reflection, we first need to enable it on the
+    server side. [Example 8-3](#EX8-3) illustrates how to enable server reflection.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 8-3\. Enable server reflection in the gRPC Go server
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_the_grpc_ecosystem_CO3-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Import the reflection package to access reflection APIs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_the_grpc_ecosystem_CO3-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Register reflection service on your gRPC server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: After enabling server reflection in your server application, you can use the
+    gRPC CLI tool to check your server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The gRPC CLI tool comes with the gRPC repository. It supports many functionalities,
+    such as the list server services and methods, and sending and receiving RPC calls
+    with metadata. As of this writing, you need to build the tool from the source
+    code. For details on how to build and use the tool, refer to the [gRPC CLI tool
+    repository](https://oreil.ly/jYl0h).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once you build the gRPC CLI tool from the [source code](https://github.com/grpc/grpc),
+    you can use it to check services. Let’s try to understand this using our product
+    management service that we built in [Chapter 2](ch02.html#ch_02). Once you start
+    the gRPC server of the product management service, then you can run the CLI tool
+    to retrieve the service information.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here are the actions that you can execute from the CLI tool:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: List services
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Run the following command to list all public services in endpoint `localhost:50051`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: List service details
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Run the following command by giving the service’s full name (in the format
+    of <package>.<service>) to inspect the service:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: List method details
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Run the following command by giving the method’s full name (in the format of
+    <package>.<service>.<method>) to method details:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: Inspect message types
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Run the following commands by giving the full name of the message type (in
+    the format of <package>.<type>) to inspect the message type:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: Call remote methods
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Run the following commands to send remote calls to the server and get the response:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Call the `addProduct` method in the `ProductInfo` service:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Call `getProduct` method in the `ProductInfo` service:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: Now we can enable server reflection in the gRPC Go server and test it using
+    the CLI tool. We can also enable server reflection in our gRPC Java server. If
+    you are more familiar with Java, you can refer to the Java samples in the source
+    code repository.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s discuss another interesting concept called gRPC middleware.
+  prefs: []
+  type: TYPE_NORMAL
+- en: gRPC Middleware
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In basic terms, the *middleware* is a software component in a distributed system
+    that is used to connect different components to route requests generated by the
+    client to the backend server. In [gRPC Middleware](https://oreil.ly/EqnCQ), we
+    are also talking about running code before and after the gRPC server or client
+    application.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In fact, gRPC middleware is based on the *interceptor* concept that we learned
+    in [Chapter 5](ch05.html#ch_05). It’s a Go-based collection of interceptors, helpers,
+    and utils that you will require when building gRPC-based applications. It allows
+    you to apply multiple interceptors at the client or server side as a chain of
+    interceptors. Also, as interceptors are commonly used for implementing common
+    patterns such as auth, logging, message, validation, retries, or monitoring, the
+    gRPC Middleware project acts as the go-to point for such reusable functionalities
+    for Go. In [Example 8-4](#EX8-4), we have shown the common usage of the gRPC Middleware
+    package. Here we have used it for applying multiple interceptors for both unary
+    and streaming messaging.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 8-4\. interceptor chaining at the server side with Go gRPC Middleware
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_the_grpc_ecosystem_CO4-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Add a unary interceptor chain for the server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_the_grpc_ecosystem_CO4-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Add a streaming interceptor chain for the server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The interceptors are invoked in the same order that they have registered with
+    the Go gRPC Middleware. The project also offers some reusable interceptors for
+    common patterns. Here are some of those common patterns and interceptor implementations:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Auth
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`grpc_auth`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A customizable (via `AuthFunc`) piece of auth middleware.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Logging
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`grpc_ctxtags`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A library that adds a Tag map to context, with data populated from the request
+    body.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`grpc_zap`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Integration of zap logging library into gRPC handlers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`grpc_logrus`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Integration of logrus logging library into gRPC handlers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Monitoring
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`grpc_prometheus`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Prometheus client-side and server-side monitoring middleware.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`grpc_opentracing`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: OpenTracing client-side and server-side interceptors with support for streaming
+    and handler-returned tags.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Client
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`grpc_retry`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A generic gRPC response code retry mechanism, client-side middleware.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Server
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`grpc_validator`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Codegen inbound message validation from *.proto* options.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`grpc_recovery`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Turn panics into gRPC errors.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`ratelimit`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: gRPC rate-limiting by your own limiter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The usage of Go gRPC Middleware at the client side is exactly the same. [Example 8-5](#EX8-5)
+    shows a code snippet of the client-side interceptor chaining with Go gRPC Middleware.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 8-5\. interceptor chaining at the client side with Go gRPC Middleware
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_the_grpc_ecosystem_CO5-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Client-side unary interceptor chaining.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_the_grpc_ecosystem_CO5-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Client-side streaming interceptor chaining.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Similar to the server side, the interceptors are executed in the order that
+    they registered with the client.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Next, we will talk about how we can expose the health status of the gRPC server.
+    In a high-availability system, it is essential to have a way to check the health
+    status of the server, so that we can periodically check and take actions to mitigate
+    the damage.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Health Checking Protocol
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: gRPC defines a health checking protocol (Health Checking API) that allows the
+    gRPC services to expose the server status so that the consumers can probe the
+    server’s health information. The health of the server is determined if the server
+    responds with an *unhealthy* status when it is not ready to handle the RPC or
+    does not respond at all for the health probe request. The client can act accordingly
+    if the response denotes an *unhealthy* status or a response is not received within
+    some time window.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The gRPC Health Checking Protocol defines an API based on gRPC. Then a gRPC
+    service is used as the health checking mechanism for both simple client-to-server
+    scenarios and other control systems such as load balancing. [Example 8-6](#EX8-6)
+    shows the standard service definition of the gRPC health checking interface.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 8-6\. gRPC service definition of the Health Checking API
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_the_grpc_ecosystem_CO6-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The health check request message structure.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_the_grpc_ecosystem_CO6-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The health check response with the serving status.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_the_grpc_ecosystem_CO6-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The client can query the server’s health status by calling the `Check` method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_the_grpc_ecosystem_CO6-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The client can call the `Watch` method to perform a streaming health check.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The implementation of the health check service is very similar to any conventional
+    gRPC service. Often you will run a health checking service and related gRPC business
+    services together in the same gRPC server instance using multiplexing (which we
+    discussed in [Chapter 5](ch05.html#ch_05)). Since it is a gRPC service, doing
+    a health check is the same as doing normal RPC. It also offers a granular service
+    health semantics that includes details such as per-service health status. Also,
+    it is able to reuse all the existing information on the server and have full control
+    over it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Based on the server interface shown in [Example 8-6](#EX8-6), a client can call
+    the `Check` method (with an optional parameter service name) to check the health
+    status of a particular service or the server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Additionally, the client can also call the `Watch` method to perform a streaming
+    health check. This uses a server streaming messaging pattern, which means once
+    the client calls this method, the server starts sending messages indicating the
+    current status and sends subsequent new messages whenever the status changes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'These are the key points to know in the gRPC Health Checking Protocol:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: To serve the status of each service registered in the server, we should manually
+    register all the services, along with their status in the server. We also need
+    to set the server’s overall status with an empty service name.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Each health check request from the client should have a deadline set to it,
+    so the client can determine the server status as unhealthy if the RPC is not finished
+    within the deadline period.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: For each health check request, the client can either set a service name or set
+    as empty. If the request has a service name and it is found in the server registry,
+    a response must be sent back with an HTTP OK status and the status field of the
+    `HealthCheckResponse` message should be set to the status of the particular service
+    (either `SERVING` or `NOT_SERVING`). If the service is not found in the server
+    registry, the server should respond with a `NOT_FOUND` status.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: If the client needs to query the overall status of the server instead of a specific
+    service, the client can send the request with an empty string value so the server
+    responds back with the server’s overall health status.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: If the server doesn’t have a health check API, then the client should deal with
+    it themselves.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The health check services are consumed by other gRPC consumer or intermediate
+    subsystems such as load balancers or proxies. Rather than implementing a client
+    from scratch, you can use the existing implementation of health checking clients
+    such as `grpc_health_probe`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: gRPC Health Probe
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The [`grpc_health_probe`](https://oreil.ly/I84Ui) is a utility provided by
+    the community to check the health status of a server that exposes its status as
+    a service through the gRPC Health Checking Protocol. It’s a generic client that
+    can communicate with the gRPC standard health check service. You can use the `grpc_health_probe_`
+    binary as a CLI utility as shown in the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_the_grpc_ecosystem_CO7-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A health checking request for gRPC server running on localhost port 50051.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_the_grpc_ecosystem_CO7-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A health checking request with few more additional parameters related to the
+    connectivity.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As shown in the preceding CL output, `grpc_health_probe_` makes an RPC to `/grpc.health.v1.Health/Check`.
+    If it then responds with a `SERVING` status, the `grpc_health_probe` will exit
+    with success; otherwise, it exits with a nonzero exit code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you are running your gRPC applications on Kubernetes, then you can run the
+    `grpc_health_probe` to check to define Kubernetes’s [liveness and readiness](https://oreil.ly/a7bOC)
+    checks for your gRPC server pods.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For that, you can bundle the gRPC health probe along with your Docker image
+    as shown following in the Dockerfile snippet:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then in the Kubernetes deployment’s pod specification, you can define `livenessProbe`
+    and/or `readinessProbe` like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_the_grpc_ecosystem_CO8-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Specify `grpc_health_probe` as the readiness probe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_the_grpc_ecosystem_CO8-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Specify `grpc_health_probe` as the liveness probe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When you have liveness and readiness probes set using the gRPC health probe,
+    then Kubernetes can make decisions based on the health of your gRPC server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Other Ecosystem Projects
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: There are quite a few other ecosystem projects that can be useful when building
+    gRPC-based applications. Customer *protoc* plugging is a similar ecosystem requirement
+    where projects such as [*protoc-gen-star (PG*)*](https://oreil.ly/9eRq8) started
+    getting some traction. Also, libraries such as [*protoc-gen-validate (PGV)*](https://oreil.ly/KlGy7)
+    offer a protoc plug-in to generate polyglot message validators. The ecosystem
+    has kept on growing with new projects for various requirements in gRPC application
+    development.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'With this, we conclude our discussion of the gRPC ecosystem components. It’s
+    important to keep in mind that these ecosystem projects are not part of the gRPC
+    project. You need to evaluate them properly prior to using them in production.
+    Also, these are subject to change: some projects may become obsolete, others may
+    become mainstream, and other, completely new projects, may emerge in the gRPC
+    ecosystem.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As you can see, though gRPC ecosystem projects are not part of the core gRPC
+    implementation, they can be quite useful in building and running gRPC applications
+    for real-world use cases. These projects are built around gRPC to overcome problems
+    or limitations encountered while building a production system using gRPC. For
+    example, when we are moving our RESTful services to gRPC services, we need to
+    consider our existing client who used to call our service in a RESTful manner.
+    In order to overcome this issue, HTTP/JSON transcoding and gRPC gateway concepts
+    are introduced, so that both existing RESTful clients and new gRPC clients can
+    call the same service. Similarly, service reflection is introduced to overcome
+    the limitation in testing gRPC services using a command-line tool.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Since gRPC is a very popular topic in the cloud-native world and developers
+    are now gradually moving toward gRPC from REST services, we will see more projects
+    like these built around gRPC in the future.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Congratulations! You have just completed reading *gRPC: Up and Running*, and
+    have pretty much covered the entire development life cycle of the gRPC application
+    along with numerous code examples based on Go and Java. We hope this book laid
+    the foundation in the journey of using gRPC as an inter-process communication
+    technology for your applications and microservices. What you learned in this book
+    will help you to rapidly build gRPC applications, understand how they can coexist
+    with other technologies, and run them in production.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: So, it’s time to explore gRPC further. Try building real-world applications
+    by applying the techniques that you learned in this book. There’s a significant
+    amount of features of gRPC that are dependent on the programming language that
+    you use to develop gRPC applications, so you will have to learn certain techniques
+    that are specific to the language that you use. Also, the gRPC ecosystem is exponentially
+    growing and it will be helpful to stay up to date on the latest technologies and
+    frameworks that support gRPC. Go forth and explore!
+  prefs: []
+  type: TYPE_NORMAL

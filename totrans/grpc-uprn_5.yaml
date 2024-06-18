@@ -1,0 +1,1491 @@
+- en: 'Chapter 5\. gRPC: Beyond the Basics'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: When you build real-world gRPC applications you may have to augment them with
+    various capabilities to meet requirements such as intercepting incoming and outgoing
+    RPC, handling network delays resiliently, handling errors, sharing metadata between
+    services and consumers, and so on.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: To maintain consistency, all samples in this chapter are explained using Go.
+    If you’re more familiar with Java, you can refer to the Java samples in the source
+    code repository for the same use cases.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, you will learn some key advanced gRPC capabilities including
+    using gRPC interceptors to intercept RPCs on the server and client sides, using
+    deadlines to specify the wait time for an RPC to complete, error-handling best
+    practices on the server and client sides, using multiplexing to run multiple services
+    on the same server, sharing custom metadata between applications, using load-balancing
+    and name resolution techniques when calling other services, and compressing RPC
+    calls to effectively use the network bandwidth.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s begin our discussion with gRPC interceptors.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Interceptors
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As you build gRPC applications, you may want to execute some common logic before
+    or after the execution of the remote function, for either client or server applications.
+    In gRPC you can intercept that RPC’s execution to meet certain requirements such
+    as logging, authentication, metrics, etc., using an extension mechanism called
+    an *interceptor*. gRPC provides simple APIs to implement and install interceptors
+    in your client and server gRPC applications. They are one of the key extension
+    mechanisms in gRPC and are quite useful in use cases such as logging, authentication,
+    authorization, metrics, tracing, and any other customer requirements.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Interceptors are not supported in all languages that support gRPC, and the implementation
+    of interceptors in each language may be different. In this book we only cover
+    Go and Java.
+  prefs: []
+  type: TYPE_NORMAL
+- en: gRPC interceptors can be categorized into two types based on the type of RPC
+    calls they intercept. For unary RPC you can use *unary interceptors*, while for
+    streaming RPC you can use *streaming interceptors*. These interceptors can be
+    used on the gRPC server side or on the gRPC client side. First, let’s start by
+    looking at using interceptors on the server side.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Server-Side Interceptors
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: When a client invokes a remote method of a gRPC service, you can execute a common
+    logic prior to the execution of the remote methods by using a server-side interceptor.
+    This helps when you need to apply certain features such as authentication prior
+    to invoking the remote method. As shown in [Figure 5-1](#server_side_interceptors),
+    you can plug one or more interceptors into any gRPC server that you develop. For
+    example, to plug a new server-side interceptor into your `OrderManagement` gRPC
+    service, you can implement the interceptor and register it when you create the
+    gRPC server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Server-side interceptors ](assets/grpc_0501.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 5-1\. Server-side interceptors
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: On the server side, the unary interceptor allows you to intercept the unary
+    RPC call while the streaming interceptor intercepts the streaming RPC. Let’s first
+    discuss server-side unary interceptors.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unary interceptor
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'If you want to intercept the unary RPC of your gRPC service at the server side,
+    you’ll need to implement a unary interceptor for your gRPC server. As shown in
+    the Go code snippet in [Example 5-1](#EX5-1), you can do this by implementing
+    a function of type `UnaryServerInterceptor` and registering that function when
+    you create a gRPC server. `UnaryServerInterceptor` is the type for a server-side
+    unary interceptor with the following signature:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: Inside this function you get full control of all unary RPC calls that are coming
+    to your gRPC server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 5-1\. gRPC server-side unary interceptor
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_grpc__beyond_the_basics_CO1-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Preprocessing phase: this is where you can intercept the message prior to invoking
+    the respective RPC.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_grpc__beyond_the_basics_CO1-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Invoking the RPC method via `UnaryHandler`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_grpc__beyond_the_basics_CO1-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Postprocessing phase: you can process the response from the RPC invocation.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_grpc__beyond_the_basics_CO1-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sending back the RPC response.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_grpc__beyond_the_basics_CO1-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Registering the unary interceptor with the gRPC server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The implementation of a server-side unary interceptor can usually be divided
+    into three parts: preprocessing, invoking the RPC method, and postprocessing.
+    As the name implies, the preprocessor phase is executed prior to invoking the
+    remote method intended in the RPC call. In the preprocessor phase, users can get
+    info about the current RPC call by examining the args passed in, such as RPC context,
+    RPC request, and server information. Thus, during the preprocessor phase you can
+    even modify the RPC call.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Then, in the invoker phase, you have to call the gRPC `UnaryHandler` to invoke
+    the RPC method. Once you invoke the RPC, the postprocessor phase is executed.
+    This means that the response for the RPC call goes through the postprocessor phase.
+    In the phase, you can deal with the returned reply and error when required. Once
+    the postprocessor phase is completed, you need to return the message and the error
+    as the return parameters of your interceptor function. If no postprocessing is
+    required, you can simply return the handler call (`handler(ctx, req)`).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Next, let’s discuss streaming interceptors.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Stream interceptor
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The server-side streaming interceptor intercepts any streaming RPC calls that
+    the gRPC server deals with. The stream interceptor includes a preprocessing phase
+    and a stream operation interception phase.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As shown in the Go code snippet in [Example 5-2](#EX5-2), suppose that we want
+    to intercept streaming RPC calls of the `OrderManagement` service. `StreamServerInterceptor`
+    is the type for server-side stream interceptors. `orderServerStreamInterceptor`
+    is an interceptor function of type `StreamServerInterceptor` with the signature:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: Similar to a unary interceptor, in the preprocessor phase, you can intercept
+    a streaming RPC call before it goes to the service implementation. After the preprocessor
+    phase, you can then invoke the `StreamHandler` to complete the execution of RPC
+    invocation of the remote method. After the preprocessor phase, you can intercept
+    the streaming RPC message by using an interface known as a wrapper stream that
+    implements the `grpc.ServerStream` interface. You can pass this wrapper structure
+    when you invoke `grpc.StreamHandler` with `handler(srv, newWrappedStream(ss))`.
+    The wrapper of `grpc.ServerStream` intercepts the streaming messages sent or received
+    by the gRPC service. It implements the `SendMsg` and `RecvMsg` functions, which
+    will be invoked when the service receives or sends an RPC streaming message.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 5-2\. gRPC server-side streaming interceptor
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_grpc__beyond_the_basics_CO2-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Wrapper stream of the `grpc.ServerStream`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_grpc__beyond_the_basics_CO2-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementing the `RecvMsg` function of the wrapper to process messages received
+    with stream RPC.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_grpc__beyond_the_basics_CO2-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementing the `SendMsg` function of the wrapper to process messages sent
+    with stream RPC.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_grpc__beyond_the_basics_CO2-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating an instance of the new wrapper stream.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_grpc__beyond_the_basics_CO2-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Streaming interceptor implementation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![6](assets/6.png)](#co_grpc__beyond_the_basics_CO2-6)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Preprocessor phase.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![7](assets/7.png)](#co_grpc__beyond_the_basics_CO2-7)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Invoking the streaming RPC with the wrapper stream.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![8](assets/8.png)](#co_grpc__beyond_the_basics_CO2-8)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Registering the interceptor.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To understand the behavior of the streaming interceptor on the server side,
+    look at the following output from the gRPC server logs. Based on the order in
+    which each log message is printed you can identify the behavior of the streaming
+    interceptor. The streaming remote method that we have invoked here is `SearchOrders`,
+    which is a server-streaming RPC:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: Client-side interceptor terminology is quite similar to that of server-side
+    interceptors, with some subtle variations as to the interfaces and function signatures.
+    Let’s move on to the details of client-side interceptors.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Client-Side Interceptors
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: When a client invokes an RPC call to invoke a remote method of a gRPC service,
+    you can intercept those RPC calls on the client side. As shown in [Figure 5-2](#client_side_interceptors),
+    with client-side interceptors, you can intercept unary RPC calls as well as streaming
+    RPC calls.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Client-side Interceptors](assets/grpc_0502.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 5-2\. Client-side interceptors
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: This is particularly useful when you need to implement certain reusable features,
+    such as securely calling a gRPC service outside the client application code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unary interceptor
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'A client-side unary RPC interceptor is used for intercepting the unary RPC
+    client side. `UnaryClientInterceptor` is the type for a client-side unary interceptor
+    that has a function signature as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: As we saw with the server-side unary interceptor, the client-side unary interceptor
+    has different phases. [Example 5-3](#EX5-3) shows the basic Go implementation
+    of a unary interceptor on the client side. In the preprocessor phase, you can
+    intercept the RPC calls before invoking the remote method. Here you will have
+    access to the information about the current RPC call by examining the args passed
+    in, such as RPC context, method string, request to be sent, and `CallOptions`
+    configured. So, you can even modify the original RPC call before it is sent to
+    the server application. Then using the `UnaryInvoker` argument you can invoke
+    the actual unary RPC. In the postprocessor phase, you can access the response
+    or the error results of the RPC invocation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 5-3\. gRPC client-side unary interceptor
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_grpc__beyond_the_basics_CO3-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Preprocessing phase has access to the RPC request prior to sending it out to
+    the server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_grpc__beyond_the_basics_CO3-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Invoking the RPC method via `UnaryInvoker`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_grpc__beyond_the_basics_CO3-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Postprocessing phase where you can process the response or error results.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_grpc__beyond_the_basics_CO3-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Returning an error back to the gRPC client application along with a reply, which
+    is passed as an argument.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_grpc__beyond_the_basics_CO3-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Setting up a connection to the server by passing a unary interceptor as a dial
+    option.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Registering the interceptor function is done inside the `grpc.Dial` operation
+    using `grpc.WithUnaryInterceptor`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Stream interceptor
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'The client-side streaming interceptor intercepts any streaming RPC calls that
+    the gRPC client deals with. The implementation of the client-side stream interceptor
+    is quite similar to that of the server side. `StreamClientInterceptor` is the
+    type for a client-side stream interceptor; it is a function type with this signature:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: As shown in [Example 5-4](#EX5-4), the client-side stream interceptor implementation
+    includes preprocessing and stream operation interception.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 5-4\. gRPC client-side stream interceptor
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_grpc__beyond_the_basics_CO4-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Preprocessing phase has access to the RPC request prior to sending it out to
+    the server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_grpc__beyond_the_basics_CO4-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Calling the passed-in streamer to get a `ClientStream`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_grpc__beyond_the_basics_CO4-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Wrapping around the `ClientStream`, overloading its methods with intercepting
+    logic, and returning it to the client application.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_grpc__beyond_the_basics_CO4-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Wrapper stream of `grpc.ClientStream`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_grpc__beyond_the_basics_CO4-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Function to intercept messages received from streaming RPC.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![6](assets/6.png)](#co_grpc__beyond_the_basics_CO4-6)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Function to intercept messages sent from streaming RPC.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![7](assets/7.png)](#co_grpc__beyond_the_basics_CO4-7)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Registering a streaming interceptor.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Intercepting for stream operations is done via a wrapper implementation of the
+    stream where you have to implement a new structure wrapping `grpc.ClientStream`.
+    Here you implement two wrapped stream methods, `RecvMsg` and `SendMsg`, that can
+    be used to intercept streaming messages received or sent from the client side.
+    The registration of the interceptor is the same as for the unary interceptor and
+    is done with the `grpc.Dial` operation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s look at deadlines, another capability you’ll often need to apply when
+    calling gRPC services from the client application.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Deadlines
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Deadlines and timeouts are two commonly used patterns in distributed computing.
+    *Timeouts* allow you to specify how long a client application can wait for an
+    RPC to complete before it terminates with an error. A timeout is usually specified
+    as a duration and locally applied at each client side. For example, a single request
+    may consist of multiple downstream RPCs that chain together multiple services.
+    So we can apply timeouts, relative to each RPC, at each service invocation. Therefore,
+    timeouts cannot be directly applied for the entire life cycle of the request.
+    That’s where we need to use deadlines.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A *deadline* is expressed in absolute time from the beginning of a request (even
+    if the API presents them as a duration offset) and applied across multiple service
+    invocations. The application that initiates the request sets the deadline and
+    the entire request chain needs to respond by the deadline. gRPC APIs supports
+    using deadlines for your RPC. For many reasons, it is always good practice to
+    use deadlines in your gRPC applications. gRPC communication happens over the network,
+    so there can be delays between the RPC calls and responses. Also, in certain cases
+    the gRPC service itself can take more time to respond depending on the service’s
+    business logic. When client applications are developed without using deadlines,
+    they infinitely wait for a response for RPC requests that are initiated and resources
+    will be held for all in-flight requests. This puts the service as well as the
+    client at risk of running out of resources, increasing the latency of the service;
+    this could even crash the entire gRPC service.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The example scenario shown in [Figure 5-3](#using_deadlines_when_calling_services)
+    illustrates a gRPC client application calling a product management service that
+    again invokes the inventory service.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The client application sets a deadline offset (i.e., deadline = current time
+    + offset) of 50 ms. The network latency between the client and `ProductMgt` service
+    is 0 ms and the processing latency of the `ProductMgt` service is 20 ms. The product
+    management service has to set a deadline offset of 30 ms. Since the inventory
+    service takes 30 ms to respond, the deadline event would occur on both client
+    sides (`ProductMgt` invokes the `Inventory` service and the client application).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The latency added from the business logic of the `ProductMgt` service is 20
+    ms. Then the `ProductMgt` service’s invocation logic triggers the deadline-exceeded
+    scenario and propagates it back to the client application as well. Therefore,
+    when using deadlines, make sure that they are applied across all services.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Using Deadlines when calling services](assets/grpc_0503.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 5-3\. Using deadlines when calling services
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: A client application can set a deadline when it initiates a connection with
+    a gRPC service. Once the RPC call is made, the client application waits for the
+    duration specified by the deadline; if the response for the RPC call is not received
+    within that time, the RPC call is terminated with a `DEADLINE_EXCEEDED` error.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s look at a real-world example of using deadlines when invoking gRPC services.
+    In the same `OrderManagement` service use case, suppose the `AddOrder` RPC takes
+    a significant amount of time to complete (we’ve simulated this with the introduction
+    of a delay into the `AddOrder` method of the `OrderManagement` gRPC service).
+    But the client application only waits until the response is no longer useful to
+    it. For example, the duration that `AddOrder` takes to respond is two seconds,
+    while the client only waits two seconds for a response. To implement this (as
+    shown in the Go code snippet shown in [Example 5-5](#EX5-5)), the client application
+    can set the two-second timeout with the `context.WithDeadline` operation. We have
+    used the `status` package to process error code; we’ll discuss this in detail
+    in the error-handling section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 5-5\. gRPC deadlines for the client application
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_grpc__beyond_the_basics_CO5-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Setting a two-second deadline on the current context.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_grpc__beyond_the_basics_CO5-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Invoking the `AddOrder` remote method and capturing any possible errors into
+    `addErr`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_grpc__beyond_the_basics_CO5-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using the status package to determine the error code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_grpc__beyond_the_basics_CO5-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: If the invocation exceeds the specified deadline, it should return an error
+    of the type `DEADLINE_EXCEEDED`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So how should we determine the ideal value for the deadline? There is no single
+    answer to that question, but you need to consider several factors in making that
+    choice; mainly, the end-to-end latency of each service that we invoke, which RPCs
+    are serial and which RPCs can be made in parallel, the latency of the underlying
+    network, and the deadline values of the downstream services. Once you are able
+    to come up with the initial value for the deadline, fine-tune it based on the
+    operating condition of the gRPC applications.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Setting the gRPC deadline in Go is done through Go’s [`context` package](https://oreil.ly/OTrmY),
+    where `WithDeadline` is a built-in function. In Go, context is often used to pass
+    down common data that can be used by all downstream operations. Once this is called
+    from the gRPC client application, the gRPC library at the client side creates
+    a required gRPC header to represent the deadline between the client and server
+    applications. In Java, this is slightly different, as the implementation directly
+    comes from the `io.grpc.stub.*` package’s stub implementation where you will set
+    the gRPC deadline with `blockingStub.withDeadlineAfter(long, java.util.concurrent.TimeUnit)`.
+    Please refer to the code repository for details of the Java implementation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When it comes to deadlines in gRPC, both the client and server can make their
+    own independent and local determination about whether the RPC was successful;
+    this means their conclusions may not match. For instance, in our example, when
+    the client meets the `DEADLINE_EXCEEDED` condition, the service may still try
+    to respond. So, the service application needs to determine whether the current
+    RPC is still valid or not. From the server side, you can also detect when the
+    client has reached the deadline specified when invoking the RPC. Inside the `AddOrder`
+    operation, you can check for `ctx.Err() == context.DeadlineExceeded` to find out
+    whether the client has already met the deadline exceeded state, and then abandon
+    the RPC at the server side and return an error (this is often implemented using
+    a nonblocking `select` construct in Go).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Similar to deadlines, there can be certain situations in which your client or
+    server application wants to terminate the ongoing gRPC communication. This is
+    where gRPC cancellation becomes useful.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Cancellation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In a gRPC connection between a client and server application, both the client
+    and server make independent and local determinations of the success of the call.
+    For instance, you could have an RPC that finishes successfully on the server side
+    but fails on the client side. Similarly, there can be various conditions where
+    the client and server may end up with different conclusions on the results of
+    an RPC. When either the client or server application wants to terminate the RPC
+    this can be done by *canceling* the RPC. Once the RPC is canceled, no further
+    RPC-related messaging can be done and the fact that one party has canceled the
+    RPC is propagated to the other side.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: In Go, similar to deadlines, the cancellation capability is provided via the
+    [`context` package](https://oreil.ly/OTrmY) where `WithCancel` is a built-in function.
+    Once this is called from the gRPC application, the gRPC library on the client
+    side creates a required gRPC header to represent the gRPC termination between
+    the client and server applications.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s take the example of bidirectional streaming between the client and server
+    applications. In the Go code sample shown in [Example 5-6](#EX5-6), you can obtain
+    the `cancel` function from the `context.WithTimeout` call. Once you have the reference
+    to `cancel`, you can call it at any location where you intend to terminate the
+    RPC.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 5-6\. gRPC cancellation
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_grpc__beyond_the_basics_CO6-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Obtaining the reference to cancel.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_grpc__beyond_the_basics_CO6-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Invoking the streaming RPC.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_grpc__beyond_the_basics_CO6-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sending messages to the service via the stream.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_grpc__beyond_the_basics_CO6-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Canceling RPC/terminating RPC from the client side.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_grpc__beyond_the_basics_CO6-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Status of the current context.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![6](assets/6.png)](#co_grpc__beyond_the_basics_CO6-6)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Returning context canceled error when trying to receive messages from a canceled
+    context.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When one party cancels the RPC, the other party can determine it by checking
+    the context. In this example, the server application can check whether the current
+    context is canceled by using `stream.Context().Err() == context.Canceled`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As you have seen in the application of deadlines as well as cancellation, handling
+    errors with RPC is a very common requirement. In the next section, we look at
+    gRPC error-handling techniques in detail.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Error Handling
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: When we invoke a gRPC call, the client receives a response with a successful
+    status or an error with the corresponding error status. The client application
+    needs to be written in such a way that you handle all the potential errors and
+    error conditions. The server application requires you to handle errors as well
+    as generate the appropriate errors with corresponding status codes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When an error occurs, gRPC returns one of its error-status codes with an optional
+    error message that provides more details of the error condition. The status object
+    is composed of an integer code and a string message that are common to all gRPC
+    implementations for different languages.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'gRPC uses a set of well-defined gRPC-specific status codes. This includes status
+    codes such as the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`OK`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Successful status; not an error.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`CANCELLED`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The operation was canceled, typically by the caller.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`DEADLINE_EXCEEDED`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The deadline expired before the operation could complete.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`INVALID_ARGUMENT`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The client specified an invalid argument.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[Table 5-1](#grpc_error_codes) shows the available gRPC error codes and the
+    description of each error code. The complete list of error codes can be found
+    [in the gRPC official documentation](https://oreil.ly/LiNLn), or in the documentation
+    for [Go](https://oreil.ly/E61Q0) and [Java](https://oreil.ly/Ugtg0).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Table 5-1\. gRPC error codes
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| Code | Number | Description |'
+  prefs: []
+  type: TYPE_TB
+- en: '| --- | --- | --- |'
+  prefs: []
+  type: TYPE_TB
+- en: '| OK | 0 | Success status. |'
+  prefs: []
+  type: TYPE_TB
+- en: '| CANCELLED | 1 | The operation was canceled (by the caller). |'
+  prefs: []
+  type: TYPE_TB
+- en: '| UNKNOWN | 2 | Unknown error. |'
+  prefs: []
+  type: TYPE_TB
+- en: '| INVALID_ARGUMENT | 3 | The client specified an invalid argument. |'
+  prefs: []
+  type: TYPE_TB
+- en: '| DEADLINE_EXCEEDED | 4 | The deadline expired before the operation could complete.
+    |'
+  prefs: []
+  type: TYPE_TB
+- en: '| NOT_FOUND | 5 | Some requested entity was not found. |'
+  prefs: []
+  type: TYPE_TB
+- en: '| ALREADY_EXISTS | 6 | The entity that a client attempted to create already
+    exists. |'
+  prefs: []
+  type: TYPE_TB
+- en: '| PERMISSION_DENIED | 7 | The caller does not have permission to execute the
+    specified operation. |'
+  prefs: []
+  type: TYPE_TB
+- en: '| UNAUTHENTICATED | 16 | The request does not have valid authentication credentials
+    for the operation. |'
+  prefs: []
+  type: TYPE_TB
+- en: '| RESOURCE_EXHAUSTED | 8 | Some resource has been exhausted. |'
+  prefs: []
+  type: TYPE_TB
+- en: '| FAILED_PRECONDITION | 9 | The operation was rejected because the system is
+    not in a state required for the operation’s execution. |'
+  prefs: []
+  type: TYPE_TB
+- en: '| ABORTED | 10 | The operation was aborted. |'
+  prefs: []
+  type: TYPE_TB
+- en: '| OUT_OF_RANGE | 11 | The operation was attempted past the valid range. |'
+  prefs: []
+  type: TYPE_TB
+- en: '| UNIMPLEMENTED | 12 | The operation is not implemented or is not supported/enabled
+    in this service. |'
+  prefs: []
+  type: TYPE_TB
+- en: '| INTERNAL | 13 | Internal errors. |'
+  prefs: []
+  type: TYPE_TB
+- en: '| UNAVAILABLE | 14 | The service is currently unavailable. |'
+  prefs: []
+  type: TYPE_TB
+- en: '| DATA_LOSS | 15 | Unrecoverable data loss or corruption. |'
+  prefs: []
+  type: TYPE_TB
+- en: The error model provided with gRPC out of the box is quite limited and independent
+    of the underlying gRPC data format (where the most common format is protocol buffers).
+    If you are using protocol buffers as your data format then you can leverage the
+    richer error model the Google APIs provide under the `google.rpc` package. However,
+    the error model is supported only in the C++, Go, Java, Python, and Ruby libraries,
+    so be mindful of this if you plan to use other languages than these.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s look at how these concepts can be used in a real-world gRPC error-handling
+    use case. In our order management use case, suppose that we need to handle a request
+    with invalid order IDs in the `AddOrder` remote method. As shown in [Example 5-7](#EX5-7),
+    suppose that if the given order ID equals `-1` then you need to generate an error
+    and return it to the consumer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 5-7\. Error creation and propagation on the server side
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_grpc__beyond_the_basics_CO7-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Invalid request, needs to generate an error and send it back to the client.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_grpc__beyond_the_basics_CO7-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Create a new error status with error code `InvalidArgument`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_grpc__beyond_the_basics_CO7-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Include any error details with an error type `BadRequest_FieldViolation` from
+    `google.golang.org/genproto/googleapis/rpc/errdetails`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_grpc__beyond_the_basics_CO7-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Returning the generated error.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can simply create an error status from `grpc.status` packages with the required
+    error code and details. In the example here we have used `status.New(codes.InvalidArgument,
+    "Invalid information received")`. You just need to send this error back to the
+    client with `return nil, errorStatus.Err()`. However, to include a richer error
+    model, you can use Google API’s `google.rpc` package. In this example, we have
+    set an error detail with a specific error type from *google.golang.org/genproto/googleapis/rpc/errdetails*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For error handling on the client side, you simply process the error returned
+    as part of your RPC invocation. For example, in [Example 5-8](#EX5-8), you can
+    find the Go implementation of the client application of this order management
+    use case. Here we invoked the `AddOrder` method and assigned the returned error
+    to the `addOrderError` variable. So, the next step is to inspect the results of
+    `addOrderError` and gracefully handle the error. For that, you can obtain the
+    error code and specific error type that we have set from the server side.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 5-8\. Error handling on the client side
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_grpc__beyond_the_basics_CO8-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is an invalid order.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_grpc__beyond_the_basics_CO8-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Invoke the `AddOrder` remote method and assign the error to `addOrderError`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_grpc__beyond_the_basics_CO8-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Obtain the error code using the `grpc/status` package.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_grpc__beyond_the_basics_CO8-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Check for `InvalidArgument` error code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_grpc__beyond_the_basics_CO8-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Obtain the error status from the error.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![6](assets/6.png)](#co_grpc__beyond_the_basics_CO8-6)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Check for `BadRequest_FieldViolation` error type.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It’s always good practice to use the appropriate gRPC error codes and a richer
+    error model whenever possible for your gRPC applications. gRPC error status and
+    details are normally sent via the trailer headers at the transport protocol level.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now let’s look at multiplexing, a service-hosting mechanism on the same gRPC
+    server runtime.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Multiplexing
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In terms of gRPC services and client applications, we’ve seen so far a given
+    gRPC server with a gRPC service registered on it and a gRPC client connection
+    being used by a single client stub only. However, gRPC allows you to run multiple
+    gRPC services on the same gRPC server (see [Figure 5-4](#muliplexing_multiple_grpc_services_in_the_same_server_application)),
+    as well as use the same gRPC client connection for multiple gRPC client stubs.
+    This capability is known as *multiplexing*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Multiplexing multiple gRPC services in the same server application](assets/grpc_0504.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 5-4\. Multiplexing multiple gRPC services in the same server application
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: For example, in our `OrderManagement` service example, suppose that you want
+    to run another service that is required for order-management purposes on the same
+    gRPC server, so that the client application can reuse the same connection to invoke
+    both the services as required. Then you can register both services on the same
+    gRPC server by using their respective server register functions (i.e., `ordermgt_pb.RegisterOrderManagementServer`
+    and `hello_pb.RegisterGreeterServer`). Using this method, you can register one
+    or more gRPC services on the same gRPC server (as shown in [Example 5-9](#EX5-9)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 5-9\. Two gRPC services sharing the same grpc.Server
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_grpc__beyond_the_basics_CO9-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating the gRPC server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_grpc__beyond_the_basics_CO9-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Registering the `OrderManagement` service with the gRPC server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_grpc__beyond_the_basics_CO9-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Registering the `Hello` service with the same gRPC server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Similarly, from the client side you can share the same gRPC connection between
+    two gRPC client stubs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As shown in [Example 5-10](#EX5-10), since both gRPC services are running in
+    the same gRPC server, you can create a gRPC connection and use it when creating
+    the gRPC client instance for different services.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 5-10\. Two gRPC client stubs sharing the same grpc.ClientConn
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_grpc__beyond_the_basics_CO10-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating a gRPC connection.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_grpc__beyond_the_basics_CO10-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using the created gRPC connection to create an `OrderManagement` client.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_grpc__beyond_the_basics_CO10-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using the same gRPC connection to create the `Hello` service client.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Running multiple services or using the same connection between multiple stubs
+    is a design choice that is independent of gRPC concepts. In most everyday use
+    cases such as microservices, it is quite common to not share the same gRPC server
+    instance between two services.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: One powerful use for gRPC multiplexing in a microservice architecture is to
+    host multiple major versions of the same service in one server process. This allows
+    a service to accommodate legacy clients after a breaking API change. Once the
+    old version of the service contract is no longer in use, it can be removed from
+    the server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next section, we’ll talk about how to exchange data that is not part
+    of RPC parameters and responses between client and service applications.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Metadata
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: gRPC applications usually share information via RPC calls between gRPC services
+    and consumers. In most cases, information directly related to the service’s business
+    logic and consumer is part of the remote method invocation arguments. However,
+    in certain conditions, you may want to share information about the RPC calls that
+    are not related to the business context of the RPC, so they shouldn’t be part
+    of the RPC arguments. In such cases, you can use *gRPC metadata* that you can
+    send or receive from either the gRPC service or the gRPC client. As illustrated
+    in [Figure 5-5](#exchanging_grpc_metadata_between_client_and_server_applications),
+    the metadata that you create on either the client or server side can be exchanged
+    between the client and server applications using gRPC headers. Metadata is structured
+    in the form of a list of key(string)/value pairs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: One of the most common usages of metadata is to exchange security headers between
+    gRPC applications. Similarly, you can use it to exchange any such information
+    between gRPC applications. Often gRPC metadata APIs are heavily used inside the
+    interceptors that we develop. In the next section, we’ll explore how gRPC supports
+    sending metadata between the client and server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Exchanging gRPC metadata between client and server applications. ](assets/grpc_0505.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 5-5\. Exchanging gRPC metadata between client and server applications
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Creating and Retrieving Metadata
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The creation of metadata from a gRPC application is quite straightforward.
+    In the following Go code snippet, you will find two ways of creating metadata.
+    Metadata is represented as a normal map in Go and can be created with the format
+    `metadata.New(map[string]string{"key1": "val1", "key2": "val2"})`. Also, you can
+    use `metadata.Pairs` to create metadata in pairs, so that metadata with the same
+    key will get merged into a list:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: You can also set binary data as metadata values. The binary data that we set
+    as metadata values will be base64 encoded before sending, and will be decoded
+    after being transferred.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Reading metadata from either the client or server side can be done using the
+    incoming context of the RPC call with `metadata.FromIncomingContext(ctx)`, which
+    returns the metadata map in Go:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now let’s dive into how metadata sending and receiving happens on the client
+    or server side for different unary and streaming RPC styles.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Sending and Receiving Metadata: Client Side'
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You can send metadata from the client side to the gRPC service by creating metadata
+    and setting it into the context of the RPC call. In a Go implementation, you can
+    do this in two different ways. As shown in [Example 5-11](#EX5-11), you can create
+    a new context with the new metadata using `NewOutgoingContext`, or simply append
+    the metadata to the existing context using `AppendToOutgoingContext`. Using `NewOutgoingContext`,
+    however, replaces any existing metadata in the context. Once you create a context
+    with the required metadata, it can be used either for unary or streaming RPC.
+    As you learned in [Chapter 4](ch04.html#ch_04), the metadata that you set in the
+    context is translated into gRPC headers (on HTTP/2) or trailers at the wire level.
+    So when the client sends those headers they are received by the recipient as headers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 5-11\. Sending metadata from the gRPC client side
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_grpc__beyond_the_basics_CO11-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating metadata.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_grpc__beyond_the_basics_CO11-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating a new context with the new metadata.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_grpc__beyond_the_basics_CO11-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Appending some more metadata to the existing context.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_grpc__beyond_the_basics_CO11-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unary RPC using the new context with the metadata.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_grpc__beyond_the_basics_CO11-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The same context can be used for a streaming RPC, too.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Therefore, when it comes to receiving metadata from the client side, you need
+    to treat them as either headers or trailers. In [Example 5-12](#EX5-12), you can
+    find Go code examples on receiving metadata for both unary and streaming RPC styles.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 5-12\. Reading metadata on the gRPC client side
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_grpc__beyond_the_basics_CO12-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Variable to store header and trailer returned from the RPC call.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_grpc__beyond_the_basics_CO12-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Pass header and trailer reference to store the returned values for unary RPC.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_grpc__beyond_the_basics_CO12-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting the headers from the stream.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_grpc__beyond_the_basics_CO12-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting the trailers from the stream. Trailers are used to send status codes
+    and the status message.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once the values are obtained from the respective RPC operations, you can process
+    them as a generic map and process the required metadata.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now let’s move on to metadata handling on the server side.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Sending and Receiving Metadata: Server Side'
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Receiving metadata on the server side is quite straightforward. Using Go, you
+    can simply obtain the metadata with `metadata.FromIncomingContext(ctx)` inside
+    your remote method implementations (see [Example 5-13](#EX13)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 5-13\. Reading metadata on the gRPC server side
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_grpc__beyond_the_basics_CO13-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unary RPC.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_grpc__beyond_the_basics_CO13-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Read the metadata map from the incoming context of the remote method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_grpc__beyond_the_basics_CO13-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Streaming RPC.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_grpc__beyond_the_basics_CO13-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Obtain the context from the stream and read metadata from it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To send metadata from the server side, send a header with metadata or set a
+    trailer with metadata. The metadata creation method is the same as what we discussed
+    in the previous section. In [Example 5-14](#EX5-14), you can find Go code examples
+    of sending metadata from a unary and a streaming remote method implementation
+    on the server side.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 5-14\. Sending metadata from the gRPC server side
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_grpc__beyond_the_basics_CO14-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Send metadata as a header.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_grpc__beyond_the_basics_CO14-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Send metadata along with the trailer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_grpc__beyond_the_basics_CO14-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Send metadata as a header in the stream.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_grpc__beyond_the_basics_CO14-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Send metadata along with the trailer of the stream.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In both the unary and streaming cases, you can send metadata using the `grpc.SendHeader`
+    method. If you want to send metadata as part of the trailer, you need to set the
+    metadata as part of the trailer of the context using the `grpc.SetTrailer` or
+    `SetTrailer` method of the respective stream.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now let’s discuss another commonly used technique when calling gRPC applications:
+    name resolving.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Name Resolver
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: A *name resolver* takes a service name and returns a list of IPs of the backends.
+    The resolver used in [Example 5-15](#EX5-16) resolves `lb.example.grpc.io` to
+    `localhost:50051` and `localhost:50052`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 5-15\. gRPC name resolver implementation in Go
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_grpc__beyond_the_basics_CO15-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Name resolver builder that creates the resolver.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_grpc__beyond_the_basics_CO15-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating the example resolver that resolves `lb.example.grpc.io`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_grpc__beyond_the_basics_CO15-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: This resolves `lb.example.grpc.io` to `localhost:50051` and `localhost:50052`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_grpc__beyond_the_basics_CO15-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: This resolver is created for scheme `example`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_grpc__beyond_the_basics_CO15-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Structure of the name resolver.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Thus, based on this name resolver implementation, you can implement resolvers
+    for any service registry of your choice such as [Consul](https://www.consul.io),
+    [etcd](https://etcd.io), and [Zookeeper](https://zookeeper.apache.org). The gRPC
+    load-balancing requirements may be quite dependent on the deployment patterns
+    that you use or on the use cases. With the increasing adoption of container orchestration
+    platforms such as Kubernetes and more higher-level abstractions such as service
+    mesh, the need to implement load-balancing logic on the client side is becoming
+    quite rare. We’ll explore some best practices for deploying gRPC applications
+    locally on containers, as well as Kubernetes, in [Chapter 7](ch07.html#ch_07).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now let’s discuss one of the most common requirements of your gRPC applications,
+    load balancing, in which we can use name resolvers in certain cases.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Load Balancing
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Often when you develop production-ready gRPC applications, you need to make
+    sure that your application can cater to high availability and scalability needs.
+    Therefore, you always run more than one gRPC server in production. So, distributing
+    RPC calls between these services needs to be taken care of by some entity. That’s
+    where load balancing comes into play. Two main load-balancing mechanisms are commonly
+    used in gRPC: a *load-balancer (LB) proxy* and *client-side load balancing*. Let’s
+    start by discussing the LB proxy.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Load-Balancer Proxy
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: In proxy load balancing ([Figure 5-6](#client_application_invokes_a_load_balancer_which_is_fronting_multiple_grpc_services)),
+    the client issues RPCs to the LB proxy. Then the LB proxy distributes the RPC
+    call to one of the available backend gRPC servers that implements the actual logic
+    for serving the call. The LB proxy keeps track of load on each backend server
+    and offers a different load-balancing algorithm for distributing the load among
+    the backend services.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Client application invokes a  load balancer which is fronting multiple gRPC
+    services.](assets/grpc_0506.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 5-6\. Client application invokes a load balancer that fronts multiple
+    gRPC services
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The topology of the backend services is not transparent to the gRPC clients,
+    and they are only aware of the load balancer’s endpoint. Therefore, on the client
+    side, you don’t need to make any changes to cater to a load-balancing use case,
+    apart from using the load balancer’s endpoint as the destination for all your
+    gRPC connections. The backend services can report the load status back to the
+    load balancer so that it can use that information for the load-balancing logic.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In theory, you can select any load balancer that supports HTTP/2 as the LB proxy
+    for your gRPC applications. However, it must have full HTTP/2 support. Thus it’s
+    always a good idea to specifically choose load balancers that explicitly offer
+    gRPC support. For instance, you can use load-balancing solutions such as [Nginx](https://oreil.ly/QH_1c),
+    [Envoy proxy](https://www.envoyproxy.io), etc., as the LB proxy for your gRPC
+    applications.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you don’t use a gRPC load balancer, then you can implement the load-balancing
+    logic as part of the client applications you write. Let’s look more closely at
+    client-side load balancing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Client-Side Load Balancing
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Rather than having an intermediate proxy layer for load balancing, you can implement
+    the load-balancing logic at the gRPC client level. In this method, the client
+    is aware of multiple backend gRPC servers and chooses one to use for each RPC.
+    As illustrated in [Figure 5-7](#client_side_load_balancing), the load-balancing
+    logic may be entirely developed as part of the client application (also known
+    as *thick client*) or it can be implemented in a dedicated server known as lookaside
+    load balancer. Then the client can query it to obtain the best gRPC server to
+    connect to. The client directly connects to the gRPC server address obtained by
+    the lookaside load balancer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Client-side load balancing](assets/grpc_0507.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 5-7\. Client-side load balancing
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: To understand how you can implement client-side load balancing, let’s look at
+    an example of a thick client implemented using Go. In this use case, suppose we
+    have two backend gRPC services running an echo server on :50051 and :50052\. These
+    gRPC services will include the serving address of the server as part of the RPC
+    response. So we can consider these two servers as two members of an echo gRPC
+    service cluster. Now, suppose we want to build a gRPC client application that
+    uses the round-robin (executed in turn against every other) algorithm when selecting
+    the gRPC server endpoint and another client that uses the first endpoint of the
+    server endpoint list. [Example 5-16](#EX5-15) shows the thick client load-balancing
+    implementation. Here you can observe that the client is dialing *example:///lb.example.grpc.io*.
+    So, we are using the `example` scheme name and `lb.example.grpc.io` as the server
+    name. Based on this scheme, it will look for a name resolver to discover the absolute
+    value for the backend service address. Based on the list of values the name resolver
+    returns, gRPC runs different load-balancing algorithms against those servers.
+    The behavior is configured with `grpc.WithBalancerName("round_robin")`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 5-16\. Client-side load balancing with a thick client
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_grpc__beyond_the_basics_CO16-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating a gRPC connection with a *scheme* and the service name. The scheme
+    is resolved from a scheme resolver, which is part of the client application.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_grpc__beyond_the_basics_CO16-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Specifying a load-balancing algorithm that picks the first server on the server
+    endpoint list.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_grpc__beyond_the_basics_CO16-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using the round-robin load-balancing algorithm.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are two load-balancing policies supported in gRPC by default: `pick_first`
+    and `round_robin`. `pick_first` tries to connect to the first address, uses it
+    for all RPCs if it connects, or tries the next address if it fails. `round_robin`
+    connects to all the addresses it sees and sends an RPC to each backend one at
+    a time in order.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the client-side load-balancing scenario in [Example 5-16](#EX5-15), we have
+    a name resolver to resolve scheme `example`, which contains the logic of discovering
+    the actual values of the endpoint URLs. Now let’s talk about compression, another
+    commonly used feature of gRPC, for sending large amounts of content over RPC.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Compression
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: To use network bandwidth efficiently, use compression when performing RPCs between
+    client and services. Using gRPC compression on the client side can be implemented
+    by setting a compressor when you do the RPC. For example, in Go, this is as easy
+    as using `client.AddOrder(ctx, &order1, grpc.UseCompressor(gzip.Name))`, where
+    `"google.golang.org/grpc/encoding/gzip"` provides the gzip package.
+  prefs: []
+  type: TYPE_NORMAL
+- en: From the server side, registered compressors will be used automatically to decode
+    request messages and encode the responses. In Go, registering a compressor is
+    as simple as importing `"google.golang.org/grpc/encoding/gzip"` into your gRPC
+    server application. The server always responds using the same compression method
+    specified by the client. If the corresponding compressor has not been registered,
+    an `Unimplemented` status will be returned to the client.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Building production-ready, real-world gRPC applications often requires you to
+    include various capabilities besides defining the service interface, generating
+    the server and client code, and implementing the business logic. As you saw in
+    this chapter, gRPC offers a wide range of capabilities that you will need when
+    building gRPC applications, including interceptors, deadlines, cancellations,
+    and error handling.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, we haven’t yet discussed how to secure gRPC applications and how to
+    consume them. So, in the next chapter we’ll cover this topic in detail.
+  prefs: []
+  type: TYPE_NORMAL

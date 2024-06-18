@@ -1,0 +1,2167 @@
+- en: Chapter 8\. Loose Coupling
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We build our computers the way we build our cities—over time, without a plan,
+    on top of ruins.^([1](ch08.xhtml#idm45983628500424))
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: ''
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: Ellen Ullman, The Dumbing-down of Programming (May 1998)
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: Coupling is one of those fascinating topics that seem straightforward in theory
+    but are actually quite challenging in practice. As we’ll discuss, there are lots
+    of ways in which coupling can be introduced in a system, which means it’s also
+    a *big* subject. As you might imagine, this chapter is an ambitious one, and we
+    cover a lot of ground.
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, we’ll introduce the subject, diving more deeply into the concept of “coupling,”
+    and discussing the relative merits of “loose” versus “tight” coupling. We’ll present
+    some of the most common coupling mechanisms, and how some kinds of tight coupling
+    can lead to the dreaded “distributed monolith.”
+  prefs: []
+  type: TYPE_NORMAL
+- en: Next, we’ll talk about inter-service communications, and how fragile exchange
+    protocols are a very common way of introducing tight coupling to distributed systems.
+    We’ll cover some of the common protocols in use today to minimize the degree of
+    coupling between two services.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the third part, we’ll change direction for a bit, away from distributed systems
+    and into the implementations of the services themselves. We’ll talk about services
+    as code artifacts, subject to coupling resulting from mingling implementations
+    and violating separation of concerns, and present the use of plug-ins as a way
+    to dynamically add implementations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, we’ll close with a discussion of hexagonal architecture, an architectural
+    pattern that makes loose coupling the central pillar of its design philosophy.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Throughout the chapter, we’ll do our best to balance theory, architecture,
+    and implementation. Most of the chapter will be spent on the fun stuff: discussing
+    a variety of different strategies for managing coupling, particularly (but not
+    exclusively) in the distributed context, and demonstrating by extending our example
+    key/value store.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tight Coupling
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: “Coupling” is a somewhat romantic term describing the degree of direct knowledge
+    between components. For example, a client that sends requests to a service is
+    by definition coupled to that service. The degree of that coupling can vary considerably,
+    however, falling anywhere between two extremes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '“Tightly coupled” components have a great deal of knowledge about another component.
+    Perhaps both require the same version of a shared library to communicate, or maybe
+    the client needs an understanding of the server’s architecture or database schema.
+    It’s easy to build tightly coupled systems when optimizing for the short term,
+    but they have a huge downside: the more tightly coupled two components are, the
+    more likely that a change to one component will necessitate corresponding changes
+    to the other. As a result, tightly coupled systems lose many of the benefits of
+    a microservice architecture.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In contrast, “loosely coupled” components have minimal direct knowledge of one
+    another. They’re relatively independent, typically interacting via a change-robust
+    abstraction. Systems designed for loose coupling require more up-front planning,
+    but they can be more freely upgraded, redeployed, or even entirely rewritten without
+    greatly affecting the systems that depend on them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Put simply, if you want to know how tightly coupled your system is, ask how
+    many and what kind of changes can be made to one component without adversely affecting
+    another.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Some amount of coupling isn’t necessarily a bad thing, especially early in a
+    system’s development. It can be temping to over-abstract and over-complicate,
+    but premature optimization is *still* the root of all evil.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tight Coupling Takes Many Forms
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: There’s no limit to the ways components in a distributed system can find themselves
+    tightly coupled. However, while these all share one fundamental flaw—they all
+    depend on some property of another component that they wrongly assume won’t change—most
+    can be grouped into a few broad classes according to the resource that they’re
+    coupled to.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Fragile exchange protocols
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Remember SOAP (simple object access protocol)? Statistically speaking, probably
+    not.^([2](ch08.xhtml#idm45983628463640)) SOAP was a messaging protocol developed
+    in the late 1990s that was designed for extensibility and implementation neutrality.
+    SOAP services provided a *contract* that clients could follow to format their
+    requests.^([3](ch08.xhtml#idm45983628462344)) The concept of the contract was
+    something of a breakthrough at the time, but SOAP’s implementation was exceedingly
+    fragile: if the contract changed in any way, the clients had to be updated along
+    with it. This requirement meant that SOAP clients were tightly coupled to their
+    services.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: It didn’t take long for people to realize that this was a problem, and SOAP
+    quickly lost its shine. It’s since been largely replaced by REST, which, while
+    a considerable improvement, can often introduce its own tight coupling. In 2016,
+    Google released gRPC (gRPC Remote Procedure Calls^([4](ch08.xhtml#idm45983628457112))),
+    an open source framework with a number of useful features, including, importantly,
+    allowing loose coupling between components.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We’ll discuss some of these more contemporary options in [“Communications Between
+    Services”](#section_ch08_communications_between_services), where we’ll see how
+    to use Go’s `net/http` package to build a REST/HTTP client and extend our key/value
+    store with a gRPC frontend.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Shared dependencies
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: In 2016, Facebook’s Ben Christensen [gave a talk](https://oreil.ly/ZX2Oe) at
+    the Microservices Practitioner Summit where he spoke about another increasingly
+    common mechanism for tightly coupling distributed services, introducing the term
+    “distributed monolith” in the process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Ben described an anti-pattern in which services were *required* to use specific
+    libraries—and versions of libraries—in order to launch and interact with one another.
+    Such systems find themselves saddled with a fleet-wide dependency, such that upgrading
+    these shared libraries can force all services to have to upgrade in lockstep.
+    This shared dependency has tightly coupled all of the services in the fleet.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Shared point-in-time
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Often systems are designed in such a way that clients expect an immediate response
+    from services. Systems using this *request-response messaging* pattern implicitly
+    assume that a service is present and ready to promptly respond. But if it’s not,
+    the request will fail. It can be said that they’re *coupled in time*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Coupling in time isn’t necessarily bad practice, though. It might even be preferable,
+    particularly when there’s a human waiting for a timely response. We even detail
+    how to construct such a client in the section [“Request-Response Messaging”](#section_ch08_request_response).
+  prefs: []
+  type: TYPE_NORMAL
+- en: But if the response isn’t necessarily time-constrained, then a safer approach
+    may be to send messages to an intermediate queue that recipients can retrieve
+    from when they’re ready, a messaging pattern commonly referred to as *publish-subscribe
+    messaging* (“pub-sub” for short).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Fixed addresses
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: It’s the nature of microservices that they need to talk to one another. But
+    to do that, they first have to find each other. This process of locating services
+    on a network is called *service discovery*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Traditionally, services lived at relatively fixed, well-known network locations
+    that could be discovered by referencing some centralized registry. Initially this
+    took the form of manually maintained `hosts.txt` files, but as networks scaled
+    up so did the adoption of DNS and URLs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Traditional DNS works well for long-lived services whose locations on the network
+    rarely change, but the increased popularity of ephemeral, microservice-based applications
+    has ushered in a world in which the lifespans of service instances is often measurable
+    in seconds or minutes rather than months or years. In such dynamic environments,
+    URLs and traditional DNS become just another form of tight coupling.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This need for dynamic, fluid service discovery has driven the adoption of entirely
+    new strategies like the *service mesh*, a dedicated layer for facilitating service-to-service
+    communications between resources in a distributed system.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Unfortunately, we won’t be able to cover the fascinating and fast-developing
+    topics of service discovery or service meshes in this book. But the service mesh
+    field is rich, with a number of mature open source projects with active communities—such
+    as [Envoy](https://oreil.ly/woDEQ), [Linkerd](https://linkerd.io), and [Istio](https://oreil.ly/zggyu)—and
+    even commercial offerings like [Hashicorp’s Consul](https://consul.io).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Communications Between Services
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Communication and message passing is a critical function of distributed systems,
+    and all distributed systems depend on some form of messaging to receive instructions
+    and directions, exchange information, and provide results and updates. Of course,
+    a message is useless if the recipient can’t understand it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In order for services to communicate, they must first establish an implicit
+    or explicit *contract* that defines how messages will be structured. While such
+    a contract is necessary, it also effectively couples the components that depend
+    on it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It’s actually very easy to introduce tight coupling in this way, the degree
+    of which is reflected in the protocol’s ability to change safely. Does it allow
+    backward- and forward-compatible changes, like protocol buffers and gRPC, or do
+    minor changes to the contract effectively break communications, as is the case
+    with SOAP?
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Of course, the data exchange protocol and its contract isn’t the only variable
+    in inter-service communications. There are, in fact, two broad classes of messaging
+    patterns:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Request-response (synchronous)
+  prefs: []
+  type: TYPE_NORMAL
+- en: A two-way message exchange in which a requester (the client) issues a request
+    of a receiver (the service) and waits for a response. A textbook example is HTML.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Publish-subscribe (asynchronous)
+  prefs: []
+  type: TYPE_NORMAL
+- en: A one-way message exchange in which a requester (the publisher) issues a message
+    to an event bus or message exchange, rather than directly to a specific receiver.
+    Messages can be retrieved asynchronously and acted upon by one or more services
+    (subscribers).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Each of these patterns has a variety of implementations and particular use-cases,
+    each with their own pros and cons. While we won’t be able to cover every possible
+    nuance, we’ll do our best to provide a usable survey and some direction about
+    how they may be implemented in Go.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Request-Response Messaging
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As its name suggests, systems using a *request-response*, or *synchronous*,
+    messaging pattern communicate using a series of coordinated requests and responses,
+    in which a requester (or client) submits a request to a receiver (or service)
+    and waits until the receiver responds (hopefully) with the requested the data
+    or service (see [Figure 8-1](#img_ch08_request_response)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The most obvious example of this pattern might be HTTP, which is so ubiquitous
+    and well-established that it’s been extended beyond its original purpose, and
+    now underlies common messaging protocols like REST and GraphQL.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![cngo 0801](Images/cngo_0801.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 8-1\. Systems using a request-response messaging pattern communicate
+    using a series of coordinated requests and responses
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The request-response pattern has the advantages of being relatively easy to
+    reason about and straightforward to implement, and has long been considered the
+    default messaging pattern, particularly for public-facing services. However, it’s
+    also “point-to-point,” involving exactly one requester and receiver, and requires
+    the requesting process to pause until it receives a response.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Together, these properties make the request-response pattern a good choice for
+    straightforward exchanges between two endpoints where a response can be expected
+    in a reasonably short amount of time, but less than ideal when a message has to
+    be sent to multiple receivers or when a response might take longer than a requester
+    might want to wait.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Common Request-Response Implementations
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Over the years, a multitude of bespoke request-response protocols have been
+    developed for any number of purposes. Over time, this has largely settled down,
+    giving way to three major implementations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: REST
+  prefs: []
+  type: TYPE_NORMAL
+- en: You’re likely already very familiar with REST, which we discussed in some detail
+    in [“Building an HTTP Server with net/http”](ch05.xhtml#section_ch05_server_with_nethttp).
+    REST has some things going for it. It’s human-readable and easy to implement,
+    making it a good choice for outward-facing services (which is why we chose it
+    in [Chapter 5](ch05.xhtml#chapter_5)). We’ll discuss a little more in [“Issuing
+    HTTP Requests with net/http”](#section_ch08_issuing_http_requests).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Remote procedure calls (RPC)
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Remote procedure call (RPC) frameworks allow programs to execute procedures
+    in a different address space, often on another computer. Go provides a standard
+    Go-specific RPC implementation in the form of `net/rpc`. There are also two big
+    language-agnostic RPC players: Apache Thrift and gRPC. While similar in design
+    and usage goals, gRPC seems to have taken the lead with respect to adoption and
+    community support. We’ll discuss gRPC in much more detail in [“Remote Procedure
+    Calls with gRPC”](#section_ch08_gRPC).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: GraphQL
+  prefs: []
+  type: TYPE_NORMAL
+- en: A relative newcomer on the scene, GraphQL is a query and manipulation language
+    generally considered an alternative to REST, and is particularly powerful when
+    working with complex datasets. We don’t discuss GraphQL in much detail in this
+    book, but I encourage you to [look into it](https://graphql.org) the next time
+    you’re designing an outward-facing API.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Issuing HTTP Requests with net/http
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: HTTP is perhaps the most common request-response protocol, particularly for
+    public-facing services, underlying popular API formats like REST and GraphQL.
+    If you’re interacting with an HTTP service, you’ll need some way to programmatically
+    issue requests to the service and retrieve the response.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Fortunately, the Go standard library comes with excellent HTTP client and server
+    implementations in the form of the `net/http` package. You may remember `net/http`
+    from [“Building an HTTP Server with net/http”](ch05.xhtml#section_ch05_server_with_nethttp),
+    where we used it to build the first iteration of our key/value store.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `net/http` includes, among other things, convenience functions for GET,
+    HEAD, and POST methods. The signatures for the first of these, `http.Get` and
+    `http.Head`, are shown in the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The previous functions are very straightforward and are both used similarly:
+    each accepts a `string` that represents the URL of interest, and each returns
+    an `error` value and a pointer to an `http.Response` struct.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `http.Response` struct is particularly useful because it contains all kinds
+    of useful information about the service’s response to our request, including the
+    returned status code and the response body.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A small selection of the `http.Response` struct is in the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'There are some useful things in there! Of particular interest is the `Body`
+    field, which provides access to the HTTP response body. It’s a `ReadCloser` interface,
+    which tells us two things: that the response body is streamed on demand as it’s
+    read, and that it has a `Close` method that we’re expected to call.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the following, we demonstrate several things: how to use the `Get` convenience
+    function, how to close the response body, and how to use `io.ReadAll` to read
+    the *entire* response body as a string (if you’re into that kind of thing):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the last example, we use the `http.Get` function to issue a GET to the URL
+    `http://example.com`, which returns a pointer to a `http.Response` struct and
+    an `error` value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As we mentioned previously, access to the HTTP response body is provided via
+    the `resp.Body` variable, which implements `io.ReadCloser`. Note how we `defer`
+    the call `resp.Body.Close()`. This is very important: failing to close your response
+    body can sometimes lead to some unfortunate memory leaks.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Because `Body` implements `io.Reader`, we have many different standard means
+    to retrieve its data. In this case we use the very reliable `io.ReadAll`, which
+    conveniently returns the entire response body as a `[]byte` slice, which we simply
+    print.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Warning
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Always remember to use `Close()` to close your response body!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Not doing so can lead to some unfortunate memory leaks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We’ve already seen the `Get` and `Head` functions, but how do we issue POSTs?
+    Fortunately, similar convenience functions exist for them too. Two, in fact: `http.Post`
+    and `http.PostForm`. The signatures for each of these are shown in the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The first of these, `Post`, expects an `io.Reader` that provides the body—such
+    as a file of a JSON object—of the post. We demonstrate how to upload JSON text
+    in a POST in the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: Remote Procedure Calls with gRPC
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: gRPC is an efficient, polyglot data exchange framework that was originally developed
+    by Google as the successor to *Stubby*, a general-purpose RPC framework that had
+    been in use internally at Google for over a decade. It was open sourced in 2015
+    under the name gRPC, and taken over by the Cloud Native Computing Foundation in
+    2017.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unlike REST, which is essentially a set of unenforced best practices, gRPC is
+    a fully-featured data exchange framework, which, like other RPC frameworks such
+    as SOAP, Apache Thrift, Java RMI, and CORBA (to name a few) allows a client to
+    execute specific methods implemented on different systems as if they were local
+    functions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This approach has a number of advantages over REST, including but not limited
+    to:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Conciseness
+  prefs: []
+  type: TYPE_NORMAL
+- en: Its messages are more compact, consuming less network I/O.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Speed
+  prefs: []
+  type: TYPE_NORMAL
+- en: Its binary exchange format is much faster to marshal and unmarshal.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Strong-typing
+  prefs: []
+  type: TYPE_NORMAL
+- en: It’s natively strongly typed, eliminating a lot of boilerplate and removing
+    a common source of errors.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Feature-rich
+  prefs: []
+  type: TYPE_NORMAL
+- en: It has a number of built-in features like authentication, encryption, timeout,
+    and compression (to name a few) that you would otherwise have to implement yourself.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'That’s not to say that gRPC is always the best choice. Compared to REST:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Contract-driven
+  prefs: []
+  type: TYPE_NORMAL
+- en: gRPC’s contracts make it less suitable for external-facing services.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Binary format
+  prefs: []
+  type: TYPE_NORMAL
+- en: gRPC data isn’t human-readable, making it harder to inspect and debug.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'gRPC is a very large and rich subject that this modest section can’t fully
+    do justice to. If you’re interested in learning more I recommend the official
+    [“Introduction to gRPC”](https://oreil.ly/10q7G) and the excellent [*gRPC: Up
+    and Running*](https://oreil.ly/Dxhjo) by Kasun Indrasiri and Danesh Kuruppu (O’Reilly
+    Media).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Interface definition with protocol buffers
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: As is the case with most RPC frameworks, gRPC requires you to define a *service
+    interface*. By default, gRPC uses [*protocol buffers*](https://oreil.ly/JKoyj)
+    for this purpose, though it’s possible to use an alternative Interface Definition
+    Language (IDL) like JSON if you want.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To define a service interface, the author uses the protocol buffers schema to
+    describe the service methods that can be called remotely by a client in a `.proto`
+    file. This is then *compiled* into a language-specific interface (Go code, in
+    our case).
+  prefs: []
+  type: TYPE_NORMAL
+- en: As illustrated in [Figure 8-2](#img_ch08_gRPC_overview), gRPC servers implement
+    the resulting source code to handle client calls, while the client has a stub
+    that provides the same methods as the server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![cngo 0802](Images/cngo_0802.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 8-2\. By default, gRPC uses protocol buffers as both its Interface Definition
+    Language and its underlying message interchange format; servers and clients can
+    be written in [any supported language](https://oreil.ly/N0uWc)
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Yes, this seems very hand-wavey and abstract right now. Keep reading for some
+    more details!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Installing the protocol compiler
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Before we proceed, we’ll first need to install the protocol buffer compiler,
+    `protoc`, and the Go protocol buffers plug-in. We’ll use these to compile `.proto`
+    files into Go service interface code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If you’re using Linux or MacOS, the simplest and easiest way to install `protoc`
+    is to use a package manager. To install it on a Debian-flavored Linux you can
+    use `apt` or `apt-get`:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'The easiest way to install `protoc` on MacOS is to use Homebrew:'
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: 'Run the following command to install the Go protocol buffers plug-in:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs:
+  - PREF_IND
+  type: TYPE_PRE
+- en: The compiler plug-in `protoc-gen-go` will be installed in `$GOBIN`, defaulting
+    to `$GOPATH/bin`. It must be in your `$PATH` for `protoc` to find it.
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: Warning
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: This book uses protocol buffers version 3\. Be sure to check your version of
+    `protoc` after installation to make sure that it’s version 3 or higher.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you’re using another OS, your chosen package manager has an old version,
+    or if you just want to make sure you have the latest and greatest, you can find
+    the instructions for installing the precompiled binaries on gRPC’s [Protocol Buffer
+    Compiler Installation page](https://oreil.ly/b6RAD).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The message definition structure
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Protocol buffers are a language-neutral mechanism for serializing structured
+    data. You can think of it as a binary version of XML.^([6](ch08.xhtml#idm45983627711544))
+    Protocol buffer data is structured as *messages*, where each message is a small
+    record of information containing a series of name-value pairs called *fields*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The first step when working with protocol buffers is to define the message
+    structure by defining it in a `.proto` file. A basic example is presented in the
+    following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 8-1\. An example `.proto` file. The `message` definitions define remote
+    procedure payloads.
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: You may have noticed that the protocol buffer syntax is reminiscent of C/C++,
+    complete with its semicolon and commenting syntax.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The first line of the file specifies that you’re using `proto3` syntax: if
+    you don’t do this, the protocol buffer compiler will assume you are using `proto2`.
+    This must be the first nonempty, noncomment line of the file.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The second line uses the `option` keyword to specify the full import path of
+    the Go package that will contain the generated code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Finally, we have three `message` definitions, which describe the structure
+    of the payload messages. In this example, we have three messages of increasing
+    complexity:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`Point`, which contains `x` and `y` integer values, and a `label` string'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`Line`, which contains exactly two `Point` values'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`Polyline`, which uses the `repeated` keyword to indicate that it can contain
+    any number of `Point` values'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Each `message` contains zero or more fields that have a name and a type. Note
+    that each field in a message definition has a *field number* that is unique for
+    that message type. These are used to identify fields in the message binary format,
+    and should not be changed once your message type is in use.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If this raises a “tight coupling” red flag in your mind, you get a gold star
+    for paying attention. For this reason, protocol buffers provide explicit support
+    for [updating message types](https://oreil.ly/IeyL2), including marking a field
+    as [reserved](https://oreil.ly/I1Jiu) so that it can’t be accidentally reused.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This example is incredibly simple, but don’t let that fool you: protocol buffers
+    are capable of some very sophisticated encodings. See the [Protocol Buffers Language
+    Guide](https://oreil.ly/UDl65) for more information.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The key-value message structure
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: So how do we make use of protocol buffers and gRPC to extend the example key-value
+    store that we started in [Chapter 5](ch05.xhtml#chapter_5)?
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s say that we want to implement gRPC equivalents to the `Get`, `Put`, and
+    `Delete` functions we are already exposing via RESTful methods. The message formats
+    for that might look something like the following `.proto` file:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 8-2\. `keyvalue.proto`—the messages that will be passed to and from
+    our key-value service procedures
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: Tip
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'Don’t let the names of the message definitions confuse you: they represent
+    *messages* (nouns) that will be passed to and from functions (verbs) that we’ll
+    define in the next section.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the *.proto* file, which we’ll call *keyvalue.proto*, we have three `Request`
+    message definitions describing messages that will be sent from the client to the
+    server, and three `Response` message definitions describing the server’s response
+    messages.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You may have noticed that we don’t include `error` or `status` values in the
+    message response definitions. As you’ll see in [“Implementing the gRPC client”](#section_ch08_impl_grpc_client),
+    these are unnecessary because they’re included in the return values of the gRPC
+    client functions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Defining our service methods
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: So now that we’ve completed our message definitions, we’ll need to describe
+    the methods that’ll use them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To do that, we extend our *keyvalue.proto* file, using the `rpc` keyword to
+    define our service interfaces. Compiling the modified *.proto* file will generate
+    Go code that includes the service interface code and client stubs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 8-3\. `keyvalue.proto`—the procedures for our key-value service.
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: Tip
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: In contrast to the messages defined in [Example 8-2](#code_ch08_keyvalue_messages_proto),
+    the `rpc` definitions represent functions (verbs) which will send and receive
+    messages (nouns).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this example, we add three methods to our service:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`Get`, which accepts a `GetRequest` and returns a `GetResponse`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`Put`, which accepts a `PutRequest` and returns a `PutResponse`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`Delete`, which accepts a `DeleteRequest` and returns a `DeleteResponse`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Note that we don’t actually implement the functionality here. We do that later.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The previous methods are all examples of *unary RPC* definitions, in which a
+    client sends a single request to the server and gets a single response back. This
+    is the simplest of the four service methods types. Various streaming modes are
+    also supported, but these are beyond the scope of this simple primer. The [gRPC
+    documentation](https://oreil.ly/rs3dN) discusses these in more detail.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Compiling your protocol buffers
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Now that you have a *.proto* file complete with message and service definitions,
+    the next thing you need to do is generate the classes you’ll need to read and
+    write messages. To do this, you need to run the protocol buffer compiler `protoc`
+    on our *keyvalue.proto*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you haven’t installed the `protoc` compiler and Go protocol buffers plug-in,
+    follow the directions in [“Installing the protocol compiler”](#section_ch08_installing_protoc)
+    to do so.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now you can run the compiler, specifying the source directory (`$SOURCE_DIR`)
+    where your application’s source code lives (which defaults to the the current
+    directory), the destination directory (`$DEST_DIR`; often the same as `$SOURCE_DIR`),
+    and the path to your *keystore.proto*. Because we want Go code, you use the `--go_out`
+    option. `protoc` provides equivalent options to generate code for other supported
+    languages as well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this case, we would invoke:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `go_opt` and `go-grpc_opt` flags tell `protoc` to place the output files
+    in the same relative directory as the input file. Our *keyvalue.proto* file results
+    in two files, named *keyvalue.pb.go* and *keyvalue_grpc.pb.go*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Without these flags, the output files are placed in a directory named after
+    the Go package’s import path. Our *keyvalue.proto* file, for example, would result
+    in a file named `github.com/cloud-native-go/ch08/keyvalue/keyvalue.pb.go`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementing the gRPC service
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'To implement our gRPC server, we’ll need to implement the generated service
+    interface, which defines the server API for our key-value service. It can be found
+    in *keyvalue_grpc.pb.go* as `KeyValueServer`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'As you can see, the `KeyValueServer` interface specifies our `Get`, `Put`,
+    and `Delete` methods: each accepts a `context.Context` and a request pointer,
+    and returns a response pointer and an `error`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: As a side effect of its simplicity, it’s dead easy to mock requests to, and
+    responses from, a gRPC server implementation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To implement our server, we’ll make use of a generated struct that provides
+    a default implementation for the `KeyValueServer` interface, which, in our case,
+    is named `UnimplementedKeyValueServer`. It’s so named because it includes default
+    “unimplemented” versions of all of our client methods attached, which look something
+    like the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'By embedding the `UnimplementedKeyValueServer`, we’re able to implement our
+    key-value gRPC server. This is demonstrated with the following code, in which
+    we implement the `Get` method. The `Put` and `Delete` methods are omitted for
+    brevity:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the previous code, we implement and start our service in four steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Create the server struct.* Our `server` struct embeds `pb.UnimplementedKeyValueServer`.
+    This is not optional: gRPC requires your server struct to similarly embed its
+    generated `UnimplementedXXXServer`.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '*Implement the service methods.* We implement the service methods defined in
+    the generated `pb.KeyValueServer` interface. Interestingly, because the `pb.UnimplementedKeyValueServer`
+    includes stubs for all of these service methods, we don’t have to implement them
+    all right away.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '*Register our gRPC server.* In the `main` function, we create a new instance
+    of the `server` struct and register it with the gRPC framework. This is similar
+    to how we registered handler functions in [“Building an HTTP Server with net/http”](ch05.xhtml#section_ch05_server_with_nethttp),
+    except we register an entire instance rather than individual functions.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '*Start accepting connections.* Finally, we open a listening port^([7](ch08.xhtml#idm45983626853480))
+    using `net.Listen`, which we pass to the gRPC framework via `s.Serve` to begin
+    listening.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: It could be argued that gRPC provides the best of both worlds by providing the
+    freedom to implement any desired functionality without having to be concerned
+    with building many of the tests and checks usually associated with a RESTful service.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementing the gRPC client
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Because all of the client code is generated, making use of a gRPC client is
+    fairly straightforward.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The generated client interface will be named `XXXClient`, which in our case
+    will be `KeyValueClient`, shown in the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: All of the methods described in our source `.proto` file are specified here,
+    each accepting a request type pointer, and returning a response type pointer and
+    an error.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Additionally, each of the methods accepts a `context.Context` (if you’re rusty
+    on what this is or how it’s used, take a look at [“The Context Package”](ch04.xhtml#section_ch04_context)),
+    and zero or more instances of `grpc.CallOption`. `CallOption` is used to modify
+    the behavior of the client when it executes its calls. More detail can be found
+    [in the gRPC API documentation](https://oreil.ly/t8fEz).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'I demonstrate how to create and use a gRPC client in the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: The preceding example parses command-line values to determine whether it should
+    do a `Get` or a `Put` operation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, it establishes a connection with the gRPC server using the `grpc.Dial`
+    function, which takes a target address string, and one or more `grpc.DialOption`
+    arguments that configure how the connection gets set up. In our case we use:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`WithInsecure`, which disables transport security for this `ClientConn`. *Don’t
+    use insecure connections in production.*'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`WithBlock`, which makes `Dial` a block until a connection is established,
+    otherwise the connection will occur in the background.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`WithTimeout`, which makes a blocking `Dial` throw an error if it takes longer
+    than the specified amount of time.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Next, it uses `NewKeyValueClient` to get a new `KeyValueClient`, and gets the
+    various command-line arguments.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, based on the `action` value, we call either `client.Get` or `client.Put`,
+    both of which return an appropriate return type and an error.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once again, these functions look and feel exactly like local function calls.
+    No checking status codes, hand-building our own clients, or any other funny business.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Loose Coupling Local Resources with Plug-ins
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: At first glance, the topic of loose coupling of local—as opposed to remote or
+    distributed—resources might seem mostly irrelevant to a discussion of “cloud native”
+    technologies. But you might be surprised how often such patterns come in handy.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For example, it’s often useful to build services or tools that can accept data
+    from different kinds of input sources (such as REST interface, a gRPC interface,
+    and a chatbot interface) or generate different kinds of outputs (such as generating
+    different kinds of logging or metric formats). As an added bonus, designs that
+    support such modularity can also make mocking resources for testing dead simple.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As we’ll see in [“Hexagonal Architecture”](#section_ch08_hexagonal_architecture),
+    entire software architectures have even been built around this concept.
+  prefs: []
+  type: TYPE_NORMAL
+- en: No discussion of loose coupling would be complete without a review of plug-in
+    technologies.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In-Process Plug-ins with the plugin Package
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Go provides a native plug-in system in the form of the standard [`plugin` package](https://oreil.ly/zxt9W).
+    This package is used to open and access Go plug-ins, but it’s not necessary to
+    actually build the plug-ins themselves.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As we’ll demonstrate in the following, the requirements for building and using
+    a Go plug-in are pretty minimal. It doesn’t have to even know it’s a plug-in or
+    even import the `plugin` package. A Go plug-in has three real requirements: it
+    must be in the `main` package, it must export one or more functions or variables,
+    and it must be compiled using the `-buildmode=plugin` build flag. That’s it, really.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Plug-in vocabulary
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Before we continue, we need to define a few terms that are particular to plug-ins.
+    Each of the following describes a specific plug-in concept, and each has a corresponding
+    type or function implementation in the `plugin` package. We’ll go into all of
+    these in more detail in our example.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Plug-in
+  prefs: []
+  type: TYPE_NORMAL
+- en: A *plug-in* is a Go `main` package with one or more exported functions and variables
+    that has been built with the `-buildmode=plugin` build flag. It’s represented
+    in the `plugin` package by the `Plugin` type.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Open
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Opening* a plug-in is the process of loading it into memory, validating it,
+    and discovering its exposed symbols. A plug-in at a known location in the file
+    system can be opened using the `Open` function, which returns a `*Plugin` value:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: Symbol
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A plug-in *symbol* is any variable or function that’s exported by the plug-in’s
+    package. Symbols can be retrieved by “looking them up,” and are represented in
+    the `plugin` package by the `Symbol` type:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: Look up
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Looking up* describes the process of searching for and retrieving a symbol
+    exposed by a plug-in. The `plugin` package’s `Lookup` method provides that functionality,
+    and returns a `Symbol` value:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the next section, we present a toy example that demonstrates how these resources
+    are used, and dig into a little detail in the process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A toy plug-in example
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'You can only learn so much from a review of the API, even one as minimal as
+    the `plugin` package. So, let’s build ourselves a toy example: a program that
+    tells you about various animals,^([8](ch08.xhtml#idm45983626256968)) as implemented
+    by plug-ins.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For this example, we’ll be creating three independent packages with the following
+    package structure:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `duck/duck.go` and `frog/frog.go` files each contain the source code for
+    one plug-in. The `main/main.go` file contains our example’s `main` function, which
+    will load and use the plug-ins we’ll generate by building `frog.go` and `duck.go`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The complete source code for this example is available in [this book’s companion
+    GitHub repository](https://oreil.ly/9jRyU).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Sayer interface
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: In order for a plug-in to be useful, the functions that access it need to know
+    what symbols to look up and what contract those symbols conform to.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'One convenient—but by no means required—way to do this is to use an interface
+    that a symbol can be expected to satisfy. In our particular implementation our
+    plug-ins will expose just one symbol—`Animal`—which we’ll expect to conform to
+    the following `Sayer` interface:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: This interface describes only one method, `Says`, which returns a string that
+    says what an animal says.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Go plugin code
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'We have source for two separate plug-ins in `duck/duck.go` and `frog/frog.go`.
+    In the following snippet, the first of these, `duck/duck.go`, is shown in its
+    entirety and displays all of the requirements of a plug-in implementation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'As described in the introduction to this section, the requirements for Go plug-in
+    are really, really minimal: it just has to be a `main` package that exports one
+    or more variables or functions.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The previous plug-in code describes and exports just one feature—`Animal`—that
+    satisfies the preceding `Sayer` interface. Recall that exported package variables
+    and symbols are exposed on the plug-in as shared library symbols that can be looked
+    up later. In this case, our code will have to look specifically for the exported
+    `Animal` symbol.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this example we have only one symbol, but there’s no explicit limit to the
+    number of symbols we can have. We could have exported many more features, if we
+    wanted to.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We won’t show the `frog/frog.go` file here because it’s essentially the same.
+    But it’s important to know that the internals of a plug-in don’t matter as long
+    as it satisfies the expectations of its consumer. These expectations are that:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The plug-in exposes a symbol named `Animal`.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The `Animal` symbol adheres to the contract defined by the `Sayer` interface.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Building the plug-ins
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Building a Go plug-in is very similar to building any other Go `main` package,
+    except that you have to include the `-buildmode=plugin` build parameter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To build our `duck/duck.go` plug-in code, we do the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The result is a shared object (`.so`) file in ELF (Executable Linkable Format)
+    format:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: ELF files are commonly used for plug-ins because once they’re loaded into memory
+    by the kernel they expose symbols in a way that allows for easy discovery and
+    access.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using our go plug-ins
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Now that we’ve built our plug-ins, which are patiently sitting there with their
+    `.so` extensions, we need to write some code that’ll load and use them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note that even though we have our plug-ins fully built and in place, we haven’t
+    had to reach for the `plugin` package yet. However, now that we want to actually
+    use our plug-ins, we get to change that now.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The process of finding, opening, and consuming a plug-in requires several steps,
+    which I demonstrate next.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Import the plugin package
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: 'First things first: we have to import the `plugin` package, which will provide
+    us the tools we need to open and access our plug-ins.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this example, we import four packages: `fmt`, `log`, `os`, and most relevant
+    to this example, `plugin`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: Find our plug-in
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: To load a plug-in, we have to find its relative or absolute file path. For this
+    reason, plug-in binaries are usually named according to some pattern and placed
+    somewhere where they can be easily discovered, like the user’s command path or
+    other standard fixed location.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For simplicity, our implementation assumes that our plug-in has the same name
+    as the user’s chosen animal and lives in a path relative to the execution location:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: Importantly, this approach means that our plug-in doesn’t need to be known—or
+    even exist—at compile time. In this manner, we’re able to implement whatever plug-ins
+    we want at any time, and load and access them dynamically as we see fit.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Open our plug-in
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: 'Now that we think we know our plug-in’s path we can use the `Open` function
+    to “open” it, loading it into memory and discovering its available symbols. The
+    `Open` function returns a `*Plugin` value that can then be used to look up any
+    symbols exposed by the plug-in:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: When a plug-in is first opened by the `Open` function, the `init` functions
+    of all packages that aren’t already part of the program are called. The package’s
+    `main` function is *not* run.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When a plug-in is opened, a single canonical `*Plugin` value representation
+    of it is loaded into memory. If a particular path has already been opened, subsequent
+    calls to `Open` will return the same `*Plugin` value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A plug-in can’t be loaded more than once, and can’t be closed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Look up your symbol
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: 'To retrieve a variable or function exported by our package—and therefore exposed
+    as a symbol by the plug-in—we have to use the `Lookup` method to find it. Unfortunately,
+    the `plugin` package doesn’t provide any way to list all of the symbols exposed
+    by a plug-in, so you we to know the name of our symbol ahead of time:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: If the symbol exists in the plug-in `p`, then `Lookup` returns a `Symbol` value.
+    If the symbol doesn’t exist in `p`, then a non-nil `error` is returned instead.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Assert and use your symbol
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: 'Now that we have our `Symbol`, we can convert it into the form we need and
+    use it however we want. To make things nice and easy for us, the `Symbol` type
+    is essentially a rebranded `interface{}` value. From the `plugin` source code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This means that as long as we know what our symbol’s type is, we can use type
+    assertion to coerce it into a concrete type value that can be used however we
+    see fit:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the previous code, we assert that the `symbol` value satisfies the `Sayer`
+    interface. If it does, we print what our animal says. If it doesn’t we’re able
+    to exit gracefully.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Executing our example
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Now that we’ve written our main code that attempts to open and access the plug-in,
+    we can run it like any other Go `main` package, passing the animal name in the
+    arguments:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We can even implement arbitrary plug-ins later without changing our main source
+    code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: HashiCorp’s Go Plug-in System over RPC
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: HashiCorp’s [Go plugin system](https://oreil.ly/owKQp) has been in wide use—both
+    internally to HashiCorp and elsewhere—since at least 2016, predating the release
+    of Go’s standard `plugin` package by about a year.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Unlike Go plug-ins, which use shared libraries, HashiCorp’s plug-ins are standalone
+    processes that are executed by using `exec.Command`, which has some obvious benefits
+    over shared libraries:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: They can’t crash your host process
+  prefs: []
+  type: TYPE_NORMAL
+- en: Because they’re separate processes, a `panic` in a plug-in doesn’t automatically
+    crash the plug-in consumer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: They’re more version-flexible
+  prefs: []
+  type: TYPE_NORMAL
+- en: Go plug-ins are famously version-specific. HashiCorp plug-ins are far less so,
+    expecting only that plug-ins adhere to a contract. It also supports explicit protocol
+    versioning.
+  prefs: []
+  type: TYPE_NORMAL
+- en: They’re relatively secure
+  prefs: []
+  type: TYPE_NORMAL
+- en: HashiCorp plug-ins only have access to the interfaces and parameters passed
+    to them, as opposed to the entire memory space of the consuming process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'They do have a couple of downsides, though:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: More verbose
+  prefs: []
+  type: TYPE_NORMAL
+- en: HashiCorp plug-ins require more boilerplate than Go plug-ins.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Lower performance
+  prefs: []
+  type: TYPE_NORMAL
+- en: Because all data exchange with HashiCorp plug-ins occurs over RPC, communication
+    with Go plug-ins is generally more performant.
+  prefs: []
+  type: TYPE_NORMAL
+- en: That being said, let’s take a look at what it takes to assemble a simple plug-in.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another toy plug-in example
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'So we can compare apples to apples, we’re going to work through a toy example
+    that’s functionally identical to the one for the standard `plugin` package in
+    [“A toy plug-in example”](#section_ch08_standard_plugin_example): a program that
+    tells you what various animals say.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As before, we’ll be creating several independent packages with the following
+    structure:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: As before, the `duck/duck.go` file contains the source code for a plug-in, and
+    the `main/main.go` file contains our example’s `main` function that loads and
+    uses the plug-in. Because both of these are independently compiled to produce
+    executable binaries, both files are in the `main` package.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `commons` package is new. It contains some resources that are shared by
+    the plug-in and the consumer, including the service interface and some RPC boilerplate.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As before, the complete source code for this example is available in [this book’s
+    companion GitHub repository](https://oreil.ly/9jRyU).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Common code
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The `commons` package contains some resources that are shared by both the plug-in
+    and the consumer, so in our example it’s imported by both the plug-in and client
+    code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It contains the RPC stubs that are used by the underlying `net/rpc` machinery
+    to define the service abstraction for the host and allow the plug-ins to construct
+    their service implementations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Sayer interface
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: The first of these is the `Sayer` interface. This is our service interface,
+    which provides the service contract that the plug-in service implementations must
+    conform to and that the host can expect.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'It’s identical to the interface that we used in [“The Sayer interface”](#section_ch08_standard_plugin_sayer):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `Sayer` interface only describes one method: `Says`. Although this code
+    is shared, as long as this interface doesn’t change, the shared contract will
+    be satisfied and the degree of coupling is kept fairly low.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The SayerPlugin struct
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: The more complex of the common resources is the `SayerPlugin` struct, shown
+    in the following. It’s an implementation of `plugin.Plugin`, the primary plug-in
+    interface from the `github.com/hashicorp/go-plugin` package.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Warning
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The package declaration inside the *github.com/hashicorp/go-plugin* repository
+    is `plugin`, not `go-plugin`, as its path might suggest. Adjust your imports accordingly!
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `Client` and `Server` methods are used to describe our service according
+    to the expectations of Go’s standard `net/rpc` package. We won’t cover that package
+    in this book, but if you’re interested, you can find a wealth of information in
+    [the Go documentation](https://oreil.ly/uoe8k):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: Both methods accept a `plugin.MuxBroker`, which is used to create multiplexed
+    streams on a plug-in connection. While very useful, this is a more advanced use
+    case that we won’t have time to cover in this book.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The SayerRPC client implementation
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: 'SayerPlugin’s `Client` method provides an implementation of our `Sayer` interface
+    that communicates over an RPC client—the appropriately named `SayerRPC` struct—shown
+    in the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: '`SayerRPC` uses Go’s RPC framework to remotely call the `Says` method implemented
+    in the plug-in. It invokes the `Call` method attached to the `*rpc.Client`, passing
+    in any parameters (`Says` doesn’t have any parameters, so we pass an empty `interface{}`)
+    and retrieves the response, which it puts it into the `resp` string.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The handshake configuration
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: '`HandshakeConfig` is used by both the plug-in and host to do a basic handshake
+    between the host and the plug-in. If the handshake fails—if the plug-in was compiled
+    with a different protocol version, for example—a user-friendly error is shown.
+    This prevents users from executing bad plug-ins or executing a plug-in directly.
+    Importantly, this is a UX feature, not a security feature:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: The SayerRPCServer server implementation
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: 'SayerPlugin’s `Server` method provides a definition of an RPC server—the `SayerRPCServer`
+    struct—to serve the actual methods in a way that’s consistent with `net/rpc`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs: []
+  type: TYPE_PRE
+- en: '`SayerRPCServer` doesn’t implement the `Sayer` service. Instead, its `Says`
+    method calls into a `Sayer` implementation—`Impl`—that we’ll provide when we use
+    this to build our plug-in.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Our plug-in implementation
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Now that we’ve assembled the code that’s common between the host and plug-ins—the
+    `Sayer` interface and the RPC stubs—we can build our plug-in code. The code in
+    this section represents the entirety of our `main/main.go` file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Just like standard Go plug-ins, HashiCorp plug-ins are compiled into standalone
+    executable binaries, so they must be in the `main` package. Effectively, every
+    HashiCorp plug-in is a small, self-contained RPC server:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We have to import our `commons` package, as well as the `hashicorp/go-plugin`
+    package, whose contents we’ll reference as `plugin`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In our plug-ins we get to build our real implementations. We can build it however
+    we want,^([9](ch08.xhtml#idm45983625313160)) as long as it conforms to the `Sayer`
+    interface that we define in the commons package:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE41]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Finally, we get to our `main` function. It’s somewhat “boilerplate-y” but it’s
+    essential:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `main` function does three things. First, it creates and initializes our
+    service implementation, a `*Duck` value, in this case.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Next, it maps the service implementation to the name “sayer” in the `pluginMap`.
+    If we wanted to, we could actually implement several plug-ins, listing them all
+    here with different names.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, we call `plugin.Serve`, which starts the RPC server that will handle
+    any connections from the host process, allowing the handshake with the host to
+    proceed and the service’s methods to be executed as the host sees fit.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Our host process
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: We now have our host process; the main command that acts as a client that finds,
+    loads, and executes the plug-in processes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As you’ll see, using HashiCorp plug-ins isn’t all that different from the steps
+    that described for Go plug-ins in [“Using our go plug-ins”](#section_ch08_using_our_go_plugins).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Import the hashicorp/go-plugin and commons packages
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: As usual, we start with our package declaration and imports. The imports mostly
+    aren’t interesting, and their necessity should be clear from examination of the
+    code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The two that *are* interesting (but not surprising) are `github.com/hashicorp/go-plugin`,
+    which we, once again, have to reference as `plugin`, and our `commons` package,
+    which contains the interface and handshake configuration, both of which must be
+    agreed upon by the host and the plug-ins:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE43]'
+  prefs: []
+  type: TYPE_PRE
+- en: Find our plug-in
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: 'Since our plug-in is an external file, we have to find it. Again, for simplicity,
+    our implementation assumes that our plug-in has the same name as the user’s chosen
+    animal and lives in a path relative to the execution location:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE44]'
+  prefs: []
+  type: TYPE_PRE
+- en: It bears repeating that the value of this approach is that our plug-in—and its
+    implementation—doesn’t need to be known, or even exist, at compile time. We’re
+    able to implement whatever plug-ins we want at any time, and use then dynamically
+    as we see fit.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Create our plug-in client
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: The first way that a HashiCorp RPC plug-in differs from a Go plug-in is the
+    way that it retrieves the implementation. Where Go plug-ins have to be “opened”
+    and their symbol “looked up,” HashiCorp plug-ins are built on RPC, and therefore
+    require an RPC client.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This actually requires two steps, and two clients: a `*plugin.Client` that
+    manages the lifecycle of the plug-in subprocess, and a protocol client—a `plugin.ClientProtocol`
+    implementation—that can communicate with the plug-in subprocess.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This awkward API is mostly historical, but is used to split the client that
+    deals with subprocess management and the client that does RPC management:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE45]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Most of this snippet consists of defining the parameters of the plug-in that
+    we want in the form of a `plugin.ClientConfig`. The [complete list of available
+    client configurations](https://oreil.ly/z29Ys) is lengthy. This example uses only
+    three:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`HandshakeConfig`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The handshake configuration. This has to match the plug-in’s own handshake configuration
+    or we’ll get an error in the next step.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`Plugins`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A map that specifies the name and type of the plug-in we want.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`Cmd`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: An `*exec.Cmd` value that represents the command for starting the plug-in subprocess.
+  prefs: []
+  type: TYPE_NORMAL
+- en: With all of the configuration stuff out of the way, we can first use `plugin.NewClient`
+    to retrieve a `*plugin.Client` value, which we call `client`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once we have that, we can use `client.Client` to request a protocol client.
+    We call this `rpcClient` because it knows how to use RPC to communicate with the
+    plug-in subprocess.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Connect to our plug-in and dispense our Sayer
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: 'Now that we have our protocol client, we can use it to dispense our `Sayer`
+    implementation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE46]'
+  prefs: []
+  type: TYPE_PRE
+- en: Using the protocol client’s `Dispense` function, we’re able to finally retrieve
+    our `Sayer` implementation as an `interface{}`, which we can assert as a `commons.Sayer`
+    value and immediately use exactly like using a local value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Under the covers, our `sayer` is in fact a `SayerRPC` value, and calls to its
+    functions trigger RPC calls that are executed in our plug-in’s address space.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next section, we’ll introduce the hexagonal architecture, an architectural
+    pattern built around the entire concept of loose coupling by using easily exchangeable
+    “ports and adapters” to connect to its environment.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Hexagonal Architecture
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '*Hexagonal architecture*—also known as the “ports and adapters” pattern—is
+    an architectural pattern that uses loose coupling and *inversion of control* as
+    its central design philosophy to establish clear boundaries between business and
+    peripheral logic.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In a hexagonal application, the core application doesn’t know any details at
+    all about the outside world, operating entirely through loosely coupled *ports*
+    and technology-specific *adapters*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This approach allows the application to, for example, expose different APIs
+    (REST, gRPC, a test harness, etc.) or use different data sources (database, message
+    queues, local files, etc.) without impacting its core logic or requiring major
+    code changes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: It took me an embarrassingly long time to realize that the name “hexagonal architecture”
+    doesn’t actually mean anything. Alistair Cockburn, [the author of hexagonal architecture](https://oreil.ly/sx5io),
+    chose the shape because it gave him enough room to illustrate the design.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Architecture
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'As illustrated in [Figure 8-3](#img_ch08_hexagonal_architecture), hexagonal
+    architecture is composed of three components conceptually arranged in and around
+    a central hexagon:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The core application
+  prefs: []
+  type: TYPE_NORMAL
+- en: The application proper, represented by the hexagon. This contains all of the
+    business logic but has no direct reference to any technology, framework, or real
+    world device. The business logic shouldn’t depend on whether it exposes a REST
+    or a gRPC API, or whether it gets data from a database or a *.csv* file. Its only
+    view of the world should be through ports.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Ports and adapters
+  prefs: []
+  type: TYPE_NORMAL
+- en: The ports and adapters are represented on the edge of the hexagon. Ports allow
+    different kinds of actors to “plug in” and interact with the core service. Adapters
+    can “plug into” a port and translate signals between the core application and
+    an actor.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For example, your application might have a “data port” into which a “data adapter”
+    might plug. One data adapter might write to a database, while another might use
+    an in-memory datastore or automated test harness.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Actors
+  prefs: []
+  type: TYPE_NORMAL
+- en: The actors can be anything in the environment that interacts with the core application
+    (users, upstream services, etc.) or that the core application interacts with (storage
+    devices, downstream services, etc.). They exist outside the hexagon.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![cngo 0803](Images/cngo_0803.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 8-3\. All dependencies in the hexagonal architecture point inward; the
+    hexagons represent the core application’s domain and API layers, and the ports
+    and adapters are represented as arrows on the edge of the hexagon, each of which
+    interfaces with a particular actor
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: In a traditional layered architecture, all of the dependencies point in the
+    same direction, with each layer depending on the one below it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In a hexagonal architecture, however, all dependencies point inward: the core
+    business logic doesn’t know any details about the outer world, the adapters know
+    how to ferry information to and from the core, and the adapters in the outer world
+    know how to interact with the actors.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementing a Hexagonal Service
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: To illustrate this, we’re going to refactor our old friend the key-value store.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you’ll recall from [Chapter 5](ch05.xhtml#chapter_5), the core application
+    of our key-value store reads and writes to a in-memory map, which can be accessed
+    via a RESTful (or gRPC) frontend. Later in the same chapter, we implemented a
+    transaction logger, which knows how to write all transactions to *somewhere* and
+    read them all back when the system restarts.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We’ll reproduce important snippets of the service here, but if you want a refresher
+    on what we did, go back and do so now.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'By this point in the book, we’ve accumulated a couple of different implementations
+    for a couple of different components of our service that seem like good candidates
+    for ports and adapters in a hexagonal architecture:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The frontend
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Back in [“Generation 1: The Monolith”](ch05.xhtml#section_ch05_generation_1)
+    we implemented a REST frontend, and then in [“Remote Procedure Calls with gRPC”](#section_ch08_gRPC)
+    we implemented a separate gRPC frontend. We can describe these with a single “driver”
+    port into which we’ll be able to plug either (or both!) as adapters.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The transaction logger
+  prefs: []
+  type: TYPE_NORMAL
+- en: In [“What’s a Transaction Log?”](ch05.xhtml#section_ch05_whats_a_transaction_log)
+    we created two implementations of a transaction log. These seem like a natural
+    choice for a “driven” port and adapters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'While all the logic for all of these already exists, we’ll need to do some
+    refactoring to make this architecture “hexagonal”:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Our original core application—originally described in [“Generation 0: The Core
+    Functionality”](ch05.xhtml#section_ch05_generation_0)—uses exclusively public
+    functions. We’ll refactor those into struct methods to make it easier to use in
+    a “ports and adapters” format.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Both the RESTful and gRPC frontends are already consistent with hexagonal architecture,
+    since the core application doesn’t know or care about them, but they’re constructed
+    in a `main` function. We’ll convert these into `FrontEnd` adapters into which
+    we can pass our core application. This pattern is typical of a “driver” port.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The transaction loggers themselves won’t need much refactoring, but they’re
+    currently embedded in the frontend logic. When we refactor the core application,
+    we’ll add a transaction logger port so that the adapter can be passed into the
+    core logic. This pattern is typical of a “driven” port.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: In the next section, we’ll begin taking the existing components and refactoring
+    them in accordance with hexagonal principles.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Our refactored components
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'For the sake of this example, all of our components live under the `github.com/cloud-native-go/examples/ch08/hexarch`
+    package:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE47]'
+  prefs: []
+  type: TYPE_PRE
+- en: '`core`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The core key-value application logic. Importantly, it has no dependencies outside
+    of the Go standard libraries.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`frontend`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Contains the REST and gRPC frontend driver adapters. These have a dependency
+    on `core`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`transact`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Contains the file and PostgreSQL transaction logger driven adapters. These also
+    have a dependency on `core`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`main.go`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Makes the core application instance, into which it passes the driven components,
+    and which it passes to the driver adapters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The complete source code is also available in [the companion GitHub repository](https://oreil.ly/SsujV).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that we have our very high-level structure, let’s go ahead and implement
+    our first plug.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Our first plug
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: You may remember that we also implemented a *transaction log* to maintain a
+    record of every time a resource is modified so that if our service crashes, is
+    restarted, or otherwise finds itself in an inconsistent state, it can reconstruct
+    its complete state by replaying the transactions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In [“Your transaction logger interface”](ch05.xhtml#section_ch05_eventlogger_interface),
+    we represented a generic transaction logger with the `TransactionLogger`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE48]'
+  prefs: []
+  type: TYPE_PRE
+- en: For brevity, we only define the `WriteDelete` and `WritePut` methods.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A common aspect of “driven” adapters is that the core logic acts *on them*,
+    so the core application has to know about the port. As such, this code lives in
+    the `core` package.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Our core application
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'In our original implementation in [“Your Super Simple API”](ch05.xhtml#section_ch05_our_api),
+    the transaction logger was used by the frontend. In a hexagonal architecture we
+    move the port—in the form of the `TransactionLogger` interface—into the core application:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE49]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Comparing the previous code with the original form in [“Generation 0: The Core
+    Functionality”](ch05.xhtml#section_ch05_generation_0), you’ll see some significant
+    changes.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, `Put` and `Delete` aren’t pure functions anymore: they’re now methods
+    on a new `KeyValueStore` struct, which also has the map data structure. We’ve
+    also added a `NewKeyValueStore` function that initializes and returns a new `KeyValueStore`
+    pointer value.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, `KeyValueStore` now has a `TransactionLogger`, which `Put` and `Delete`
+    act upon appropriately. This is our port.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Our TransactionLogger adapters
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'In [Chapter 5](ch05.xhtml#chapter_5) we created two `TransactionLogger` implementations:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In [“Implementing your FileTransactionLogger”](ch05.xhtml#section_ch05_implementing_filetransactionlogger),
+    we describe a file-based implementation.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In [“Implementing your PostgresTransactionLogger”](ch05.xhtml#section_ch05_implementing_postgrestransactionlogger),
+    we describe a PostgreSQL-backed implementation.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Both of these have been moved to the `transact` package. They hardly have to
+    change at all, except to account for the fact that the `TransactionLogger` interface
+    and `Event` struct now live in the `core` package.
+  prefs: []
+  type: TYPE_NORMAL
+- en: But how do we determine which one to load? Well, Go doesn’t have annotations
+    or any fancy dependency injection features,^([10](ch08.xhtml#idm45983624481432))
+    but there are still a couple of ways you can do this.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The first option is to use plug-ins of some kind (this is actually a primary
+    use case for Go plug-ins). This might make sense if you want changing adapters
+    to require *zero* code changes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: More commonly, you’ll see some kind of “factory” function^([11](ch08.xhtml#idm45983624478280))
+    that’s used by the initializing function. While this still requires code changes
+    to add adapters, they’re isolated to a single, easily modified location. A more
+    sophisticated approach might accept a parameter or configuration value to choose
+    which adapter to use.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'An example of a `TransactionLogger` factory function might look like the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE50]'
+  prefs: []
+  type: TYPE_PRE
+- en: In this example, the `NewTransactionLogger` function accepts a string that specifies
+    the desired implementation, returning either one of our implementations or an
+    `error`. We use the `os.Getenv` function to retrieve the appropriate parameters
+    from environment variables.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Our FrontEnd port
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'But what about our frontends? If you will recall, we now have two frontend
+    implementations:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In [“Generation 1: The Monolith”](ch05.xhtml#section_ch05_generation_1) in
+    [Chapter 5](ch05.xhtml#chapter_5), we built a RESTful interface using `net/http`
+    and `gorilla/mux`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In [“Remote Procedure Calls with gRPC”](#section_ch08_gRPC), earlier in this
+    chapter, we built an RPC interface with gRPC.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Both of these implementations include a `main` function where we configure and
+    start the service to listen for connections.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Since they’re “driver” ports, we need to pass the core application to them,
+    so let’s refactor both frontends into structs according to the following interface:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE51]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `FrontEnd` interface serves as our “frontend port,” which all frontend implementations
+    are expected to satisfy. The `Start` method accepts the core application API in
+    the form of a `*core.KeyValueStore`, and will also include the setup logic that
+    formerly lived in a `main` function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now that we have this, we can refactor both frontends so that they comply with
+    the `FrontEnd` interface, starting with the RESTful frontend. As usual, the complete
+    source code for this and the gRPC service refactor are available in [this book’s
+    companion GitHub repository](https://oreil.ly/9jRyU):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE52]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Comparing the previous code to the code we produced in [“Generation 1: The
+    Monolith”](ch05.xhtml#section_ch05_generation_1), some differences stand out:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: All functions are now methods attached to a `restFrontEnd` struct.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: All calls to the core application go through the `store` value that lives in
+    the `restFrontEnd` struct.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Creating the router, defining the handlers, and starting the server now live
+    in the `Start` method.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Similar changes will have been made for our gRPC frontend implementation to
+    make it consistent with the `FrontEnd` port.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This new arrangement makes it easier for a consumer to choose and plug in a
+    “frontend adapter,” as demonstrated in the following.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Putting it all together
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Here, we have our `main` function, in which we plug all of the components into
+    our application:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE53]'
+  prefs: []
+  type: TYPE_PRE
+- en: First, we then create a transaction logger according to the environment `TLOG_TYPE`.
+    We do this first because the “transaction logger port” is “driven,” so we’ll need
+    to provide it to the application to plug it in.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We then create our `KeyValueStore` value, which represents our core application
+    functions and provides an API for ports to interact with, and provide it with
+    any driven adapters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Next, we create any “driver” adapters. Since these act on the core application
+    API, we provide the API to the adapter instead of the other way around as we would
+    with a “driven” adapter. This means we could also create multiple frontends here,
+    if we wanted, by creating a new adapter and passing it the `KeyValueStore` that
+    exposes the core application API.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, we call `Start` on our frontend, which instructs it to start listening
+    for connections. At last, we have a complete hexagonal service!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We covered a lot of ground in this chapter, but really only scratched the surface
+    of all the different ways that components can find themselves tightly coupled
+    and all the different ways of managing each of those tightly coupled components.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the first half of the chapter, we focused on the coupling that can result
+    from how services communicate. We talked about the problems caused by fragile
+    exchange protocols like SOAP, and demonstrated REST and gRPC, which are less fragile
+    because they can be changed to some degree without necessarily forcing client
+    upgrades. We also touched on coupling “in time,” in which one service implicitly
+    expects a timely response from another, and how publish-subscribe messaging might
+    be used to relieve this.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the second half we addressed some of the ways that systems can minimize coupling
+    to local resources. After all, even distributed services are just programs, subject
+    to the same limitations of the architectures and implementations as any program.
+    Plug-ins implementations and hexagonal architectures are two ways of doing this
+    by enforcing separation of concerns and inversion of control.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unfortunately, we didn’t get to drill down into some other fascinating topics
+    like service discovery, but, sadly, I had to draw a line somewhere before this
+    subject got away from me!
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([1](ch08.xhtml#idm45983628500424-marker)) Ullman, Ellen. “The Dumbing-down
+    of Programming.” *Salon*, 12 May 1998\. [*https://oreil.ly/Eib3K*](https://oreil.ly/Eib3K).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([2](ch08.xhtml#idm45983628463640-marker)) Get off my lawn.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([3](ch08.xhtml#idm45983628462344-marker)) In XML, no less. We didn’t know
+    any better at the time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([4](ch08.xhtml#idm45983628457112-marker)) At Google, even the acronyms are
+    recursive.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([5](ch08.xhtml#idm45983628447000-marker)) This is actually a pretty nuanced
+    discussion. See [“Service Architectures”](ch07.xhtml#section_ch07_service_architectures).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([6](ch08.xhtml#idm45983627711544-marker)) If you’re into that kind of thing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([7](ch08.xhtml#idm45983626853480-marker)) If you wanted to be creative, this
+    could be a [`FileListener`](https://oreil.ly/mViL3), or even a `stdio` stream.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([8](ch08.xhtml#idm45983626256968-marker)) Yes, I know the animal thing has
+    been done before. Sue me.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([9](ch08.xhtml#idm45983625313160-marker)) So, naturally, we’re building a
+    duck. Obviously.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([10](ch08.xhtml#idm45983624481432-marker)) Good riddance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([11](ch08.xhtml#idm45983624478280-marker)) I’m sorry.
+  prefs: []
+  type: TYPE_NORMAL

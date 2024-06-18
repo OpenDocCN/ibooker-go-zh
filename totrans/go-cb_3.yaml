@@ -1,0 +1,333 @@
+- en: Chapter 4\. CSV Recipes
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 4.0 Introduction
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The CSV format is a file format in which tabular data (numbers and text) can
+    be easily written and read in a text editor. CSV is widely supported, and most
+    spreadsheet programs, such as Microsoft Excel and Apple Numbers, support CSV.
+    Consequently, many programming languages, including Go, come with libraries that
+    produce and consume the data in CSV files.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It might come as a surprise to you that CSV has been around for almost 50 years.
+    The IBM Fortran compiler supported it in OS/360 back in 1972\. If you’re not quite
+    sure that that is, OS/360 is the batch processing operating system developed by
+    IBM for their System/360 mainframe computer. So yes, one of the first uses for
+    CSV was for Fortran in an IBM mainframe computer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: CSV (comma separated values) is not very well standardized and not all CSV formats
+    are separated by commas either. Sometimes it can be a tab or a semicolon or other
+    delimiters. However, there is a RFC specification for CSV — the RFC 4180 though
+    not everyone follows that standard.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Go standard library has an `encoding/csv` package that supports RFC 4180
+    and helps us to read and write CSV.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 4.1 Reading a CSV file
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Problem
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You want to read a CSV file into memory for use.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Solution
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Use the `encoding/csv` package and `csv.ReadAll` to read all data in the CSV
+    file into a 2 dimensional array of strings.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Discussion
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Let’s say you have a file like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: The first row is the header, the next 2 rows are data for the user. Here’s the
+    code to open the file and read it into the 2 dimensional array of strings.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: First, we open the file using `os.Open`. This creates an `os.File` struct (which
+    is an `io.Reader`) that we can use as a parameter to `csv.NewReader`. The `csv.NewReader`
+    creates a new `csv.Reader` struct that can be used to read data from the CSV file.
+    With this CSV reader, we can use `ReadAll` to read all the data in the file and
+    return a 2D array of strings [][]string.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A 2 dimensional array of strings? You might be surprised, what if the CSV row
+    item is an integer? Or a boolean or any other types? You should remember CSV files
+    are text files, so there is really no way for you to differentiate if a value
+    is anything else other than a string. In other words, all values are assumed to
+    be string, and if you think otherwise you need to cast it to something else.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unmarshalling CSV data into structs
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Problem
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: You want to unmarshal CSV data into structs instead of a 2-dimensional array
+    of strings.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Solution
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: First read the CSV into a 2-dimensional array of strings then store it into
+    structs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Discussion
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: For some other formats like JSON or XML, it’s common to unmarshal the data read
+    from file (or anywhere) into structs. You can also do this in CSV though you need
+    to do a bit more work.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s say you want to put the data into a User struct.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: If you want to unmarshal the data in the 2D array of strings to the User struct,
+    you need to convert each item yourself.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the example above, because the user ID is an integer, I used `strconv.ParseInt`
+    to convert the string into integer before using it to create the User struct.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You see that at the end of the for loop you will have an array of User structs.
+    If you print that out, this is what you should see.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 4.2 Removing the header line
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Problem
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: If your CSV file has a line of headers that are column labels, you will get
+    that as well in your returned 2 dimensional array of strings or array of structs.
+    You want to remove it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Solution
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Read the first line using `Read` and then continue reading the rest.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Discussion
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: When you use `Read` on the reader, you will read the first line and then move
+    the cursor to the next line. If you use `ReadAll` afterwards, you can read the
+    rest of the file into the rows that you want.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This will give us something like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 4.3 Using different delimiters
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Problem
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: CSV doesn’t necessarily need to use commas as delimiters. You want to read a
+    CSV file which has delimiter that is not a comma.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Solution
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Set the `Comma` variable in the `csv.Reader` struct to the delimiter used in
+    the file and read as before.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Discussion
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Let’s say the file we want to read has semi-colons as delimiters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: What we just need to do is the set the `Comma` in the `csv.Reader` struct we
+    created earlier and you read the file as before.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 4.4 Ignoring rows
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Problem
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You want to ignore certain rows when reading the CSV file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Solution
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Use comments in the file to indicate the rows to be ignored. Then enable coding
+    in the `csv.Reader` and read the file as before.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Discussion
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Let’s say you want to ignore certain rows; what you’d like to do is simply comment
+    those rows out. Well, in CSV you can’t because comments are not in the standard.
+    However with the Go `encoding/csv` package you can specify a comment rune, which
+    if you place at the beginning of the row, ignores the entire row.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So say you have this CSV file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: To enable commenting, just set the Comment variable in the csv.Reader struct
+    that we got from csv.NewReader.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'When you run this, you’ll see:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 4.5 Writing CSV files
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Problem
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You want to write data from memory into a CSV file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Solution
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Use the `encoding/csv` package and `csv.Writer` to write to file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Discussion
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We had fun reading CSV files, now we have to write one. Writing is quite simliar
+    to reading. First you need to create a file (an `io.Writer`).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: The data to write to the file needs to be in a 2 dimensional array of strings.
+    Remember, if you don’t have the data as a string, just convert it into a string
+    before you do this. Create a `csv.Writer` struct with the file. After that you
+    can call `WriteAll` on the writer and the file will be created. This writes all
+    the data in your 2 dimensional string array into the file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 4.6 Writing to file one row at a time
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Problem
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Instead of writing everything in our 2 dimensional string, we want to write
+    to the file one row at a time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Solution
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Use the `Write` method on `csv.Writer` to write a single row/
+  prefs: []
+  type: TYPE_NORMAL
+- en: Discussion
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Writing to file one row at a time is pretty much the same, except you will want
+    to iterate the 2 dimensional array of strings to get each row and then call `Write`,
+    passing that row. You will also need to call `Flush` whenever you want to write
+    the buffered data to the `Writer` (the file). In the example above I called `Flush`
+    after I have written all the data to the writer, but that’s because I don’t have
+    a lot of data. If you have a lot of rows, you would probably want to flush the
+    data to the file once in a while. To check if there’s any problems with writing
+    or flushing, you can call `Error`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE

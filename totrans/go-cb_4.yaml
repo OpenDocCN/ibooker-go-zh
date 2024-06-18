@@ -1,0 +1,593 @@
+- en: Chapter 5\. JSON Recipes
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 5.0 Introduction
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: JSON (JavaScript Object Notation) is a lightweight data-interchange text format.
+    It’s meant to be read by humans but also easily read by machines and is based
+    on a subset of JavaScript. JSON was originally defined by Douglas Crockford, but
+    is currently described by RFC 7159, as well as ECMA-404\. JSON is popularly used
+    in REST-based web services, although they don’t necessarily need to accept or
+    return JSON data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: JSON is really popular with RESTful web services but it’s also frequently used
+    for configuration. Creating and consuming JSON is commonplace in many web applications,
+    from getting data from a web service, to authenticating your web application through
+    a third-party authentication service, to controlling other services.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Go supports JSON in the standard library using the `encoding/json` package.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 5.1 Parsing JSON data byte arrays to structs
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Problem
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You want to read JSON data byte arrays and store it into structs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Solution
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Create structs to contain the JSON data then use `Unmarshal` in the `encoding/json`
+    package to unmarshal the data into the structs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Discussion
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Parsing JSON with the the `encoding/json` package is straightforward:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Create structs to contain the JSON data
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Unmarshal the JSON string into the structs
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Let’s take a sample JSON file, containing data on the Star Wars character Luke
+    Skywalker, taken from SWAPI, the Star Wars API. You can access this here directly — [*https://swapi.dev/api/people/1*](https://swapi.dev/api/people/1).
+    I have taken the data and stored it in a file named `skywalker.json`
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: To store the data in the JSON, we can create a struct like this.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: The string literal after the definition each field in the struct is called a
+    *struct tag*. Go determines the mapping between the struct fields and the JSON
+    elements using these struct tags. You don’t need them if your mapping is exactly
+    the same. However as you can see, JSON normally uses snake case (variables with
+    space replaced by underscoe), with lower case characters while in Go we use camel
+    case (variables has no space but separation indicated by a single capitalized
+    letter).
+  prefs: []
+  type: TYPE_NORMAL
+- en: As you can see from the struct, we can define string slices to store the arrays
+    in the JSON and also use something like `time.Time` as the data type as well.
+    In fact we can use most Go data types, and even maps (though only maps with strings
+    as keys are supported).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unmarshalling the data into the struct is just a single function call, using
+    `json.Unmarshal`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the code above, after reading the data from the file, we create a `Person`
+    struct and then unmarshal the data into it using `json.Unmarshal`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The JSON data came from the Star Wars API, so let’s have a bit of fun and grab
+    it directly from the API. We use the `http.Get` function and pass the URL in,
+    but everything else is the same.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: If you print out the `Person` struct this is what we should get (the output
+    is prettified).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 5.2 Parsing unstructured JSON data
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Problem
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You want to parse some JSON data but you don’t know the JSON data’s structure
+    or properties in advance enough to build structs or the keys to the values are
+    dynamic.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Solution
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We use the same method as before but instead of pre-defined structs, we use
+    a map of strings to empty interfaces to store the data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Discussion
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The structure of the Star Wars API are quite clear. However this isn’t always
+    the case. Sometimes we just don’t know the structure well enough to create structs
+    and documentation is not available. Also, sometimes keys to the values can be
+    dynamic. Take a look at this JSON.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: Obiviously from the JSON, the keys are not consistent and can change with the
+    addition of a character. For such cases, how do we unmarshal the JSON data? Instead
+    of predefined structs, we can use a map of strings to empty interfaces. Let’s
+    look at the code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: Let’s take a look at the output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: Let’s try the same code on the earlier Luke Skywalker JSON data and see the
+    output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: You might be thinking that this is much easier and simpler than trying to figure
+    out the structs! Also it’s a lot more forgiving and flexible, why not use this
+    instead? Actually using structs has its advantages. Using empty interfaces essentially
+    make the data structure untyped. Structs can catch errors in the JSON where empty
+    interfaces simply let it go.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It’s a lot easier to retrieve data from structs than from a map because you
+    know for sure what fields are available. Also you need to do type assertion in
+    order to get the data out of an interface. For example, let’s say we want to get
+    the films that featured Darth Vader above, so you might think you can do this.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: You can’t — you’ll see this error instead.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: This is because the variable `vader` is an empty interface, you have to type
+    assert it first before you do anything.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: You should normally try to use structs and only maps to empty interfaces as
+    a last resort.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 5.3 Parsing JSON data streams into structs
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Problem
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You want to parse JSON data from a stream.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Solution
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Create structs to contain the JSON data. Create a decoder using `NewDecoder`
+    in the `encoding/json` package, then call `Decode` on the decoder to decode data
+    into the structs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Discussion
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Using `Unmarshal` is simple and straightforward for JSON files or API data.
+    But what happens if the API is streaming JSON data? In that case we can no longer
+    use `Unmarshal` because `Unmarshal` needs to read the whole file at once. Instead,
+    the `encoding/json` package provides a `Decoder` function for us to handle the
+    data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It might be difficult to understand, what’s the difference between JSON data
+    and streaming JSON data so let’s take a look at the difference by comparing 2
+    different JSON files.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this first JSON file we have an array of 3 JSON objects (I truncated part
+    of the data to make it easier to read).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: To read this, we can use `Unmarshal` by unmarshalling into an array of `Person`
+    structs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: This will result in an output like this.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: This is an array of Person structs, which we get after unmarshalling a single
+    JSON array. However when we get a stream of JSON objects, this is no longer possible.
+    Let’s look at another JSON file, one that is representative of a JSON data stream.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: Notice that this is not a single JSON object but 3 consecutive JSON objects.
+    This is no longer a valid JSON file but it’s something you can get when you read
+    the `Body` of a `http.Response` struct. If you try to read this using `Unmarshal`
+    you will get an error output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: However, you can parse it by decoding it using a `Decoder`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: First, we create a decoder using `json.NewDecoder` and passing it the reader,
+    in this case it’s the file we read from. Then while we’re looping in the `for`
+    loop, we call `Decode` on the decoder, passing it the struct we want to store
+    the data in. If all goes well, every time it loops, a new `Person` struct is created
+    from the data. We can use the data then. If there’s no more data in the reader,
+    i.e. we hit `io.EOF`, we’ll break from the for loop.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the case of the code above, we pass in a channel, in which we store the `Person`
+    struct every loop. When we’re done with reading all the JSON in the file, we’ll
+    close the channel.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: Here’s the output from the code above.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: You can see that there are 3 `Person` structs being printed out here, one after
+    another, as opposed to the earlier one where it was an array of `Person` structs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A question that sometimes arises is when should we use `Unmarshal` and when
+    should we use `Decode`?
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`Unmarshal` is easier to use for a single JSON object but it won’t work when
+    you have a stream of them coming in from a reader. Also, its simplicity means
+    it’s not as flexible, you just get the whole JSON data at a go.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`Decode` on the other hand, works well for both single JSON object or streaming
+    JSON data. Also, with `Decode` you can you can do stuff with the JSON at a finer
+    level without needing to get the entire JSON data out first. This is because you
+    can inspect the JSON as it comes in, even at a token level. However the slight
+    drawback is that it is more verbose.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In addition, `Decode` is a bit faster. Let’s do a quick benchmarking test on
+    both.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: Here’s we’re benchmarking `Unmarshal` and `Decode` using the standard Go benchmarking
+    tool. To make sure we’re benchmarking properly we reset the timer just before
+    we run the iterations that test the performance of `Unmarshal` and `Decode`. We
+    place the creation of the decoder before the benchmarking because we only need
+    to create the decoder once, since it’s going to wrap around the reader that’s
+    streaming data in. However because once `Decode` is called, we need to move the
+    offset to the start for the next benchmarking loop.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We run this in the command line to start the benchmarking.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: And this is the result.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: As you can see, `Decode` is only a bit faster, taking 2258 ns/op (nanoseconds
+    per operation) while `Unmarshal` takes 2418 ns/op. However, `Decode` only uses
+    48 B/op (bytes per operation), considerably less than `Unmarshal` which uses 272
+    B/op.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 5.4 Creating JSON data byte arrays from structs
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Problem
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You want to create JSON data from a struct.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Solution
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Create the structs then use the `json.Marshal` package to marshal the data into
+    a JSON byte array.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Discussion
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Creating JSON data is essentially the reverse of parsing it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Create structs that you will use to marshal data from
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Marshal the data into a JSON string using `json.Marshal` or `json.MarshalIndent`
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: We will be re-using the same structs as the previous recipe for parsing JSON.
+    We’ll also use the function used to unmarshal JSON data from the Star Wars API.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `get` function returns a `Person` struct that we can use for marshalling
+    to a file. The `json.Marshal` function takes the data in the struct and returns
+    a byte array, `data`, containing the JSON string. If you just want it as a string,
+    you can cast it to a string and use it. Here, we pass it on to `os.WriteFile`
+    to create a new JSON file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: This is not really very readable. If you want to a more readable version, you
+    can use `json.MarshalIndent` instead. You need to put in two more parameters,
+    the first is the prefix, and the second is the indent. Mostly if you want to have
+    a clean JSON output, the prefix is just an empty string while the indent is a
+    single space.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: This will produce a more readable version.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: 5.5 Creating JSON data streams from structs
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Problem
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You want to create streaming JSON data from structs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Solution
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Create an encoder using `NewEncoder` in the `encoding/json` package, passing
+    it an `io.Writer`. Then call `Encode` on the encoder to encode structs data to
+    a stream.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Discussion
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The `io.Writer` interface has a `Write` method that writes bytes to the underlying
+    data stream. We use `NewEncoder` to create an encoder that wraps around a writer.
+    When we call `Encode` on the encoder, it will write the JSON struct on to the
+    writer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To show this properly we’ll need to have some JSON structs. I’ll use the same
+    Star Wars people API as before to create the structs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: This `get` function will call the API and return the requested `Person` struct.
+    We’ll need to use this `Person` struct next.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: As you can see, we’re using `os.Stdout` as the writer. Actually `os.Stdout`
+    is a `os.File` struct but a `File` is also a writer so that’s fine. What this
+    does is to write the encoding to `os.Stdout` one at a time. First we create an
+    encoder using `json.NewEncoder`, passing it `os.Stdout` as the writer. Next, as
+    we loop we get a `Person` struct and pass that to `Encode` to write to `os.Stdout`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When you run the program, you should see something like this, but each JSON
+    encoding will appear one by one.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: If you are annoyed that the untidy output here and was wondering if there is
+    an equivalent of `MarshalIndent`, yes there is. Just set up the encoder with `SetIndent`
+    like this and you’re good to go.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: If you’re wondering what’s the difference between this and `Marshal` — you can’t
+    do the above using `Marshal`. To use `Marshal` you need to put everything into
+    an object and marshal it all at once — you can’t stream the JSON encodings one
+    at a time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In other words, if you have JSON structs coming in to you and you either don’t
+    know when it will all come in, or if you want to write the JSON encodings out
+    first, then you need to use `Encode`. You can use `Marshal` only if you have all
+    the JSON data available to you.
+  prefs: []
+  type: TYPE_NORMAL
+- en: And of course, `Encode` is also faster than `Marshal`. Let’s look at some benchmarking
+    again.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: We need to prepare the JSON struct before the test, so I unmarshalled the data
+    into a `Person` struct as part of setting up before running the benchmark loop.
+    I also used `io.Discard` as the writer instead. The `io.Discard` is a writer on
+    which all write calls will succeed and is the most convenient to use here.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To benchmark `Marshal` I marshal the `Person` struct and then write it to `io.Discard`.
+    To benchmark `Encode`, I create an encoder that wraps around `io.Discard` and
+    then encode the `Person` struct to it. As in the decoder benchmarking, I placed
+    the creation of the encoder before the iterations because we only need to create
+    it once.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is the results of the benchmark.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: As before, `Encode` is faster, and it also uses less memory, taking up less
+    than half, about 128 B/op as compared to `Marshal` which takes up 288 B/op.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 5.6 Omitting fields in structs
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Problem
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: When marshaling JSON structs as JSON encoding, sometimes the is just no data
+    for for some of the struct variables. We want to create JSON encoding that leaves
+    out the variables without any data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Solution
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Use the `omitempty` tag to define struct variables can be left omitted when
+    marshaling.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Discussion
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Let’s take a look at the `Person` struct again.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: You might notice that the API doesn’t specify the species when the person is
+    a human and also many of the characters don’t have vehicles or starships tagged
+    to them. So when we marshal the struct, it will come out as an empty array.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: If you don’t want to show the species, vehicles or starships, you can use the
+    `omitempty` tag on the JSON struct tags.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: When you run the same code again, you will no longer these them in the output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: Why would you want to do this at all? In this API height and mass are strings.
+    However if they are integers, and you don’t know their height or mass, the default
+    values would be 0\. In this case these values are wrong, and also sometimes they
+    might be correct as well (say for example, a the Jedi Force ghost would have neither
+    height nor mass) but you can’t tell which is which. In this case, not showing
+    it at all is the better option.
+  prefs: []
+  type: TYPE_NORMAL

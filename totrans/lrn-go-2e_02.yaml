@@ -1,0 +1,1079 @@
+- en: Chapter 2\. Predeclared Types and Declarations
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Now that you have your development environment set up, it’s time to start looking
+    at Go’s language features and how to best use them. When trying to figure out
+    what “best” means, there is one overriding principle: write your programs in a
+    way that makes your intentions clear. As I go through features and discuss the
+    options, I’ll explain why I find that a particular approach produces clearer code.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: I’ll start by looking at the types that are built into Go and how to declare
+    variables of those types. While every programmer has experience with these concepts,
+    Go does some things differently, and subtle differences exist between Go and other
+    languages.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Predeclared Types
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Go has many types built into the language. These are called *predeclared* types.
+    They are similar to types that are found in other languages: booleans, integers,
+    floats, and strings. Using these types idiomatically is sometimes a challenge
+    for developers who are transitioning from another language. You’ll look at these
+    types and see how they work best in Go. Before I review the types, let’s cover
+    some of the concepts that apply to all types.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Zero Value
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Go, like most modern languages, assigns a default *zero value* to any variable
+    that is declared but not assigned a value. Having an explicit zero value makes
+    code clearer and removes a source of bugs found in C and C++ programs. As I talk
+    about each type, I will also cover the zero value for the type. You can find details
+    on the zero value in [The Go Programming Language Specification](https://oreil.ly/3d3e6).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Literals
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: A Go *literal* is an explicitly specified number, character, or string. Go programs
+    have four common kinds of literals. (I’ll cover a rare fifth kind of literal when
+    discussing complex numbers.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'An *integer literal* is a sequence of numbers. Integer literals are base 10
+    by default, but different prefixes are used to indicate other bases: 0b for binary
+    (base 2), 0o for octal (base 8), or 0x for hexadecimal (base 16). You can use
+    either upper- or lowercase letters for the prefix. A leading 0 with no letter
+    after it is another way to represent an octal literal. Do not use it, as it is
+    very confusing.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: To make it easier to read longer integer literals, Go allows you to put underscores
+    in the middle of your literal. This allows you to, for example, group by thousands
+    in base 10 (1_234). These underscores have no effect on the value of the number.
+    The only limitations on underscores are that they can’t be at the beginning or
+    end of numbers, and you can’t have them next to each other. You could put an underscore
+    between every digit in your literal (1_2_3_4), but don’t. Use them to improve
+    readability by breaking up base 10 numbers at the thousands place or to break
+    up binary, octal, or hexadecimal numbers at 1-, 2-, or 4-byte boundaries.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A *floating-point literal* has a decimal point to indicate the fractional portion
+    of the value. They can also have an exponent specified with the letter `e` and
+    a positive or negative number (such as 6.03e23). You also have the option to write
+    them in hexadecimal by using the 0x prefix and the letter `p` for indicating any
+    exponent (0x12.34p5, which is equal to 582.5 in base 10). As integer literals,
+    you can use underscores to format your floating-point literals.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A *rune literal* represents a character and is surrounded by single quotes.
+    Unlike many other languages, in Go single quotes and double quotes are *not* interchangeable.
+    Rune literals can be written as single Unicode characters (`'a'`), 8-bit octal
+    numbers (`'\141'`), 8-bit hexadecimal numbers (`'\x61'`), 16-bit hexadecimal numbers
+    (`'\u0061'`), or 32-bit Unicode numbers (`'\U00000061'`). There are also several
+    backslash-escaped rune literals, with the most useful ones being newline (`'\n'`),
+    tab (`'\t'`), single quote (`'\''`), and backslash (`'\\'`).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Practically speaking, use base 10 to represent your integer and floating-point
+    literals. Octal representations are rare, mostly used to represent POSIX permission
+    flag values (such as 0o777 for rwxrwxrwx). Hexadecimal and binary are sometimes
+    used for bit filters or networking and infrastructure applications. Avoid using
+    any of the numeric escapes for rune literals, unless the context makes your code
+    clearer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are two ways to indicate *string literals*. Most of the time, you should
+    use double quotes to create an *interpreted string literal* (e.g., type **`"Greetings
+    and`** **`Salutations"`**). These contain zero or more rune literals. They are
+    called “interpreted” because they interpret rune literals (both numeric and backslash
+    escaped) into single characters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'One rune literal backslash escape is not legal in a string literal: the single
+    quote escape. It is replaced by a backslash escape for double quotes.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The only characters that cannot appear in an interpreted string literal are
+    unescaped backslashes, unescaped newlines, and unescaped double quotes. If you
+    use an interpreted string literal and want your greetings on a different line
+    from your salutations and want “Salutations” to appear in quotes, you need to
+    type **`"Greetings and\n\"Salutations\""`**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If you need to include backslashes, double quotes, or newlines in your string,
+    using a *raw string literal* is easier. These are delimited with backquotes (``
+    ` ``) and can contain any character except a backquote. There’s no escape character
+    in a raw string literal; all characters are included as is. When using a raw string
+    literal, you write a multiline greeting like so:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: Literals are considered *untyped*. I’ll explore this concept more in [“Literals
+    Are Untyped”](#literal_untyped). As you will see in [“var Versus :=”](#var_declarations),
+    there are situations in Go where the type isn’t explicitly declared. In those
+    cases, Go uses the *default type* for a literal; if there’s nothing in the expression
+    that makes clear what the type of the literal is, the literal defaults to a type.
+    I will mention the default type for literals when discussing the different predeclared
+    types.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Booleans
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The `bool` type represents Boolean variables. Variables of `bool` type can
+    have one of two values: `true` or `false`. The zero value for a `bool` is `false`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: It’s hard to talk about variable types without showing a variable declaration,
+    and vice versa. I’ll use variable declarations first and describe them in [“var
+    Versus :=”](#var_declarations).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Numeric Types
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Go has a large number of numeric types: 12 types (and a few special names)
+    that are grouped into three categories. If you are coming from a language like
+    JavaScript that gets along with only a single numeric type, this might seem like
+    a lot. And in fact, some types are used frequently while others are more esoteric.
+    I’ll start by looking at integer types before moving on to floating-point types
+    and the very unusual complex type.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Integer types
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Go provides both signed and unsigned integers in a variety of sizes, from one
+    to eight bytes. They are shown in [Table 2-1](#table2_1).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Table 2-1\. The integer types in Go
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| Type name | Value range |'
+  prefs: []
+  type: TYPE_TB
+- en: '| --- | --- |'
+  prefs: []
+  type: TYPE_TB
+- en: '| `int8` | –128 to 127 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| `int16` | –32768 to 32767 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| `int32` | –2147483648 to 2147483647 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| `int64` | –9223372036854775808 to 9223372036854775807 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| `uint8` | 0 to 255 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| `uint16` | 0 to 65535 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| `uint32` | 0 to 4294967295 |'
+  prefs: []
+  type: TYPE_TB
+- en: '| `uint64` | 0 to 18446744073709551615 |'
+  prefs: []
+  type: TYPE_TB
+- en: It might be obvious from the name, but the zero value for all of the integer
+    types is `0`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The special integer types
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Go does have some special names for integer types. A `byte` is an alias for
+    `uint8`; it is legal to assign, compare, or perform mathematical operations between
+    a `byte` and a `uint8`. However, you rarely see `uint8` used in Go code; just
+    call it a `byte`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The second special name is `int`. On a 32-bit CPU, `int` is a 32-bit signed
+    integer like an `int32`. On most 64-bit CPUs, `int` is a 64-bit signed integer,
+    just like an `int64`. Because `int` isn’t consistent from platform to platform,
+    it is a compile-time error to assign, compare, or perform mathematical operations
+    between an `int` and an `int32` or `int64` without a type conversion (see [“Explicit
+    Type Conversion”](#type_conversion) for more details). Integer literals default
+    to being of `int` type.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'Some uncommon 64-bit CPU architectures use a 32-bit signed integer for the
+    `int` type. Go supports three of them: `amd64p32`, `mips64p32`, and `mips64p32le`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The third special name is `uint`. It follows the same rules as `int`, only it
+    is unsigned (the values are always 0 or positive).
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are two other special names for integer types, `rune` and `uintptr`. You
+    looked at rune literals earlier and I’ll discuss the `rune` type in [“A Taste
+    of Strings and Runes”](#string_rune) and `uintptr` in [Chapter 16](ch16.html#unique_chapter_id_16).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Choosing which integer to use
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Go provides more integer types than some other languages. Given all these choices,
+    you might wonder when you should use each of them. You should follow three simple
+    rules:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you are working with a binary file format or network protocol that has an
+    integer of a specific size or sign, use the corresponding integer type.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: If you are writing a library function that should work with any integer type,
+    take advantage of Go’s generics support and use a generic type parameter to represent
+    any integer type (I talk more about functions and their parameters in [Chapter 5](ch05.html#unique_chapter_id_05)
+    and more about generics in [Chapter 8](ch08.html#unique_chapter_id_08).)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In all other cases, just use `int`.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: You’ll likely find legacy code where there’s a pair of functions that do the
+    same thing, but one has `int64` for the parameters and variables and the other
+    has `uint64`. The reason is that the API was created before generics were added
+    to Go. Without generics, you needed to write functions with slightly different
+    names to implement the same algorithm with different types. Using `int64` and
+    `uint64` meant that you could write the code once and let callers use type conversions
+    to pass values in and convert data that’s returned.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can see this pattern in the Go standard library within the functions `FormatInt`
+    and `FormatUint` in the `strconv` package.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Integer operators
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Go integers support the usual arithmetic operators: +, `-`, `*`, `/`, with
+    `%` for modulus. The result of an integer division is an integer; if you want
+    to get a floating-point result, you need to use a type conversion to make your
+    integers into floating-point numbers. Also, be careful not to divide an integer
+    by 0; this causes a panic (I talk more about panics in [“panic and recover”](ch09.html#panic_recover)).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Integer division in Go follows truncation toward zero; see the Go spec’s section
+    on [arithmetic operators](https://oreil.ly/zp3OJ) for the full details.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You can combine any of the arithmetic operators with `=` to modify a variable:
+    `+=`, `-=`, `*=`, `/=`, and `%=`. For example, the following code results in `x`
+    having the value 20:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: You compare integers with `==`, `!=`, `>`, `>=`, `<`, and `<=`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Go also has bit-manipulation operators for integers. You can bit shift left
+    and right with `<<` and `>>`, or do bit masks with `&` (bitwise AND), `|` (bitwise
+    OR), `^` (bitwise XOR), and `&^` (bitwise AND NOT). As with the arithmetic operators,
+    you can also combine all the bitwise operators with `=` to modify a variable:
+    `&=`, `|=`, `^=`, `&^=`, `<<=`, and `>>=`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Floating-point types
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Go has two floating-point types, as shown in [Table 2-2](#table2_2).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Table 2-2\. The floating-point types in Go
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| Type name | Largest absolute value | Smallest (nonzero) absolute value |'
+  prefs: []
+  type: TYPE_TB
+- en: '| --- | --- | --- |'
+  prefs: []
+  type: TYPE_TB
+- en: '| `float32` | 3.40282346638528859811704183484516925440e+38 | 1.401298464324817070923729583289916131280e-45
+    |'
+  prefs: []
+  type: TYPE_TB
+- en: '| `float64` | 1.797693134862315708145274237317043567981e+308 | 4.940656458412465441765687928682213723651e-324
+    |'
+  prefs: []
+  type: TYPE_TB
+- en: Like the integer types, the zero value for the floating-point types is 0.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Floating point in Go is similar to floating-point math in other languages.
+    Go uses the IEEE 754 specification, giving a large range and limited precision.
+    Picking which floating-point type to use is straightforward: unless you have to
+    be compatible with an existing format, use `float64`. Floating-point literals
+    have a default type of `float64`, so always using `float64` is the simplest option.
+    It also helps mitigate floating-point accuracy issues since a `float32` has only
+    six- or seven-decimal digits of precision. Don’t worry about the difference in
+    memory size unless you have used the profiler to determine that it is a significant
+    source of problems. (Testing and profiling are covered in [Chapter 15](ch15.html#unique_chapter_id_15).)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The bigger question is whether you should be using a floating-point number at
+    all. In many cases, the answer is no. Just like other languages, Go floating-point
+    numbers have a huge range, but they cannot store every value in that range; they
+    store the nearest approximation. Because floats aren’t exact, they can be used
+    only in situations where inexact values are acceptable or the rules of floating
+    point are well understood. That limits them to things like graphics, statistics,
+    and scientific operations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Warning
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: A floating-point number cannot represent a decimal value exactly. Do not use
+    them to represent money or any other value that must have an exact decimal representation!
+    You’ll look at a third-party module for handling exact decimal values in [“Importing
+    Third-Party Code”](ch10.html#import_third_party).
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can use all the standard mathematical and comparison operators with floats,
+    except `%`. Floating-point division has a couple of interesting properties. Dividing
+    a nonzero floating-point variable by 0 returns `+Inf` or `-Inf` (positive or negative
+    infinity), depending on the sign of the number. Dividing a floating-point variable
+    set to 0 by 0 returns `NaN` (Not a Number).
+  prefs: []
+  type: TYPE_NORMAL
+- en: While Go lets you use `==` and `!=` to compare floats, don’t do it. Because
+    of the inexact nature of floats, two floating-point values might not be equal
+    when you think they should be. Instead, define a maximum allowed variance and
+    see if the difference between two floats is less than that. This value (sometimes
+    called *epsilon*) depends on your accuracy needs; I can’t give you a simple rule.
+    If you aren’t sure, consult your friendly local mathematician for advice. If you
+    can’t find one, [The Floating Point Guide has a “Comparison” page](https://oreil.ly/n9ws3)
+    that can help you out (or possibly convince you to avoid floating-point numbers
+    unless absolutely necessary).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Complex types (you’re probably not going to use these)
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: There is one more numeric type and it is pretty unusual. Go has first-class
+    support for complex numbers. If you don’t know what complex numbers are, you are
+    not the target audience for this feature; feel free to skip ahead.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There isn’t a lot to the complex number support in Go. Go defines two complex
+    number types. `complex64` uses `float32` values to represent the real and imaginary
+    part, and `complex128` uses `float64` values. Both are declared with the `complex`
+    built-in function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Go uses a few rules to determine the type of the value returned by `complex`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you use untyped constants or literals for both function parameters, you’ll
+    create an untyped complex literal, which has a default type of `complex128`.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: If both values passed into `complex` are of `float32` type, you’ll create a
+    `complex64`.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: If one value is a `float32` and the other value is an untyped constant or literal
+    that can fit within a `float32`, you’ll create a `complex64`.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Otherwise, you’ll create a `complex128`.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: All the standard floating-point arithmetic operators work on complex numbers.
+    Just as with floats, you can use `==` or `!=` to compare them, but they have the
+    same precision limitations, so it’s best to use the epsilon technique. You can
+    extract the real and imaginary portions of a complex number with the `real` and
+    `imag` built-in functions, respectively. The `math/cmplx` package has additional
+    functions for manipulating `complex128` values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The zero value for both types of complex numbers has 0 assigned to both the
+    real and imaginary portions of the number.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[Example 2-1](#EX2_4) shows a simple program that demonstrates how complex
+    numbers work. You can run it for yourself on [The Go Playground](https://oreil.ly/fuyIu)
+    or in the *sample_code/complex_numbers* directory in the [Chapter 2 repository](https://oreil.ly/zXZqI).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 2-1\. Complex numbers
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Running this code gives you the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: You can see floating-point imprecision on display here too.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In case you were wondering what the fifth kind of primitive literal was, Go
+    supports imaginary literals to represent the imaginary portion of a complex number.
+    They look just like floating-point literals, but they have an `i` for a suffix.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Despite having complex numbers as a predeclared type, Go is not a popular language
+    for numerical computing. Adoption has been limited because other features (like
+    matrix support) are not part of the language and libraries have to use inefficient
+    replacements, like slices of slices. (You’ll look at slices in [Chapter 3](ch03.html#unique_chapter_id_03)
+    and how they are implemented in [Chapter 6](ch06.html#unique_chapter_id_06).)
+    But if you need to calculate a Mandelbrot set as part of a larger program, or
+    implement a quadratic equation solver, complex number support is there for you.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You might be wondering why Go includes complex numbers. The answer is simple:
+    Ken Thompson, one of the creators of Go (and Unix), thought they would be [interesting](https://oreil.ly/eBmkq).
+    There has been discussion about [removing complex numbers](https://oreil.ly/Q76EV)
+    from a future version of Go, but it’s easier to just ignore the feature.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: If you do want to write numerical computing applications in Go, you can use
+    the third-party [Gonum](https://www.gonum.org) package. It takes advantage of
+    complex numbers and provides useful libraries for things like linear algebra,
+    matrices, integration, and statistics. But you should consider other languages
+    first.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A Taste of Strings and Runes
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: This brings us to strings. Like most modern languages, Go includes strings as
+    a built-in type. The zero value for a string is the empty string. Go supports
+    Unicode; as I showed [“Literals”](#goliterals), you can put any Unicode character
+    into a string. Like integers and floats, strings are compared for equality using
+    `==`, difference with `!=`, or ordering with `>`, `>=`, `<`, or `<=`. They are
+    concatenated by using the `+` operator.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Strings in Go are immutable; you can reassign the value of a string variable,
+    but you cannot change the value of the string that is assigned to it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Go also has a type that represents a single code point. The *rune* type is an
+    alias for the `int32` type, just as `byte` is an alias for `uint8`. As you could
+    probably guess, a rune literal’s default type is a rune, and a string literal’s
+    default type is a string.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If you are referring to a character, use the rune type, not the `int32` type.
+    They might be the same to the compiler, but you want to use the type that clarifies
+    the intent of your code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: I am going to talk a lot more about strings in the next chapter, covering some
+    implementation details, relationships with bytes and runes, as well as advanced
+    features and pitfalls.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Explicit Type Conversion
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Most languages that have multiple numeric types automatically convert from one
+    to another when needed. This is called *automatic type promotion*, and while it
+    seems very convenient, it turns out that the rules to properly convert one type
+    to another can get complicated and produce unexpected results. As a language that
+    values clarity of intent and readability, Go doesn’t allow automatic type promotion
+    between variables. You must use a *type conversion* when variable types do not
+    match. Even different-sized integers and floats must be converted to the same
+    type to interact. This makes it clear exactly what type you want without having
+    to memorize any type conversion rules (see [Example 2-2](#EX2_1)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 2-2\. Type conversions
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: In this sample code, you define four variables. `x` is an `int` with the value
+    10, and `y` is a `float64` with the value 30.2\. Since these are not identical
+    types, you need to convert them to add them together. For `sum1`, you convert
+    `x` to a `float64` using a `float64` type conversion, and for `sum2`, you convert
+    `y` to an `int` using an `int` type conversion. When you run this code, it prints
+    out 40.2 40.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The same behavior applies with different-sized integer types (see [Example 2-3](#EX2_1a)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 2-3\. Integer type conversions
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: You can run these examples on [The Go Playground](https://oreil.ly/VoE7H) or
+    in the *sample_code/type_conversion* directory in the [Chapter 2 repository](https://oreil.ly/dGtos).
+  prefs: []
+  type: TYPE_NORMAL
+- en: This strictness around types has other implications. Since all type conversions
+    in Go are explicit, you cannot treat another Go type as a boolean. In many languages,
+    a nonzero number or a nonempty string can be interpreted as a boolean `true`.
+    Just like automatic type promotion, the rules for “truthy” values vary from language
+    to language and can be confusing. Unsurprisingly, Go doesn’t allow truthiness.
+    In fact, *no other type can be converted to a bool, implicitly or explicitly*.
+    If you want to convert from another data type to boolean, you must use one of
+    the comparison operators (`==`, `!=`, `>`, `<`, `<=`, or `>=`). For example, to
+    check if variable `x` is equal to 0, the code would be `x == 0`. If you want to
+    check if string `s` is empty, use `s == ""`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Type conversions are one of the places where Go chooses to add a little verbosity
+    in exchange for a great deal of simplicity and clarity. You’ll see this trade-off
+    multiple times. Idiomatic Go values comprehensibility over conciseness.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Literals Are Untyped
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'While you can’t add two integer variables together if they are declared to
+    be of different types of integers, Go lets you use an integer literal in floating-point
+    expressions or even assign an integer literal to a floating-point variable:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: This is because, as I mentioned earlier, literals in Go are untyped. Go is a
+    practical language, and it makes sense to avoid forcing a type until the developer
+    specifies one. This means they can be used with any variable whose type is compatible
+    with the literal. When you look at user-defined types in [Chapter 7](ch07.html#unique_chapter_id_07),
+    you’ll see that you can even use literals with user-defined types based on predefined
+    types. Being untyped goes only so far; you can’t assign a literal string to a
+    variable with a numeric type or a literal number to a string variable, nor can
+    you assign a float literal to an `int`. These are all flagged by the compiler
+    as errors. Size limitations also exist; while you can write numeric literals that
+    are larger than any integer can hold, it is a compile-time error to try to assign
+    a literal whose value overflows the specified variable, such as trying to assign
+    the literal 1000 to a variable of type `byte`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: var Versus :=
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'For a small language, Go has a lot of ways to declare variables. There’s a
+    reason for this: each declaration style communicates something about how the variable
+    is used. Let’s go through the ways you can declare a variable in Go and see when
+    each is appropriate.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The most verbose way to declare a variable in Go uses the `var` keyword, an
+    explicit type, and an assignment. It looks like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If the type on the righthand side of the `=` is the expected type of your variable,
+    you can leave off the type from the left side of the `=`. Since the default type
+    of an integer literal is `int`, the following declares `x` to be a variable of
+    type `int`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Conversely, if you want to declare a variable and assign it the zero value,
+    you can keep the type and drop the `=` on the righthand side:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You can declare multiple variables at once with `var`, and they can be of the
+    same type:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You can declare all zero values of the same type:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'or of different types:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'There’s one more way to use `var`. If you are declaring multiple variables
+    at once, you can wrap them in a *declaration list*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Go also supports a short declaration and assignment format. When you are within
+    a function, you can use the `:=` operator to replace a `var` declaration that
+    uses type inference. The following two statements do exactly the same thing—they
+    declare `x` to be an `int` with the value of 10:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'As with `var`, you can declare multiple variables at once using `:=`. These
+    two lines both assign 10 to `x` and “hello” to `y`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `:=` operator can do one trick that you cannot do with `var`: it allows
+    you to assign values to existing variables too. As long as at least one new variable
+    is on the lefthand side of the `:=`, any of the other variables can already exist:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: Using `:=` has one limitation. If you are declaring a variable at the package
+    level, you must use `var` because `:=` is not legal outside of functions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How do you know which style to use? As always, choose what makes your intent
+    clearest. The most common declaration style within functions is `:=`. Outside
+    of a function, use declaration lists on the rare occasions when you are declaring
+    multiple package-level variables.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In some situations within functions, you should avoid `:=`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: When initializing a variable to its zero value, use `var x int`. This makes
+    it clear that the zero value is intended.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: When assigning an untyped constant or a literal to a variable and the default
+    type for the constant or literal isn’t the type you want for the variable, use
+    the long `var` form with the type specified. While it is legal to use a type conversion
+    to specify the type of the value and use `:=` to write `x := byte(20)`, it is
+    idiomatic to write `var x byte = 20`.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Because `:=` allows you to assign to both new and existing variables, it sometimes
+    creates new variables when you think you are reusing existing ones (see [“Shadowing
+    Variables”](ch04.html#shadowing) for details). In those situations, explicitly
+    declare all your new variables with `var` to make it clear which variables are
+    new, and then use the assignment operator (`=`) to assign values to both new and
+    old variables.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: While `var` and `:=` allow you to declare multiple variables on the same line,
+    use this style only when assigning multiple values returned from a function or
+    the comma ok idiom (see [Chapter 5](ch05.html#unique_chapter_id_05) and [“The
+    comma ok Idiom”](ch03.html#comma_ok_section)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: You should rarely declare variables outside of functions, in what’s called the
+    *package block* (see [“Blocks”](ch04.html#blocks)). Package-level variables whose
+    values change are a bad idea. When you have a variable outside of a function,
+    it can be difficult to track the changes made to it, which makes it hard to understand
+    how data is flowing through your program. This can lead to subtle bugs. As a general
+    rule, you should only declare variables in the package block that are effectively
+    immutable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Avoid declaring variables outside of functions because they complicate data
+    flow analysis.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You might be wondering: does Go provide a way to *ensure* that a value is immutable?
+    It does, but it is a bit different from what you may have seen in other programming
+    languages. It’s time to learn about `const`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using const
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Many languages have a way to declare a value as immutable. In Go, this is done
+    with the `const` keyword. At first glance, it seems to work exactly as it would
+    in other languages. Try out the code in [Example 2-4](#EX2_7) on [The Go Playground](https://oreil.ly/FdG-W)
+    or in the *sample_code/const_declaration* directory in the [Chapter 2 repository](https://oreil.ly/QxTTT).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 2-4\. `const` declarations
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'When you run this code, compilation fails with the following error messages:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: As you see, you declare a constant at the package level or within a function.
+    Just as with `var`, you can (and should) declare a group of related constants
+    within a set of parentheses.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Be aware that `const` in Go is very limited. Constants in Go are a way to give
+    names to literals. They can only hold values that the compiler can figure out
+    at compile time. This means that they can be assigned:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Numeric literals
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`true` and `false`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Strings
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Runes
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The values returned by the built-in functions `complex`, `real`, `imag`, `len`,
+    and `cap`
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Expressions that consist of operators and the preceding values
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: I’ll cover the `len` and `cap` functions in the next chapter. Another value
+    that can be used with `const` is called `iota`. I’ll talk about `iota` when I
+    discuss creating your own types in [Chapter 7](ch07.html#unique_chapter_id_07).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Go doesn’t provide a way to specify that a value calculated at runtime is immutable.
+    For example, the following code will fail to compile with the error `x + y (value
+    of type int) is not constant`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: As you’ll see in the next chapter, there are no immutable arrays, slices, maps,
+    or structs, and there’s no way to declare that a field in a struct is immutable.
+    This is less limiting than it sounds. Within a function, it is clear if a variable
+    is being modified, so immutability is less important. In [“Go Is Call by Value”](ch05.html#call_value),
+    you’ll see how Go prevents modifications to variables that are passed as parameters
+    to functions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Constants in Go are a way to give names to literals. There is *no* way in Go
+    to declare that a variable is immutable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Typed and Untyped Constants
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Constants can be typed or untyped. An untyped constant works exactly like a
+    literal; it has no type of its own but does have a default type that is used when
+    no other type can be inferred. A typed constant can be directly assigned only
+    to a variable of that type.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Whether to make a constant typed depends on why the constant was declared. If
+    you are giving a name to a mathematical constant that could be used with multiple
+    numeric types, keep the constant untyped. In general, leaving a constant untyped
+    gives you more flexibility. In certain situations, you’ll want a constant to enforce
+    a type. You’ll see a use for typed constants when I cover enumerations with `iota`
+    in [“iota Is for Enumerations—Sometimes”](ch07.html#iota_section).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here’s what an untyped constant declaration looks like:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'All of the following assignments are legal:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Here’s what a typed constant declaration looks like:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This constant can be assigned directly only to an `int`. Assigning it to any
+    other type produces a compile-time error like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: Unused Variables
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: One of the goals for Go is to make it easier for large teams to collaborate
+    on programs. To do so, Go has some rules that are unique among programming languages.
+    In [Chapter 1](ch01.html#unique_chapter_id_01), you saw that Go programs need
+    to be formatted in a specific way with `go fmt` to make it easier to write code-manipulation
+    tools and to provide coding standards. Another Go requirement is that *every declared
+    local variable must be read*. It is a *compile-time error* to declare a local
+    variable and to not read its value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The compiler’s unused variable check is not exhaustive. As long as a variable
+    is read once, the compiler won’t complain, even if there are writes to the variable
+    that are never read. The following is a valid Go program that you can run on [The
+    Go Playground](https://oreil.ly/8JLA6) or in the *sample_code/assignments_not_read*
+    directory in the [Chapter 2 repository](https://oreil.ly/FqALl):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: While the compiler and `go vet` do not catch the unused assignments of 10 and
+    30 to `x`, third-party tools can detect them. I’ll talk about these tools in [“Using
+    Code-Quality Scanners”](ch11.html#code_quality).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The Go compiler won’t stop you from creating unread package-level variables.
+    This is one more reason you should avoid creating package-level variables.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Naming Variables and Constants
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: There is a difference between Go’s rules for naming variables and the patterns
+    that Go developers follow when naming their variables and constants. Like most
+    languages, Go requires identifier names to start with a letter or underscore,
+    and the name can contain numbers, underscores, and letters. Go’s definition of
+    “letter” and “number” is a bit broader than many languages. Any Unicode character
+    considered a letter or digit is allowed. This makes all the variable definitions
+    in [Example 2-5](#EX1) perfectly valid Go.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 2-5\. Variable names you should never use
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: You can test out this awful code on [The Go Playground](https://oreil.ly/VIYOk).
+    While it works, *do not* use variable names like this. These names are considered
+    nonidiomatic because they break the fundamental rule of making sure that your
+    code communicates what it is doing. These names are confusing or difficult to
+    type on many keyboards. Look-alike Unicode code points are the most insidious,
+    because even if they appear to be the same character, they represent entirely
+    different variables. You can run the code shown in [Example 2-6](#EX2_10) on [The
+    Go Playground](https://oreil.ly/hrvb6) or in the *sample_code/look_alike_code_points*
+    directory in the [Chapter 2 repository](https://oreil.ly/7nLfx).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 2-6\. Using look-alike code points for variable names
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'When you run this program, you get:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: Even though the underscore is a valid character in a variable name, it is rarely
+    used, because idiomatic Go doesn’t use snake case (names like `index_counter`
+    or `number_tries`). Instead, idiomatic Go uses camel case (names like `indexCounter`
+    or `numberTries`) when an identifier name consists of multiple words.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: An underscore by itself (`_`) is a special identifier name in Go; I’ll talk
+    more about it when I cover functions in [Chapter 5](ch05.html#unique_chapter_id_05).
+  prefs: []
+  type: TYPE_NORMAL
+- en: In many languages, constants are always written in all uppercase letters, with
+    words separated by underscores (names like `INDEX_COUNTER` or `NUMBER_TRIES`).
+    Go does not follow this pattern. This is because Go uses the case of the first
+    letter in the name of a package-level declaration to determine if the item is
+    accessible outside the package. I will revisit this when I talk about packages
+    in [Chapter 10](ch10.html#unique_chapter_id_10).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Within a function, favor short variable names. *The smaller the scope for a
+    variable, the shorter the name that’s used for it*. It is common in Go to see
+    single-letter variable names used with `for` loops. For example, the names `k`
+    and `v` (short for *key* and *value*) are used as the variable names in a `for-range`
+    loop. If you are using a standard `for` loop, `i` and `j` are common names for
+    the index variable. There are other idiomatic ways to name variables of common
+    types; I will mention them as I cover more parts of the standard library.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Some languages with weaker type systems encourage developers to include the
+    expected type of the variable in the variable’s name. Since Go is strongly typed,
+    you don’t need to do this to keep track of the underlying type. However, you may
+    see Go code where the first letter of a type is used as the variable name (for
+    example, `i` for integers or `f` for floats). When you define your own types,
+    similar patterns apply, especially when naming receiver variables (which are covered
+    in [“Methods”](ch07.html#methods)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: These short names serve two purposes. The first is that they eliminate repetitive
+    typing, keeping your code shorter. Second, they serve as a check on how complicated
+    your code is. If you find it hard to keep track of your short-named variables,
+    your block of code is likely doing too much.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When naming variables and constants in the package block, use more descriptive
+    names. The type should still be excluded from the name, but since the scope is
+    wider, you need a more complete name to clarify what the value represents.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For more discussion of Go naming recommendations, read the [Naming section of
+    Google’s Go Style Decisions](https://oreil.ly/6AUc_).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Exercises
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: These exercises demonstrate the concepts discussed in the chapter. Solutions
+    to these exercises, along with the programs in this chapter, are in the [Chapter
+    2 repository](https://oreil.ly/nGUVd).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Write a program that declares an integer variable called `i` with the value
+    20\. Assign `i` to a floating-point variable named `f`. Print out `i` and `f`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Write a program that declares a constant called `value` that can be assigned
+    to both an integer and a floating-point variable. Assign it to an integer called
+    `i` and a floating-point variable called `f`. Print out `i` and `f`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Write a program with three variables, one named `b` of type `byte`, one named
+    `smallI` of type `int32`, and one named `bigI` of type `uint64`. Assign each variable
+    the maximum legal value for its type; then add `1` to each variable. Print out
+    their values.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Wrapping Up
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'You’ve covered a lot of ground here, understanding how to use the predeclared
+    types, declare variables, and work with assignments and operators. In the next
+    chapter, we will look at the composite types in Go: arrays, slices, maps, and
+    structs. We will also take another look at strings and runes and how they interact
+    with character encodings.'
+  prefs: []
+  type: TYPE_NORMAL

@@ -1,0 +1,910 @@
+- en: 'Chapter 11\. what can you do?: Interfaces'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0321-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Sometimes you don’t care about the particular type of a value.** You don’t
+    care about what it *is*. You just need to know that it will be able to *do* certain
+    things. That you’ll be able to call *certain methods* on it. You don’t care whether
+    you have a `Pen` or a `Pencil`, you just need something with a `Draw` method.
+    You don’t care whether you have a `Car` or a `Boat`, you just need something with
+    a `Steer` method.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: That’s what Go **interfaces** accomplish. They let you define variables and
+    function parameters that will hold *any* type, as long as that type defines certain
+    methods.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Two different types that have the same methods
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Remember audio tape recorders? (We suppose some of you will be too young.) They
+    were great, though. They let you easily record all your favorite songs together
+    on a single tape, even if they were by different artists. Of course, the recorders
+    were usually too bulky to carry around with you. If you wanted to take your tapes
+    on the go, you needed a separate, battery-powered tape player. Those usually didn’t
+    have recording capabilities. Ah, but it was so great making custom mixtapes and
+    sharing them with your friends!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0322-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We’re so overwhelmed with nostalgia that we’ve created a `gadget` package to
+    help us reminisce. It includes a type that simulates a tape recorder, and another
+    type that simulates a tape player.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0322-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The `TapePlayer` type has a `Play` method to simulate playing a song, and a
+    `Stop` method to stop the virtual playback.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0322-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The `TapeRecorder` type also has `Play` and `Stop` methods, and a `Record` method
+    as well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A method parameter that can only accept one type
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Here’s a sample program that uses the `gadget` package. We define a `playList`
+    function that takes a `TapePlayer` value, and a slice of song titles to play on
+    it. The function loops over each title in the slice, and passes it to the `TapePlayer`’s
+    `Play` method. When it’s done playing the list, it calls `Stop` on the `TapePlayer`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Then, in the `main` method, all we have to do is create the `TapePlayer` and
+    the slice of song titles, and pass them to `playList`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0323-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The `playList` function works great with a `TapePlayer` value. You might hope
+    that it would work with a `TapeRecorder` as well. (After all, a tape recorder
+    is basically just a tape player with an extra record function.) But `playList`’s
+    first parameter has a type of `TapePlayer`. Try to pass it an argument of any
+    other type, and you’ll get a compile error:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0323-02.png)![image](assets/f0324-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: In this case, it does seem like the Go language’s type safety is getting in
+    our way, rather than helping us. The `TapeRecorder` type defines all the methods
+    that the `playList` function needs, but we’re being blocked from using it because
+    `playList` only accepts `TapePlayer` values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So what can we do? Write a second, nearly identical `playListWithRecorder` function
+    that takes a `TapeRecorder` instead?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Actually, Go offers another way...
+  prefs: []
+  type: TYPE_NORMAL
+- en: Interfaces
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: When you install a program on your computer, you usually expect the program
+    to provide you with a way to interact with it. You expect a word processor to
+    give you a place to type text. You expect a backup program to give you a way to
+    select which files to save. You expect a spreadsheet to give you a way to insert
+    columns and rows for data. The set of controls a program provides you so you can
+    interact with it is often called its *interface*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**An interface is a set of methods that certain values are expected to have.**'
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: Whether you’ve actually thought about it or not, you probably expect Go values
+    to provide you with a way to interact with them, too. What’s the most common way
+    to interact with a Go value? Through its methods.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In Go, an **interface** is defined as a set of methods that certain values are
+    expected to have. You can think of an interface as a set of actions you need a
+    type to be able to perform.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You define an interface type using the `interface` keyword, followed by curly
+    braces containing a list of method names, along with any parameters or return
+    values the methods are expected to have.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0325-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Any type that has all the methods listed in an interface definition is said
+    to **satisfy** that interface. A type that satisfies an interface can be used
+    anywhere that interface is called for.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The method names, parameter types (or lack thereof), and return value types
+    (or lack thereof) all need to match those defined in the interface. A type can
+    have methods *in addition* to those listed in the interface, but it mustn’t be
+    *missing* any, or it doesn’t satisfy that interface.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0325-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: A type can satisfy multiple interfaces, and an interface can (and usually should)
+    have multiple types that satisfy it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Defining a type that satisfies an interface
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The code below sets up a quick experimental package, named `mypkg`. It defines
+    an interface type named `MyInterface` with three methods. Then it defines a type
+    named `MyType` that satisfies `MyInterface`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are three methods required to satisfy `MyInterface`: a `MethodWithoutParameters`
+    method, a `MethodWithParameter` method that takes a `float64` parameter, and a
+    `MethodWithReturnValue` method that returns a `string`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Then we declare another type, `MyType`. The underlying type of `MyType` doesn’t
+    matter in this example; we just used `int`. We define all the methods on `MyType`
+    that it needs to satisfy `MyInterface`, plus one extra method that isn’t part
+    of the interface.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0326-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Many other languages would require us to explicitly say that `MyType` satisfies
+    `MyInterface`. But in Go, this happens *automatically*. If a type has all the
+    methods declared in an interface, then it can be used anywhere that interface
+    is required, with no further declarations needed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here’s a quick program that will let us try `mypkg` out.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A variable declared with an interface type can hold any value whose type satisfies
+    that interface. This code declares a `value` variable with `MyInterface` as its
+    type, then creates a `MyType` value and assigns it to `value`. (Which is allowed,
+    because `MyType` satisfies `MyInterface`.) Then we call all the methods on that
+    value that are part of the interface.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0327-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Concrete types, interface types
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'All the types we’ve defined in previous chapters have been concrete types.
+    A **concrete type** specifies not only what its values can *do* (what methods
+    you can call on them), but also what they *are*: they specify the underlying type
+    that holds the value’s data.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Interface types don’t describe what a value *is*: they don’t say what its underlying
+    type is, or how its data is stored. They only describe what a value can *do*:
+    what methods it has.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Suppose you need to write down a quick note. In your desk drawer, you have
+    values of several concrete types: `Pen`, `Pencil`, and `Marker`. Each of these
+    concrete types defines a `Write` method, so you don’t really care which type you
+    grab. You just want a `WritingInstrument`: an interface type that is satisfied
+    by any concrete type with a `Write` method.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0327-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Assign any type that satisfies the interface
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: When you have a variable with an interface type, it can hold values of any type
+    that satisfies the interface.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Suppose we have `Whistle` and `Horn` types, each of which has a `MakeSound`
+    method. We can create a `NoiseMaker` interface that represents any type with a
+    `MakeSound` method. If we declare a `toy` variable with a type of `NoiseMaker`,
+    we’ll be able to assign either `Whistle` or `Horn` values to it. (*Or* any other
+    type that we later declare, as long as it has a `MakeSound` method.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can then call the `MakeSound` method on any value assigned to the `toy`
+    variable. Although we don’t know exactly what concrete type the value in `toy`
+    *is*, we know what it can *do*: make sounds. If its type didn’t have a `MakeSound`
+    method, then it wouldn’t satisfy the `NoiseMaker` interface, and we wouldn’t have
+    been able to assign it to the variable.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0328-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'You can declare function parameters with interface types as well. (After all,
+    function parameters are really just variables too.) If we declare a `play` function
+    that takes a `NoiseMaker`, for example, then we can pass any value from a type
+    with a `MakeSound` method to `play`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0328-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: You can only call methods defined as part of the interface
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Once you assign a value to a variable (or method parameter) with an interface
+    type, you can *only* call methods that are specified by the interface on it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Suppose we created a `Robot` type, which in addition to a `MakeSound` method,
+    also has a `Walk` method. We add a call to `Walk` in the `play` function, and
+    pass a new `Robot` value to `play`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: But the code doesn’t compile, saying that `NoiseMaker` values don’t have a `Walk`
+    method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Why is that? `Robot` values *do* have a `Walk` method; the definition is right
+    there!
+  prefs: []
+  type: TYPE_NORMAL
+- en: But it’s *not* a `Robot` value that we’re passing to the `play` function; it’s
+    a `NoiseMaker`. What if we had passed a `Whistle` or `Horn` to `play` instead?
+    Those don’t have `Walk` methods!
+  prefs: []
+  type: TYPE_NORMAL
+- en: When we have a variable of an interface type, the only methods we can be sure
+    it has are the methods that are defined in the interface. And so those are the
+    only methods Go allows you to call. (There *is* a way to get at the value’s concrete
+    type, so that you can call more specialized methods. We’ll look at that shortly.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0329-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note that it *is* just fine to assign a type that *has* other methods to a variable
+    with an interface type. As long as you don’t actually call those other methods,
+    everything will work.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0329-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Breaking Stuff is Educational!
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0330-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here are a couple concrete types, `Fan` and `CoffeePot`. We also have an `Appliance`
+    interface with a `TurnOn` method. `Fan` and `CoffeePot` both have `TurnOn` methods,
+    so they both satisfy the `Appliance` interface.
+  prefs: []
+  type: TYPE_NORMAL
+- en: That’s why, in the `main` function, we’re able to define an `Appliance` variable,
+    and assign both `Fan` and `CoffeePot` variables to it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Make one of the changes below and try to compile the code. Then undo your change
+    and try the next one. See what happens!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: '| If you do this... | ...the code will break because... |'
+  prefs: []
+  type: TYPE_TB
+- en: '| --- | --- |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Call a method from the concrete type that isn’t defined in the interface:
+    `device.Brew()` | When you have a value in a variable with an interface type,
+    you can only call methods defined as part of that interface, regardless of what
+    methods the concrete type had. |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Remove the method that satisfies the interface from a type: `~~func (c CoffeePot)
+    TurnOn() {~~ ~~fmt.Println("Powering up")~~ ~~}~~` | If a type doesn’t satisfy
+    an interface, you can’t assign values of that type to variables that use that
+    interface as their type. |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Add a new return value or parameter on the method that satisfies the interface:
+    `func (f Fan) TurnOn() error { fmt.Println("Spinning") return nil }` | If the
+    number and types of all parameters and return values don’t match between a concrete
+    type’s method definition and the method definition in the interface, then the
+    concrete type does not satisfy the interface. |'
+  prefs: []
+  type: TYPE_TB
+- en: Fixing our playList function using an interface
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Let’s see if we can use an interface to allow our `playList` function to work
+    with the `Play` and `Stop` methods on both of our concrete types: `TapePlayer`
+    and `TapeRecorder`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: In our `main` package, we declare a `Player` interface. (We could define it
+    in the `gadget` package instead, but defining the interface in the same package
+    where we use it gives us more flexibility.) We specify that the interface requires
+    both a `Play` method with a `string` parameter, and a `Stop` method with no parameters.
+    This means that both the `TapePlayer` and `TapeRecorder` types will satisfy the
+    `Player` interface.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We update the `playList` function to take any value that satisfies `Player`
+    instead of `TapePlayer` specifically. We also change the type of the `player`
+    variable from `TapePlayer` to `Player`. This allows us to assign either a `TapePlayer`
+    or a `TapeRecorder` to `player`. We then pass values of both types to `playList`!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0331-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: there are no Dumb Questions
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**Q: Should interface type names begin with a capital letter or a lowercase
+    letter?**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**A:** The rules for interface type names are the same as the rules for any
+    other type. If the name begins with a lowercase letter, then the interface type
+    will be *unexported* and will not be accessible outside the current package. Sometimes
+    you won’t need to use the interface you’re declaring from other packages, so making
+    it unexported is fine. But if you *do* want to use it in other packages, you’ll
+    need to start the interface type’s name with a capital letter, so that it’s exported.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Type assertions
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We’ve defined a new `TryOut` function that will let us test the various methods
+    of our `TapePlayer` and `TapeRecorder` types. `TryOut` has a single parameter
+    with the `Player` interface as its type, so that we can pass in either a `TapePlayer`
+    or `TapeRecorder`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Within `TryOut`, we call the `Play` and `Stop` methods, which are both part
+    of the `Player` interface. We also call the `Record` method, which is *not* part
+    of the `Player` interface, but *is* defined on the `TapeRecorder` type. We’re
+    only passing a `TapeRecorder` value to `TryOut` for now, so we should be fine,
+    right?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unfortunately, no. We saw earlier that if a value of a concrete type is assigned
+    to a variable with an interface type (including function parameters), then you
+    can only call methods on it that are part of that interface, regardless of what
+    other methods the concrete type has. Within the `TryOut` function, we don’t have
+    a `TapeRecorder` value (the concrete type), we have a `Player` value (the interface
+    type). And the `Player` interface doesn’t have a `Record` method!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0334-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We need a way to get the concrete type value (which *does* have a `Record` method)
+    back.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Your first instinct might be to try a type conversion to convert the `Player`
+    value to a `TapeRecorder` value. But type conversions aren’t meant for use with
+    interface types, so that generates an error. The error message suggests trying
+    something else:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0334-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: A “type assertion”? What’s that?
+  prefs: []
+  type: TYPE_NORMAL
+- en: When you have a value of a concrete type assigned to a variable with an interface
+    type, a **type assertion** lets you get the concrete type back. It’s *kind of*
+    like a type conversion. Its syntax even looks like a cross between a method call
+    and a type conversion. After an interface value, you type a dot, followed by a
+    pair of parentheses with the concrete type. (Or rather, what you’re *asserting*
+    the value’s concrete type is.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0335-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: In plain language, the type assertion above says something like “I know this
+    variable uses the interface type `NoiseMaker`, but I’m pretty sure *this* `NoiseMaker`
+    is actually a `Robot`.”
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once you’ve used a type assertion to get a value of a concrete type back, you
+    can call methods on it that are defined on that type, but aren’t part of the interface.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This code assigns a `Robot` to a `NoiseMaker` interface value. We’re able to
+    call `MakeSound` on the `NoiseMaker`, because it’s part of the interface. But
+    to call the `Walk` method, we need to use a type assertion to get a `Robot` value.
+    Once we have a `Robot` (rather than a `NoiseMaker`), we can call `Walk` on it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0335-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Type assertion failures
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Previously, our `TryOut` function wasn’t able to call the `Record` method on
+    a `Player` value, because it’s not part of the `Player` interface. Let’s see if
+    we can get this working using a type assertion.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Just like before, we pass a `TapeRecorder` to `TryOut`, where it gets assigned
+    to a parameter that uses the `Player` interface as its type. We’re able to call
+    the `Play` and `Stop` methods on the `Player` value, because those are both part
+    of the `Player` interface.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Then, we use a type assertion to convert the `Player` back to a `TapeRecorder`.
+    And we call `Record` on the `TapeRecorder` value instead.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0336-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Everything seems to be working great...with a `TapeRecorder`. But what happens
+    if we try to pass a `TapePlayer` to `TryOut`? How well will that work, considering
+    we have a type assertion that says the parameter to `TryOut` is actually a `TapeRecorder`?
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0336-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Everything compiles successfully, but when we try to run it, we get a runtime
+    panic! As you might expect, trying to assert that a `TapePlayer` is actually a
+    `TapeRecorder` did not go well. (It’s simply not true, after all.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0336-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Avoiding panics when type assertions fail
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'If a type assertion is used in a context that expects only one return value,
+    and the original type doesn’t match the type in the assertion, the program will
+    panic at runtime (*not* when compiling):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0337-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: If type assertions are used in a context where multiple return values are expected,
+    they have a second, optional return value that indicates whether the assertion
+    was successful or not. (And the assertion won’t panic if it’s unsuccessful.) The
+    second value is a `bool`, and it will be `true` if the value’s original type was
+    the asserted type, or `false` if not. You can do whatever you want with this second
+    return value, but by convention it’s usually assigned to a variable named `ok`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: This is another place Go follows the “comma ok idiom” that we first saw when
+    accessing maps in [Chapter 7](ch07_split_000.html#labeling_datacolon_maps).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here’s an update to the above code that assigns the results of the type assertion
+    to a variable for the concrete type’s value, and a second `ok` variable. It uses
+    the `ok` value in an `if` statement to determine whether it can safely call `Record`
+    on the concrete value (because the `Player` value had an original type of `TapeRecorder`),
+    or if it should skip doing so (because the `Player` had some other concrete value).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0337-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: In this case, the concrete type was `TapePlayer`, not `TapeRecorder`, so the
+    assertion is unsuccessful, and `ok` is `false`. The `if` statement’s `else` clause
+    runs, printing `Player was not a TapeRecorder`. A runtime panic is averted.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When using type assertions, if you’re not absolutely sure which original type
+    is behind the interface value, then you should use the optional `ok` value to
+    handle cases where it’s a different type than you expected, and avoid a runtime
+    panic.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Testing TapePlayers and TapeRecorders using type assertions
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Let’s see if we can use what we’ve learned to fix our `TryOut` function for
+    `TapePlayer` and `TapeRecorder` values. Instead of ignoring the second return
+    value from our type assertion, we’ll assign it to an `ok` variable. The `ok` variable
+    will be `true` if the type assertion is successful (indicating the `recorder`
+    variable holds a `TapeRecorder` value, ready for us to call `Record` on it), or
+    `false` otherwise (indicating it’s *not* safe to call `Record`). We wrap the call
+    to the `Record` method in an `if` statement to ensure it’s only called when the
+    type assertion is successful.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0338-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: As before, in our `main` function, we first call `TryOut` with a `TapeRecorder`
+    value. `TryOut` takes the `Player` interface value it receives, and calls the
+    `Play` and `Stop` methods on it. The assertion that the `Player` value’s concrete
+    type is `TapeRecorder` succeeds, and the `Record` method is called on the resulting
+    `TapeRecorder` value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Then, we call `TryOut` again with a `TapePlayer`. (This is the call that halted
+    the program previously because the type assertion panicked.) `Play` and `Stop`
+    are called, as before. The type assertion fails, because the `Player` value holds
+    a `TapePlayer` and not a `TapeRecorder`. But because we’re capturing the second
+    return value in the `ok` value, the type assertion doesn’t panic this time. It
+    just sets `ok` to `false`, which causes the code in our `if` statement not to
+    run, which causes `Record` not to be called. (Which is good, because `TapePlayer`
+    values don’t have a `Record` method.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Thanks to type assertions, we’ve got our `TryOut` function working with both
+    `TapeRecorder` and `TapePlayer` values!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Pool Puzzle
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/chair.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Updated code from our previous exercise is at the right. We’re creating a `TryVehicle`
+    method that calls all the methods from the `Vehicle` interface. Then, it should
+    attempt a type assertion to get a concrete `Truck` value. If successful, it should
+    call `LoadCargo` on the `Truck` value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Your **job** is to take code snippets from the pool and place them into the
+    blank lines in this code. **Don’t** use the same snippet more than once, and you
+    won’t need to use all the snippets. Your **goal** is to make a program that will
+    run and produce the output shown.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0339-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Note: each snippet from the pool can only be used once!**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0339-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![image](assets/arrow.png) Answers in [“Pool Puzzle Solution”](ch11_split_001.html#pool_puzzle_solution_7).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The “error” interface
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We’d like to wrap up the chapter by looking at a few interfaces that are built
+    into Go. We haven’t covered these interfaces explicitly, but you’ve actually been
+    using them all along.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In [Chapter 3](ch03.html#call_mecolon_functions), we learned how to create our
+    own `error` values. We said, “An error value is any value with a method named
+    `Error` that returns a string.”
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0340-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'That’s right. The `error` type is just an interface! It looks something like
+    this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: Declaring the `error` type as an interface means that if it has an `Error` method
+    that returns a `string`, it satisfies the `error` interface, and it’s an `error`
+    value. That means you can define your own types and use them anywhere an `error`
+    value is required!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0340-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: For example, here’s a simple defined type, `ComedyError`. Because it has an
+    `Error` method that returns a `string`, it satisfies the `error` interface, and
+    we can assign it to a variable with the type `error`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0340-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: If you need an `error` value, but also need to track more information about
+    the error than just an error message string, you can create your own type that
+    satisfies the `error` interface *and* stores the information you want.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Suppose you’re writing a program that monitors some equipment to ensure it doesn’t
+    overheat. Here’s an `OverheatError` type that might be useful. It has an `Error`
+    method, so it satisfies `error`. But more interestingly, it uses `float64` as
+    its underlying type, allowing us to track the degrees over capacity.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0341-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here’s a `checkTemperature` function that uses `OverheatError`. It takes the
+    system’s actual temperature and the temperature that’s considered safe as parameters.
+    It specifies that it returns a value of type `error`, not an `OverheatError` specifically,
+    but that’s okay because `OverheatError` satisfies the `error` interface. If the
+    `actual` temperature is over the `safe` temperature, `checkTemperature` returns
+    a new `OverheatError` that records the excess.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0341-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: there are no Dumb Questions
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**Q: How is it we’ve been using the `error` interface type in all these different
+    packages, without importing it? Its name begins with a lowercase letter. Doesn’t
+    that mean it’s unexported, from whatever package it’s declared in? What package
+    is `error` declared in, anyway?**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**A:** The `error` type is a “predeclared identifier,” like `int` or `string`.
+    And so, like other predeclared identifiers, it’s not part of *any* package. It’s
+    part of the “universe block,” meaning it’s available everywhere, regardless of
+    what package you’re in.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Remember how there are `if` and `for` blocks, which are encompassed by function
+    blocks, which are encompassed by package blocks? Well, the universe block encompasses
+    all package blocks. That means you can use anything defined in the universe block
+    from any package, without importing it. And that includes `error` and all other
+    predeclared identifiers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Stringer interface
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Remember our `Gallons`, `Liters`, and `Milliliters` types, which we created
+    back in [Chapter 9](ch09.html#yoursquore_my_typecolon_defined_types) to distinguish
+    between various units for measuring volume? We’re discovering that it’s not so
+    easy to distinguish between them after all. Twelve gallons is a very different
+    amount than 12 liters or 12 milliliters, but they all look the same when printed.
+    If there are too many decimal places of precision on a value, that looks awkward
+    when printed, too.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0342-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: You can use `Printf` to round the number off and add an abbreviation indicating
+    the unit of measure, but doing that every place you need to use these types would
+    quickly get tedious.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0342-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'That’s why the `fmt` package defines the `fmt.Stringer` interface: to allow
+    any type to decide how it will be displayed when printed. It’s easy to set up
+    any type to satisfy `Stringer`; just define a `String()` method that returns a
+    `string`. The interface definition looks like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0342-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'For example, here we’ve set up this `CoffeePot` type to satisfy `Stringer`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0342-04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Many functions in the `fmt` package check whether the values passed to them
+    satisfy the `Stringer` interface, and call their `String` methods if so. This
+    includes the `Print`, `Println`, and `Printf` functions and more. Now that `CoffeePot`
+    satisfies `Stringer`, we can pass `CoffeePot` values directly to these functions,
+    and the return value of the `CoffeePot`’s `String` method will be used in the
+    output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0343-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Now for a more serious use of this interface type. Let’s make our `Gallons`,
+    `Liters`, and `Milliliters` types satisfy `Stringer`. We’ll move our code to format
+    their values to `String` methods associated with each type. We’ll call the `Sprintf`
+    function instead of `Printf`, and return the resulting value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0343-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Now, any time we pass `Gallons`, `Liters`, and `Milliliters` values to `Println`
+    (or most other `fmt` functions), their `String` methods will be called, and the
+    return values used in the output. We’ve set up a useful default format for printing
+    each of these types!
+  prefs: []
+  type: TYPE_NORMAL
+- en: The empty interface
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0344-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Good question! Let’s run `**go doc**` to bring up the documentation for `fmt.Println`
+    and see what type its parameters are declared as...
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0344-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: As we saw in [Chapter 6](ch06.html#appending_issuecolon_slices), the `...` means
+    that it’s a variadic function, meaning it can take any number of parameters. But
+    what’s this `interface{}` type?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Remember, an interface declaration specifies the methods that a type is required
+    to have in order to satisfy that interface. For example, our `NoiseMaker` interface
+    is satisfied by any type that has a `MakeSound` method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: But what would happen if we declared an interface type that didn’t require any
+    methods at all? It would be satisfied by *any* type! It would be satisfied by
+    *all* types!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: The type `interface{}` is known as **the empty interface**, and it’s used to
+    accept values of *any* type. The empty interface doesn’t have any methods that
+    are required to satisfy it, and so *every* type satisfies it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If you declare a function that accepts a parameter with the empty interface
+    as its type, then you can pass it values of any type as an argument:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0345-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**The empty interface doesn’t require any methods to satisfy it, and so it’s
+    satisfied by all types.**'
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: But don’t rush out and start using the empty interface for all your function
+    parameters! If you have a value with the empty interface as its type, there’s
+    not much you can *do* with it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Most of the functions in `fmt` accept empty-interface values, so you can pass
+    it on to those:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0345-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: But don’t try calling any methods on an empty-interface value! Remember, if
+    you have a value with an interface type, you can only call methods on it that
+    are part of the interface. And the empty interface doesn’t *have* any methods.
+    That means there are *no* methods you can call on a value with the empty interface
+    type!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0345-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: To call methods on a value with the empty interface type, you’d need to use
+    a type assertion to get a value of the concrete type back.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0346-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: And by that point, you’re probably better off writing a function that accepts
+    only that specific concrete type.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0346-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: So there are limits to the usefulness of the empty interface when defining your
+    own functions. But you’ll use the empty interface all the time with the functions
+    in the `fmt` package, and in other places too. The next time you see an `interface{}`
+    parameter in a function’s documentation, you’ll know exactly what it means!
+  prefs: []
+  type: TYPE_NORMAL
+- en: When you’re defining variables or function parameters, often you’ll know exactly
+    what the value you’ll be working with *is*. You’ll be able to use a concrete type
+    like `Pen`, `Car`, or `Whistle`. Other times, though, you only care about what
+    the value can *do*. In that case, you’re going to want to define an interface
+    type, like `WritingInstrument`, `Vehicle`, or `NoiseMaker`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You’ll define the methods you need to be able to call as part of the interface
+    type. And you’ll be able to assign to your variables or call your functions without
+    worrying about the concrete type of your values. If it has the right methods,
+    you’ll be able to use it!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Your Go Toolbox
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0347-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**That’s it for [Chapter 11](ch11_split_000.html#what_can_you_doquestcolon_interfaces)!
+    You’ve added interfaces to your toolbox.**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: '**Interfaces**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: An interface is a set of methods certain values are expected to have.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Any type that has all the methods listed in an interface definition is said
+    to satisfy that interface.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A type that satisfies an interface can be assigned to any variable or function
+    parameter that uses that interface as its type.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Pool Puzzle Solution
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0348-02.png)'
+  prefs: []
+  type: TYPE_IMG

@@ -1,0 +1,1326 @@
+- en: Chapter 10\. Optimization Examples
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: It’s finally time to collect all the tools, skills, and knowledge you gathered
+    from the previous chapters and apply some optimizations! In this chapter, we will
+    try to reinforce the pragmatic optimization flow by going through some examples.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will attempt to optimize the naive implementation of the `Sum` from [Example 4-1](ch04.html#code-sum).
+    I will show you how the TFBO (from [“Efficiency-Aware Development Flow”](ch03.html#ch-conq-eff-flow))
+    can be applied to three different sets of efficiency requirements.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Optimizations/pessimizations don’t generalize very well. It all depends on the
+    code, so measure each time and don’t cast absolute judgments.
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: ''
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: Bartosz Adamczewski, [Tweet](https://oreil.ly/oW3ND) (2022)
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: We will use our optimization stories as a foundation for some optimization patterns
+    summarized in the next chapter. Learning about thousands of optimization cases
+    that happened in the past is not very useful. Every case is different. The compiler
+    and language change, so any “brute-force” attempt to try those thousands of optimizations
+    one by one is not pragmatic.^([1](ch10.html#idm45606823780656)) Instead, I have
+    focused on equipping you with the knowledge, tools, and practices that will let
+    you find a more efficient solution to your problem!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Please don’t focus on particular optimizations, e.g., the specific algorithmic
+    or code changes I applied. Instead, try to follow how I came up with those changes,
+    how I found what piece of code to optimize first, and how I assessed the change.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We will start in [“Sum Examples”](#ch-opt-sum) by introducing the three problems.
+    Then we will take the `Sum` and perform the optimizations in [“Optimizing Latency”](#ch-opt-latency-example),
+    [“Optimizing Memory Usage”](#ch-opt-mem-example), and [“Optimizing Latency Using
+    Concurrency”](#ch-opt-latency-concurrency-example). Finally, we will mention some
+    other ways we could solve our goals in [“Bonus: Thinking Out of the Box”](#ch-opt-bonus).
+    Let’s go!'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sum Examples
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In [Chapter 4](ch04.html#ch-hardware), we introduced a simple `Sum` implementation
+    in [Example 4-1](ch04.html#code-sum) that sums large numbers of integers provided
+    in a file.^([2](ch10.html#idm45606823764528)) Let’s leverage all the learning
+    you have gained and use it to optimize [Example 4-1](ch04.html#code-sum). As we
+    learned in [“Resource-Aware Efficiency Requirements”](ch03.html#ch-conq-req),
+    we can’t “just” optimize—we have to have some goal in mind. In this section, we
+    will repeat the efficiency optimization flow three times, each time with different
+    requirements:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Lower latency with a maximum of one CPU used
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Minimal amount of memory
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Even lower latency with four CPU cores available for the workload
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The terms *lower* or *minimal* are not very professional. Ideally, we have some
+    more specific numbers to aim for, in a written form like a RAER. A quick Big O
+    analysis can tell us that the `Sum` runtime complexity is at least O(*N*)—we have
+    to revisit all lines at least once to compute the sum. Thus, the absolute latency
+    goal, like “`Sum` has to be faster than 100 milliseconds,” won’t work as its problem
+    space depends on the input. We can always find big enough input that violates
+    any latency goals.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'One way to address this is to specify the maximum possible input with some
+    assumptions and latency goals. The second is to define the required runtime complexity
+    as a function that depends on input—so throughput. Let’s do the latter and specify
+    the amortized latency function for the `Sum`. We can do the same with memory.
+    So let’s be more specific. Imagine that, for my hardware, a system design stakeholder
+    came up with the following required goals for the `Sum` in [Example 4-1](ch04.html#code-sum):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Maximum latency of 10 nanoseconds per line (10 * *N* nanoseconds) with maximum
+    one CPU used
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Latency as above and a maximum of 10 KB of memory allocated on the heap for
+    any input
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Maximum latency of 2.5 nanoseconds per line (2.5 * *N* nanoseconds) with maximum
+    four CPU used
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: What If We Can’t Match This Goal?
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: It might be the case that the goals we initially aimed for will be hard to achieve
+    due to underestimation of the problem, new requirements, or new knowledge. This
+    is fine. In many cases, we can try to renegotiate the goals. For example, as we
+    dissected in [“Optimization Design Levels”](ch03.html#ch-conq-opt-levels), every
+    optimization beyond a certain point costs more and more in time, effort, risk,
+    and readability, so it might be cheaper to add more machines, CPUs, or RAM to
+    the problem. The key is to estimate those costs roughly and help stakeholders
+    decide what’s best for them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Following the TFBO flow, before we optimize, we first have to benchmark. Fortunately,
+    we already discussed designs of benchmarks for the `Sum` code in [“Go Benchmarks”](ch08.html#ch-obs-micro-go),
+    so we can go ahead and use [Example 8-13](ch08.html#code-sum-go-bench3) for our
+    benchmarks. I used the command presented in [Example 10-1](#code-sum-bench-cmd)
+    to perform 5 10-second benchmarks with a 2 million integer input file and limited
+    to 1 CPU.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 10-1\. The command to invoke the benchmark
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'With [Example 4-1](ch04.html#code-sum), the preceding benchmark yielded the
+    following results: 101 ms, 60.8 MB space allocated, and 1.60 million allocations
+    per operation. Therefore, we will use that as our baseline.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Optimizing Latency
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Our requirements are clear. We need to make the `Sum` function in [Example 4-1](ch04.html#code-sum)
+    faster to achieve a throughput of at least 10 * *N* nanoseconds. The baseline
+    results give us 50 * *N* nanoseconds. Time to see if there are any quick optimizations!
+  prefs: []
+  type: TYPE_NORMAL
+- en: In [“Complexity Analysis”](ch07.html#ch-hw-complexity), I shared a detailed
+    complexity of the `Sum` function that clearly outlines the problems and bottlenecks.
+    However, I used information from this section to define that. For now, let’s forget
+    that we discussed such complexity and try to find all the information from scratch.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The best way is to perform a bottleneck analysis using the profiles explained
+    in [Chapter 9](ch09.html#ch-observability3). I captured the CPU profile on every
+    benchmark with [Example 8-4](ch08.html#code-sum-go-bench-all), so I could quickly
+    bring the Flame Graph of the CPU time, as presented in [Figure 10-1](#img-opt-lat-v1).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![efgo 1001](assets/efgo_1001.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 10-1\. Flame Graph view of [Example 4-1](ch04.html#code-sum) CPU time
+    with function granularity
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'Profiling gives us a great overview of the situation. We see four clear major
+    contributors to the CPU time usage:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`bytes.Split`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`strconv.ParseInt`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Runtime function `runtime.slicebytetostr...`, which ends with `runtime.malloc`,
+    meaning we spent a lot of CPU time allocating memory
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Runtime function `runtime.gcBgMarkWorker`, which indicates GC runs
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The CPU profile gives us a list of functions we can go through and potentially
+    cut out some CPU usage. However, as we learned in [“Off-CPU Time”](ch09.html#ch-obs-pprof-latency),
+    the CPU time might not be a bottleneck here. Therefore, we must first confirm
+    if our function here is CPU bound, I/O bound, or mixed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: One way of doing this is by manually reading the source code. We can see that
+    the only external medium used in [Example 4-1](ch04.html#code-sum) is a file,
+    which we use to read bytes from. The rest of the code should only perform computations
+    using the memory and CPU.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This makes this code a mixed-bound job, but how mixed? Should we start with
+    file reads optimization or CPU time?
+  prefs: []
+  type: TYPE_NORMAL
+- en: The best way to find this out is the data-driven way. Let’s check both CPU and
+    off-CPU latency thanks to the full goroutine profile (`fgprof`) discussed in [“Off-CPU
+    Time”](ch09.html#ch-obs-pprof-latency). To collect it in the Go benchmark, I quickly
+    wrapped our benchmark from [Example 8-13](ch08.html#code-sum-go-bench3) with the
+    `fgprof` profile in [Example 10-2](#code-sum-go-bench-fgprof).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 10-2\. Go benchmark with `fgprof` profiling
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_optimization_examples_CO1-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: To get more reliable results, we have to measure for longer than five seconds.
+    Let’s measure for 60 seconds to be sure.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_optimization_examples_CO1-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: To reuse code and have better reliability, we can execute the same [Example 8-13](ch08.html#code-sum-go-bench3)
+    benchmark, just wrapped with the `fgprof` profile.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The resulting `fgprof.pprof` profile after 60 seconds is presented in [Figure 10-2](#img-opt-lat-v1-fgprof).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![efgo 1002](assets/efgo_1002.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 10-2\. Flame Graph view of [Example 4-1](ch04.html#code-sum) CPU and
+    off-CPU time with function granularity
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'The full goroutine profile confirms that our workload is a mix of I/O (5%^([3](ch10.html#idm45606823492960)))
+    and CPU time (majority). So while we have to worry about latency introduced by
+    file I/O at some point, we can optimize CPU time first. So let’s go ahead and
+    focus on the biggest bottleneck first: the `bytes.Split` function that takes almost
+    36% of the `Sum` CPU time, as seen in [Figure 10-1](#img-opt-lat-v1).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Optimize One Thing at a Time
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Thanks to [Figure 10-1](#img-opt-lat-v1), we found four main bottlenecks. However,
+    I have chosen to focus on the biggest one in our first optimization in [Example 10-3](#code-sum2).
+  prefs: []
+  type: TYPE_NORMAL
+- en: It is important to iterate one optimization at a time. It feels slower than
+    if we would try to optimize all we know about now, but in practice, it is more
+    effective. Each optimization might affect the other and introduce more unknowns.
+    We can draw more reliable conclusions, e.g., compare the contributions percentage
+    between profiles. Furthermore, why eliminate four bottlenecks if optimizing first
+    might be enough to match our requirements?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Optimizing bytes.Split
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'To figure out where the CPU time is spent in `bytes.Split`, we have to try
+    to understand what this function does and how. By [definition](https://oreil.ly/UqAg8),
+    it splits a large byte slice into smaller slices based on the potentially multicharacter
+    separator `sep`. Let’s quickly look at the [Figure 10-1](#img-opt-lat-v1) profile
+    and focus on that function using the `Refine` options. This would show [`bytes.Index`](https://oreil.ly/DQrCS),
+    and impact allocations and garbage collections with functions like `makeslice`
+    and `runtime.gcWriteBarrierDX`. Furthermore, we could quickly look into the Go
+    source code for the [`genSplit`](https://oreil.ly/pCMH1) used by `bytes.Split`
+    to check how it’s implemented. This should give us a few warning signals. There
+    might be things that `bytes.Split` does but might not be necessary for our case:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`genSplit` goes through the slices first [to count how many slices we expect](https://oreil.ly/Wq6F4)
+    to have.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`genSplit` allocates [a two-dimensional byte slice](https://oreil.ly/YzXdr)
+    to put the results in. This is scary because for a large 7.2 MB byte slice with
+    2 million lines, it will allocate a slice with 2 million elements. A memory profile
+    confirms that a lot of memory is allocated by this line.^([4](ch10.html#idm45606823466592))'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Then it will iterate two million times using the [`bytes.Index`](https://oreil.ly/8diMw)
+    function we saw in the profile. That is two million times we will go and gather
+    bytes until the next separator.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The separator in `bytes.Split` is a multicharacter, which requires a more complicated
+    algorithm. Yet we need a simple, single-line newline separator.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Unfortunately, such an analysis of the mature standard library functions might
+    be difficult for more beginner Go developers. What parts of this CPU time or memory
+    usage are excessive, and what aren’t?
+  prefs: []
+  type: TYPE_NORMAL
+- en: What always helps me to answer this question is to go back to the algorithm
+    design phase and try to design my own simplest splitting-lines algorithm tailored
+    for the `Sum` problem. When we understand what a simple, efficient algorithm could
+    look like and we are happy with it, we can then start challenging existing implementations.
+    It turns out there is a very simple flow that might work for [Example 4-1](ch04.html#code-sum).
+    Let’s go through it in [Example 10-3](#code-sum2).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 10-3\. `Sum2` is [Example 4-1](ch04.html#code-sum) with optimized CPU
+    bottleneck of `bytes.Split`
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_optimization_examples_CO2-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We record the index of the last seen newline, plus one, to tell where the next
+    line starts.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_optimization_examples_CO2-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Compared to `bytes.Split`, we can hardcode a new line as our separator. In one
+    loop iteration, while reusing the `b` byte slice, we can find the full line, parse
+    the integer, and perform the sum. This algorithm is also often called “in place.”
+  prefs: []
+  type: TYPE_NORMAL
+- en: Before we come to any conclusion, we have to first check if our new algorithm
+    works functionally. After successfully verifying it using the unit test, I ran
+    [Example 8-13](ch08.html#code-sum-go-bench3) with the `Sum2` function instead
+    of `Sum` to assess its efficiency. The results are optimistic, with 50 ms and
+    12.8 MB worth of allocations. Compared to `bytes.Split`, we could perform 50%
+    less work while using 78% less memory. Knowing that `bytes.Split` was responsible
+    for ~36% of CPU time and 78.6% of memory allocations, such an improvement tells
+    us we completely removed this bottleneck from our code!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Standard Functions Might Not Be Perfect for All Cases
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The preceding example of working optimization asks why the `bytes.Split` function
+    wasn’t optimal for us. Can’t the Go community optimize it?
+  prefs: []
+  type: TYPE_NORMAL
+- en: The answer is that `bytes.Split` and other standard or custom functions you
+    might import on the internet could be not as efficient as the tailored algorithm
+    for your requirements. Such a popular function has to be, first of all, reliable
+    for many edge cases that you might not have (e.g., multicharacter separator).
+    Those are often optimized for cases that might be more involved and complex than
+    our own.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It doesn’t mean we have to rewrite all imported functions now. No, we should
+    just be aware of the possibility of easy efficiency gains by providing a tailored
+    implementation for critical paths. Still, we should use known and battle-tested
+    code like a standard library. In most cases, it’s good enough!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Is our [Example 10-3](#code-sum2) optimization our final one? Not quite—while
+    we improved the throughput, we are at the 25 * *N* nanoseconds mark, still far
+    from our goal.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Optimizing runtime.slicebytetostring
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The CPU profile from the [Example 10-3](#code-sum2) benchmark should give us
+    a clue about the next bottleneck, shown in [Figure 10-3](#img-opt-lat-v2).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![efgo 1003](assets/efgo_1003.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 10-3\. Flame Graph view of [Example 10-3](#code-sum2) CPU time with function
+    granularity
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: As the next bottleneck, let’s take this odd `runtime.slicebytetostring` function
+    that spends most of its CPU time allocating memory. If we look for it in the Source
+    or Peek view, it points us to the `num, err := strconv.ParseInt(string(b[last:i]),
+    10, 64)` line in [Example 10-3](#code-sum2). Since this CPU time contribution
+    is not accounted for to `strconv.ParseInt` (a separate segment), it tells us that
+    it has to be executed before we invoke `strconv ParseInt`, yet in the same code
+    line. The only dynamically executed things are the `b` byte slice subslicing and
+    conversion to string. On further inspection, we can tell that the string conversion
+    is expensive here.^([5](ch10.html#idm45606823189696))
+  prefs: []
+  type: TYPE_NORMAL
+- en: What’s interesting is that [`string`](https://oreil.ly/7dv5w) is essentially
+    a special [`byte` slice](https://oreil.ly/fYwwq) with no `Cap` field (capacity
+    in `string` is always equal to length). As a result, at first it might be surprising
+    that the Go compiler spends so much time and memory on this. The reason is that
+    `string(<byte slice>)` is equivalent to creating a new byte slice with the same
+    number of elements, copying all bytes to a new byte, and then returning the string
+    from it. The main reason for copying is that, by design, [`string` type is immutable](https://oreil.ly/I4fER),
+    so every function can use it without worrying about potential races. There is,
+    however, a relatively safe way to convert `[]byte` to `string`. Let’s do that
+    in [Example 10-4](#code-sum3).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 10-4\. `Sum3` is [Example 10-3](#code-sum2) with optimized CPU bottleneck
+    of string conversion
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_optimization_examples_CO3-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can use the `unsafe` package to remove the type information from `b` and
+    form an `unsafe.Pointer`. Then we can dynamically cast this to different types,
+    e.g., `string`. It is unsafe because if the structures do not share the same layout,
+    we might have memory safety problems or nondeterministic values. Yet the layout
+    is shared between `[]byte` and `string`, so it’s safe for us. It is used in production
+    in many projects, including Prometheus, known as [`yoloString`](https://oreil.ly/QmqCn).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `zeroCopyToString` allows us to convert file bytes to string required by
+    `ParseInt` with almost no overhead. After functional tests, we can confirm this
+    by using the same benchmark with the `Sum3` function again. The benefit is clear—`Sum3`
+    takes 25.5 ms for 2 million integers and 7.2 MB of allocated space. This means
+    it is 49.2% faster than [Example 10-3](#code-sum2) when it comes to CPU time.
+    The memory usage is also better, with our program allocating almost precisely
+    the size of the input file—no more, no less.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Deliberate Trade-offs
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: With unsafe, no-copy bytes to string conversion, we enter a deliberate optimization
+    area. We introduced potentially unsafe code and added more nontrivial complexity
+    to our code. While we clearly named our function `zeroCopyToString`, we have to
+    justify and use such optimization only if necessary. In our case, it helps us
+    reach our efficiency goals, so we can accept these drawbacks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Are we fast enough? Not yet. We are almost there with 12.7 * *N* nanoseconds
+    throughput. Let’s see if we can optimize something more.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Optimizing strconv.Parse
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Again, let’s look at the newest CPU profile from the [Example 10-4](#code-sum3)
+    benchmark to see the latest bottleneck we could try to check, as shown in [Figure 10-4](#img-opt-lat-v3).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![efgo 1004](assets/efgo_1004.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 10-4\. Flame Graph view of [Example 10-4](#code-sum3) CPU time with function
+    granularity
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'With `strconv.Parse` using 72.6%, we can gain a lot if we can improve its CPU
+    time. Similar to `bytes.Split`, we should check its profile and [implementation](https://oreil.ly/owR53).
+    Following both paths, we can immediately outline a couple of elements that feel
+    like excessive work:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We check for an empty string twice, in [`ParseInt`](https://oreil.ly/gqJpb)
+    and [`ParseUint`](https://oreil.ly/BB9Ie). Both are visible as nontrivial CPU
+    time used in our profile.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`ParseInt` allows us to parse to integers with different bases and bit sizes.
+    We don’t need this generic functionality or extra input to check our `Sum3` code.
+    We only care about 64-bit integers of base 10.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'One solution here is similar to `bytes.Split`: finding or implementing our
+    own `ParseInt` function that focuses on efficiency—does what we need and nothing
+    more. The standard library offers the [`strconv.Atoi` function](https://oreil.ly/CpZeF),
+    which looks promising. However, it still requires strings as input, which forces
+    us to use unsafe package code. Instead, let’s try to come up with our own quick
+    implementation. After a few iterations of testing and microbenchmarking my new
+    `ParseInt` function,^([6](ch10.html#idm45606822879264)) we can come up with the
+    fourth iteration of our sum functionality, presented in [Example 10-5](#code-sum4).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 10-5\. `Sum4` is [Example 10-4](#code-sum3) with optimized CPU bottleneck
+    of string conversion
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: The side effect of our integer parsing optimization is that we can tailor our
+    `ParseInt` to parse from a byte slice, not a string. As a result, we can simplify
+    our code and avoid unsafe `zeroCopyToString` conversion. After tests and benchmarks,
+    we see that `Sum4` achieves 13.6 ms, 46.66% less than [Example 10-4](#code-sum3),
+    with the same memory allocations. The full comparison of our sum functions is
+    presented in [Example 10-6](#code-sum-go-bench-benchstat-v4) using our beloved
+    `benchstat` tool.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 10-6\. Running `benchstat` on the results from all four iterations with
+    a two million line file
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_optimization_examples_CO4-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Notice that `benchstat` can round some numbers for easier comparison with the
+    large number from *v1.txt*. The *v4.txt* result is 13.6 ms, not 14 ms, which can
+    make a difference in throughput calculations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It seems like our hard work paid off. With the current results, we achieved
+    6.9 * *N* nanoseconds throughput, which is more than enough to fulfill our first
+    goal. However, we only checked it with two million integers. Are we sure the same
+    throughput can be maintained with larger or smaller input sizes? Our Big O runtime
+    complexity O(*N*) would suggest so, but I ran the same benchmark with 10 million
+    integers just in case. The 67.8 ms result gives the 6.78 * *N* nanoseconds throughput.
+    This more or less confirms our throughput number.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The code in [Example 10-5](#code-sum4) is not the fastest or most memory-efficient
+    solution possible. There might be more optimizations to the algorithm or code
+    to improve things further. For example, if we profile [Example 10-5](#code-sum4),
+    we would see a relatively new segment, indicating 14% of total CPU time used.
+    It’s `os.ReadFile` code that wasn’t so visible on past profiles, given other bottlenecks
+    and something we didn’t touch with our optimizations. We will mention its potential
+    optimization in [“Pre-Allocate If You Can”](ch11.html#ch-basic-prealloc). We could
+    also try concurrency (which we will do in [“Optimizing Latency Using Concurrency”](#ch-opt-latency-concurrency-example)).
+    However, with one CPU, we cannot expect a lot of gains here.
+  prefs: []
+  type: TYPE_NORMAL
+- en: What’s important is that there is no need to improve anything else in this iteration,
+    as we achieved our goal. We can stop the work and claim success! Fortunately,
+    we did not need to add magic or dangerous nonportable tricks to our optimization
+    flow. Only readable and easier deliberate optimizations were required.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Optimizing Memory Usage
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In the second scenario, our goal is focused on memory consumption while maintaining
+    the same throughput. Imagine we have a new business customer for our software
+    with `Sum` functionality that needs to run on an IoT device with little RAM available
+    for this program. As a result, the requirement is to have a streaming algorithm:
+    no matter the input size, it can only use 10 KB of heap memory in a single moment.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Such a requirement might look extreme at first glance, given the naive code
+    in [Example 4-1](ch04.html#code-sum) has a quite large space complexity. If a
+    10 million line, 36 MB file requires 304 MB of heap memory for [Example 4-1](ch04.html#code-sum),
+    how can we ensure the same file (or bigger!) can take a maximum of 10 KB of memory?
+    Before we start to worry, let’s analyze what we can do on this subject.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Fortunately, we already did some optimization work that improved memory allocations
+    as a side effect. Since the latency goal still applies, let’s start with `Sum4`
+    in [Example 10-5](#code-sum4), which fulfills that. The space complexity of `Sum4`
+    seems to be around O(*N*). It still depends on the input size and is far from
+    our 10 KB goal.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Moving to Streaming Algorithm
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Let’s pull up the heap profile from the `Sum4` benchmark in [Figure 10-5](#img-opt-mem-v4)
+    to figure out what we can improve.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![efgo 1005](assets/efgo_1005.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 10-5\. Flame Graph view of [Example 10-5](#code-sum4) heap allocations
+    with function granularity (`alloc_space`)
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The memory profile is very boring. The first line allocates 99.6% of memory
+    in [Example 10-5](#code-sum4). We essentially read the whole file into memory
+    so we can iterate over the bytes in memory. Even if we waste some allocation elsewhere,
+    we can’t see it because of excessive allocation from `os.ReadFile`. Is there anything
+    we can do about that?
+  prefs: []
+  type: TYPE_NORMAL
+- en: During our algorithm, we must go through all the bytes in the file; thus, we
+    have to read all bytes eventually. However, we don’t need to read all of them
+    to memory at the same time. Technically, we only need a byte slice big enough
+    to hold all digits for an integer to be parsed. This means we can try to design
+    [the external memory algorithm](https://oreil.ly/Dr3MB) to stream bytes in chunks.
+    We can try using the existing bytes scanner from the standard library—the [`bufio.Scanner`](https://oreil.ly/CqiG7).
+    For example, `Sum5` in the [Example 10-7](#code-sum5) implementation uses it to
+    scan enough memory to read and parse a line.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 10-7\. `Sum5` is [Example 10-5](#code-sum4) with `bufio.Scanner`
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_optimization_examples_CO5-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Instead of reading the whole file into memory, we open the file descriptor here.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_optimization_examples_CO5-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We have to make sure the file is closed after the computation so as not to leak
+    resources. We use `errcapture` to get notified about potential errors in the deferred
+    file `Close`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_optimization_examples_CO5-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The scanner `.Scan()` method tells us if we hit the end of the file. It returns
+    true if we still have bytes to result in splitting. The split is based on the
+    provided function in the `.Split` method. By default, [`ScanLines`](https://oreil.ly/YUpLU)
+    is what we want.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_optimization_examples_CO5-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Don’t forget to check the scanner error! With such iterator interfaces, it’s
+    very easy to forget to check its error.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To assess efficiency, now focusing more on memory, we can use the same [Example 8-13](ch08.html#code-sum-go-bench3)
+    with `Sum5`. However, given our past optimizations, we’ve moved dangerously close
+    to what can be reasonably measured within the accuracy and overhead of our tools
+    for input files on the order of a million lines. If we got into microsecond latencies,
+    our measurements might be skewed, given limits in the instrumentation accuracy
+    and benchmarking tool overheads. So let’s increase the file to 10 million lines.
+    The benchmarked `Sum4` in [Example 10-5](#code-sum4) for that input results in
+    67.8 ms and 36 MB of memory allocated per operation. The `Sum5` with the scanner
+    outputs 157.1 ms and 4.33 KB per operation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In terms of memory usage, this is great. If we look at the implementation, the
+    scanner [allocates an initial 4 KB](https://oreil.ly/jbpJc) and uses it for reading
+    the line. It increases this if needed when the line is longer, but our file doesn’t
+    have numbers longer than 10 digits, so it stays at 4 KB. Unfortunately, the scanner
+    isn’t fast enough for our latency requirement. With a 131% slowdown to `Sum4`,
+    we hit 15.6 * *N* nanoseconds latency, which is too slow. We have to optimize
+    latency again, knowing we still have around 6 KB to allocate to stay within the
+    10 KB memory goal.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Optimizing bufio.Scanner
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: What can we improve? As usual, it’s time to check the source code and profile
+    of [Example 10-7](#code-sum5) in [Figure 10-6](#img-opt-lat-v5).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![efgo 1006](assets/efgo_1006.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 10-6\. Graph view of [Example 10-7](#code-sum5) CPU time with function
+    granularity
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The commentary on the `Scanner` structure in the standard library gives us a
+    hint. It tells us that “[`Scanner` is for safe, simple jobs”](https://oreil.ly/6eXZE).
+    The `ScanLines` is the main bottleneck here, and we can swap the implementation
+    with a more efficient one. For example, the original function removes [carriage
+    return (CR) control characters](https://oreil.ly/wwUbC), which wastes cycles for
+    us as our input does not have them. I managed to provide optimized `ScanLines`,
+    which improves the latency by 20.5% to 125 ms, which is still too slow.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Similar to previous optimizations, it might be worth writing a custom streamed
+    scanning implementation instead of `bufio.Scanner`. The `Sum6` in [Example 10-8](#code-sum6)
+    presents a potential solution.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 10-8\. `Sum6` is [Example 10-5](#code-sum4) with buffered read
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_optimization_examples_CO6-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We create a single 8 KB buffer of bytes we will use for reading. I chose 8 KB
+    and not 10 KB to leave some headroom within our 10 KB limit. The 8 KB also feels
+    like a great number given the OS page is 4 KB, so we know it will need only 2
+    pages.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This buffer assumes that no integer is larger than ~8,000 digits. We can make
+    it much smaller, even down to 10, as we know our input file does not have numbers
+    with more than 9 digits (plus the newline). However, this would make the algorithm
+    much slower due to the certain waste explained in the next steps. Additionally,
+    even without waste reading, 8 KB is faster than reading 8 bytes 1,024 times due
+    to overhead.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_optimization_examples_CO6-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: This time, let’s separate functionality behind the convenient `io.Reader` interface.
+    This will allow us to reuse `Sum6Reader` in the future.^([7](ch10.html#idm45606821709296))
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_optimization_examples_CO6-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In each iteration, we read the next 8 KB, minus `offset` bytes from a file.
+    We start reading more file bytes after `offset` bytes to leave potential room
+    for digits we didn’t parse yet. This can happen if we read bytes that split some
+    numbers into parts, e.g., we read `...\n12` and `34/n...` in two different chunks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_optimization_examples_CO6-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the error handling, we excluded the `io.EOF` sentinel error, which indicated
+    we hit the end of the file. That’s not an error for us—we still want to process
+    the remaining bytes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_optimization_examples_CO6-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The number of bytes we have to process from the buffer is exactly `n + offset`,
+    where `n` is the number of bytes read from a file. The end of file `n` can be
+    smaller than what we asked for (length of the `buf`).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![6](assets/6.png)](#co_optimization_examples_CO6-6)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We iterate over `n` bytes in the `buf` buffer.^([8](ch10.html#idm45606821736720))
+    Notice that we don’t iterate over the whole slice because in an `err == io.EOF`
+    situation, we might read less than 10 KB of bytes, so we need to process only
+    `n` of them. We process all lines found in our 10 KB buffer in each loop iteration.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![7](assets/7.png)](#co_optimization_examples_CO6-7)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We calculate `offset`, and if there is a need for one, we shift the remaining
+    bytes to the front. This creates a small waste in CPU, but we don’t allocate anything
+    additional. Benchmarks will tell us if this is fine or not.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Our `Sum6` code got a bit bigger and more complex, so hopefully, it gives good
+    efficiency results to justify the complexity. Indeed, after the benchmark, we
+    see it takes 69 ms and 8.34 KB. Just in case, let’s put [Example 10-8](#code-sum6)
+    to the extra test by computing an even larger file—100 million lines. With bigger
+    input, `Sum6` yields 693 ms and around 8 KB. This gives us a 6.9 * *N* nanoseconds
+    latency (runtime complexity) and space (heap) complexity of ~8 KB, which satisfies
+    our goal.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Careful readers might still be wondering if I didn’t miss anything. Why is space
+    complexity 8 KB, not 8 + *x* KB? There are some additional bytes allocated for
+    10 million line files and even more bytes for larger ones. How do we know that
+    at some point for a hundred-times larger file, the memory allocation would not
+    exceed 10 KB?
+  prefs: []
+  type: TYPE_NORMAL
+- en: If we are very strict and tight on that 10 KB allocation goal, we can try to
+    figure out what happens. The most important thing is to validate that there is
+    nothing that grows allocation with the file size. This time the memory profile
+    is also invaluable, but to understand things fully, let’s ensure we record all
+    allocations by adding `runtime.MemProfileRate = 1` in our `BenchmarkSum` benchmark.
+    The resulting profile is presented in [Figure 10-7](#img-opt-mem-v6).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![efgo 1007](assets/efgo_1007.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 10-7\. Flame Graph view of [Example 10-8](#code-sum6) memory with function
+    granularity and profile rate 1
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: We can see more allocations from the `pprof` package than our function. This
+    indicates a relatively large allocation overhead by the profiling itself! Still,
+    it does not prove that `Sum` does not allocate anything else on the heap than
+    our 8 KB buffer. The Source view turns out to be helpful, presented in [Figure 10-8](#img-opt-mem-source-v6).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![efgo 1008](assets/efgo_1008.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 10-8\. Source view of [Example 10-8](#code-sum6) memory with profile
+    rate 1 after benchmark with 1,000 iterations and 10 MB input file
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: It shows that `Sum6` has only one heap allocation point. We can also benchmark
+    without CPU profiling, which now gives stable 8,328 heap allocated bytes for any
+    input size.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Success! Our goal is met, and we can move to the last task. The overview of
+    each iteration’s achieved result is shown in [Example 10-9](#code-sum-go-bench-benchstat-v6).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 10-9\. Running `benchstat` on the results from all 3 iterations with
+    a 10 million line file
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: Optimizing Latency Using Concurrency
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Hopefully, you are ready for the last challenge: getting our latency down even
+    more to the 2.5 nanoseconds per line level. This time we have four CPU cores available,
+    so we can try introducing some concurrency patterns to achieve it.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In [“When to Use Concurrency”](ch04.html#ch-hw-concurrency-when), we mentioned
+    the clear need for concurrency to employ asynchronous programming or event handling
+    in our code. We talked about relatively easy gains where our Go program does a
+    lot of I/O operations. However, in this section, I would love to show you how
+    to improve the speed of our `Sum` in the [Example 4-1](ch04.html#code-sum) code
+    using concurrency with two typical pitfalls. Because of the tight latency requirement,
+    let’s take an already optimized version of `Sum`. Given we don’t have any memory
+    requirements, and `Sum4` in [Example 10-5](#code-sum4) is only a little slower
+    than `Sum6`, yet has a smaller amount of lines, let’s take that as a start.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A Naive Concurrency
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: As usual, let’s pull out the [Example 10-5](#code-sum4) CPU profile, shown in
+    [Figure 10-9](#img-opt-lat-v4).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![efgo 1009](assets/efgo_1009.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 10-9\. Graph view of [Example 10-5](#code-sum4) CPU time with function
+    granularity
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: As you might have noticed, most of [Example 10-5](#code-sum4) CPU time comes
+    from `ParseInt` (47.7%). Since we’re back to reading the whole file at the beginning
+    of the program, the rest of the program is strictly CPU bound. As a result, with
+    only one CPU we couldn’t expect better latency with [the concurrency](https://oreil.ly/rsLff).
+    However, given that within this task we have four CPU cores available, our task
+    now is to find a way to evenly split the work of parsing the file’s contents with
+    as little coordination^([9](ch10.html#idm45606821549792)) between goroutines as
+    possible. Let’s explore three example approaches to optimize [Example 10-5](#code-sum4)
+    with concurrency.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The first thing we have to do is find computations we can do independently at
+    the same time—computations that do not affect each other. Because the sum is commutative,
+    it does not matter in what order numbers are added. The naive, concurrent implementation
+    could parse the integer from the string and add the result atomically to the shared
+    variable. Let’s explore this rather simple solution in [Example 10-10](#code-sum-concurrent1).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 10-10\. Naive concurrent optimization to [Example 10-5](#code-sum4)
+    that spins a new goroutine for each line to compute
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: After the successful functional test, it’s time for benchmarking. Similar to
+    previous steps, we can reuse the same [Example 8-13](ch08.html#code-sum-go-bench3)
+    by simply replacing `Sum` with `ConcurrentSum1`. I also changed the `-cpu` flag
+    to 4 to unlock the four CPU cores. Unfortunately, the results are not very promising—for
+    a 2 million line input, it takes about 540 ms and 151 MB of allocated space per
+    operation! Almost 40 times more time than the simpler, noncurrent [Example 10-5](#code-sum4).
+  prefs: []
+  type: TYPE_NORMAL
+- en: A Worker Approach with Distribution
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Let’s check the CPU profile in [Figure 10-10](#img-opt-lat-vc1) to learn why.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![efgo 1010](assets/efgo_1010.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 10-10\. Flame Graph view of [Example 10-10](#code-sum-concurrent1) CPU
+    time with function granularity
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'The Flame Graph clearly shows the goroutine creation and scheduling overhead
+    indicated by blocks called `runtime.schedule` and `runtime.newproc`. There are
+    three main reasons why [Example 10-10](#code-sum-concurrent1) is too naive and
+    not recommended for our case:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The concurrent work (parsing and adding) is too fast to justify the goroutine
+    overhead (both in memory and CPU usage).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: For larger datasets, we create potentially millions of goroutines. While goroutines
+    are relatively cheap and we can have hundreds of them, there is always a limit,
+    given only four CPU cores to execute. So you can imagine the delay of the scheduler
+    that tries to fairly schedule millions of goroutines on four CPU cores.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Our program will have a nondeterministic performance depending on the number
+    of lines in the file. We can potentially hit a problem of unbounded concurrency
+    since we will spam as many goroutines as the external file has lines (something
+    outside our program control).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: That is not what we want, so let’s improve our concurrent implementation. There
+    are many ways we could go from here, but let’s try to address all three problems
+    we notice. We can solve problem number one by assigning more work to each goroutine.
+    We can do that thanks to the fact that addition is also associative and cumulative.
+    We can essentially group work into multiple lines, parse and add numbers in each
+    goroutine, and add partial results to the total sum. Doing that automatically
+    helps with problem number two. Grouping work means we will schedule fewer goroutines.
+    The question is, what is the best number of lines in a group? Two? Four? A hundred?
+  prefs: []
+  type: TYPE_NORMAL
+- en: The answer most likely depends on the number of goroutines we want in our process
+    and the number of CPUs available. There is also problem number three—unbounded
+    concurrency. The typical solution here is to use a worker pattern (sometimes called
+    goroutine pooling). In this pattern, we agree on a number of goroutines up front,
+    and we schedule all of them at once. Then we can create another goroutine that
+    will distribute the work evenly. Let’s see an example implementation of that algorithm
+    in [Example 10-11](#code-sum-concurrent2). Can you predict if this implementation
+    will be faster?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 10-11\. Concurrent optimization of [Example 10-5](#code-sum4) that maintains
+    a finite set of goroutines that computes a group of lines. Lines are distributed
+    using another goroutine.
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_optimization_examples_CO7-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Remember, the sender is usually responsible for the closing channel. Even if
+    our flow does not depend on it, it’s a good practice to always close channels
+    after use.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_optimization_examples_CO7-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Beware of common mistakes. The `for _, line := range <-workCh` would sometimes
+    compile as well, and it looks logical, but it’s wrong. It will wait for the first
+    message from the `workCh` channel and iterate over single bytes from the received
+    byte slice. Instead, we want to iterate over messages.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tests pass, so we can start benchmarking. Unfortunately, on average, this implementation
+    with 4 goroutines takes 207 ms to complete a single operation (using 7 MB of space).
+    Still, this is 15 times slower than simpler, sequential [Example 10-5](#code-sum4).
+  prefs: []
+  type: TYPE_NORMAL
+- en: A Worker Approach Without Coordination (Sharding)
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: What’s wrong this time? Let’s investigate the CPU profile presented in [Figure 10-11](#img-opt-lat-vc2).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![efgo 1011](assets/efgo_1011.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 10-11\. Flame Graph view of [Example 10-11](#code-sum-concurrent2) CPU
+    time with function granularity
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'If you see a profile like this, it should immediately tell you that the concurrency
+    overhead is again too large. We still don’t see the actual work, like parsing
+    integers, since this work has outnumbered the overhead. This time the overhead
+    is caused by three elements:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`runtime.schedule`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The runtime code responsible for scheduling goroutines.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`runtime.chansend`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In our case, waiting on the lock to send to our single channel.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`runtime.chanrecv`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The same as `chansend` but waiting on a read from the receive channel.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As a result, parsing and additions are faster than the communication overhead.
+    Essentially, coordination and distribution of the work take more CPU resources
+    than the work itself.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We have multiple options for improvement here. In our case, we can try to remove
+    the effort of distributing the work. We can accomplish this via a coordination-free
+    algorithm that will shard (split) the workload evenly across all goroutines. It’s
+    coordination free because there is no communication to agree on which part of
+    the work is assigned to each goroutine. We can do that thanks to the fact that
+    the file size is known up front, so we can use some sort of heuristic to assign
+    each part of the file with multiple lines to each goroutine worker. Let’s see
+    how this could be implemented in [Example 10-12](#code-sum-concurrent3).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 10-12\. Concurrent optimization of [Example 10-5](#code-sum4) that maintains
+    a finite set of goroutines that computes groups of lines. Lines are sharded without
+    coordination.
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_optimization_examples_CO8-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`shardedRange` is not supplied for clarity. This function takes the size of
+    the input file and splits into `bytesPerWorker` shards (four in our case). Then
+    it gives each worker the `i`-th shard. You can see the full code [here](https://oreil.ly/By9wO).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tests pass too, so we confirmed that [Example 10-12](#code-sum-concurrent3)
+    is functionally correct. But is it faster? Yes! The benchmark shows 7 ms and 7
+    MB per operation, which is almost twice as fast as sequential [Example 10-5](#code-sum4).
+    Unfortunately, this puts us in 3.4 * *N* nanoseconds throughput, which is failing
+    our goal of 2.5 * *N*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A Streamed, Sharded Worker Approach
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Let’s profile in [Figure 10-12](#img-opt-lat-vc3) one more time to check if
+    we can improve anything easily.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The CPU profile shows that the work done by our goroutines takes the most CPU
+    time. However, ~10% of CPU time is spent reading all bytes, which we can also
+    try to do concurrently. This effort does not look promising at first glance. However,
+    even if we would remove all 10% of the CPU time, 10% better throughput gives us
+    only the 3.1 * *N* nanoseconds number, so not enough.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![efgo 1012](assets/efgo_1012.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 10-12\. Flame Graph view of [Example 10-12](#code-sum-concurrent3) CPU
+    time with function granularity
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: This is where we have to be vigilant, though. As you can imagine, reading files
+    is not a CPU-bound job, so perhaps the actual real time spend on that 10% of CPU
+    time makes `os.ReadFile` a bigger bottleneck, thus a better option for us to optimize.
+    As in [“Optimizing Latency”](#ch-opt-latency-example), let’s perform a benchmark
+    wrapped with the `fgprof` profile! The resulting full goroutine profile is presented
+    in [Figure 10-13](#img-opt-fgprof-vc3).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![efgo 1013](assets/efgo_1013.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 10-13\. Flame Graph view of [Example 10-12](#code-sum-concurrent3) full
+    goroutine profile with function granularity
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The `fgprof` profile shows that a lot can be gained in latency if we try to
+    read files concurrently, as it currently takes around 50% of the real time! This
+    is way more promising, so let’s try to move file reads to worker goroutines. The
+    example implementation is shown in [Example 10-13](#code-sum-concurrent4).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 10-13\. Concurrent optimization of [Example 10-12](#code-sum-concurrent3)
+    that also reads from a file concurrently using separate buffers
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_optimization_examples_CO9-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Instead of splitting the bytes from the input file in memory, we tell each goroutine
+    what bytes from the file it can read. We can do this thanks to the [`SectionReader`](https://oreil.ly/j4cQd),
+    which returns a reader that only allows reading from a particular section. There
+    is a small complexity in [`shardedRangeFrom​Rea⁠derAt`](https://oreil.ly/PwNty)
+    to make sure we read all lines (we don’t know where the newlines in a file are),
+    but it can be done in the relatively easy algorithm presented here.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_optimization_examples_CO9-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can reuse [Example 10-8](#code-sum6) for this job as it knows how to use
+    any `io.Reader` implementation, so in our example, both `*os.File` and `*io.SectionReader`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s assess the efficiency of that code. Finally, after all this work, [Example 10-13](#code-sum-concurrent4)
+    yields an astonishing 4.5 ms per operation for 2 million lines, and 23 ms for
+    10 million lines. This takes us into ~2.3 * *N* nanosecond throughput, which satisfies
+    our goal! A full comparison of latencies and memory allocations for successful
+    iterations is presented in [Example 10-14](#code-sum-go-bench-benchstat-vc4).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 10-14\. Running `benchstat` on the results from all four iterations
+    with a two million line file
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: To summarize, we went through three exercises showcasing the optimization flow
+    focused on different goals. I also have some possible concurrency patterns that
+    allow utilizing our multicore machines. Generally, I hope you saw how critical
+    benchmarking and profiling were throughout this journey! Sometimes the results
+    might surprise you, so always seek confirmation of your ideas.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There is, however, another way to solve those exercises in an innovative way
+    that might work for certain use cases. Sometimes it allows us to avoid the huge
+    optimization effort we did in the past three sections. Let’s take a look!
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Bonus: Thinking Out of the Box'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Given the challenging goals we set in this chapter, I spent a lot of time optimizing
+    and explaining optimization for the naive `Sum` implementation in [Example 4-1](ch04.html#code-sum).
+    This showed you some optimization ideas, practices, and generally a mental model
+    I use during optimization efforts. But hard optimization work is not always an
+    answer—there are numerous ways to reach our goals.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For example, what if I told you there is a way to get amortized runtime complexity
+    of a few nanoseconds and zero allocations (and just four more code lines)? Let’s
+    see [Example 10-15](#code-sum7).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 10-15\. Adding simplest caching to [Example 4-1](ch04.html#code-sum)
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_optimization_examples_CO10-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`sumByFile` represents the simplest storage for cache. There are tons of more
+    production read-caching implementations you can consider as well. We can write
+    our own that will be goroutine safe. If we need more involved eviction policies,
+    I would recommend [HashiCorp’s golang-lru](https://oreil.ly/nnYoM) and the even
+    more optimized [Dgraph’s ristretto](https://oreil.ly/QNshi). For distributed systems,
+    you should use distributed caching services like [Memcached](https://oreil.ly/fudbQ),
+    [Redis](https://oreil.ly/1ovP1), or peer-to-peer caching solutions like [groupcache](https://oreil.ly/vJONo).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The functional test passes, and the benchmarks show amazing results—for 100
+    million line files, we see 228 ns and 0 bytes allocated! This example is, of course,
+    a very trivial one. It’s unlikely our optimization journey is always as easy as
+    that. Simple caching is limited and can’t be used if the file input constantly
+    changes. But what if we can?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Think smart, not hard. It might be the case that we don’t need to optimize [Example 4-1](ch04.html#code-sum)
+    because the same input files are constantly used. Caching a single sum value for
+    each file is cheap—even if we would have a million of those files, we can cache
+    all using a few megabytes. If that’s not the case, perhaps the file content often
+    repeats, but the filename is unique. In that case, we could calculate the checksum
+    of the file and cache based on that. It would be faster than parsing all lines
+    into integers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Focus on the goal and be smart and innovative. For example, a hard, week-long,
+    deep optimization effort might not be worth it if there is some smart solution
+    that avoids that work!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We did it! We optimized the initial naive implementation of [Example 4-1](ch04.html#code-sum)
+    using the TFBO flow from [“Efficiency-Aware Development Flow”](ch03.html#ch-conq-eff-flow).
+    Guided by the requirements, we managed to improve the `Sum` code significantly:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We improved the runtime complexity from around 50.5 * *N* nanoseconds (where
+    N is a number of lines) to 2.25 * *N*. This means around 22 times faster latency,
+    even though both naive and most optimized algorithms are linear (we optimized
+    O(*N*) constants).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We improved the space complexity from around 30.4 * *N* bytes to 8 KB, which
+    means our code had O(*N*) asymptotic complexity but now has constant space complexity.
+    This means the new `Sum` code will be much more predictable for the users and
+    more friendly for the garbage collector.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: To sum up, sometimes efficiency problems require a long and careful optimization
+    process, as we did for `Sum`. On the other hand, sometimes, you can find quick
+    and pragmatic optimization ideas that fulfill your goals quickly. Nevertheless,
+    we all learned a lot from the exercises in this chapter (including me!).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s move to the last chapter of this book, where we will summarize some learning
+    and patterns we saw during our exercises in this chapter, and what I have seen
+    in the community from my experience.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([1](ch10.html#idm45606823780656-marker)) For example, I already know about
+    a [`strconv.ParseInt` optimization](https://oreil.ly/IZxm7) coming to Go 1.20,
+    which would change the memory efficiency of the naive [Example 4-1](ch04.html#code-sum)
+    without any optimization from my side.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([2](ch10.html#idm45606823764528-marker)) If you are interested in what input
+    files I used, see [the code I used](https://oreil.ly/0SMxA) for generating the
+    input.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([3](ch10.html#idm45606823492960-marker)) There is a small segment in [Figure 10-2](#img-opt-lat-v1-fgprof)
+    that shows `ioutil.ReadFile` latency with 0.38% of all samples. When we unfold
+    the `ReadFile`, the `syscall.Read` (which we could assume is an I/O latency) takes
+    0.25%, given the `sum.BenchmarkSum_fgprof` contributes to 4.67% of overall wall
+    time (the rest is taken by benchmarking and CPU profiling). The (0.25 * 100%)/4.67
+    is equal to 5.4%.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([4](ch10.html#idm45606823466592-marker)) We can further inspect that using
+    [“Heap”](ch09.html#ch-obs-pprof-heap) profile, which would in my tests show us
+    that 78.6% of the total 60.8 MB of allocation per operation is taken by `bytes.Split`!
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([5](ch10.html#idm45606823189696-marker)) We can deduce that from the `runtime.slicebytetostring`
+    function name in the profile. We can also split this line into three lines (string
+    conversion in one, subslicing in the second, and invoking the parsing function
+    in the third) and profile again to be sure.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([6](ch10.html#idm45606822879264-marker)) In benchmarks, I also found that
+    my `ParseInt` is also faster by 10% to `strconv.Atoi` for the `Sum` test data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([7](ch10.html#idm45606821709296-marker)) Interestingly enough, just adding
+    a new function call and interface slows down the program by 7% per operation on
+    my machine, proving that we are on a very high efficiency level already. However,
+    given reusability, perhaps we can afford that slowdown.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([8](ch10.html#idm45606821736720-marker)) As an interesting fact, if we replace
+    this line with a technically simpler loop like `for i := 0; i < n; i++ {`, the
+    code is 5% slower! Don’t take it as a rule (always measure!), as it probably depends
+    on your workload, but it’s interesting to see the `range` loop (without a second
+    argument) be more efficient here.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([9](ch10.html#idm45606821549792-marker)) We discussed synchronization primitives
+    in [“Go Runtime Scheduler”](ch04.html#ch-hw-concurrency).
+  prefs: []
+  type: TYPE_NORMAL

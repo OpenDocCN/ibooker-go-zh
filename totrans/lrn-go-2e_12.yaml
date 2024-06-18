@@ -1,0 +1,1347 @@
+- en: Chapter 12\. Concurrency in Go
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '*Concurrency* is the computer science term for breaking up a single process
+    into independent components and specifying how these components safely share data.
+    Most languages provide concurrency via a library using operating system–level
+    threads that share data by attempting to acquire locks. Go is different. Its main
+    concurrency model, arguably Go’s most famous feature, is based on Communicating
+    Sequential Processes (CSP). This style for concurrency was described in 1978 in
+    a [paper by Tony Hoare](https://oreil.ly/x1IVG), the man who invented the Quicksort
+    algorithm. The patterns implemented with CSP are just as powerful as the standard
+    ones but are far easier to understand.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this chapter, you are going to quickly review the features that are the
+    backbone of concurrency in Go: goroutines, channels, and the `select` keyword.
+    Then you are going to look at some common Go concurrency patterns and learn about
+    the situations where lower-level techniques are a better approach.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: When to Use Concurrency
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Let’s start with a word of caution. Be sure that your program benefits from
+    concurrency. When new Go developers start experimenting with concurrency, they
+    tend to go through a series of stages:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is *amazing*; I’m going to put everything in goroutines!
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: My program isn’t any faster. I’m adding buffers to my channels.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: My channels are blocking and I’m getting deadlocks. I’m going to use buffered
+    channels with *really* big buffers.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: My channels are still blocking. I’m going to use mutexes.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Forget it, I’m giving up on concurrency.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: People are attracted to concurrency because they believe concurrent programs
+    run faster. Unfortunately, that’s not always the case. More concurrency doesn’t
+    automatically make things faster, and it can make code harder to understand. The
+    key is understanding that *concurrency is not parallelism*. Concurrency is a tool
+    to better structure the problem you are trying to solve.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Whether concurrent code runs in parallel (at the same time) depends on the hardware
+    and whether the algorithm allows it. In 1967, Gene Amdahl, one of the pioneers
+    of computer science, derived Amdahl’s law. It is a formula for figuring out how
+    much parallel processing can improve performance, given how much of the work must
+    be performed sequentially. If you want to dive into the details on Amdahl’s law,
+    you can learn more in [*The Art of Concurrency*](https://oreil.ly/HaZQ8) by Clay
+    Breshears (O’Reilly). For our purposes, all you need to understand is that more
+    concurrency does not mean more speed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Broadly speaking, all programs follow the same three-step process: they take
+    data, transform it, and then output the result. Whether you should use concurrency
+    in your program depends on how data flows through the steps in your program. Sometimes
+    two steps can be concurrent because the data from one is not required for the
+    other to proceed, and at other times two steps must happen in series because one
+    depends on the other’s output. Use concurrency when you want to combine data from
+    multiple operations that can operate independently.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another important thing to note is that concurrency isn’t worth using if the
+    process that’s running concurrently doesn’t take a lot of time. Concurrency isn’t
+    free; many common in-memory algorithms are so fast that the overhead of passing
+    values via concurrency overwhelms any potential time savings you’d gain by running
+    concurrent code in parallel. This is why concurrent operations are often used
+    for I/O; reading or writing to a disk or network is thousands of times slower
+    than all but the most complicated in-memory processes. If you are not sure if
+    concurrency will help, first write your code serially and then write a benchmark
+    to compare performance with a concurrent implementation. (See [“Using Benchmarks”](ch15.html#benchmarking)
+    for information on how to benchmark your code.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s consider an example. Say you are writing a web service that calls three
+    other web services. Your program sends data to two of those services, and then
+    takes the results of those two calls and sends them to the third, returning the
+    result. The entire process must take less than 50 milliseconds, or an error should
+    be returned. This is a good use of concurrency, because there are parts of the
+    code that need to perform I/O that can run without interacting with one another,
+    there’s a part where the results are combined, and there’s a limit on how long
+    the code needs to run. At the end of this chapter, you’ll see how to implement
+    this code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Goroutines
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The goroutine is the core concept in Go’s concurrency model. To understand goroutines,
+    let’s define a couple of terms. The first is *process*. A process is an instance
+    of a program that’s being run by a computer’s operating system. The operating
+    system associates some resources, such as memory, with the process and makes sure
+    that other processes can’t access them. A process is composed of one or more *threads*.
+    A thread is a unit of execution that is given some time to run by the operating
+    system. Threads within a process share access to resources. A CPU can execute
+    instructions from one or more threads at the same time, depending on the number
+    of cores. One of the jobs of an operating system is to schedule threads on the
+    CPU to make sure that every process (and every thread within a process) gets a
+    chance to run.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Think of a goroutine as a lightweight thread, managed by the Go runtime. When
+    a Go program starts, the Go runtime creates a number of threads and launches a
+    single goroutine to run your program. All the goroutines created by your program,
+    including the initial one, are assigned to these threads automatically by the
+    Go runtime scheduler, just as the operating system schedules threads across CPU
+    cores. This might seem like extra work, since the underlying operating system
+    already includes a scheduler that manages threads and processes, but it has several
+    benefits:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Goroutine creation is faster than thread creation, because you aren’t creating
+    an operating system–level resource.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Goroutine initial stack sizes are smaller than thread stack sizes and can grow
+    as needed. This makes goroutines more memory efficient.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Switching between goroutines is faster than switching between threads because
+    it happens entirely within the process, avoiding operating system calls that are
+    (relatively) slow.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The goroutine scheduler is able to optimize its decisions because it is part
+    of the Go process. The scheduler works with the network poller, detecting when
+    a goroutine can be unscheduled because it is blocking on I/O. It also integrates
+    with the garbage collector, making sure that work is properly balanced across
+    all the operating system threads assigned to your Go process.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: These advantages allow Go programs to spawn hundreds, thousands, even tens of
+    thousands of simultaneous goroutines. If you try to launch thousands of threads
+    in a language with native threading, your program will slow to a crawl.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: If you are interested in learning more about how the scheduler does its work,
+    watch the talk Kavya Joshi gave at GopherCon 2018 called [“The Scheduler Saga”](https://oreil.ly/879mk).
+  prefs: []
+  type: TYPE_NORMAL
+- en: A goroutine is launched by placing the `go` keyword before a function invocation.
+    Just as with any other function, you can pass it parameters to initialize its
+    state. However, any values returned by the function are ignored.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Any function can be launched as a goroutine. This is different from JavaScript,
+    where a function runs asynchronously only if the author of the function declared
+    it with the `async` keyword. However, it is customary in Go to launch goroutines
+    with a closure that wraps business logic. The closure takes care of the concurrent
+    bookkeeping. The following sample code demonstrates the concept:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: In this code, the `processConcurrently` function creates a closure, which reads
+    values out of a channel and passes them to the business logic in the `process`
+    function. The `process` function is completely unaware that it is running in a
+    goroutine. The result of `process` is then written back to a different channel
+    by the closure. (I’ll do a brief overview of channels in the next section.) This
+    separation of responsibility makes your programs modular and testable, and keeps
+    concurrency out of your APIs. The decision to use a thread-like model for concurrency
+    means that Go programs avoid the “function coloring” problem described by Bob
+    Nystrom in his famous blog post [“What Color Is Your Function?”](https://oreil.ly/0I_Op)
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can find a complete example on [The Go Playground](https://oreil.ly/mw5NU)
+    or in the *sample_code/goroutine* directory in the [Chapter 12 repository](https://oreil.ly/uSQBs).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Channels
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Goroutines communicate using *channels*. Like slices and maps, channels are
+    a built-in type created using the `make` function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: Like maps, channels are reference types. When you pass a channel to a function,
+    you are really passing a pointer to the channel. Also like maps and slices, the
+    zero value for a channel is `nil`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Reading, Writing, and Buffering
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Use the `<-` operator to interact with a channel. You read from a channel by
+    placing the `<-` operator to the left of the channel variable, and you write to
+    a channel by placing it to the right:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: Each value written to a channel can be read only once. If multiple goroutines
+    are reading from the same channel, a value written to the channel will be read
+    by only one of them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A single goroutine rarely reads and writes to the same channel. When assigning
+    a channel to a variable or field, or passing it to a function, use an arrow before
+    the `chan` keyword (`ch <-chan int`) to indicate that the goroutine only *reads*
+    from the channel. Use an arrow after the `chan` keyword (`ch chan<- int`) to indicate
+    that the goroutine only *writes* to the channel. Doing so allows the Go compiler
+    to ensure that a channel is only read from or written to by a function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: By default, channels are *unbuffered*. Every write to an open, unbuffered channel
+    causes the writing goroutine to pause until another goroutine reads from the same
+    channel. Likewise, a read from an open, unbuffered channel causes the reading
+    goroutine to pause until another goroutine writes to the same channel. This means
+    you cannot write to or read from an unbuffered channel without at least two concurrently
+    running goroutines.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Go also has *buffered* channels. These channels buffer a limited number of writes
+    without blocking. If the buffer fills before there are any reads from the channel,
+    a subsequent write to the channel pauses the writing goroutine until the channel
+    is read. Just as writing to a channel with a full buffer blocks, reading from
+    a channel with an empty buffer also blocks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A buffered channel is created by specifying the capacity of the buffer when
+    creating the channel:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: The built-in functions `len` and `cap` return information about a buffered channel.
+    Use `len` to find out how many values are currently in the buffer and use `cap`
+    to find out the maximum buffer size. The capacity of the buffer cannot be changed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Passing an unbuffered channel to both `len` and `cap` returns 0\. This makes
+    sense because, by definition, an unbuffered channel doesn’t have a buffer to store
+    values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Most of the time, you should use unbuffered channels. In [“Know When to Use
+    Buffered and Unbuffered Channels”](#buffered_unbuffered), I’ll talk about the
+    situations where buffered channels are useful.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using for-range and Channels
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'You can also read from a channel by using a `for-range` loop:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: Unlike other `for-range` loops, there is only a single variable declared for
+    the channel, which is the value. If the channel is open and a value is available
+    on the channel, it is assigned to `v` and the body of the loop executes. If no
+    value is available on the channel, the goroutine pauses until a value is available
+    or the channel is closed. The loop continues until the channel is closed, or until
+    a `break` or `return` statement is reached.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Closing a Channel
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'When you’re done writing to a channel, you close it using the built-in `close`
+    function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: Once a channel is closed, any attempts to write to it or close it again will
+    panic. Interestingly, attempting to read from a closed channel always succeeds.
+    If the channel is buffered and some values haven’t been read yet, they will be
+    returned in order. If the channel is unbuffered or the buffered channel has no
+    more values, the zero value for the channel’s type is returned.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This leads to a question that might sound familiar from your experience with
+    maps: when your code reads from a channel, how do you tell the difference between
+    a zero value that was written and a zero value that was returned because the channel
+    is closed? Since Go tries to be a consistent language, there is a familiar answer—use
+    the comma ok idiom to detect whether a channel has been closed:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: If `ok` is set to `true`, the channel is open. If it is set to `false`, the
+    channel is closed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Anytime you are reading from a channel that might be closed, use the comma ok
+    idiom to ensure that the channel is still open.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The responsibility for closing a channel lies with the goroutine that writes
+    to the channel. Be aware that closing a channel is required only if a goroutine
+    is waiting for the channel to close (such as one using a `for-range` loop to read
+    from the channel). Since a channel is just another variable, Go’s runtime can
+    detect channels that are no longer referenced and garbage collect them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Channels are one of the two things that set apart Go’s concurrency model. They
+    guide you into thinking about your code as a series of stages and making data
+    dependencies clear, which makes it easier to reason about concurrency. Other languages
+    rely on global shared state to communicate between threads. This mutable shared
+    state makes it hard to understand how data flows through a program, which in turn
+    makes it difficult to understand whether two threads are actually independent.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Understanding How Channels Behave
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Channels have many states, each with a different behavior when reading, writing,
+    or closing. Use [Table 12-1](#how_channels_behave) to keep them straight.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Table 12-1\. How channels behave
+  prefs: []
+  type: TYPE_NORMAL
+- en: '|  | Unbuffered, open | Unbuffered, closed | Buffered, open | Buffered, closed
+    | Nil |'
+  prefs: []
+  type: TYPE_TB
+- en: '| --- | --- | --- | --- | --- | --- |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Read | Pause until something is written | Return zero value (use comma ok
+    to see if closed) | Pause if buffer is empty | Return a remaining value in the
+    buffer; if the buffer is empty, return zero value (use comma ok to see if closed)
+    | Hang forever |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Write | Pause until something is read | **PANIC** | Pause if buffer is full
+    | **PANIC** | Hang forever |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Close | Works | **PANIC** | Works, remaining values still there | **PANIC**
+    | **PANIC** |'
+  prefs: []
+  type: TYPE_TB
+- en: You must avoid situations that cause Go programs to panic. As mentioned earlier,
+    the standard pattern is to make the writing goroutine responsible for closing
+    the channel when there’s nothing left to write. When multiple goroutines are writing
+    to the same channel, this becomes more complicated, as calling `close` twice on
+    the same channel causes a panic. Furthermore, if you close a channel in one goroutine,
+    a write to the channel in another goroutine triggers a panic as well. The way
+    to address this is to use a `sync.WaitGroup`. You’ll see an example in [“Use WaitGroups”](#wait_group).
+  prefs: []
+  type: TYPE_NORMAL
+- en: A `nil` channel can be dangerous as well, but it is useful in some cases. You’ll
+    learn more about them in [“Turn Off a case in a select”](#nil_channel).
+  prefs: []
+  type: TYPE_NORMAL
+- en: select
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The `select` statement is the other thing that sets apart Go’s concurrency
+    model. It is the control structure for concurrency in Go, and it elegantly solves
+    a common problem: if you can perform two concurrent operations, which one do you
+    do first? You can’t favor one operation over others, or you’ll never process some
+    cases. This is called *starvation*.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `select` keyword allows a goroutine to read from or write to one of a set
+    of multiple channels. It looks a great deal like a blank `switch` statement:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: Each `case` in a `select` is a read or a write to a channel. If a read or write
+    is possible for a `case`, it is executed along with the body of the `case`. Like
+    a `switch`, each `case` in a `select` creates its own block.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'What happens if multiple cases have channels that can be read or written? The
+    `select` algorithm is simple: it picks randomly from any of its cases that can
+    go forward; order is unimportant. This is very different from a `switch` statement,
+    which always chooses the first `case` that resolves to `true`. It also cleanly
+    resolves the starvation problem, as no `case` is favored over another and all
+    are checked at the same time.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Another advantage of `select` choosing at random is that it prevents one of
+    the most common causes of deadlocks: acquiring locks in an inconsistent order.
+    If you have two goroutines that both access the same two channels, they must be
+    accessed in the same order in both goroutines, or they will *deadlock*. This means
+    that neither one can proceed because they are waiting on each other. If every
+    goroutine in your Go application is deadlocked, the Go runtime kills your program
+    (see [Example 12-1](#EX10_1)).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 12-1\. Deadlocking goroutines
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If you run this program on [The Go Playground](https://oreil.ly/eP3D1) or in
+    the *sample_code/deadlock* directory in the [Chapter 12 repository](https://oreil.ly/uSQBs),
+    you’ll see the following error:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: Remember that `main` is running on a goroutine that is launched at startup by
+    the Go runtime. The goroutine that is explicitly launched cannot proceed until
+    `ch1` is read, and the main goroutine cannot proceed until `ch2` is read.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If the channel read and the channel write in the main goroutine are wrapped
+    in a `select`, deadlock is avoided (see [Example 12-2](#EX10_2)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 12-2\. Using `select` to avoid deadlocks
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If you run this program on [The Go Playground](https://oreil.ly/Djtpj) or in
+    the *sample_code/select* directory in the [Chapter 12 repository](https://oreil.ly/uSQBs),
+    you’ll get the output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: Because a `select` checks whether any of its cases can proceed, the deadlock
+    is avoided. The goroutine that is launched explicitly wrote the value 1 into `ch1`,
+    so the read from `ch1` into `fromGoroutine` in the main goroutine is able to succeed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Although this program doesn’t deadlock, it still doesn’t do the right thing.
+    The `fmt.Println` statement in the launched goroutine never executes, because
+    that goroutine is paused, waiting for a value to read from `ch2`. When the main
+    goroutine exits, the program exits and kills any remaining goroutines, which does
+    technically resolve the pause. However, you should make sure that all your goroutines
+    exit properly so that you don’t *leak* them. I talk about this in more detail
+    in [“Always Clean Up Your Goroutines”](#goroutine_cleanup).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Making this program behave properly requires a few techniques that you’ll learn
+    about later in the chapter. You can find a working solution on [The Go Playground](https://oreil.ly/G1bi7).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Since `select` is responsible for communicating over a number of channels,
+    it is often embedded within a `for` loop:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: This is so common that the combination is often referred to as a `for-select`
+    loop. When using a `for-select` loop, you must include a way to exit the loop.
+    You’ll see one way to do this in [“Use the Context to Terminate Goroutines”](#done_channel).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Just like `switch` statements, a `select` statement can have a `default` clause.
+    Also just like `switch`, `default` is selected when there are no cases with channels
+    that can be read or written. If you want to implement a nonblocking read or write
+    on a channel, use a `select` with a `default`. The following code does not wait
+    if there’s no value to read in `ch`; it immediately executes the body of the `default`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: You’ll take a look at a use for `default` in [“Implement Backpressure”](#backpressure).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Having a `default` case inside a `for-select` loop is almost always the wrong
+    thing to do. It will be triggered every time through the loop when there’s nothing
+    to read or write for any of the cases. This makes your `for` loop run constantly,
+    which uses a great deal of CPU.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Concurrency Practices and Patterns
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now that you’ve seen the basic tools that Go provides for concurrency, let’s
+    take a look at some concurrency best practices and patterns.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Keep Your APIs Concurrency-Free
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Concurrency is an implementation detail, and good API design should hide implementation
+    details as much as possible. This allows you to change how your code works without
+    changing how your code is invoked.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Practically, this means that you should never expose channels or mutexes in
+    your API’s types, functions, and methods (I’ll talk about mutexes in [“When to
+    Use Mutexes Instead of Channels”](#mutexes)). If you expose a channel, you put
+    the responsibility of channel management on the users of your API. The users then
+    have to worry about concerns like whether a channel is buffered or closed or `nil`.
+    They can also trigger deadlocks by accessing channels or mutexes in an unexpected
+    order.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: This doesn’t mean that you shouldn’t ever have channels as function parameters
+    or struct fields. It means that they shouldn’t be exported.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This rule has some exceptions. If your API is a library with a concurrency helper
+    function, channels are going to be part of its API.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Goroutines, for Loops, and Varying Variables
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Most of the time, the closure that you use to launch a goroutine has no parameters.
+    Instead, it captures values from the environment where it was declared. Before
+    Go 1.22, there was one common situation where this didn’t work: when trying to
+    capture the index or value of a `for` loop. As mentioned in [“The for-range value
+    is a copy”](ch04.html#for_range_copy) and [“Using go.mod”](ch10.html#go_mod),
+    a backward-breaking change was introduced in Go 1.22 that changed the behavior
+    of a `for` loop so that it creates new variables for the index and value on each
+    iteration instead of reusing a single variable.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The following code demonstrates the reason this change was worthwhile. You can
+    find it in the [`goroutine_for_loop` repository](https://oreil.ly/8KkS9) in the
+    Learning Go 2nd Edition organization on GitHub.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If you run the following code on Go 1.21 or earlier (or on Go 1.22 or later
+    with the Go version set to 1.21 or earlier in the `go` directive in the *go.mod*
+    file), you’ll see a subtle bug:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'One goroutine is launched for each value in `a`. It looks like a different
+    value is passed in to each goroutine, but running the code shows something different:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: The reason every goroutine wrote `20` to `ch` on earlier versions of Go is that
+    the closure for every goroutine captured the same variable. The index and value
+    variables in a `for` loop were reused on each iteration. The last value assigned
+    to `v` was `10`. When the goroutines run, that’s the value that they see.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Upgrading to Go 1.22 or later and changing the value of the `go` directive
+    in *go.mod* to 1.22 or later changes the behavior of `for` loops so they create
+    a new index and value variable on each iteration. This gives you the expected
+    result, with a different value passed to each goroutine:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If you cannot upgrade to Go 1.22, you can resolve this issue in two ways. The
+    first is to make a copy of the value by shadowing the value within the loop:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If you want to avoid shadowing and make the data flow more obvious, you can
+    also pass the value as a parameter to the goroutine:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: While Go 1.22 prevents this issue for the index and value variables in `for`
+    loops, you still need to be careful with other variables that are captured by
+    closures. Anytime a closure depends on a variable whose value might change, whether
+    or not it is used as a goroutine, you must pass the value into the closure or
+    make sure a unique copy of the variable is created for each closure that refers
+    to the variable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Anytime a closure uses a variable whose value might change, use a parameter
+    to pass a copy of the variable’s current value into the closure.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Always Clean Up Your Goroutines
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Whenever you launch a goroutine function, you must make sure that it will eventually
+    exit. Unlike variables, the Go runtime can’t detect that a goroutine will never
+    be used again. If a goroutine doesn’t exit, all the memory allocated for variables
+    on its stack remains allocated and any memory on the heap that is rooted in the
+    goroutine’s stack variables cannot be garbage collected. This is called a *goroutine
+    leak*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'It may not be obvious that a goroutine isn’t guaranteed to exit. For example,
+    say you used a goroutine as a generator:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: This is just a short example; don’t use a goroutine to generate a list of numbers.
+    It’s too simple of an operation, which violates one of our “when to use concurrency”
+    guidelines.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the common case, where you use all the values, the goroutine exits. However,
+    if you exit the loop early, the goroutine blocks forever, waiting for a value
+    to be read from the channel:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: Use the Context to Terminate Goroutines
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'To solve the `countTo` goroutine leak, you need a way to tell the goroutine
+    that it’s time to stop processing. You solve this in Go by using a *context*.
+    Here’s a rewrite of `countTo` to demonstrate this technique. You can find the
+    code in the *sample_code/context_cancel* directory in the [Chapter 12 repository](https://oreil.ly/uSQBs):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `countTo` function is modified to take a `context.Context` parameter in
+    addition to `max`. The `for` loop in the goroutine is also changed. It is now
+    a `for-select` loop with two cases. One tries to write to `ch`. The other case
+    checks the channel returned by the `Done` method on the context. If it returns
+    a value, you exit the `for-select` loop and the goroutine. Now, you have a way
+    to prevent the goroutine from leaking when every value is read.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This leads to the question, how do you get the `Done` channel to return a value?
+    It is triggered via *context cancellation*. In `main`, you create a context and
+    a cancel function by using the `WithCancel` function in the `context` package.
+    Next, you use `defer` to call `cancel` when the `main` function exits. This closes
+    the channel returned by `Done`, and since a closed channel always returns a value,
+    it ensures that the goroutine running `countTo` exits.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using the context to terminate a goroutine is a very common pattern. It allows
+    you to stop goroutines based on something from an earlier function in the call
+    stack. In [“Cancellation”](ch14.html#cancelation), you’ll learn in detail how
+    to use the context to tell one or more goroutines that it is time to shut down.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Know When to Use Buffered and Unbuffered Channels
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'One of the most complicated techniques to master in Go concurrency is deciding
+    when to use a buffered channel. By default, channels are unbuffered, and they
+    are easy to understand: one goroutine writes and waits for another goroutine to
+    pick up its work, like a baton in a relay race. Buffered channels are much more
+    complicated. You have to pick a size, since buffered channels never have unlimited
+    buffers. Proper use of a buffered channel means that you must handle the case
+    where the buffer is full and your writing goroutine blocks waiting for a reading
+    goroutine. So what is the proper use of a buffered channel?'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The case for buffered channels is subtle. To sum it up in a single sentence:
+    buffered channels are useful when you know how many goroutines you have launched,
+    want to limit the number of goroutines you will launch, or want to limit the amount
+    of work that is queued up.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Buffered channels work great when you either want to gather data back from a
+    set of goroutines that you have launched or want to limit concurrent usage. They
+    are also helpful for managing the amount of work a system has queued up, preventing
+    your services from falling behind and becoming overwhelmed. Here are a couple
+    of examples to show how they can be used.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the first example, you are processing the first 10 results on a channel.
+    To do this, you launch 10 goroutines, each of which writes its results to a buffered
+    channel:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: You know exactly how many goroutines have been launched, and you want each goroutine
+    to exit as soon as it finishes its work. This means you can create a buffered
+    channel with one space for each launched goroutine, and have each goroutine write
+    data to this goroutine without blocking. You can then loop over the buffered channel,
+    reading out the values as they are written. When all the values have been read,
+    you return the results, knowing that you aren’t leaking any goroutines.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can find this code in the *sample_code/buffered_channel_work* directory
+    in the [Chapter 12 repository](https://oreil.ly/uSQBs).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implement Backpressure
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Another technique that can be implemented with a buffered channel is *backpressure*.
+    It is counterintuitive, but systems perform better overall when their components
+    limit the amount of work they are willing to perform. You can use a buffered channel
+    and a `select` statement to limit the number of simultaneous requests in a system:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In this code, you create a struct containing a buffered channel that can hold
+    a number of “tokens” and a function to run. Every time a goroutine wants to use
+    the function, it calls `Process`. This is one of the rare examples of the same
+    goroutine both reading and writing the same channel. The `select` tries to write
+    a token to the channel. If it can, the function runs, and then a token is read
+    to the buffered channel. If it can’t write a token, the `default` case runs, and
+    an error is returned instead. Here’s a quick example that uses this code with
+    the built-in HTTP server (you’ll learn more about working with HTTP in [“The Server”](ch13.html#http_server)):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: You can find this code in the *sample_code/backpressure* directory in the [Chapter
+    12 repository](https://oreil.ly/uSQBs).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Turn Off a case in a select
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: When you need to combine data from multiple concurrent sources, the `select`
+    keyword is great. However, you need to properly handle closed channels. If one
+    of the cases in a `select` is reading a closed channel, it will always be successful,
+    returning the zero value. Every time that case is selected, you need to check
+    to make sure that the value is valid and skip the case. If reads are spaced out,
+    your program is going to waste a lot of time reading junk values. Even if there
+    is lots of activity on the nonclosed channels, your program will still spend some
+    portion of its time reading from the closed channel, since `select` chooses a
+    case at random.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'When that happens, you rely on something that looks like an error: reading
+    a `nil` channel. As you saw earlier, reading from or writing to a `nil` channel
+    causes your code to hang forever. While that is bad if it is triggered by a bug,
+    you can use a `nil` channel to disable a `case` in a `select`. When you detect
+    that a channel has been closed, set the channel’s variable to `nil`. The associated
+    case will no longer run, because the read from the `nil` channel never returns
+    a value. Here is a `for-select` loop that reads from two channels until both are
+    closed:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: You can try out this code on [The Go Playground](https://oreil.ly/0nCDz) or
+    in the *sample_code/close_case* directory in the [Chapter 12 repository](https://oreil.ly/uSQBs).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Time Out Code
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Most interactive programs have to return a response within a certain amount
+    of time. One of the things that you can do with concurrency in Go is manage how
+    much time a request (or a part of a request) has to run. Other languages introduce
+    additional features on top of promises or futures to add this functionality, but
+    Go’s timeout idiom shows how you build complicated features from existing parts.
+    Let’s take a look:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: Whenever you need to limit how long an operation takes in Go, you’ll see a variation
+    on this pattern. I talk about the context in [Chapter 14](ch14.html#unique_chapter_id_14)
+    and cover using timeouts in detail in [“Contexts with Deadlines”](ch14.html#context_timers).
+    For now, all you need to know is that reaching the timeout cancels the context.
+    The `Done` method on the context returns a channel that returns a value when the
+    context is canceled by either timing out or when the context’s cancel method is
+    called. You create a timed context by using the `WithTimeout` function in the
+    `context` package and specify how long to wait by using constants from the `time`
+    package (I’ll talk more about the `time` package in [“time”](ch13.html#time)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once the context is set up, you run the worker in a goroutine and then use `select`
+    to choose between two cases. The first case reads the value from the `out` channel
+    when the work completes. The second case waits for the channel returned by the
+    `Done` method to return a value, just as you saw in [“Use the Context to Terminate
+    Goroutines”](#done_channel). If it does, you return a timeout error. You write
+    to a buffered channel of size 1 so that the channel write in the goroutine will
+    complete even if `Done` is triggered first.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can try out this code on [The Go Playground](https://oreil.ly/mTgyA) or
+    in the *sample_code/time_out* directory in the [Chapter 12 repository](https://oreil.ly/uSQBs).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: If `timeLimit` exits before the goroutine finishes processing, the goroutine
+    continues to run, eventually writing the returned value to the buffered channel
+    and exiting. You just don’t do anything with the result that is returned. If you
+    want to stop work in a goroutine when you are no longer waiting for it to complete,
+    use context cancellation, which I’ll discuss in [“Cancellation”](ch14.html#cancelation).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Use WaitGroups
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Sometimes one goroutine needs to wait for multiple goroutines to complete their
+    work. If you are waiting for a single goroutine, you can use the context cancellation
+    pattern that you saw earlier. But if you are waiting on several goroutines, you
+    need to use a `WaitGroup`, which is found in the `sync` package in the standard
+    library. Here is a simple example, which you can run on [The Go Playground](https://oreil.ly/hg7IF)
+    or in the *sample_code/waitgroup* directory in the [Chapter 12 repository](https://oreil.ly/uSQBs):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'A `sync.WaitGroup` doesn’t need to be initialized, just declared, as its zero
+    value is useful. There are three methods on `sync.WaitGroup`: `Add`, which increments
+    the counter of goroutines to wait for; `Done`, which decrements the counter and
+    is called by a goroutine when it is finished; and `Wait`, which pauses its goroutine
+    until the counter hits zero. `Add` is usually called once, with the number of
+    goroutines that will be launched. `Done` is called within the goroutine. To ensure
+    that it is called, even if the goroutine panics, you use a `defer`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: You’ll notice that you don’t explicitly pass the `sync.WaitGroup`. There are
+    two reasons. The first is that you must ensure that every place that uses a `sync.WaitGroup`
+    is using the same instance. If you pass the `sync.WaitGroup` to the goroutine
+    function and don’t use a pointer, then the function has a *copy* and the call
+    to `Done` won’t decrement the original `sync.WaitGroup`. By using a closure to
+    capture the `sync.WaitGroup`, you are assured that every goroutine is referring
+    to the same instance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The second reason is design. Remember, you should keep concurrency out of your
+    API. As you saw with channels earlier, the usual pattern is to launch a goroutine
+    with a closure that wraps the business logic. The closure manages issues around
+    concurrency, and the function provides the algorithm.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s take a look at a more realistic example. As I mentioned earlier, when
+    you have multiple goroutines writing to the same channel, you need to make sure
+    that the channel being written to is closed only once. A `sync.WaitGroup` is perfect
+    for this. Let’s see how it works in a function that processes the values in a
+    channel concurrently, gathers the results into a slice, and returns the slice:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: In this example, you launch a monitoring goroutine that waits until all the
+    processing goroutines exit. When they do, the monitoring goroutine calls `close`
+    on the output channel. The `for-range` channel loop exits when `out` is closed
+    and the buffer is empty. Finally, the function returns the processed values. You
+    can try out this code in the *sample_code/waitgroup_close_once* directory in the
+    [Chapter 12 repository](https://oreil.ly/uSQBs).
+  prefs: []
+  type: TYPE_NORMAL
+- en: While `WaitGroups` are handy, they shouldn’t be your first choice when coordinating
+    goroutines. Use them only when you have something to clean up (like closing a
+    channel they all write to) after all your worker goroutines exit.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Run Code Exactly Once
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'As I covered in [“Avoiding the init Function if Possible”](ch10.html#pkg_init),
+    `init` should be reserved for initialization of effectively immutable package-level
+    state. However, sometimes you want to *lazy load*, or call some initialization
+    code exactly once after program launch time. This is usually because the initialization
+    is relatively slow and may not even be needed every time your program runs. The
+    `sync` package includes a handy type called `Once` that enables this functionality.
+    Let’s take a quick look at how it works. Say you have some code that takes a long
+    time to initialize:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Here’s how you use `sync.Once` to delay initialization of a `SlowComplicatedParser`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'There are two package-level variables: `parser`, which is of type `SlowComplicatedParser`,
+    and `once`, which is of type `sync.Once`. As with `sync.WaitGroup`, you do not
+    have to configure an instance of `sync.Once`. This is an example of *making the
+    zero value useful*, which is a common pattern in Go.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: As with `sync.WaitGroup`, you must make sure not to make a copy of an instance
+    of `sync.Once`, because each copy has its own state to indicate whether it has
+    already been used. Declaring a `sync.Once` instance inside a function is usually
+    the wrong thing to do, as a new instance will be created on every function call
+    and there will be no memory of previous invocations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the example, you want to make sure that `parser` is initialized only once,
+    so you set the value of `parser` from within a closure that’s passed to the `Do`
+    method on `once`. If `Parse` is called more than once, `once.Do` will not execute
+    the closure again.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can try out this code on [The Go Playground](https://oreil.ly/v7qtq) or
+    in the *sample_code/sync_once* directory in the [Chapter 12 repository](https://oreil.ly/uSQBs).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Go 1.21 added helper functions that make it easier to run a function exactly
+    once: `sync.OnceFunc`, `sync.OnceValue`, and `sync.OnceValues`. The only difference
+    between the three functions is the number of return values of the passed-in function
+    (zero, one, or two, respectively). The `sync.OnceValue` and `sync.OnceValues`
+    functions are generic, so they adapt to the type of the original function’s return
+    values.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Using these functions is straightforward. You pass the original function to
+    the helper function and get back a function that calls the original function only
+    once. The values returned by the original function are cached. Here’s how you
+    can use `sync.OnceValue` to rewrite the `Parse` function in the previous example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: The package-level `initParserCached` variable is assigned the function returned
+    by `sync.OnceValue` when `initParser` is passed to it. The first time `initParserCached`
+    is called, `initParser` is also called, and its return value is cached. Each subsequent
+    time `initParserCached` is called, the cached value is returned. This means you
+    can get rid of the `parser` package-level variable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can try out this code on [The Go Playground](https://oreil.ly/VrR-s) or
+    in the *sample_code/sync_value* directory in the [Chapter 12 repository](https://oreil.ly/uSQBs).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Put Your Concurrent Tools Together
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Let’s go back to the example from the first section in the chapter. You have
+    a function that calls three web services. You send data to two of those services,
+    and then take the results of those two calls and send them to the third, returning
+    the result. The entire process must take less than 50 milliseconds, or an error
+    is returned.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You’ll start with the function you invoke:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: The first thing to do is set up a `context.Context` that times out in 50 milliseconds,
+    as you saw in [“Time Out Code”](#time_out).
+  prefs: []
+  type: TYPE_NORMAL
+- en: After creating the context, use a `defer` to make sure the context’s `cancel`
+    function is called. As I’ll discuss in [“Cancellation”](ch14.html#cancelation),
+    you must call this function, or resources leak.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You are using `A` and `B` as the names of the two services that are called in
+    parallel, so you’ll make a new `abProcessor` to call them. You then start processing
+    with a call to the `start` method, and then wait for your results with a call
+    to the `wait` method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When `wait` returns, you do a standard error check. If all is well, you call
+    the third service, which you are calling `C`. The logic is the same as before.
+    Processing is started with a call to the `start` method on the `cProcessor` and
+    then you wait for the result with a call to the `wait` method on `cProcessor`.
+    You then return the result of the `wait` method call.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This looks a lot like standard sequential code without concurrency. Let’s look
+    at the `abProcessor` and `cProcessor` to see how the concurrency happens:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `abProcessor` has three fields, all of which are channels. They are `outA`,
+    `outB`, and `errs`. You’ll see how you use all these channels next. Notice that
+    every channel is buffered, so that the goroutines that write to them can exit
+    after writing without waiting for a read to happen. The `errs` channel has a buffer
+    size of `2`, because it could have up to two errors written to it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Next is the implementation of the `start` method:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `start` method launches two goroutines. The first one calls `getResultA`
+    to talk to the `A` service. If the call returns an error, you write to the `errs`
+    channel. Otherwise, you write to the `outA` channel. Since these channels are
+    buffered, the goroutine will not hang, no matter which channel is written to.
+    Also notice that you are passing the context along to `getResultA`, which allows
+    it to cancel processing if the timeout happens.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The second goroutine is just like the first, only it calls `getResultB` and
+    writes to the `outB` channel on success.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s see what the `wait` method for `ABProcessor` looks like:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `wait` method on `abProcessor` is the most complicated method you need to
+    implement. It populates a struct of type `cIn`, which holds the data returned
+    from calling the `A` service and the `B` service. You define your output variable,
+    `cData`, as type `cIn`. You then have a `for` loop that counts to two, since you
+    need to read from two channels to finish successfully. Inside the loop, you have
+    a `select` statement. If you read a value on `outA`, you set the `a` field on
+    `cData`. If you read a value on `outB`, you set the `b` field on `cData`. If you
+    read a value on the `errs` channel, you return immediately with the error. Finally,
+    if the context times out, you return immediately with the error from the context’s
+    `Err` method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once you have read a value from both the `p.outA` channel and the `p.outB` channel,
+    you exit the loop and return the input that you’re going to use with the `cProcessor`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `cProcessor` looks like a simpler version of the `abProcessor`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `cProcessor` struct has one out channel and one error channel.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `start` method on the `cProcessor` looks like the `start` method on the
+    `abProcessor`. It launches a goroutine that calls `getResultC` with your input
+    data, writes to the `errs` channel on an error, and writes to the `outC` channel
+    on success.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, the `wait` method on the `cProcessor` is a simple `select` statement
+    that checks whether there’s a value to read from the `outC` channel, the `errs`
+    channel, or the context’s `Done` channel.
+  prefs: []
+  type: TYPE_NORMAL
+- en: By structuring code with goroutines, channels, and `select` statements, you
+    separate the individual steps, allow independent parts to run and complete in
+    any order, and cleanly exchange data between the dependent parts. In addition,
+    you make sure that no part of the program hangs, and you properly handle timeouts
+    set both within this function and from earlier functions in the call history.
+    If you are not convinced that this is a better method for implementing concurrency,
+    try to implement this in another language. You might be surprised at how difficult
+    it is.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can find the code for this concurrent pipeline in the *sample_code/pipeline*
+    directory in the [Chapter 12 repository](https://oreil.ly/uSQBs).
+  prefs: []
+  type: TYPE_NORMAL
+- en: When to Use Mutexes Instead of Channels
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: If you’ve had to coordinate access to data across threads in other programming
+    languages, you have probably used a *mutex*. This is short for *mutual exclusion*,
+    and the job of a mutex is to limit the concurrent execution of some code or access
+    to a shared piece of data. This protected part is called the *critical section*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are good reasons Go’s creators designed channels and `select` to manage
+    concurrency. The main problem with mutexes is that they obscure the flow of data
+    through a program. When a value is passed from goroutine to goroutine over a series
+    of channels, the data flow is clear. Access to the value is localized to a single
+    goroutine at a time. When a mutex is used to protect a value, there is nothing
+    to indicate which goroutine currently has ownership of the value, because access
+    to the value is shared by all the concurrent processes. That makes it hard to
+    understand the order of processing. There is a saying in the Go community to describe
+    this philosophy: “Share memory by communicating; do not communicate by sharing
+    memory.”'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'That said, sometimes it is clearer to use a mutex, and the Go standard library
+    includes mutex implementations for these situations. The most common case is when
+    your goroutines read or write a shared value, but don’t process the value. Let’s
+    use an in-memory scoreboard for a multiplayer game as an example. You’ll first
+    see how to implement this using channels. Here’s a function that you can launch
+    as a goroutine to manage the scoreboard:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This function declares a map and then listens on one channel for a function
+    that reads or modifies the map and on a context’s Done channel to know when to
+    shut down. Let’s create a type with a method to write a value to the map:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The update method is very straightforward: just pass a function that puts a
+    value into the map. But how about reading from the scoreboard? You need to return
+    a value back. That means creating a channel that’s written to within the passed-in
+    function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs: []
+  type: TYPE_PRE
+- en: While this code works, it’s cumbersome and allows only a single reader at a
+    time. A better approach is to use a mutex. The standard library has two mutex
+    implementations, both in the `sync` package. The first, `Mutex`, has two methods,
+    `Lock` and `Unlock`. Calling `Lock` causes the current goroutine to pause as long
+    as another goroutine is currently in the critical section. When the critical section
+    is clear, the lock is *acquired* by the current goroutine, and the code in the
+    critical section is executed. A call to the `Unlock` method on the `Mutex` marks
+    the end of the critical section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The second mutex implementation, called `RWMutex`, allows you to have both reader
+    locks and writer locks. While only one writer can be in the critical section at
+    a time, reader locks are shared; multiple readers can be in the critical section
+    at once. The writer lock is managed with the `Lock` and `Unlock` methods, while
+    the reader lock is managed with `RLock` and `RUnlock` methods.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Anytime you acquire a mutex lock, you must make sure that you release the lock.
+    Use a `defer` statement to call `Unlock` immediately after calling `Lock` or `RLock`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs: []
+  type: TYPE_PRE
+- en: You can find the example in the *sample_code/mutex* directory in the [Chapter
+    12 repository](https://oreil.ly/uSQBs).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now that you’ve seen an implementation using mutexes, carefully consider your
+    options before using one. Katherine Cox-Buday’s excellent book [*Concurrency in
+    Go*](https://oreil.ly/G7bpu) (O’Reilly) includes a decision tree to help you decide
+    whether to use channels or mutexes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you are coordinating goroutines or tracking a value as it is transformed
+    by a series of goroutines, use channels.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: If you are sharing access to a field in a struct, use mutexes.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: If you discover a critical performance issue when using channels (see [“Using
+    Benchmarks”](ch15.html#benchmarking) to learn how to do this), and you cannot
+    find any other way to fix the issue, modify your code to use a mutex.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Since your scoreboard is a field in a struct and there’s no transfer of the
+    scoreboard, using a mutex makes sense. This is a good use for a mutex only because
+    the data is stored in-memory. When data is stored in external services, like an
+    HTTP server or a database, don’t use a mutex to guard access to the system.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Mutexes require you to do more bookkeeping. For example, you must correctly
+    pair locks and unlocks, or your programs will likely deadlock. The example both
+    acquires and releases the locks within the same method. Another issue is that
+    mutexes in Go aren’t *reentrant*. If a goroutine tries to acquire the same lock
+    twice, it deadlocks, waiting for itself to release the lock. This is different
+    from languages like Java, where locks are reentrant.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Nonreentrant locks make it tricky to acquire a lock in a function that calls
+    itself recursively. You must release the lock before the recursive function call.
+    In general, be careful when holding a lock while making a function call, because
+    you don’t know what locks are going to be acquired in those calls. If your function
+    calls another function that tries to acquire the same mutex lock, the goroutine
+    deadlocks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Like `sync.WaitGroup` and `sync.Once`, mutexes must never be copied. If they
+    are passed to a function or accessed as a field on a struct, it must be via a
+    pointer. If a mutex is copied, its lock won’t be shared.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Warning
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Never try to access a variable from multiple goroutines unless you acquire a
+    mutex for that variable first. It can cause odd errors that are hard to trace.
+    See [“Finding Concurrency Problems with the Data Race Detector”](ch15.html#race_checker)
+    to learn how to detect these problems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Atomics—You Probably Don’t Need These
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In addition to mutexes, Go provides another way to keep data consistent across
+    multiple threads. The `sync/atomic` package provides access to the *atomic variable*
+    operations built into modern CPUs to add, swap, load, store, or compare and swap
+    (CAS) a value that fits into a single register.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you need to squeeze out every last bit of performance and are an expert on
+    writing concurrent code, you’ll be glad that Go includes atomic support. For everyone
+    else, use goroutines and mutexes to manage your concurrency needs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Where to Learn More About Concurrency
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: I’ve covered a few simple concurrency patterns here, but there are many more.
+    In fact, you could write an entire book on how to properly implement various concurrency
+    patterns in Go, and, luckily, Katherine Cox-Buday has. I’ve already mentioned
+    *Concurrency in Go*, when discussing how to decide between mutexes or channels,
+    but it’s an excellent resource on all things involving Go and concurrency. Check
+    out her book if you want to learn more.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Exercises
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Using concurrency effectively is one of the most important skills for a Go developer.
+    Work through these exercises to see if you have mastered them. The solutions are
+    available in the *exercise_solutions* directory in the [Chapter 12 repository](https://oreil.ly/uSQBs).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Create a function that launches three goroutines that communicate using a channel.
+    The first two goroutines each write 10 numbers to the channel. The third goroutine
+    reads all the numbers from the channel and prints them out. The function should
+    exit when all values have been printed out. Make sure that none of the goroutines
+    leak. You can create additional goroutines if needed.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Create a function that launches two goroutines. Each goroutine writes 10 numbers
+    to its own channel. Use a `for-select` loop to read from both channels, printing
+    out the number and the goroutine that wrote the value. Make sure that your function
+    exits after all values are read and that none of your goroutines leak.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Write a function that builds a `map[int]float64` where the keys are the numbers
+    from 0 (inclusive) to 100,000 (exclusive) and the values are the square roots
+    of those numbers (use the [`math.Sqrt`](https://oreil.ly/DPNYi) function to calculate
+    square roots). Use `sync.OnceValue` to generate a function that caches the `map`
+    returned by this function and use the cached value to look up square roots for
+    every 1,000th number from 0 to 100,000.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Wrapping Up
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, you’ve looked at concurrency and learned why Go’s approach
+    is simpler than more traditional concurrency mechanisms. In doing so, you’ve also
+    learned when you should use concurrency as well as a few concurrency rules and
+    patterns. In the next chapter, you’re going to take a quick look at Go’s standard
+    library, which embraces a “batteries included” ethos for modern computing.
+  prefs: []
+  type: TYPE_NORMAL

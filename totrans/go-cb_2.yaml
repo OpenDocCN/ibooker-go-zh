@@ -1,0 +1,549 @@
+- en: Chapter 3\. General Input/Output Recipes
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 3.0 Introduction
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Input and output (or more popularly known as I/O) is how a computer communicates
+    with the external world. I/O is a key part of developing software and therefore
+    most programming languages, including Go, has standard libraries that can read
+    from input and write to output. Typical input into a computer refers to the keystrokes
+    from a keyboard or clicks or movement from a mouse, but can also refer to other
+    external sources like a camera or a microphone, or gaming joystick and so on.
+    Output in many cases refer to whatever is shown on the screen (or on the terminal)
+    or printed out on a printer. I/O can also refer to network connections and often
+    also to files.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, we’ll be exploring some common Go recipes for managing I/O.
+    We’ll warm up with with some basic I/O recipes, then talk about files in general.
+    In the next few chapters we’ll move on to CSV, followed by JSON and also binary
+    files.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `io` package is the base package for input and output in Go. It contains
+    the main interfaces for I/O and a few convenient functions. The main and the most
+    commonly used interfaces are `Reader` and `Writer` but there are a number of variants
+    of these like the `ReadWriter`, `TeeReader`, `WriterTo` and many more.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Generally these interfaces are nothing more than a descriptor for functions,
+    for example a struct that is a `Reader` is one that has a `Read` function. A struct
+    that is a `WriterTo` is one with a `WriteTo` function. Some interfaces combine
+    more two or more interfaces for example, the `ReadWriter` combines the `Reader`
+    and `Writer` interfaces and has both the `Read` and `Write` functions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This chapter explains a bit more about how these interfaces are used.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 3.1 Reading from an input
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Problem
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You want to read from an input.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Solution
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Use the `io.Reader` interface to read from an input.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Discussion
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Go uses the `io.Reader` interface to represent the ability to read from an input
+    stream of data. Many packages in the Go standard library as well as 3rd party
+    packages use the `Reader` interface to allow data to be read from it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: Any struct that implement the `Read` function is a `Reader`. Let’s say you have
+    a reader (a struct that implements the Reader interface). To read data from the
+    reader, you make a slice of bytes and you pass that slice to the `Read` method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: It might look counterintuitive and seems like you would want to read data from
+    `bytes` into the reader, but you’re actually reading the data from the reader
+    into `bytes`. Just think of it as the data flowing from left to right, from the
+    reader into `bytes`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`Read` will only fill up the bytes to its capacity. If you want to read everything
+    from the reader, you can use the `io.ReadAll` function.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: This looks more intuitive because the `ReadAll` reads from the reader passed
+    into the parameter and returns the data into `bytes`. In this case, the data flows
+    from the reader on the right, into the bytes on the lft.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You will also often find functions that expect a reader as an input parameter.
+    Let’s say you have a string and you want to pass the string to the function, what
+    can you do? You can create a reader from the string using the `strings.NewReader`
+    function then pass it into the function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: You can now pass `reader` into functions that expect a reader.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 3.2 Writing to an output
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Problem
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You want to write to an output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Solution
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Use the `io.Writer` interface to write to an output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Discussion
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The interface `io.Writer` works the same way as `io.Reader`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: When you call `Write` on an `io.Writer` you are writing the bytes to the underlying
+    data stream.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: You might notice that this method calling pattern is the reverse of `io.Reader`
+    in recipe 8.1\. In `Reader` you call the `Read` method to read from the struct
+    into the `bytes` variable, whereas here you call the `Write` method to write from
+    the `bytes` variable into the struct. In this case, the data flows from right
+    to left, from `bytes` into the writer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A common pattern in Go is for a function to take in a writer as a parameter.
+    The function then calls the `Write` function on the writer, and later you can
+    extract the data from writer. Let’s take a look at an example of this.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `bytes.Buffer` struct is a `Writer` (it implements the `Write` function)
+    so you can easily create one, and pass it to the `fmt.Fprintf` function, which
+    takes in an `io.Writer` as its first parameter. The `fmt.Fprintf` function writes
+    data on to the buffer and you can extract the data out from it later.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This pattern of using a writer to pass data around by writing to it, then extracting
+    it out later is quite common in Go. Another example is in the HTTP handlers with
+    the `http.ResponseWriter`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: Here, we write to the `ResponseWriter` and the data will be taken as input to
+    be sent back to the browser.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 3.3 Copying from a Reader to a Writer
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Problem
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You want to copy from a reader to a writer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Solution
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Use the `io.Copy` function to copy from a reader to a writer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Discussion
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Sometimes we read from a reader because we want to write it to a writer. The
+    process can take a few steps to read everything from a reader into buffer then
+    write it out to the writer again. Instead of doing this, we can use the `io.Copy`
+    function instead. The `io.Copy` function takes from a reader and writes to a writer
+    all in one function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s see how `io.Copy` can be used. We want to download a file, so we use `http.Get`
+    to get a reader, which we read and then we use `os.WriteFile` to write to a file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: When we use `http.Get` to download a file we get a `http.Response` struct back.
+    The content of the file is in the `Body` variable of the `http.Response` struct,
+    which is a `io.ReadCloser`. A `ReadCloser` is just an interface that groups a
+    `Reader` and a `Closer` so we here we can treat it just like a reader. We use
+    the `os.ReadAll` function to read the data from `Body` and then `os.WriteFile`
+    to write it to file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: That’s simple enough but let’s take a look at the performance of the function.
+    We use the benchmarking capabilities that’s part of the standard Go tools to do
+    this. First we create a test file, just like any other test files.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: In this test file instead of a function that starts with `Testxxx` we create
+    a function that starts with `Benchmarkxxx` which takes in a parameter `b` that
+    is a reference to `testing.B`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The benchmark function is very simple, we just call our `readWrite` function.
+    Let’s run it from the command line and see how we perform.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: We use the `-bench=.` flag telling Go to run all the benchmark tests and `-benchmem`
+    flag to show memory benchmarks. This is what you should see.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: We ran a benchmark test for a function that downloaded a 1 MB file. The test
+    only ran one time, and it took 1.99 seconds. It also took 5.89 MB of memory and
+    219 distinct memory allocations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As you can see, it’s quite an expensive operation just to download a 1 MB file.
+    After all, it takes almost 6 MB of memory to download a 1 MB file. Alternatively
+    we can use `io.Copy` to do pretty much the same thing for a lot less memory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: First, we need to create a file for the data, here using `os.Create`. Next we
+    create a buffered writer using `bufio.NewWriter`, wrapping around the file. This
+    will be used in the `Copy` function, copying the contents of the response `Body`
+    into the buffered writer. Finally we flush the writer’s buffers and make the underlying
+    writer write to the file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you run this, `copy` function it works the same way, but how does the performance
+    compare? Let’s go back to our benchmark and add another benchmark function for
+    this `copy` function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: We run the benchmark again and this is what you should see.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: This time the `readWrite` function took 2.54 seconds, used 5.89 MB of memory
+    and did 227 memory allocations. The `copy` function however only too 1.43 seconds,
+    used 42.6 kB of memory and did 61 memory allocations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `copy` function is around 80% faster, but uses only a fraction (less than
+    1%) of the memory. With really large files, if you’re using the `os.ReadAll` and
+    `os.WriteFile` you might run out of memory quickly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 3.4 Reading from a text file
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Problem
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You want to read a text file into memory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Solution
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You can usethe `os.Open` function to open the file, followed by `Read` on the
+    file. Alternatively you can also use the simpler `os.ReadFile` function to do
+    it in a single function call.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Discussion
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Reading and writing to the filesystem are one of the basic things a programming
+    language needs to do. Of course you can always store in memory but sooner or later
+    if you need to persist the data beyond a shutdown you need to store it somewhere.
+    There are a number of ways that data can be persistent but the most commonly accessible
+    is probably to the local filesystem.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Read everything at one go
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The easiest way to read a text file is to use `os.ReadFile`. Let’s say we want
+    to read from a text file named `data.txt`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: To read the file, just give the name of the file as a parameter to `os.ReadFile`
+    and you’re done!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: This will print out `hello world!`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Opening a file and reading from it
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Reading a file by opening it and then doing a read on it is more flexible but
+    takes a few more steps. First, you need to open the file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: This can be done using `os.Open`, which returns a `File` struct in read-only.
+    If you want to open it in different modes, you can use `os.OpenFile`. It’s good
+    practice to set up the file for closing using the `defer` keyword, which will
+    close the file just before the function returns.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Next, we need to create a byte array to store the data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: To do this, we need to know how large the byte array should be, and that should
+    be the size of the file. We use the `Stat` method on the file to get a `FileInfo`
+    struct, which we can call the `Size` method to get the size of the file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once we have the byte array, we can pass it as a parameter to the `Read` method
+    on the file struct.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: This will store the read data into the byte array and return the number of bytes
+    read. If all goes well you should see something like this from the output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: There are a few more steps, but you have the flexibility of reading parts of
+    the whole document and you can also do other stuff in between opening the file
+    and reading it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 3.5 Writing to a text file
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Problem
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You want to write data a text file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Solution
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You can use the `os.Open` function to open the file, followed by `Write` on
+    the file. Alternatively you can use the `os.WriteFile` function to do it in a
+    single function call.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Discussion
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Just as in reading a file, there are a couple of ways of writing to a file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Writing to a file at one go
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Given the data, you can write to a file at one go using `os.WriteFile`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: The first parameter is the name of the file, the data is in a byte array and
+    the final parameter is the Unix file permissions you want to give to the file.
+    If the file doesn’t exist, this will create a new file. If it exists, it will
+    remove all the data in the file and write the new data into it, but without changing
+    the permissions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating a file and writing to it
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Writing to a file by creating the file and then writing to it is a bit more
+    involved but it’s also more flexible. First, you need to create or open a file
+    using the `os.Create` function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: This will create a new file with the given name and mode `0666` if the file
+    doesn’t exist. If the file exists, this will remove all the data in it. As before
+    you would want to set up the file to be closed at the end of the function, using
+    the `defer` keyword.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once you have the file you can write to it directly using the `Write` method
+    and passing it the byte array with the data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: This will return the number of bytes that was written to the file. As before
+    while it takes a few more steps, breaking up the steps between creating a file
+    and writing to it gives you more flexibility to write in smaller chunks instead
+    of everything at once.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 3.6 Using a temporary file
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Problem
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You want to create a temporary file for use and depose of it afterwards.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Solution
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Use the `os.CreateTemp` function to create a temporary file, and then remove
+    it once you don’t need it anymore.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Discussion
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: A temporary file is a file that’s created to store data temporarily while the
+    program is doing something. It’s meant to be deleted or copied to permanent storage
+    once the task is done. In Go, we can use `os.CreateTemp` function to create a
+    temporary file. Then after that we can remove it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Different operating systems store their temporary files in different places.
+    Regardless where it is, Go will let you know where it is using the `os.TempDir`
+    function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: We need to know because the temp files created by `os.CreateTemp` will be created
+    there. Normally we wouldn’t care, but because we’re trying to analyse step by
+    step how the temp files get created, we want to know exactly where it is. When
+    we execute this statement, we should see something like this.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: This is the directory that your computer tells Go (and some other programs)
+    to use as a temporary directory. We can use this directly or we can create our
+    own directory here using the `os.MkdirTemp` function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: The first parameter to `os.MkdirTemp` is the temporary directory and the second
+    parameter is a pattern string. The function will apply a random string to replace
+    the `*` in the pattern string. It is also a good practise to defer the cleaning
+    up of the temporary directory by remove it using `os.RemoveAll`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Next we’re creating the actual temporary file using `os.CreateTemp`, passing
+    it the temporary directory we just created and also a pattern string for the file
+    name, which works the same as as the temporary directory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: With that, we have a file and everything else works the same way as any other
+    file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: If you didn’t choose to put your temporary files into a separate directory (which
+    you delete and also everything in it when you’re done), you can use `os.Remove`
+    with the temporary file name like this.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE

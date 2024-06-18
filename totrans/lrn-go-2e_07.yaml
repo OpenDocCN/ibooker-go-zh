@@ -1,0 +1,1654 @@
+- en: Chapter 7\. Types, Methods, and Interfaces
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As you saw in earlier chapters, Go is a statically typed language with both
+    built-in types and user-defined types. Like most modern languages, Go allows you
+    to attach methods to types. It also has type abstraction, allowing you to write
+    code that invokes methods without explicitly specifying the implementation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, Go’s approach to methods, interfaces, and types is very different from
+    that of most other languages in common use today. Go is designed to encourage
+    the best practices advocated by software engineers, avoiding inheritance while
+    encouraging composition. In this chapter, you’ll take a look at types, methods,
+    and interfaces, and see how to use them to build testable and maintainable programs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Types in Go
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Back in [“Structs”](ch03.html#struct_first_look), you saw how to define a struct
+    type:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This should be read as declaring a user-defined type with the name `Person`
+    to have the *underlying type* of the struct literal that follows. In addition
+    to struct literals, you can use any primitive type or compound type literal to
+    define a concrete type. Here are a few examples:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: Go allows you to declare a type at any block level, from the package block down.
+    However, you can access the type only from within its scope. The only exceptions
+    are types exported from other packages. I’ll talk more about those in [Chapter 10](ch10.html#unique_chapter_id_10).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: To make it easier to talk about types, I’ll define a couple of terms. An *abstract
+    type* is one that specifies *what* a type should do but not *how* it is done.
+    A *concrete type* specifies what and how. This means that tthe type has a specified
+    way to store its data and provides an implementation of any methods declared on
+    the type. While all types in Go are either abstract or concrete, some languages
+    allow hybrid types, such as abstract classes or interfaces with default methods
+    in Java.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Methods
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Like most modern languages, Go supports methods on user-defined types.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The methods for a type are defined at the package block level:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Method declarations look like function declarations, with one addition: the
+    *receiver* specification. The receiver appears between the keyword `func` and
+    the name of the method. Like all other variable declarations, the receiver name
+    appears before the type. By convention, the receiver name is a short abbreviation
+    of the type’s name, usually its first letter. It is nonidiomatic to use `this`
+    or `self`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There is one key difference between declaring methods and functions: methods
+    can be defined *only* at the package block level, while functions can be defined
+    inside any block.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Just like functions, method names cannot be overloaded. You can use the same
+    method names for different types, but you can’t use the same method name for two
+    different methods on the same type. While this philosophy feels limiting when
+    coming from languages that have method overloading, not reusing names is part
+    of Go’s philosophy of making clear what your code is doing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: I’ll talk more about packages in [Chapter 10](ch10.html#unique_chapter_id_10),
+    but be aware that methods must be declared in the same package as their associated
+    type; Go doesn’t allow you to add methods to types you don’t control. While you
+    can define a method in a different file within the same package as the type declaration,
+    it is best to keep your type definition and its associated methods together so
+    that it’s easy to follow the implementation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Method invocations should look familiar to those who have used methods in other
+    languages:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: Pointer Receivers and Value Receivers
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'As I covered in [Chapter 6](ch06.html#unique_chapter_id_06), Go uses parameters
+    of pointer type to indicate that a parameter might be modified by the function.
+    The same rules apply for method receivers too. They can be *pointer receivers*
+    (the type is a pointer) or *value receivers* (the type is a value type). The following
+    rules help you determine when to use each kind of receiver:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: If your method modifies the receiver, you *must* use a pointer receiver.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: If your method needs to handle `nil` instances (see [“Code Your Methods for
+    nil Instances”](#nil_instances)), then it *must* use a pointer receiver.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: If your method doesn’t modify the receiver, you *can* use a value receiver.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Whether you use a value receiver for a method that doesn’t modify the receiver
+    depends on the other methods declared on the type. When a type has *any* pointer
+    receiver methods, a common practice is to be consistent and use pointer receivers
+    for *all* methods, even the ones that don’t modify the receiver.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here’s some simple code to demonstrate pointer and value receivers. It starts
+    with a type that has two methods on it, one using a value receiver, the other
+    with a pointer receiver:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You can then try out these methods with the following code. You can run it
+    yourself on [The Go Playground](https://oreil.ly/aqY0i) or use the code in the
+    *sample_code/pointer_value* directory in the [Chapter 7 repository](https://oreil.ly/qJQgV):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You should see the following output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: One thing you might notice is that you were able to call the pointer receiver
+    method even though `c` is a value type. When you use a pointer receiver with a
+    local variable that’s a value type, Go automatically takes the address of the
+    local variable when calling the method. In this case, `c.Increment()` is converted
+    to `(&c).Increment()`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If you call a value receiver on a pointer variable, Go automatically dereferences
+    the pointer when calling the method. In the code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: the call `c.String()` is silently converted to `(*c).String()`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Warning
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: If you call a value receiver method with pointer instance whose value is `nil`,
+    your code will compile but will panic at runtime (I discuss panics in [“panic
+    and recover”](ch09.html#panic_recover)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Be aware that the rules for passing values to functions still apply. If you
+    pass a value type to a function and call a pointer receiver method on the passed
+    value, you are invoking the method on a *copy*. You can try out the following
+    code on [The Go Playground](https://oreil.ly/bGdDi) or use the code in the *sample_code/update_wrong*
+    directory in the [Chapter 7 repository](https://oreil.ly/qJQgV):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'When you run this code, you’ll get the following output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: The parameter in `doUpdateRight` is of type `*Counter`, which is a pointer instance.
+    As you can see, you can call both `Increment` and `String` on it. Go considers
+    both pointer and value receiver methods to be in the *method set* for a pointer
+    instance. For a value instance, only the value receiver methods are in the method
+    set. This seems like a pedantic detail right now, but I’ll come back to it when
+    talking about interfaces in just a bit.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: This can be confusing to new Go programmers (and, to be honest, to not-so-new
+    Go programmers), but Go’s automatic conversion from pointer types to value types,
+    and vice versa, is purely syntactic sugar. It is independent of the method set
+    concept. Alexey Gronskiy has written a [blog post](https://oreil.ly/i7P5_) that
+    explores in detail why the method set of pointer instances have both pointer and
+    value receiver methods, but the method set of value instances has only value receiver
+    methods.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'One final note: do not write getter and setter methods for Go structs unless
+    you need them to meet an interface (I’ll start covering interfaces in [“A Quick
+    Lesson on Interfaces”](#interfaces)). Go encourages you to directly access a field.
+    Reserve methods for business logic. The exceptions are when you need to update
+    multiple fields as a single operation or when the update isn’t a straightforward
+    assignment of a new value. The `Increment` method defined earlier demonstrates
+    both of these properties.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Code Your Methods for nil Instances
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The previous section covered pointer receivers, which might make you wonder
+    what happens when you call a method on a `nil` instance. In most languages, this
+    produces some sort of error. (Objective-C allows you to call a method on a `nil`
+    instance, but it always does nothing.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Go does something a little different. It actually tries to invoke the method.
+    As mentioned earlier, if it’s a method with a value receiver, you’ll get a panic,
+    since there is no value being pointed to by the pointer. If it’s a method with
+    a pointer receiver, it can work if the method is written to handle the possibility
+    of a `nil` instance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In some cases, expecting a `nil` receiver makes the code simpler. Here’s an
+    implementation of a binary tree that takes advantage of `nil` values for the receiver:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The `Contains` method doesn’t modify the `*IntTree`, but it is declared with
+    a pointer receiver. This demonstrates the rule mentioned previously about supporting
+    a `nil` receiver. A method with a value receiver can’t check for `nil` and, as
+    mentioned earlier, panics if invoked with a `nil` receiver.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The following code uses the tree. You can try it out on [The Go Playground](https://oreil.ly/-F2i-)
+    or use the code in the *sample_code/tree* directory in the [Chapter 7 repository](https://oreil.ly/qJQgV):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: It’s very clever that Go allows you to call a method on a `nil` receiver, and
+    there are situations where it is useful, like the previous tree node example.
+    However, most of the time it’s not very useful. Pointer receivers work like pointer
+    function parameters; it’s a copy of the pointer that’s passed into the method.
+    Just like `nil` parameters passed to functions, if you change the copy of the
+    pointer, you haven’t changed the original. This means you can’t write a pointer
+    receiver method that handles `nil` and makes the original pointer non-nil.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If your method has a pointer receiver and won’t work for a `nil` receiver, you
+    have to decide how your method should handle a `nil` receiver. One choice is to
+    treat it as a fatal flaw, like trying to access a position in a slice beyond its
+    length. In that case, don’t do anything and let the code panic. (Also make sure
+    you write good tests, as discussed in [Chapter 15](ch15.html#unique_chapter_id_15).)
+    If a `nil` receiver is something that is recoverable, check for `nil` and return
+    an error (I discuss errors in [Chapter 9](ch09.html#unique_chapter_id_09)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Methods Are Functions Too
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Methods in Go are so much like functions that you can use a method as a replacement
+    for a function anytime there’s a variable or parameter of a function type.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s start with this simple type:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You create an instance of the type in the usual way and invoke its method:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You can also assign the method to a variable or pass it to a parameter of type
+    `func(int)int`. This is called a *method value*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: A method value is a bit like a closure, since it can access the values in the
+    fields of the instance from which it was created.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You can also create a function from the type itself. This is called a *method
+    expression*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: In a method expression, the first parameter is the receiver for the method;
+    the function signature is `func(Adder, int) int`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Method values and method expressions aren’t clever corner cases. You’ll see
+    one way to use them when you look at dependency injection in [“Implicit Interfaces
+    Make Dependency Injection Easier”](#dependency_injection).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Functions Versus Methods
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Since you can use a method as a function, you might wonder when you should declare
+    a function and when you should use a method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The differentiator is whether your function depends on other data. As I’ve covered
+    several times, package-level state should be effectively immutable. Anytime your
+    logic depends on values that are configured at startup or changed while your program
+    is running, those values should be stored in a struct, and that logic should be
+    implemented as a method. If your logic depends only on the input parameters, it
+    should be a function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Type Declarations Aren’t Inheritance
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'In addition to declaring types based on built-in Go types and struct literals,
+    you can also declare a user-defined type based on another user-defined type:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Many concepts can be considered “object-oriented,” but one stands out: *inheritance*.
+    With inheritance, the state and methods of a *parent* type are declared to be
+    available on a *child* type, and values of the child type can be substituted for
+    the parent type.^([1](ch07.html#id1628))'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Declaring a type based on another type looks a bit like inheritance but isn’t.
+    The two types have the same underlying type, but that’s all. The types have no
+    hierarchy. In languages with inheritance, a child instance can be used anywhere
+    the parent instance is used. The child instance also has all the methods and 
+    data  structures of  the  parent  instance.  That’s  not  the  case  in  Go. 
+    You  can’t assign  an  instance  of  type  `HighScore` to  a  variable  of  type 
+    `Score`, or  vice  versa,  without  a type conversion, nor can you assign either
+    of them to a variable of type `int` without a type conversion. Furthermore, any
+    methods defined on `Score` aren’t defined on `HighScore`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'User-defined types whose underlying types are built-in types can be assigned
+    literals and constants compatible with the underlying type. They can also be used
+    with the operators for those types:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: Tip
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: A type conversion between types that share an underlying type keeps the same
+    underlying storage but associates different methods.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Types Are Executable Documentation
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: While it’s well understood that you should declare a struct type to hold a set
+    of related data, it’s less clear when you should declare a user-defined type based
+    on other built-in types or one user-defined type that’s based on another user-defined
+    type. The short answer is that types are documentation. They make code clearer
+    by providing a name for a concept and describing the kind of data that is expected.
+    It’s clearer for someone reading your code when a method has a parameter of type
+    `Percentage` than of type `int`, and it’s harder for it to be invoked with an
+    invalid value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The same logic applies when declaring one user-defined type based on another
+    user-defined type. When you have the same underlying data, but different sets
+    of operations to perform, make two types. Declaring one as being based on the
+    other avoids some repetition and makes it clear that the two types are related.
+  prefs: []
+  type: TYPE_NORMAL
+- en: iota Is for Enumerations—Sometimes
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Many programming languages have the concept of enumerations, which allow you
+    to specify that a type can have only a limited set of values. Go doesn’t have
+    an enumeration type. Instead, it has `iota`, which lets you assign an increasing
+    value to a set of constants.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The concept of `iota` comes from the programming language APL (which stood for
+    “A Programming Language”). To generate a list of the first three positive integers
+    in APL, you write `ι3`, where `ι` is the lowercase Greek letter iota.
+  prefs: []
+  type: TYPE_NORMAL
+- en: APL is famous for being so reliant on its own custom notation that it required
+    computers with a special keyboard. For example, (~R∊R∘.×R)/R←1↓ιR is an APL program
+    to find all the prime numbers up to the value of the variable R.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'It may seem ironic that a language as focused on readability as Go would borrow
+    a concept from a language that is concise to a fault, but this is why you should
+    learn multiple programming languages: you can find inspiration everywhere.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'When using `iota`, the best practice is to first define a type based on `int`
+    that will represent all the valid values:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Next, use a `const` block to define a set of values for your type:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: The first constant in the `const` block has the type specified, and its value
+    is set to `iota`. Every subsequent line has neither the type nor a value assigned
+    to it. When the Go compiler sees this, it repeats the type and the assignment
+    to all the subsequent constants in the block, which is `iota`. The value of `iota`
+    increments for each constant defined in the `const` block, starting with `0`.
+    This means that `0` is assigned to the first constant (`Uncategorized`), 1 to
+    the second constant (`Personal`), and so on. When a new `const` block is created,
+    `iota` is set back to 0.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The value of `iota` increments for each constant in the `const` block, whether
+    or not `iota` is used to define the value of a constant. The following code demonstrates
+    what happens when `iota` is used intermittently in a `const` block:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You can run this code on [The Go Playground](https://oreil.ly/jTXxD) and see
+    the (perhaps unexpected) result:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: '`Field2` is assigned `2` because `iota` has a value of `1` on the second line
+    in the `const` block. `Field4` is assigned `20` because it has no type or value
+    explicitly assigned, so it gets the value of the previous line with a type and
+    assignment. Finally, `Field5` gets the value `4` because it is the fifth line
+    and `iota` starts counting from `0`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This is the best advice I’ve seen on `iota`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Don’t use *iota* for defining constants where its values are explicitly defined
+    (elsewhere). For example, when implementing parts of a specification and the specification
+    says which values are assigned to which constants, you should explicitly write
+    the constant values. Use *iota* for “internal” purposes only. That is, where the
+    constants are referred to by name rather than by value. That way, you can optimally
+    enjoy *iota* by inserting new constants at any moment in time / location in the
+    list without the risk of breaking everything.
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: ''
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: '[Danny van Heumen](https://oreil.ly/3MKwn)'
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: The important thing to understand is that nothing in Go will stop you (or anyone
+    else) from creating additional values of your type. Furthermore, if you insert
+    a new identifier in the middle of your list of literals, all subsequent ones will
+    be renumbered. This will break your application in a subtle way if those constants
+    represented values in another system or in a database. Given these two limitations,
+    `iota`-based enumerations make sense only when you care about being able to differentiate
+    between a set of values and don’t particularly care what the value is behind the
+    scenes. If the actual value matters, specify it explicitly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Warning
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'Because you can assign a literal expression to a constant, you’ll see sample
+    code that suggests you should use `iota` for cases like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: While this is clever, be careful when using this pattern. If you do so, document
+    what you are doing. As mentioned previously, using `iota` with constants is fragile
+    when you care about the value. You don’t want a future maintainer to insert a
+    new constant in the middle of the list and break your code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Be aware that `iota` starts numbering from 0\. If you are using your set of
+    constants to represent different configuration states, the zero value might be
+    useful. You saw this earlier in the `MailCategory` type. When mail first arrives,
+    it is uncategorized, so the zero value makes sense. If there isn’t a sensical
+    default value for your constants, a common pattern is to assign the first `iota`
+    value in the constant block to `_` or to a constant that indicates the value is
+    invalid. This makes it easy to detect when a variable has not been properly initialized.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Use Embedding for Composition
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The software engineering advice “Favor object composition over class inheritance”
+    dates back to at least the 1994 book *Design Patterns* by Erich Gamma, Richard
+    Helm, Ralph Johnson, and John Vlissides (Addison-Wesley), better known as the
+    Gang of Four book. While Go doesn’t have inheritance, it encourages code reuse
+    via built-in support for composition and promotion:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Note that `Manager` contains a field of type `Employee`, but no name is assigned
+    to that field. This makes `Employee` an *embedded field*. Any fields or methods
+    declared on an embedded field are *promoted* to the containing struct and can
+    be invoked directly on it. That makes the following code valid:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: You can embed any type within a struct, not just another struct. This promotes
+    the methods on the embedded type to the containing struct.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If the containing struct has fields or methods with the same name as an embedded
+    field, you need to use the embedded field’s type to refer to the obscured fields
+    or methods. If you have types defined like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'you can access the `X` on `Inner` only by specifying `Inner` explicitly:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: Embedding Is Not Inheritance
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Built-in embedding support is rare in programming languages (I’m not aware
+    of another popular language that supports it). Many developers who are familiar
+    with inheritance (which is available in many languages) try to understand embedding
+    by treating it as inheritance. That way lies tears. You cannot assign a variable
+    of type `Manager` to a variable of type `Employee`. If you want to access the
+    `Employee` field in `Manager`, you must do so explicitly. You can run the following
+    code on [The Go Playground](https://oreil.ly/vBl7o) or use the code in the *sample_code/embedding*
+    directory in the [Chapter 7 repository](https://oreil.ly/qJQgV):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You’ll get the error:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Furthermore, Go has no *dynamic dispatch* for concrete types. The methods on
+    the embedded field have no idea they are embedded. If you have a method on an
+    embedded field that calls another method on the embedded field, and the containing
+    struct has a method of the same name, the method on the embedded field is invoked,
+    not the method on the containing struct. This behavior is demonstrated in the
+    following code, which you can run on [The Go Playground](https://oreil.ly/yN6bV),
+    or use the code in the *sample_code/no_dispatch* directory in the [Chapter 7 repository](https://oreil.ly/qJQgV):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Running this code produces the following output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: While embedding one concrete type inside another won’t allow you to treat the
+    outer type as the inner type, the methods on an embedded field do count toward
+    the *method set* of the containing struct. This means they can make the containing
+    struct implement an interface.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A Quick Lesson on Interfaces
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: While Go’s concurrency model (which I cover in [Chapter 12](ch12.html#unique_chapter_id_12))
+    gets all the publicity, the real star of Go’s design is its implicit interfaces,
+    the only abstract type in Go. Let’s see what makes them so great.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s start by taking a quick look at how to declare interfaces. At their core,
+    interfaces are simple. Like other user-defined types, you use the `type` keyword.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here’s the definition of the `Stringer` interface in the `fmt` package:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In an interface declaration, an interface literal appears after the name of
+    the interface type. It lists the methods that must be implemented by a concrete
+    type to meet the interface. The methods defined by an interface are the method
+    set of the interface. As I covered in [“Pointer Receivers and Value Receivers”](#pointer_value_receivers),
+    the method set of a pointer instance contains the methods defined with both pointer
+    and value receivers, while the method set of a value instance contains only the
+    methods with value receivers. Here’s a quick example using the `Counter` struct
+    defined previously:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Trying to compile this code results in the error `cannot use valueCounter (variable
+    of type Counter) as Incrementer value in assignment: Counter does not implement
+    Incrementer (method Increment has pointer receiver).`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can try this code on [The Go Playground](https://oreil.ly/yYx8Q) or use
+    the code in the *sample_code/method_set* directory in the [Chapter 7 repository](https://oreil.ly/qJQgV).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Like other types, interfaces can be declared in any block.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Interfaces are usually named with “er” endings. You’ve already seen `fmt.Stringer`,
+    but there are many more, including `io.Reader`, `io.Closer`, `io.ReadCloser`,
+    `json.Marshaler`, and `http.Handler`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Interfaces Are Type-Safe Duck Typing
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: So far, nothing that’s been said about the Go interface is much different from
+    interfaces in other languages. What makes Go’s interfaces special is that they
+    are implemented *implicitly*. As you’ve seen with the `Counter` struct type and
+    the `Incrementer` interface type that you’ve used in previous examples, a concrete
+    type does not declare that it implements an interface. If the method set for a
+    concrete type contains all the methods in the method set for an interface, the
+    concrete type implements the interface. Therefore, that the concrete type can
+    be assigned to a variable or field declared to be of the type of the interface.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This implicit behavior makes interfaces the most interesting thing about types
+    in Go, because they enable both type safety and decoupling, bridging the functionality
+    in both static and dynamic languages.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To understand why, let’s talk about why languages have interfaces. Earlier I
+    mentioned that *Design Patterns* taught developers to favor composition over inheritance.
+    Another piece of advice from the book is “Program to an interface, not an implementation.”
+    Doing so allows you to depend on behavior, not on implementation, allowing you
+    to swap implementations as needed. This allows your code to evolve over time,
+    as requirements inevitably change.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Dynamically typed languages like Python, Ruby, and JavaScript don’t have interfaces.
+    Instead, those developers use *duck typing*, which is based on the expression
+    “If it walks like a duck and quacks like a duck, it’s a duck.” The concept is
+    that you can pass an instance of a type as a parameter to a function as long as
+    the function can find a method to invoke that it expects:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: Duck typing might sound weird at first, but it’s been used to build large and
+    successful systems. If you program in a statically typed language, this sounds
+    like utter chaos. Without an explicit type being specified, it’s hard to know
+    exactly what functionality should be expected. As new developers move on to a
+    project or the existing developers forget what the code is doing, they have to
+    trace through the code to identify the actual dependencies.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Java developers use a different pattern. They define an interface, create an
+    implementation of the interface, but refer to the interface only in the client
+    code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: Dynamic language developers look at the explicit interfaces in Java and don’t
+    see how you can possibly refactor your code over time when you have explicit dependencies.
+    Switching to a new implementation from a different provider means rewriting your
+    code to depend on a new interface.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Go’s developers decided that both groups are right. If your application is
+    going to grow and change over time, you need flexibility to change implementation.
+    However, in order for people to understand what your code is doing (as new people
+    work on the same code over time), you also need to specify what the code depends
+    on. That’s where implicit interfaces come in. Go code is a blend of the previous
+    two styles:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: The Go code provides an interface, but only the caller (`Client`) knows about
+    it; nothing is declared on `LogicProvider` to indicate that it meets the interface.
+    This is sufficient to both allow a new logic provider in the future and provide
+    executable documentation to ensure that any type passed into the client will match
+    the client’s need.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Interfaces specify what callers need. The client code defines the interface
+    to specify what functionality it requires.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This doesn’t mean that interfaces can’t be shared. You’ve already seen several
+    interfaces in the standard library that are used for input and output. Having
+    a standard interface is powerful; if you write your code to work with `io.Reader`
+    and `io.Writer`, it will function correctly whether it is writing to a file on
+    local disk or a value in memory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Furthermore, using standard interfaces encourages the *decorator pattern*.
+    It is common in Go to write factory functions that take in an instance of an interface
+    and return another type that implements the same interface. For example, say you
+    have a function with the following definition:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You can process data from a file with the following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `os.File` instance returned by `os.Open` meets the `io.Reader` interface
+    and can be used in any code that reads in data. If the file is gzip-compressed,
+    you can wrap the `io.Reader` in another `io.Reader`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now the exact same code that was reading from an uncompressed file is reading
+    from a compressed file instead.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: If an interface in the standard library describes what your code needs, use
+    it! Commonly used interfaces include `io.Reader`, `io.Writer`, and `io.Closer`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It’s perfectly fine for a type that meets an interface to specify additional
+    methods that aren’t part of the interface. One set of client code may not care
+    about those methods, but others do. For example, the `io.File` type also meets
+    the `io.Writer` interface. If your code cares only about reading from a file,
+    use the `io.Reader` interface to refer to the file instance and ignore the other
+    methods.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Embedding and Interfaces
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Embedding is not only for structs. You can also embed an interface in an interface.
+    For example, the `io.ReadCloser` interface is built out of an `io.Reader` and
+    an `io.Closer`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Just as you can embed a concrete type in a struct, you can also embed an interface
+    in a struct. You’ll see a use for this in [“Using Stubs in Go”](ch15.html#test_stubs).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Accept Interfaces, Return Structs
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'You’ll often hear experienced Go developers say that your code should “Accept
+    interfaces, return structs.” This phrase was most likely coined by Jack Lindamood
+    in his 2016 blog post [“Preemptive Interface Anti-Pattern in Go”](https://oreil.ly/OT1yi).
+    It means that the business logic invoked by your functions should be invoked via
+    interfaces, but the output of your functions should be a concrete type. I’ve already
+    covered why functions should accept interfaces: they make your code more flexible
+    and explicitly declare the exact functionality being used.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The primary reason your functions should return concrete types is they make
+    it easier to gradually update a function’s return values in new versions of your
+    code. When a concrete type is returned by a function, new methods and fields can
+    be added without breaking existing code that calls the function, because the new
+    fields and methods are ignored. The same is not true for an interface. Adding
+    a new method to an interface means that all existing implementations of that interface
+    must be updated, or your code breaks. In semantic versioning terms, this is the
+    difference between a minor release that is backward compatible and a major release,
+    which is backward breaking. If you are exposing an API that’s consumed by other
+    people (either inside your organization or as part of an open source project),
+    avoiding backward-breaking changes keeps your users happy.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In some rare situations, the least bad option is to have your functions return
+    interfaces. For example, the `database/sql/driver` package in the standard library
+    defines a set of interfaces that define what a database driver must provide. It
+    is the responsibility of the database driver author to provide concrete implementations
+    of these interfaces, so almost all methods on all interfaces defined in `database/sql/driver`
+    return interfaces. Starting in Go 1.8, database drivers are expected to support
+    additional features. The standard library has a compatibility promise, so the
+    existing interfaces can’t be updated with new methods, and the existing methods
+    on these interfaces can’t be updated to return different types. The solution is
+    to leave the existing interfaces alone, define new interfaces that describe the
+    new functionality, and tell database driver authors that they should implement
+    both the old and new methods on their concrete types.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This leads to the question of how to check whether these new methods are present
+    and how to access them if they are. You’ll learn how in [“Type Assertions and
+    Type Switches”](#type_assert).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Rather than writing a single factory function that returns different instances
+    behind an interface based on input parameters, try to write separate factory functions
+    for each concrete type. In some situations (such as a parser that can return one
+    or more kinds of tokens), it’s unavoidable and you have no choice but to return
+    an interface.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Errors are an exception to this rule. As you’ll see in [Chapter 9](ch09.html#unique_chapter_id_09),
+    Go functions and methods can declare a return parameter of the `error` interface
+    type. In the case of `error`, it’s quite likely that different implementations
+    of the interface could be returned, so you need to use an interface to handle
+    all possible options, as interfaces are the only abstract type in Go.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This pattern has one potential drawback. As I discussed in [“Reducing the Garbage
+    Collector’s Workload”](ch06.html#memory), reducing heap allocations improves performance
+    by reducing the amount of work for the garbage collector. Returning a struct avoids
+    a heap allocation, which is good. However, when invoking a function with parameters
+    of interface types, a heap allocation occurs for each interface parameter. Figuring
+    out the trade-off between better abstraction and better performance should be
+    done over the life of your program. Write your code so that it is readable and
+    maintainable. If you find that your program is too slow *and* you have profiled
+    it *and* you have determined that the performance problems are due to a heap allocation
+    caused by an interface parameter, then you should rewrite the function to use
+    a concrete type parameter. If multiple implementations of an interface are passed
+    into the function, this will mean creating multiple functions with repeated logic.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Developers who come from a C++ or Rust background might try using generics as
+    a way to get the compiler to generate specialized functions. As of Go 1.21, this
+    will probably not produce faster code. I’ll cover why in [“Idiomatic Go and Generics”](ch08.html#generic_speed).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Interfaces and nil
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: When discussing pointers in [Chapter 6](ch06.html#unique_chapter_id_06), I also
+    talked about `nil`, the zero value for pointer types. You can also use `nil` to
+    represent the zero value for an interface instance, but it’s not as simple as
+    it is for concrete types.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Understanding the relationship between interfaces and `nil` requires understanding
+    a little bit about how interfaces are implemented. In the Go runtime, interfaces
+    are implemented as a struct with two pointer fields, one for the value and one
+    for the type of the value. As long as the type field is non-nil, the interface
+    is non-nil. (Since you cannot have a variable without a type, if the value pointer
+    is non-nil, the type pointer is always non-nil.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In order for an interface to be considered `nil`, *both* the type and the value
+    must be `nil`. The following code prints out `true` on the first two lines and
+    `false` on the last:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE41]'
+  prefs: []
+  type: TYPE_PRE
+- en: You can run this code for yourself on [The Go Playground](https://oreil.ly/njtz9)
+    or use the code in the *sample_code/interface_nil* directory in the [Chapter 7
+    repository](https://oreil.ly/qJQgV).
+  prefs: []
+  type: TYPE_NORMAL
+- en: What `nil` indicates for a variable with an interface type is whether you can
+    invoke methods on it. As I covered earlier, you can invoke methods on `nil` concrete
+    instances, so it makes sense that you can invoke methods on an interface variable
+    that was assigned a `nil` concrete instance. If an interface variable is `nil`,
+    invoking any methods on it triggers a panic (which I’ll discuss in [“panic and
+    recover”](ch09.html#panic_recover)). If an interface variable is non-nil, you
+    can invoke methods on it. (But note that if the value is `nil` and the methods
+    of the assigned type don’t properly handle `nil`, you could still trigger a panic.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Since an interface instance with a non-nil type is not equal to `nil`, it is
+    not straightforward to tell whether the value associated with the interface is
+    `nil` when the type is non-nil. You must use reflection (which I’ll discuss in
+    [“Use Reflection to Check If an Interface’s Value Is nil”](ch16.html#reflect_interface_nil))
+    to find out.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Interfaces Are Comparable
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In [Chapter 3](ch03.html#unique_chapter_id_03), you learned about comparable
+    types, the ones that can be checked for equality with `==`. You might be surprised
+    to learn that interfaces are comparable. Just as an interface is equal to `nil`
+    only if its type and value fields are both `nil`, two instances of an interface
+    type are equal only if their types are equal and their values are equal. This
+    suggests a question: what happens if the type isn’t comparable? Let’s use a simple
+    example to explore this concept. Start with an interface definition and a couple
+    of implementations of that interface:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `Double` method on `DoubleInt` is declared with a pointer receiver because
+    you are modifying the value of the `int`. You can use a value receiver for the
+    `Double` method on `DoubleIntSlice` because, as covered in [“The Difference Between
+    Maps and Slices”](ch06.html#map_slice), you can change the value of an item in
+    a parameter that is a slice type. The `*DoubleInt` type is comparable (all pointer
+    types are), and the `DoubleIntSlice` type is not comparable (slices aren’t comparable).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You also have a function that takes in two parameters of type `Doubler` and
+    prints if they are equal:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE43]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You now define four variables:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE44]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, you’re going to call this function three times. The first call is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE45]'
+  prefs: []
+  type: TYPE_PRE
+- en: This prints out `false`. The types match (both are `*DoubleInt`), but you are
+    comparing pointers, not values, and the pointers point to different instances.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Next, you compare a `*DoubleInt` with a `DoubleIntSlice`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE46]'
+  prefs: []
+  type: TYPE_PRE
+- en: This prints out `false`, because the types do not match.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Finally, you get to the problematic case:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE47]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This code compiles without issue, but triggers a panic at runtime:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE48]'
+  prefs: []
+  type: TYPE_PRE
+- en: The entire program is available in the *sample_code/comparable* directory in
+    the [Chapter 7 repository](https://oreil.ly/qJQgV).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Also be aware that the key of a map must be comparable, so a map can be defined
+    to have an interface as a key:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE49]'
+  prefs: []
+  type: TYPE_PRE
+- en: If you add a key-value pair to this map and the key isn’t comparable, that will
+    also trigger a panic.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Given this behavior, be careful when using `==` or `!=` with interfaces or using
+    an interface as a map key, as it’s easy to accidentally generate a panic that
+    will crash your program. Even if all your interface implementations are currently
+    comparable, you don’t know what will happen when someone else uses or modifies
+    your code, and there’s no way to specify that an interface can be implemented
+    only by comparable types. If you want to be extra safe, you can use the `Comparable`
+    method on `reflect.Value` to inspect an interface before using it with `==` or
+    `!=`. (You’ll learn more about reflection in [“Reflection Lets You Work with Types
+    at Runtime”](ch16.html#reflection)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Empty Interface Says Nothing
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Sometimes in a statically typed language, you need a way to say that a variable
+    could store a value of any type. Go uses an *empty interface*, `interface{}`,
+    to represent this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE50]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: '`interface{}` isn’t special case syntax. An empty interface type simply states
+    that the variable can store any value whose type implements zero or more methods.
+    This just happens to match every type in Go.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: To improve readability, Go added `any` as a type alias for `interface{}`. Legacy
+    code (written before `any` was added in Go 1.18) used `interface{}`, but stick
+    with `any` for new code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Because an empty interface doesn’t tell you anything about the value it represents,
+    you can’t do a lot with it. One common use of `any` is as a placeholder for data
+    of uncertain schema that’s read from an external source, like a JSON file:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE51]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: User-created data containers that were written before generics were added to
+    Go use an empty interface to store a value. (I’ll talk about generics in [Chapter 8](ch08.html#unique_chapter_id_08).)
+    An example in the standard library is [`container/list`](https://oreil.ly/53tmr).
+    Now that generics are part of Go, please use them for any newly created data containers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you see a function that takes in an empty interface, it’s likely using reflection
+    (which I’ll talk about in [Chapter 16](ch16.html#unique_chapter_id_16)) to either
+    populate or read the value. In the preceding example, the second parameter of
+    the `json.Unmarshal` function is declared to be of type `any`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: These situations should be relatively rare. Avoid using `any`. As you’ve seen,
+    Go is designed as a strongly typed language and attempts to work around this are
+    unidiomatic.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you find yourself in a situation where you had to store a value into an empty
+    interface, you might be wondering how to read the value back again. To do that,
+    you need to learn about type assertions and type switches.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Type Assertions and Type Switches
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Go provides two ways to see if a variable of an interface type has a specific
+    concrete type or if the concrete type implements another interface. Let’s start
+    by looking at type assertions. A *type assertion* names the concrete type that
+    implemented the interface, or names another interface that is also implemented
+    by the concrete type whose value is stored in the interface. You can try it out
+    on [The Go Playground](https://oreil.ly/XUfuO) or in the `typeAssert` function
+    in *main.go* in the *sample_code/type_assertions* directory in the [Chapter 7
+    repository](https://oreil.ly/qJQgV):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE52]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding code, the variable `i2` is of type `MyInt`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You might wonder what happens if a type assertion is wrong. In that case, your
+    code panics. You can try it out on [The Go Playground](https://oreil.ly/qoXu_)
+    or in the `typeAssertPanicWrongType` function in *main.go* in the *sample_code/type_assertions*
+    directory in the [Chapter 7 repository](https://oreil.ly/qJQgV):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE53]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Running this code produces the following panic:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE54]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'As you’ve already seen, Go is very careful about concrete types. Even if two
+    types share an underlying type, a type assertion must match the type of the value
+    stored in the interface. The following code panics. You can try it out on [The
+    Go Playground](https://oreil.ly/YUaka) or in the `typeAssertPanicTypeNotIdentical`
+    function in *main.go* in the *sample_code/type_assertions* directory in the [Chapter
+    7 repository](https://oreil.ly/qJQgV):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE55]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Obviously, crashing is not desired behavior. You avoid this by using the comma
+    ok idiom, just as you saw in [“The comma ok Idiom”](ch03.html#comma_ok_section)
+    when detecting whether a zero value was in a map. You can see this in the `typeAssertCommaOK`
+    function in *main.go* in the *sample_code/type_assertions* directory in the [Chapter
+    7 repository](https://oreil.ly/qJQgV):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE56]'
+  prefs: []
+  type: TYPE_PRE
+- en: The boolean `ok` is set to `true` if the type conversion was successful. If
+    it was not, `ok` is set to `false` and the other variable (in this case `i2`)
+    is set to its zero value. You then handle the unexpected condition within an `if`
+    statement. I’ll talk more about error handling in [Chapter 9](ch09.html#unique_chapter_id_09).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: A type assertion is very different from a type conversion. Conversions change
+    a value to a new type, while assertions reveal the type of the value stored in
+    the interface. Type conversions can be applied to both concrete types and interfaces.
+    Type assertions can be applied only to interface types. All type assertions are
+    checked at runtime, so they can fail at runtime with a panic if you don’t use
+    the comma ok idiom. Most type conversions are checked at compile time, so if they
+    are invalid, your code won’t compile. (Type conversions between slices and array
+    pointers can fail at runtime and don’t support the comma ok idiom, so be careful
+    when using them!)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Even if you are absolutely certain that your type assertion is valid, use the
+    comma ok idiom version. You don’t know how other people (or you in six months)
+    will reuse your code. Sooner or later, your unvalidated type assertions will fail
+    at runtime.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'When an interface could be one of multiple possible types, use a *type switch*
+    instead:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE57]'
+  prefs: []
+  type: TYPE_PRE
+- en: A type `switch` looks a lot like the `switch` statement that you saw way back
+    in [“switch”](ch04.html#switch_statement). Instead of specifying a boolean operation,
+    you specify a variable of an interface type and follow it with `.(type)`. Usually,
+    you assign the variable being checked to another variable that’s valid only within
+    the `switch`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Since the purpose of a type `switch` is to derive a new variable from an existing
+    one, it is idiomatic to assign the variable being switched on to a variable of
+    the same name (`i := i.(type)`), making this one of the few places where shadowing
+    is a good idea. To make the comments more readable, this example doesn’t use shadowing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The type of the new variable depends on which case matches. You can use `nil`
+    for one case to see if the interface has no associated type. If you list more
+    than one type on a case, the new variable is of type `any`. Just as with a `switch`
+    statement, you can have a `default` case that matches when no specified type does.
+    Otherwise, the new variable has the type of the case that matches.
+  prefs: []
+  type: TYPE_NORMAL
+- en: While the examples so far have used the `any` interface with type assertions
+    and type switches, you can uncover the concrete type from all interface types.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: If you *don’t* know the type of the value stored in an interface, you need to
+    use reflection. I’ll talk more about reflection in [Chapter 16](ch16.html#unique_chapter_id_16).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Use Type Assertions and Type Switches Sparingly
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: While being able to extract the concrete implementation from an interface variable
+    might seem handy, you should use these techniques infrequently. For the most part,
+    treat a parameter or return value as the type that was supplied and not what else
+    it could be. Otherwise, your function’s API isn’t accurately declaring the types
+    it needs to perform its task. If you needed a different type, it should be specified.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'That said, type assertions and type switches are useful in some use cases.
+    One common use of a type assertion is to see if the concrete type behind the interface
+    also implements another interface. This allows you to specify optional interfaces.
+    For example, the standard library uses this technique to allow more efficient
+    copies when the `io.Copy` function is called. This function has two parameters
+    of types `io.Writer` and `io.Reader` and calls the `io.copyBuffer` function to
+    do its work. If the `io.Writer` parameter also implements `io.WriterTo`, or the
+    `io.Reader` parameter also implements `io.ReaderFrom`, most of the work in the
+    function can be skipped:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE58]'
+  prefs: []
+  type: TYPE_PRE
+- en: Another place optional interfaces are used is when evolving an API. As was covered
+    in [“Accept Interfaces, Return Structs”](#accept_interface), the API for the database
+    drivers has changed over time. One of the reasons for this change is the addition
+    of the context, which is discussed in [Chapter 14](ch14.html#unique_chapter_id_14).
+    Context is a parameter that’s passed to functions that provides, among other things,
+    a standard way to manage cancellation. It was added to Go in version 1.7, which
+    means older code doesn’t support it. This includes older database drivers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In Go 1.8, new context-aware analogues of existing interfaces were defined
+    in the `database/sql/driver` package. For example, the `StmtExecContext` interface
+    defines a method called `ExecContext`, which is a context-aware replacement for
+    the `Exec` method in `Stmt`. When an implementation of `Stmt` is passed into standard
+    library database code, it checks whether it also implements `StmtExecContext`.
+    If it does, `ExecContext` is invoked. If not, the Go standard library provides
+    a fallback implementation of the cancellation support provided by newer code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE59]'
+  prefs: []
+  type: TYPE_PRE
+- en: This optional interface technique has one drawback. You saw earlier that it
+    is common for implementations of interfaces to use the decorator pattern to wrap
+    other implementations of the same interface to layer behavior. The problem is
+    that if an optional interface is implemented by one of the wrapped implementations,
+    you cannot detect it with a type assertion or type switch. For example, the standard
+    library includes a `bufio` package that provides a buffered reader. You can buffer
+    any other `io.Reader` implementation by passing it to the `bufio.NewReader` function
+    and using the returned `*bufio.Reader`. If the passed-in `io.Reader` also implemented
+    `io.ReaderFrom`, wrapping it in a buffered reader prevents the optimization.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You also see this when handling errors. As mentioned earlier, they implement
+    the `error` interface. Errors can include additional information by wrapping other
+    errors. A type switch or type assertion cannot detect or match wrapped errors.
+    If you want different behaviors to handle different concrete implementations of
+    a returned error, use the `errors.Is` and `errors.As` functions to test for and
+    access the wrapped error.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Type `switch` statements provide the ability to differentiate between multiple
+    implementations of an interface that require different processing. They are most
+    useful when only certain possible valid types can be supplied for an interface.
+    Be sure to include a `default` case in the type `switch` to handle implementations
+    that aren’t known at development time. This protects you if you forget to update
+    your type `switch` statements when adding new interface implementations:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE60]'
+  prefs: []
+  type: TYPE_PRE
+- en: You can see the complete implementation on [The Go Playground](https://oreil.ly/jDhqM)
+    or in the *sample_code/type_switch* directory in the [Chapter 7 repository](https://oreil.ly/qJQgV).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: You can further protect yourself from unexpected interface implementations by
+    making the interface unexported and at least one method unexported. If the interface
+    is exported, it can be embedded in a struct in another package, making the struct
+    implement the interface. I’ll talk more about packages and exporting identifiers
+    in [Chapter 10](ch10.html#unique_chapter_id_10).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Function Types Are a Bridge to Interfaces
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: I haven’t talked about one last thing with type declarations. Once you understand
+    the concept of declaring a method on a struct, you can start to see how a user-defined
+    type with an underlying type of `int` or `string` can have a method as well. After
+    all, a method provides business logic that interacts with the state of an instance,
+    and integers and strings have state as well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Go, however, allows methods on *any* user-defined type, including user-defined
+    function types. This sounds like an academic corner case, but they are actually
+    very useful. They allow functions to implement interfaces. The most common usage
+    is for HTTP handlers. An HTTP handler processes an HTTP server request. It’s defined
+    by an interface:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE61]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'By using a type conversion to `http.HandlerFunc`, any function that has the
+    signature `func(http.ResponseWriter,*http.Request)` can be used as an `http.Handler`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE62]'
+  prefs: []
+  type: TYPE_PRE
+- en: This lets you implement HTTP handlers using functions, methods, or closures
+    using the exact same code path as the one used for other types that meet the `http.Handler`
+    interface.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Functions in Go are first-class concepts, and as such, they are often passed
+    as parameters into functions. Meanwhile, Go encourages small interfaces, and an
+    interface of only one method could easily replace a parameter of a function type.
+    The question becomes: when should your function or method specify an input parameter
+    of a function type, and when should you use an interface?'
+  prefs: []
+  type: TYPE_NORMAL
+- en: If your single function is likely to depend on many other functions or other
+    state that’s not specified in its input parameters, use an interface parameter
+    and define a function type to bridge a function to the interface. That’s what’s
+    done in the `http` package; a `Handler` is likely just the entry point for a chain
+    of calls that needs to be configured. However, if it’s a simple function (like
+    the one used in `sort.Slice`), then a parameter of a function type is a good choice.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implicit Interfaces Make Dependency Injection Easier
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the preface, I compared writing software to building bridges. One of the
+    things that software has in common with physical infrastructure is that any program
+    used for a lengthy period of time by multiple people will need maintenance. While
+    programs don’t wear out, developers are often asked to update programs to fix
+    bugs, add features, and run in new environments. Therefore, you should structure
+    your programs in ways that make them easier to modify. Software engineers talk
+    about *decoupling* code, so that changes to different parts of a program have
+    no effect on one another.
+  prefs: []
+  type: TYPE_NORMAL
+- en: One of the techniques that has been developed to ease decoupling is called *dependency
+    injection*. Dependency injection is the concept that your code should explicitly
+    specify the functionality it needs to perform its task. It’s quite a bit older
+    than you might think; in 1996, Robert Martin wrote an article called [“The Dependency
+    Inversion Principle”](https://oreil.ly/6HVob).
+  prefs: []
+  type: TYPE_NORMAL
+- en: One of the surprising benefits of Go’s implicit interfaces is that they make
+    dependency injection an excellent way to decouple your code. While developers
+    in other languages often use large, complicated frameworks to inject their dependencies,
+    the truth is that it is easy to implement dependency injection in Go without any
+    additional libraries. Let’s work through a simple example to see how to use implicit
+    interfaces to compose applications via dependency injection.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To understand this concept better and see how to implement dependency injection
+    in Go, you’ll build a very simple web application. (I’ll talk more about Go’s
+    built-in HTTP server support in [“The Server”](ch13.html#http_server); consider
+    this a preview.) Start by writing a small utility function, a logger:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE63]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Another thing your app needs is a data store. Let’s create a simple one:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE64]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Also define a factory function to create an instance of a `SimpleDataStore`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE65]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Next, write some business logic that looks up a user and says hello or goodbye.
+    Your business logic needs some data to work with, so it requires a data store.
+    You also want your business logic to log when it is invoked, so it depends on
+    a logger. However, you don’t want to force it to depend on `LogOutput` or `SimpleDataStore`,
+    because you might want to use a different logger or data store later. What your
+    business logic needs are interfaces to describe what it depends on:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE66]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To make your `LogOutput` function meet this interface, you define a function
+    type with a method on it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE67]'
+  prefs: []
+  type: TYPE_PRE
+- en: By a stunning coincidence, `LoggerAdapter` and `SimpleDataStore` happen to meet
+    the interfaces needed by your business logic, but neither type has any idea that
+    it does.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now that you have the dependencies defined, let’s look at the implementation
+    of your business logic:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE68]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You have a `struct` with two fields: one a `Logger`, the other a `DataStore`.
+    Nothing in `SimpleLogic` mentions the concrete types, so there’s no dependency
+    on them. There’s no problem if you later swap in new implementations from an entirely
+    different provider, because the provider has nothing to do with your interface.
+    This is very different from explicit interfaces in languages like Java. Even though
+    Java uses an interface to decouple the implementation from the interface, the
+    explicit interfaces bind the client and the provider together. This makes replacing
+    a dependency in Java (and other languages with explicit interfaces) far more difficult
+    than it is in Go.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'When you want a `SimpleLogic` instance, you call a factory function, passing
+    in interfaces and returning a struct:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE69]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The fields in `SimpleLogic` are unexported. This means they can be accessed
+    only by code within the same package as `SimpleLogic`. You can’t enforce immutability
+    in Go, but limiting which code can access these fields makes their accidental
+    modification less likely. I’ll talk more about exported and unexported identifiers
+    in [Chapter 10](ch10.html#unique_chapter_id_10).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now you get to your API. You’re going to have only a single endpoint, `/hello`,
+    which says hello to the person whose user ID is supplied. (Please do not use query
+    parameters in your real applications for authentication information; this is just
+    a quick sample.) Your controller needs business logic that says hello, so you
+    define an interface for that:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE70]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This method is available on your `SimpleLogic` struct, but once again, the
+    concrete type is not aware of the interface. Furthermore, the other method on
+    `SimpleLogic`, `SayGoodbye`, is not in the interface because your controller doesn’t
+    care about it. The interface is owned by the client code, so its method set is
+    customized to the needs of the client code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE71]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Just as you have factory functions for your other types, let’s write one for
+    the `Controller`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE72]'
+  prefs: []
+  type: TYPE_PRE
+- en: Again, you accept interfaces and return structs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Finally, you wire up all your components in your `main` function and start
+    your server:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE73]'
+  prefs: []
+  type: TYPE_PRE
+- en: You can find the complete code for this application in the *sample_code/dependency_injection*
+    directory in the [Chapter 7 repository](https://oreil.ly/qJQgV).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `main` function is the only part of the code that knows what all the concrete
+    types actually are. If you want to swap in different implementations, this is
+    the only place that needs to change. Externalizing the dependencies via dependency
+    injection means that you limit the changes that are needed to evolve your code
+    over time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Dependency injection is also a great pattern for making testing easier. It shouldn’t
+    be surprising, since writing unit tests is effectively reusing your code in a
+    different environment, one that constrains the inputs and outputs to validate
+    functionality. For example, you can validate the logging output in a test by injecting
+    a type that captures the log output and meets the `Logger` interface. I’ll talk
+    about this more in [Chapter 15](ch15.html#unique_chapter_id_15).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The line `http.HandleFunc("/hello", c.SayHello)` demonstrates two points I talked
+    about earlier.
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, you are treating the `SayHello` method as a function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Second, the `http.HandleFunc` function takes in a function and converts it to
+    an `http.HandlerFunc` function type, which declares a method to meet the `http.Handler`
+    interface, which is the type used to represent a request handler in Go. You took
+    a method from one type and converted it into another type with its own method.
+    That’s pretty neat.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Wire
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: If you feel that writing dependency injection code by hand is too much work,
+    you can use [Wire](https://oreil.ly/Akwt_), a dependency injection helper written
+    by Google. Wire uses code generation to automatically create the concrete type
+    declarations that you wrote yourself in `main`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Go Isn’t Particularly Object-Oriented (and That’s Great)
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now that you’ve taken a look at the idiomatic use of types in Go, you can see
+    that categorizing Go as a particular style of language is difficult. It clearly
+    isn’t a strictly procedural language. At the same time, Go’s lack of method overriding,
+    inheritance, or, well, objects means that it is also not a particularly object-oriented
+    language. Go has function types and closures, but it isn’t a functional language
+    either. If you attempt to shoehorn Go into one of these categories, the result
+    is nonidiomatic code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you had to label Go’s style, the best word to use is *practical*. It borrows
+    concepts from many places with the overriding goal of creating a language that
+    is simple, readable, and maintainable by large teams for many years.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Exercises
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In these exercises, you’re going to build a program that uses what you’ve learned
+    about types, methods, and interfaces. Answers are available in the *exercise_solutions*
+    directory in the [Chapter 7 repository](https://oreil.ly/qJQgV).
+  prefs: []
+  type: TYPE_NORMAL
+- en: You have been asked to manage a basketball league and are going to write a program
+    to help you. Define two types. The first one, called `Team`, has a field for the
+    name of the team and a field for the player names. The second type is called `League`
+    and has a field called `Teams` for the teams in the league and a field called
+    `Wins` that maps a team’s name to its number of wins.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Add two methods to `League`. The first method is called `MatchResult`. It takes
+    four parameters: the name of the first team, its score in the game, the name of
+    the second team, and its score in the game. This method should update the `Wins`
+    field in `League`. Add a second method to `League` called `Ranking` that returns
+    a slice of the team names in order of wins. Build your data structures and call
+    these methods from the `main` function in your program using some sample data.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Define an interface called `Ranker` that has a single method called `Ranking`
+    that returns a slice of strings. Write a function called `RankPrinter` with two
+    parameters, the first of type `Ranker` and the second of type `io.Writer`. Use
+    the `io.WriteString` function to write the values returned by `Ranker` to the
+    `io.Writer`, with a newline separating each result. Call this function from `main`.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Wrapping Up
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, you learned about types, methods, interfaces, and their best
+    practices. In the next chapter, you’ll learn about generics, which improve readability
+    and maintainability by allowing you to reuse logic and custom-written containers
+    with different types.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([1](ch07.html#id1628-marker)) For the computer scientists in the audience,
+    I realize that subtyping is not inheritance. However, most programming languages
+    use inheritance to implement subtyping, so the definitions are often conflated
+    in popular usage.
+  prefs: []
+  type: TYPE_NORMAL

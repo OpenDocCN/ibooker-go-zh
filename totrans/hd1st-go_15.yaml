@@ -1,0 +1,766 @@
+- en: 'Chapter 14\. code quality assurance: Automated Testing'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0401-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Are you sure your software is working right now? Really sure?** Before you
+    sent that new version to your users, you presumably tried out the new features
+    to ensure they all worked. But did you try the *old* features to ensure you didn’t
+    break any of them? *All* the old features? If that question makes you worry, your
+    program needs **automated testing**. Automated tests ensure your program’s components
+    work correctly, even after you change your code. Go’s `testing` package and `go
+    test` tool make it easy to write automated tests, using the skills that you’ve
+    already learned!'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Automated tests find your bugs before someone else does
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Developer A runs into Developer B at a restaurant they both frequent…
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| **Developer A:** | **Developer B:** |'
+  prefs: []
+  type: TYPE_TB
+- en: '| --- | --- |'
+  prefs: []
+  type: TYPE_TB
+- en: '| How’s the new job going? | Not so great. I have to head back into the office
+    after dinner. We found a bug that’s causing some customers to be billed twice
+    as often as they should be. |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Ouch. How did *that* get onto your billing server? | We think it might have
+    gotten introduced a couple of months ago. One of our devs made some changes to
+    the billing code then. |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Wow, that long ago… And your tests didn’t catch it? | Tests? |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Your automated tests. They didn’t fail when the bug got introduced? | Um,
+    we don’t have any of those. |'
+  prefs: []
+  type: TYPE_TB
+- en: '| *What?!* |  |'
+  prefs: []
+  type: TYPE_TB
+- en: Your customers rely on your code. When it fails, it can be disastrous. Your
+    company’s reputation is damaged. And *you’ll* have to put in overtime fixing the
+    bugs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: That’s why automated tests were invented. An **automated test** is a separate
+    program that executes components of your main program, and verifies they behave
+    as expected.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0402-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Not unless you’re going to test all the old features as well, to make sure
+    your changes haven’t broken anything. Automated tests save time over manual testing,
+    and they’re usually more thorough, too.**'
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: A function we should have had automated tests for
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Let’s look at an example of a bug that could be caught by automated tests. Here
+    we have a simple package with a function that joins several strings into a single
+    string suitable for use in an English sentence. If there are two items, they’ll
+    be joined with the word *and* (as in “apple and orange”). If there are more than
+    two items, commas will be added as appropriate (as in “apple, orange and pear”).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: One last, great example borrowed from Head First Ruby (which also has a chapter
+    on testing)!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0403-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The code makes use of the `strings.Join` function, which takes a slice of strings
+    and a string to join them all together with. `Join` returns a single string with
+    all the items from the slice combined, with the joining string separating each
+    entry.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0403-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: In `JoinWithCommas`, we use the slice operator to gather every phrase in the
+    slice except the last, and pass them to `strings.Join` to join them together in
+    a single string, with a comma and a space between each. Then we add the word *and*
+    (surrounded by spaces), and end the string with the final phrase.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0403-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here’s a quick program to try our new function. We import our `prose` package
+    and pass a couple slices to `JoinWithCommas`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0404-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: It works, but there’s a small problem with the results. Maybe we’re just immature,
+    but we can imagine this leading to jokes that the parents *are* a rodeo clown
+    and a prize bull. And formatting lists in this way could cause other misunderstandings,
+    too.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To resolve any confusion, let’s update our package code to place an additional
+    comma before the *and* (as in “apple, orange, and pear”):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0404-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: If we rerun our program, we’ll see commas before the *and* in both the resulting
+    strings. Now it should be clear that the parents were in the photo *with* the
+    clown and the bull.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0404-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We’ve introduced a bug!
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0405-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Oh, that’s true! The function used to return `"my parents and a rodeo clown"`
+    for this list of two items, but an extra comma got included here as well! We were
+    so focused on fixing the list of *three* items that we introduced a bug with lists
+    of *two* items...
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0405-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: If we had automated tests for this function, this problem could have been avoided.
+  prefs: []
+  type: TYPE_NORMAL
+- en: An automated test runs your code with a particular set of inputs and looks for
+    a particular result. As long as your code’s output matches the expected value,
+    the test will “pass.”
+  prefs: []
+  type: TYPE_NORMAL
+- en: But suppose that you accidentally introduced a bug in your code (like we did
+    with the extra comma). Your code’s output would no longer match the expected value,
+    and the test would “fail.” You’d know about the bug immediately.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0405-03.png)![image](assets/f0405-03a.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Having automated tests is like having your code inspected for bugs automatically
+    every time you make a change!**'
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: Writing tests
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Go includes a `testing` package that you can use to write automated tests for
+    your code, and a `go test` command that you can use to run those tests.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s start by writing a simple test. We won’t test anything practical at first,
+    we’re just going to show you how tests work. Then we’ll actually use tests to
+    help us fix our `JoinWithCommas` function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In your *prose* package directory, right alongside the *join.go* file, create
+    a *join_test.go* file. The *join* part of the filename isn’t important, but the
+    *_test.go* part is; the `go test` tool looks for files named with that suffix.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0406-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The code within the test file consists of ordinary Go functions, but it needs
+    to follow certain conventions in order to work with the `go test` tool:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: You’re not required to make your tests part of the same package as the code
+    you’re testing, but if you want to access unexported types or functions from the
+    package, you’ll need to.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Tests are required to use a type from the `testing` package, so you’ll need
+    to import that package at the top of each test file.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Test function names should begin with `Test`. (The rest of the name can be whatever
+    you want, but it should begin with a capital letter.)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Test functions should accept a single parameter: a pointer to a `testing.T`
+    value.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: You can report that a test has failed by calling methods (such as `Error`) on
+    the `testing.T` value. Most methods accept a string with a message explaining
+    the reason the test failed.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Running tests with the “go test” command
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: To run tests, you use the `go test` command. The command takes the import paths
+    of one or more packages, just like `go install` or `go doc`. It will find all
+    files in those package directories whose names end in *_test.go*, and run every
+    function contained in those files whose name starts with `Test`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s run the tests we just added to our `prose` package. In your terminal,
+    run this command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: The test functions will run and print their results.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0407-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Because both test functions make a call to the `Error` method on the `testing.T`
+    value passed to them, both tests fail. The name of each failing test function
+    is printed, as well as the line containing the call to `Error`, and the failure
+    message that was given.
+  prefs: []
+  type: TYPE_NORMAL
+- en: At the bottom of the output is the status for the entire `prose` package. If
+    any test within the package fails (as ours did), a status of “`FAIL`” will be
+    printed for the package as a whole.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If we remove the calls to the `Error` method within the tests...
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0407-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '...then we’ll be able to rerun the same `go test` command and the tests will
+    pass. Since every test is passing, `go test` will only print a status of “`ok`”
+    for the entire `prose` package.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0407-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Testing our actual return values
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We can make our tests pass, and we can make them fail. Now let’s try writing
+    some tests that will actually help us troubleshoot our `JoinWithCommas` function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We’ll update `TestTwoElements` to show the return value we *expect* from the
+    `JoinWithCommas` function when it’s called with a two-element slice. We’ll do
+    the same for `TestThreeElements` with a three-element slice. We’ll run the tests,
+    and confirm that `TestTwoElements` is currently failing and `TestThreeElements`
+    is passing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once our tests are set up the way we want, we’ll alter the `JoinWithCommas`
+    function to make the all the tests pass. At that point, we’ll know our code is
+    fixed!
+  prefs: []
+  type: TYPE_NORMAL
+- en: In `TestTwoElements`, we’ll pass a slice with two elements, `[]string{"apple",
+    "orange"}`, to `JoinWithCommas`. If the result doesn’t equal `"apple and orange"`,
+    we’ll fail the test. Likewise, in `TestThreeElements`, we’ll pass a slice with
+    three elements,
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`[]string{"apple", "orange", "pear"}`. If the result doesn’t equal `"apple,
+    orange, and pear"`, we’ll fail the test.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0408-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: If we rerun the tests, the `TestThreeElements` test will pass, but the `TestTwoElements`
+    test will fail.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0408-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: This is a *good* thing; it matches what we expected to see based on the output
+    of our `join` program. It means that we’ll be able to rely on our tests as an
+    indicator of whether `JoinWithCommas` is working as it should be!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0409-01a.png)![image](assets/f0409-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: More detailed test failure messages with the “Errorf” method
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Our test failure message isn’t very helpful in diagnosing the problem right
+    now. We know there was some value that was expected, and we know the return value
+    from `JoinWithCommas` was different than that, but we don’t know what those values
+    were.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0410-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: A test function’s `testing.T` parameter also has an `Errorf` method you can
+    call. Unlike `Error`, `Errorf` takes a string with formatting verbs, just like
+    the `fmt.Printf` and `fmt.Sprintf` functions. You can use `Errorf` to include
+    additional information in your test’s failure messages, such as the arguments
+    you passed to a function, the return value you got, and the value you were expecting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here’s an update to our tests that uses `Errorf` to generate more detailed failure
+    messages. So that we don’t have to repeat strings within each test, we add a `want`
+    variable (as in “the value we *want*”) to hold the return value we expect `JoinWithCommas`
+    to return. We also add a `got` variable (as in “the value we actually *got*”)
+    to hold the actual return value. If `got` isn’t equal to `want`, we’ll call `Errorf`
+    and have it generate an error message that includes the slice we passed to `JoinWithCommas`
+    (we use a format verb of `%#v` so the slice is printed the same way it would appear
+    in Go code), the return value we got, and the return value we wanted.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0410-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: If we rerun the tests, we’ll see exactly what the failure was.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Test “helper” functions
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: You aren’t limited to only having test functions in your *_test.go* files. You
+    can reduce repeated code in your tests by moving it to other “helper” functions
+    within your test file. The `go test` command only uses functions whose names begin
+    with `Test`, so as long as you name your functions anything else, you’ll be fine.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s a fairly cumbersome call to `t.Errorf` that’s duplicated between our
+    `TestTwoElements` and `TestThreeElements` functions (with the possibility for
+    more duplication as we add more tests). One solution might be to move the string
+    generation out to a separate `errorString` function the tests can call.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We’ll have `errorString` accept the slice that’s passed to `JoinWithCommas`,
+    the `got` value, and the `want` value. Then, instead of calling `Errorf` on a
+    `testing.T` value, we’ll have `errorString` call `fmt.Sprintf` to generate an
+    (identical) error string for us to return. The test itself can then call `Error`
+    with the returned string to indicate a test failure. This code is slightly cleaner,
+    but still gets us the same output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0411-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Getting the tests to pass
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now that our tests are set up with useful failure messages, it’s time to look
+    at using them to fix our main code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We have two tests for our `JoinWithCommas` function. The test that passes a
+    slice with three items passes, but the test that passes a slice with two items
+    fails.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is because `JoinWithCommas` currently includes a comma even when returning
+    a list of just two items.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0412-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Let’s modify `JoinWithCommas` to fix this. If there are just two elements in
+    the slice of strings, we’ll simply join them together with `" and "`, then return
+    the resulting string. Otherwise, we’ll follow the same logic we always have.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0412-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We’ve updated our code, but is it working correctly? Our tests can tell us immediately!
+    If we rerun our tests now, `TestTwoElements` will pass, meaning all tests are
+    passing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0412-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We can say with certainty that `JoinWithCommas` works with a slice of two strings
+    now, because the corresponding unit test now passes. And we don’t need to worry
+    about whether it still works correctly with slices of three strings; we have a
+    unit test assuring us that’s fine, too.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is reflected in the output of our `join` program, too. If we rerun it now,
+    we’ll see that both slices are formatted correctly!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0413-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Test-driven development
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Once you have some experience with unit testing, you’ll probably fall into
+    a cycle known as *test-driven development*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Write the test:** You write a test for the feature you *want*, even though
+    it doesn’t exist yet. Then you run the test to ensure that it *fails*.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**Make it pass:** You implement the feature in your main code. Don’t worry
+    about whether the code you’re writing is sloppy or inefficient; your only goal
+    is to get it working. Then you run the test to ensure that it *passes*.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '**Refactor your code:** Now, you’re free to *refactor* the code, to change
+    and improve it, however you please. You’ve watched the test *fail*, so you know
+    it will fail again if your app code breaks. You’ve watched the test *pass*, so
+    you know it will continue passing as long as your code is working correctly.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: This freedom to *change* your code without worrying about it breaking is the
+    real reason you want unit tests. Anytime you see a way to make your code shorter
+    or easier to read, you won’t hesitate to do it. When you’re finished, you can
+    simply run your tests again, and you’ll be confident that everything is still
+    working.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/wrong.png) **Write the test!**'
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: ''
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: '![image](assets/tick.png) **Make it pass!**'
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: ''
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: '![image](assets/tick.png) **Refactor your code!**'
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: Another bug to fix
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'It’s possible that `JoinWithCommas` could be called with a slice containing
+    only a single phrase. But it doesn’t behave very well in that case, treating that
+    one item as if it appeared at the end of a list:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0414-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: What *should* `JoinWithCommas` return in this case? If we have a list of one
+    item, we don’t really need commas, the word *and*, or anything at all. We could
+    simply return a string with that one item.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0414-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Let’s express this as a new test in *join_test.go*. We’ll add a new test function
+    called `TestOneElement` alongside the existing `TestTwoElements` and `TestThreeElements`
+    tests. Our new test will look just like the others, but we’ll pass a slice with
+    just one string to `JoinWithCommas`, and expect a return value with that one string.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0414-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: As you might expect knowing that there’s a bug in our code, the test fails,
+    showing that `JoinWithCommas` returned `", and apple"` rather than just `"apple"`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Updating `JoinWithCommas` to fix our broken test is pretty simple. We test whether
+    the given slice contains only one string, and if so, we simply return that string.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: With our code fixed, if we rerun the test, we’ll see that everything’s passing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0415-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: And when we use `JoinWithCommas` in our code, it will behave as it should.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0415-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: there are no Dumb Questions
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**Q: Isn’t all this test code going to make my program bigger and slower?**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**A:** Don’t worry! Just as the `go test` command has been set up to only work
+    with files whose names end in *`_test.go`*, the various other commands in the
+    `go` tool (such as `go build` and `go install`) have been set up to *ignore* files
+    whose names end in *_test.go*. The `go` tool can compile your program code into
+    an executable file, but it will ignore your test code, even when it’s saved in
+    the same package directory.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Code Magnets
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Oops! We’ve created a `compare` package with a `Larger` function that is supposed
+    to return the larger of two integers passed into it. But we got the comparison
+    wrong, and `Larger` is returning the *smaller* integer instead!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0416-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We’ve started writing tests to help diagnose the problem. Can you reconstruct
+    the code snippets to make working tests that will produce the output shown? You’ll
+    need to create a helper function that returns a string with the test failure message,
+    and then add two calls to that helper function within the tests.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0416-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![image](assets/arrow.png) Answers in [“Code Magnets Solution”](#code_magnets_solution_9).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Running specific sets of tests
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Sometimes you’ll want to run only a few specific tests, rather than your whole
+    collection. The `go test` command provides a couple of command-line flags that
+    help you do this. A **flag** is an argument, usually a dash (`-`) followed by
+    one or more letters, that you provide to a command-line program to change the
+    program’s behavior.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The first flag that’s worth remembering for the `go test` command is the `-v`
+    flag, which stands for “verbose.” If you add it to any `go test` command, it will
+    list the name and status of each test function it runs. Normally passing tests
+    are omitted to keep the output “quiet,” but in verbose mode, `go test` will list
+    even passing tests.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0417-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Once you have the name of one or more tests (either from the `go test -v` output
+    or from looking them up in your test code files), you can add the `-run` option
+    to limit the set of tests that are run. Following `-run`, you specify part or
+    all of a function name, and only test functions whose name matches what you specify
+    will be run.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If we add `-run Two` to our `go run` command, only test functions with `Two`
+    in their name will be matched. In our case, that means only `TestTwoElements`
+    will be run. (You can use `-run` with or without the `-v` flag, but we find that
+    adding `-v` helps avoid confusion about which tests are running.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0417-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: If we add `-run Elements` instead, both `TestTwoElements` and `TestThreeElements`
+    will be run. (But not `TestOneElement`, because it doesn’t have an `s` at the
+    end of its name.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0417-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Table-driven tests
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: There’s quite a bit of duplicated code between our three test functions. Really,
+    the only things that vary between tests are the slice we pass to `JoinWithCommas`,
+    and the string we expect it to return.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0418-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Instead of maintaining separate test functions, we can build a “table” of input
+    data and the corresponding output we expect, then use a single test function to
+    check each entry in the table.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s no standard format for the table, but one common solution is to define
+    a new type, specifically for use in your tests, that holds the input and expected
+    output for each test. Here’s a `testData` type we might use, which has a `list`
+    field to hold the slice of strings we’ll pass to `JoinWithCommas`, and a `want`
+    field to hold the corresponding string we expect it to return.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0418-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We can define the `testData` type right in the *lists_test.go* file where it
+    will be used.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Our three test functions can be merged into a single `TestJoinWithCommas` function.
+    At the top, we set up a `tests` slice, and move the values for the `list` and
+    `want` variables from the old `TestOneElement`, `TestTwoElements`, and `TestThreeElements`
+    into `testData` values within the `tests` slice.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We then loop through each `testData` value in the slice. We pass the `list`
+    slice to `JoinWithCommas`, and store the string it returns in a `got` variable.
+    If `got` isn’t equal to the string in the `testData` value’s `want` field, we
+    call `Errorf` and use it to format a test failure message, just like we did in
+    the `errorString` helper function. (And since that makes the `errorString` function
+    redundant, we can delete it.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0419-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: This updated code is much shorter and less repetitive, but the tests in the
+    table pass just like they did when they were separate test functions!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0419-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Fixing panicking code using a test
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The best thing about table-driven tests, though, is that it’s easy to add new
+    tests when you need them. Suppose we weren’t sure how `JoinWithCommas` would behave
+    when it’s passed an empty slice. To find out, we simply add a new `testData` struct
+    in the `tests` slice. We’ll specify that if an empty slice is passed to `JoinWithCommas`,
+    an empty string should be returned:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0420-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'It looks like we were right to be worried. If we run the test, it panics with
+    a stack trace:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0420-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Apparently some code tried to access an index that’s out of bounds for a slice
+    (it tried to access an element that doesn’t exist).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0420-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Looking at the stack trace, we see the panic occurred at line 11 of the *lists.go*
+    file, within the `JoinWithCommas` function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0420-04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: So the panic occurs at line 11 of the *lists.go* file... That’s where we access
+    all the elements in the slice except the last, and join them together with commas.
+    But since the `phrases` slice we’re passing in is empty, there *are* no elements
+    to access.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0421-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: If the `phrases` slice is empty, we really shouldn’t be attempting to access
+    *any* elements from it. There’s nothing to join, so all we have to do is return
+    an empty string. Let’s add another clause to the `if` statement that returns an
+    empty string when `len(phrases)` is `0`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0421-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: After that, if we run the tests again, everything passes, even the test that
+    calls `JoinWithCommas` with an empty slice!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0421-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Maybe you can imagine further changes and improvements you’d like to make to
+    `JoinWithCommas`. Go ahead! You can do so without fear of breaking anything. If
+    you run your tests after each change, you’ll know for certain whether everything
+    is working as it should be. (And if it’s not, you’ll have a clear indicator of
+    what you need to fix!)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Your Go Toolbox
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0422-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**That’s it for [Chapter 14](#code_quality_assurancecolon_automated_te)! You’ve
+    added testing to your toolbox.**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0422-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Code Magnets Solution
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0424-01.png)'
+  prefs: []
+  type: TYPE_IMG

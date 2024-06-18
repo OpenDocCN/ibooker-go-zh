@@ -1,0 +1,623 @@
+- en: 'Appendix A. understanding os.openfile: Opening Files'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0481-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Some programs need to write data to files, not just read data.** Throughout
+    the book, when we’ve wanted to work with files, you had to create them in your
+    text editor for your programs to read. But some programs *generate* data, and
+    when they do, they need to be able to *write* data to a file.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We used the `os.OpenFile` function to open a file for writing earlier in the
+    book. But we didn’t have space then to fully explore how it worked. In this appendix,
+    we’ll show you everything you need to know in order to use `os.OpenFile` effectively!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Understanding os.OpenFile
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In [Chapter 16](ch16_split_000.html#a_pattern_to_follow_html_templates), we
+    had to use the `os.OpenFile` function to open a file for writing, which required
+    some rather strange-looking code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0482-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Back then, we were focused on writing a web app, so we didn’t want to take too
+    much time out to fully explain `os.OpenFile`. But you’ll almost certainly need
+    to use this function again in your Go-writing career, so we added this appendix
+    to take a closer look at it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When you’re trying to figure out how a function works, it’s always good to start
+    with its documentation. In your terminal, run **`go doc os OpenFile`** (or search
+    for the `"os"` package documentation in your browser).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0482-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Its arguments are a `string` filename, an `int` “flag,” and an `os.FileMode`
+    “perm.” It’s pretty clear that the filename is just the name of the file we want
+    to open. Let’s figure out what this “flag” means first, then come back to the
+    `os.FileMode`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To help keep our code samples in this appendix short, assume that all our programs
+    include a `check` function, just like the one we showed you in [Chapter 16](ch16_split_000.html#a_pattern_to_follow_html_templates).
+    It accepts an `error` value, checks whether it’s `nil`, and if not, reports the
+    error and exits the program.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0482-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Passing flag constants to os.OpenFile
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The description mentions that one possible value for the flag is `os.O_RDONLY`.
+    Let’s look that up and see what it means...
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0483-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: From the documentation, it looks like `os.O_RDONLY` is one of several `int`
+    constants intended for passing to the `os.OpenFile` function, which change the
+    function’s behavior.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s try calling `os.OpenFile` with some of these constants, and see what happens.
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, we’ll need a file to work with. Create a plain-text file with a single
+    line of text. Save it in any directory you want, with the name *aardvark.txt*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0483-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Then, in the same directory, create a Go program that includes the `check` function
+    from the previous page, and the following `main` function. In `main`, we call
+    `os.OpenFile` with the `os.O_RDONLY` constant as the second argument. (Ignore
+    the third argument for now; we’ll talk about that later.) Then we create a `bufio.Scanner`
+    and use it to print the contents of the file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0483-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: In your terminal, change to the directory where you saved the *aardvark.txt*
+    file and your program, and use **`go run`** to run the program. It will open *aardvark.txt*
+    and print out its contents.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0483-04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Now let’s try writing to the file instead. Update your `main` function with
+    the code below. (You’ll also need to remove unused packages from the `import`
+    statement.) This time, we’ll pass the `os.O_WRONLY` constant to `os.OpenFile`,
+    so that it opens the file for writing. Then we’ll call the `Write` method on the
+    file with a slice of bytes to write to the file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0484-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: If we run the program, it will produce no output, but it will update the *aardvark.txt*
+    file. But if we open *aardvark.txt*, we’ll see that instead of appending the text
+    to the end, the program overwrote part of the file!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0484-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: That’s not how we wanted the program to work. What can we do?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Well, the `os` package has some other constants that might help. This includes
+    an `os.O_APPEND` flag that should cause the program to append data to the file
+    instead of overwriting it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0484-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: But you can’t just pass `os.O_APPEND` to `os.OpenFile` by itself; you’ll get
+    an error if you try.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0484-04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The documentation says something about how `os.O_APPEND` and `os.O_CREATE` “may
+    be or’ed in.” This is referring to the *binary OR* operator. We’ll need to take
+    a few pages to explain how that works...
+  prefs: []
+  type: TYPE_NORMAL
+- en: Binary notation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: At the lowest level, computers have to represent information using simple switches,
+    which can be either on or off. If one switch were used to represent a number,
+    you could only represent the values `0` (switch “off”) or `1` (switch “on”). Computer
+    scientists call this a *bit*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you combine multiple bits, you can represent larger numbers. This is the
+    idea behind *binary* notation. In everyday life, we have the most experience with
+    decimal notation, which uses the digits 0 through 9\. But binary notation uses
+    only the digits 0 and 1 to represent numbers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: (If you’d like to know more, just type “binary” into your favorite web search
+    engine.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You can view the binary representation of various numbers (the bits the numbers
+    are composed of) using `fmt.Printf` with the `%b` formatting verb:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0485-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Bitwise operators
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We’ve seen operators like `+`, `-`, `*`, and `/` that allow you to do math operations
+    on entire numbers. But Go also has **bitwise operators**, which allow you to manipulate
+    the individual bits a number is composed of. Two of the most common ones are the
+    `&` bitwise AND operator, and the `|` bitwise OR operator.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| Operator | Name |'
+  prefs: []
+  type: TYPE_TB
+- en: '| --- | --- |'
+  prefs: []
+  type: TYPE_TB
+- en: '| `&` | Bitwise AND |'
+  prefs: []
+  type: TYPE_TB
+- en: '| `&#124;` | Bitwise OR |'
+  prefs: []
+  type: TYPE_TB
+- en: The bitwise AND operator
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We’ve seen the `&&` operator. It’s a Boolean operator that gives a `true` value
+    only if both the values to its left *and* its right are `true`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0486-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'The `&` operator (with just one ampersand), however, is a *bitwise* operator.
+    It sets a bit to `1` only if the corresponding bit in the value to its left *and*
+    the bit in the value to its right are both `1`. For the numbers `0` and `1`, which
+    require only one bit to represent, this is fairly straightforward:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0486-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: For larger numbers, however, it can seem like nonsense!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0486-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: It’s only when you look at the values of individual bits that bitwise operations
+    make sense. The `&` operator only sets a bit to `1` in the result if the bit in
+    the same place in the left number *and* the bit in the same place in the right
+    number are both `1`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0486-04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: This is true for numbers of any size. The bits of the two values the `&` operator
+    is used on determine the bits at the same places in the resulting value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0486-05.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The bitwise OR operator
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We’ve also seen the `||` operator. It’s a Boolean operator that gives a `true`
+    value if the value to its left *or* the value to its right is `true`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0487-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The `|` operator sets a bit to `1` in the result if the corresponding bit in
+    the value to its left *or* the bit in the value to its right has a value of `1`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0487-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Just as with bitwise AND, the bitwise OR operator looks at the bits at a given
+    position in the two values it’s operating on to decide the value of the bit at
+    the same position in the result.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0487-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: This is true for numbers of any size. The bits of the two values the `|` operator
+    is used on determine the bits at the same places in the resulting value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0487-04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Using bitwise OR on the “os” package constants
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0488-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**We showed you all this because you’ll need to use the bitwise OR operator
+    to combine the constant values together!**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: When the documentation says that the `os.O_APPEND` and `os.O_CREATE` values
+    “may be or’ed in” with the `os.O_RDONLY`, `os.O_WRONLY`, or `os.O_RDWR` values,
+    it means that you should use the bitwise OR operator on them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Behind the scenes, these constants are all just `int` values:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0488-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'If we look at the binary representation of these values, we’ll see that just
+    one bit is set to `1` for each, and all the other bits are `0`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0488-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'That means we can combine the values with the bitwise OR operator, and none
+    of the bits will interfere with each other:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0488-04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The `os.OpenFile` function can check whether the first bit is a `1` to determine
+    whether the file should be write-only. If the seventh bit is a `1`, `OpenFile`
+    will know to create the file if it doesn’t exist. And if the 11th bit is a `1`,
+    `OpenFile` will append to the file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using bitwise OR to fix our os.OpenFile options
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Previously, when we passed only the `os.O_WRONLY` option to `os.OpenFile`, it
+    wrote over part of the data that was already in the file. Let’s see if we can
+    combine options so that it appends new data to the end of the file instead.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Start by editing the *aardvark.txt* file so that it consists of a single line
+    again.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0489-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Next, update our program to use the bitwise OR operator to combine the `os.O_WRONLY`
+    and `os.O_APPEND` constant values into a single value. Pass the result to `os.OpenFile`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0489-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Run the program again and take another look at the file’s contents. You should
+    see the new line of text appended at the end.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0489-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Let’s also try using the `os.O_CREATE` option, which causes `os.OpenFile` to
+    create the specified file if it doesn’t exist. Start by deleting the *aardvark.txt*
+    file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0489-04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Now update the program to add `os.O_CREATE` to the options being passed to `os.OpenFile`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0489-05.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: When we run the program, it will create a new *aardvark.txt* file and then write
+    the data to it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0489-06.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Unix-style file permissions
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We’ve been focusing on the second argument to `os.OpenFile`, which controls
+    reading, writing, creating, and appending files. Up until now, we’ve been ignoring
+    the third argument, which controls the file’s *permissions*: which users will
+    be permitted to read from and write to the file after your program creates it.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0490-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'When developers talk about file permissions, they usually mean permissions
+    as they’re implemented on Unix-like systems like macOS and Linux. Under Unix,
+    there are three major permissions a user can have on a file:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| Abbreviation | Permission |'
+  prefs: []
+  type: TYPE_TB
+- en: '| --- | --- |'
+  prefs: []
+  type: TYPE_TB
+- en: '| `r` | The user can **r**ead the file’s contents. |'
+  prefs: []
+  type: TYPE_TB
+- en: '| `w` | The user can **w**rite the file’s contents. |'
+  prefs: []
+  type: TYPE_TB
+- en: '| `x` | The user can e**x**ecute the file. (This is only appropriate for files
+    that contain program code.) |'
+  prefs: []
+  type: TYPE_TB
+- en: 'If a user doesn’t have read permissions on a file, for example, any program
+    they run that tries to access the file’s contents will get an error from the operating
+    system:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0490-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: If a user doesn’t have execute permissions on a file, they won’t be able to
+    execute any code it contains. (Files that don’t contain executable code should
+    *not* be marked executable, because attempting to run them could produce unpredictable
+    results.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0490-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Representing permissions with the os.FileMode type
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Go’s `os` package uses the `FileMode` type to represent file permissions. If
+    a file doesn’t already exist, the `FileMode` you pass to `os.OpenFile` determines
+    what permissions the file will be created with, and therefore what kinds of access
+    users will have to it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`FileMode` values have a `String` method, so if you pass a `FileMode` to functions
+    in the `fmt` package like `fmt.Println`, you’ll get a special string representation
+    of the value. That string shows the permissions the `FileMode` represents, in
+    a format similar to the one you might see in the Unix `ls` utility.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0491-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: (Look for “Unix file permissions” in a search engine if you’d like more info.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Each file has three sets of permissions, affecting three different classes of
+    users. The first set of permissions applies only to the user that owns the file.
+    (By default, your user account is the owner of any files you create.) The second
+    set of permissions is for the group of users that the file is assigned to. And
+    the third set applies to other users on the system that are neither the file owner
+    nor part of the file’s assigned group.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0491-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '`FileMode` has an underlying type of `uint32`, which stands for “32-bit unsigned
+    integer.” It’s a basic type that we haven’t talked about previously. Because it’s
+    unsigned, it can’t hold any negative numbers, but it can hold larger numbers within
+    its 32 bits of memory than it would otherwise be able to.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Because `FileMode` is based on `uint32`, you can use a type conversion to convert
+    (almost) any non-negative integer to a `FileMode` value. The results may be a
+    little hard to understand, though:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0491-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Octal notation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Instead, it’s easier to specify integers for conversion to `FileMode` values
+    using **octal notation**. We’ve seen decimal notation, which uses 10 digits: 0
+    through 9\. We’ve seen binary notation, which uses just two digits: 0 and 1\.
+    Octal notation uses eight digits: 0 through 7.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You can view the octal representation of various numbers using `fmt.Printf`
+    with the `%0` formatting verb:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0492-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Unlike with binary notation, Go lets you write numbers using octal notation
+    in your program code. Any series of digits preceded by a `0` will be treated as
+    an octal number.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This can be confusing if you’re not prepared for it. Decimal `10` is not at
+    all the same as octal `010`, and decimal `100` isn’t at all like octal `0100`!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0492-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Only the digits 0 through 7 are valid in octal numbers. If you include an 8
+    or a 9, you’ll get a compile error.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0492-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Converting octal values to FileMode values
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'So why use this (arguably strange) octal notation for file permissions? Because
+    each digit of an octal number can be represented using just 3 bits of memory:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0493-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Three bits is also the exact amount of data needed to store the permissions
+    for one user class (“user,” “group,” or “other”). Any combination of permissions
+    you need for a user class can be represented using one octal digit!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0493-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Notice the similarity between the binary representation of the octal numbers
+    below and the `FileMode` conversion for the same number. If a bit in the binary
+    representation is `1`, then the corresponding permission is enabled.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0493-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: For this reason, the Unix `chmod` utility (short for “change mode”) has used
+    octal digits to set file permissions for decades now.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0493-04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '| Octal digit | Permission |'
+  prefs: []
+  type: TYPE_TB
+- en: '| --- | --- |'
+  prefs: []
+  type: TYPE_TB
+- en: '| `0` | no permissions |'
+  prefs: []
+  type: TYPE_TB
+- en: '| `1` | execute |'
+  prefs: []
+  type: TYPE_TB
+- en: '| `2` | write |'
+  prefs: []
+  type: TYPE_TB
+- en: '| `3` | write, execute |'
+  prefs: []
+  type: TYPE_TB
+- en: '| `4` | read |'
+  prefs: []
+  type: TYPE_TB
+- en: '| `5` | read, execute |'
+  prefs: []
+  type: TYPE_TB
+- en: '| `6` | read, write |'
+  prefs: []
+  type: TYPE_TB
+- en: '| `7` | read, write, execute |'
+  prefs: []
+  type: TYPE_TB
+- en: Go’s support for octal notation allows you to follow the same convention in
+    your code!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Calls to os.OpenFile, explained
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now that we understand both bitwise operators and octal notation, we can finally
+    understand just what calls to `os.OpenFile` do!
+  prefs: []
+  type: TYPE_NORMAL
+- en: This code, for example, will append new data to an existing logfile. The user
+    that owns the file will be able to read from and write to the file. All other
+    users will only be able to read from it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0494-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: And this code will create a file if it doesn’t exist, then append data to it.
+    The resulting file will be readable and writable by its owner, but no other user
+    will have access to it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0494-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: there are no Dumb Questions
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**Q: Octal notation and bitwise operators are a pain! Why is it done this way?**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**A:** To save computer memory! These conventions for handling files have their
+    roots in Unix, which was developed when RAM and disk space were both smaller and
+    more expensive. But even now, when a hard disk can contain millions of files,
+    packing file permissions into a few bits instead of several bytes can save a lot
+    of space (and make your system run faster). Trust us, the effort is worth it!'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Q: What’s that extra dash at the front of a `FileMode` string?**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**A:** A dash in that position indicates that a file is just an ordinary file,
+    but it can show several other values. For example, if the `FileMode` value represents
+    a directory, it will be a `d` instead.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0494-03.png)'
+  prefs: []
+  type: TYPE_IMG

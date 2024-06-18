@@ -1,0 +1,833 @@
+- en: Chapter 6\. Secured gRPC
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: gRPC-based applications communicate with each other remotely over the network.
+    This requires each gRPC application to expose its entry point to others who need
+    to communicate with it. From a security point of view, this is not a good thing.
+    The more entry points we have, the broader the attack surface, and the higher
+    the risk of being attacked. Therefore, securing communication and securing the
+    entry points is essential for any real-world use case. Every gRPC application
+    must be able to handle encrypted messages, encrypt all internode communications,
+    and authenticate and sign all messages, etc.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, we’ll cover a set of security fundamentals and patterns to
+    address the challenge we face in enabling application-level security. In simple
+    terms, we are going to explore how we can secure communication channels between
+    microservices and authenticate and control access by users.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So let’s start with securing the communication channel.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Authenticating a gRPC Channel with TLS
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '*Transport Level Security* (TLS) aims to provide privacy and data integrity
+    between two communicating applications. Here, it’s about providing a secure connection
+    between gRPC client and server applications. According to the [Transport Level
+    Security Protocol Specification](https://oreil.ly/n4iIE), when the connection
+    between a client and a server is secure, it should have one or more of the following
+    properties:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The connection is private
+  prefs: []
+  type: TYPE_NORMAL
+- en: Symmetric cryptography is used for data encryption. It is a type of encryption
+    where only one key (a secret key) is used to both encrypt and decrypt. These keys
+    are generated uniquely for each connection based on a shared secret that was negotiated
+    at the start of the session.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The connection is reliable
+  prefs: []
+  type: TYPE_NORMAL
+- en: This occurs because each message includes a message integrity check to prevent
+    undetected loss or alteration of the data during transmission.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So it is important to send data through a secure connection. Securing gRPC connections
+    with TLS is not a difficult task, because this authentication mechanism is built
+    into the gRPC library. It also promotes the use of TLS to authenticate and encrypt
+    exchanges.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How, then, do we enable transport-level security in gRPC connections? Secure
+    data transfer between a client and server can be implemented as either one way
+    or two way (this is also known as mutual TLS, or mTLS). In the following sections,
+    we’ll discuss how to enable security in each of these ways.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Enabling a One-Way Secured Connection
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: In a one-way connection, only the client validates the server to ensure that
+    it receives data from the intended server. When establishing the connection between
+    the client and the server, the server shares its public certificate with the client,
+    who then validates the received certificate. This is done through a certificate
+    authority (CA), for CA-signed certificates. Once the certificate is validated,
+    the client sends the data encrypted using the secret key.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The CA is a trusted entity that manages and issues security certificates and
+    public keys that are used for secure communication in a public network. Certificates
+    signed or issued by this trusted entity are known as CA-signed certificates.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To enable TLS, first we need to create the following certificates and keys:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`server.key`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A private RSA key to sign and authenticate the public key.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`server.pem/server.crt`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Self-signed X.509 public keys for distribution.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'The acronym *RSA* stands for the names of three inventors: Rivest, Shamir,
+    and Adleman. RSA is one of the most popular public-key cryptosystems, being widely
+    used in secure data transmission. In RSA, a public key (that can be known by everyone)
+    is used to encrypt data. A private key is then used to decrypt data. The idea
+    is that messages encrypted with the public key can only be decrypted in a reasonable
+    amount of time by using the private key.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: To generate the keys, we can use the OpenSSL tool, which is an open source toolkit
+    for the TLS and Secure Socket Layer (SSL) protocols. It has support for generating
+    private keys with different sizes and pass phrases, public certificates, etc.
+    There are other tools like [mkcert](https://mkcert.dev) and [certstrap](https://oreil.ly/Mu4Q6),
+    which can also be used to generate the keys and certificates easily.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We won’t describe here how to generate keys that are self-signed certificates,
+    as step-by-step details on generating those keys and certificates are described
+    in the README file in the source code repository.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Assume we created both a private key and public certificate. Let’s use them
+    and secure communication between the gRPC server and client for our online product
+    management system discussed in Chapters [1](ch01.html#grpc_ch_01) and [2](ch02.html#ch_02).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Enabling a one-way secured connection in a gRPC server
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: This is the simplest way to encrypt communication between client and server.
+    Here the server needs to be initialized with a public/private key pair. We are
+    going to explain how it is done using our gRPC Go server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To enable a secured Go server, let’s update the main function of the server
+    implementation, as shown in [Example 6-1](#EX6-1).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 6-1\. gRPC secured server implementation for hosting ProductInfo service
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_secured_grpc_CO1-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Read and parse a public/private key pair and create a certificate to enable
+    TLS.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_secured_grpc_CO1-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Enable TLS for all incoming connections by adding certificates as TLS server
+    credentials.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_secured_grpc_CO1-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Create a new gRPC server instance by passing TLS server credentials.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_secured_grpc_CO1-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Register the implemented service to the newly created gRPC server by calling
+    generated APIs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_secured_grpc_CO1-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Create a TCP listener on the port (50051).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![6](assets/6.png)](#co_secured_grpc_CO1-6)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Bind the gRPC server to the listener and start listening to incoming messages
+    on the port (50051).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now we have modified the server to accept requests from clients who can verify
+    the server certificate. Let’s modify our client code to talk with this server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Enabling a one-way secured connection in a gRPC client
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: In order to get the client connected, the client needs to have the server’s
+    self-certified public key. We can modify our Go client code to connect with the
+    server as shown in [Example 6-2](#EX6-2).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 6-2\. gRPC secured client application
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_secured_grpc_CO2-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Read and parse a public certificate and create a certificate to enable TLS.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_secured_grpc_CO2-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Add transport credentials as a `DialOption`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_secured_grpc_CO2-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Set up a secure connection with the server, passing dial options.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_secured_grpc_CO2-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Pass the connection and create a stub. This stub instance contains all the remote
+    methods to invoke the server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_secured_grpc_CO2-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Close the connection when everything is done.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is a fairly straightforward process. We only need to add three lines and
+    modify one from the original code. First, we create a credential object from the
+    server public key file, then pass the transport credentials into the gRPC dialer.
+    This will initiate the TLS handshake every time the client sets up a connection
+    between the server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In one-way TLS, we only authenticate server identity. Let’s authenticate both
+    parties (the client and the server) in the next section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Enabling an mTLS Secured Connection
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The main intent of an mTLS connection between client and server is to have
+    control of clients who connect to the server. Unlike a one-way TLS connection,
+    the server is configured to accept connections from a limited group of verified
+    clients. Here both parties share their public certificates with each other and
+    validate the other party. The basic flow of connection is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Client sends a request to access protected information from the server.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The server sends its X.509 certificate to the client.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Client validates the received certificate through a CA for CA-signed certificates.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: If the verification is successful, the client sends its certificate to the server.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Server also verifies the client certificate through the CA.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Once it is successful, the server gives permission to access protected data.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: To enable mTLS in our example, we need to figure out how to deal with client
+    and server certificates. We need to create a CA with self-signed certificates,
+    we need to create certificate-signing requests for both client and server, and
+    we need to sign them using our CA. As in the previous one-way secured connection,
+    we can use the OpenSSL tool to generate keys and certificates.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Assume we have all the required certificates to enable mTLS for client-server
+    communication. If you generated them correctly, you will have the following keys
+    and certificates created in your workspace:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: server.key
+  prefs: []
+  type: TYPE_NORMAL
+- en: Private RSA key of the server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: server.crt
+  prefs: []
+  type: TYPE_NORMAL
+- en: Public certificate of the server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: client.key
+  prefs: []
+  type: TYPE_NORMAL
+- en: Private RSA key of the client.
+  prefs: []
+  type: TYPE_NORMAL
+- en: client.crt
+  prefs: []
+  type: TYPE_NORMAL
+- en: Public certificate of the client.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ca.crt
+  prefs: []
+  type: TYPE_NORMAL
+- en: Public certificate of a CA used to sign all public certificates.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s first modify the server code of our example to create X.509 key pairs
+    directly and create a certificate pool based on the CA public key.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Enabling mTLS in a gRPC server
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: To enable mTLS in the Go server, let’s update the main function of the server
+    implementation as shown in [Example 6-3](#EX6-3).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 6-3\. gRPC secured server implementation for hosting ProductInfo service
+    in Go
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_secured_grpc_CO3-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Create X.509 key pairs directly from the server certificate and key.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_secured_grpc_CO3-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Create a certificate pool from the CA.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_secured_grpc_CO3-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Append the client certificates from the CA to the certificate pool.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_secured_grpc_CO3-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Enable TLS for all incoming connections by creating TLS credentials.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_secured_grpc_CO3-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Create a new gRPC server instance by passing TLS server credentials.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![6](assets/6.png)](#co_secured_grpc_CO3-6)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Register the gRPC service to the newly created gRPC server by calling generated
+    APIs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![7](assets/7.png)](#co_secured_grpc_CO3-7)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Create a TCP listener on the port (50051).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![8](assets/8.png)](#co_secured_grpc_CO3-8)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Bind the gRPC server to the listener and start listening to the incoming messages
+    on the port (50051).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now we have modified the server to accept requests from verified clients. Let’s
+    modify our client code to talk with this server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Enabling mTLS in a gRPC client
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: In order to get the client connected, the client needs to follow similar steps
+    as the server. We can modify our Go client code as shown in [Example 6-4](#EX6-4).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 6-4\. gRPC secured client application in Go
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_secured_grpc_CO4-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Create X.509 key pairs directly from the server certificate and key.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_secured_grpc_CO4-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Create a certificate pool from the CA.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_secured_grpc_CO4-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Append the client certificates from the CA to the certificate pool.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_secured_grpc_CO4-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Add transport credentials as connection options. Here the `ServerName` must
+    be equal to the `Common Name` on the certificate.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_secured_grpc_CO4-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Set up a secure connection with the server, passing options.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![6](assets/6.png)](#co_secured_grpc_CO4-7)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Pass the connection and create a stub. This stub instance contains all the remote
+    methods to invoke the server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![7](assets/7.png)](#co_secured_grpc_CO4-6)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Close the connection when everything is done.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now we have secured the communication channel between the client and server
+    of the gRPC application using both basic one-way TLS and mTLS. The next step is
+    to enable authentication on a per-call basis, which means credentials are attached
+    to the call. Each client call has authentication credentials and the server side
+    checks the credentials of the call and makes a decision whether to allow the client
+    to call or deny.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Authenticating gRPC Calls
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: gRPC is designed to use serious authentication mechanisms. In the previous section,
+    we covered how to encrypt data exchanged between the client and server using TLS.
+    Now, we’re going to talk about how to verify the identity of the caller and apply
+    access control using different call credential techniques like token-based authentication,
+    etc.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In order to facilitate verification of the caller, gRPC provides the capability
+    for the client to inject his or her credentials (like username and password) on
+    every call. The gRPC server has the ability to intercept a request from the client
+    and check these credentials for every incoming call.
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, we will review a simple authentication scenario to explain how authentication
+    works per client call.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using Basic Authentication
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '*Basic authentication* is the simplest authentication mechanism. In this mechanism,
+    the client sends requests with the `Authorization` header with a value that starts
+    with the word `Basic` followed by a space and a base64-encoded string `username:password`.
+    For example, if the username is `admin` and the password is `admin`, the header
+    value looks like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: In general, gRPC doesn’t encourage us to use a username/password for authenticating
+    to services. This is because a username/password doesn’t have control in time
+    as opposed to other tokens (JSON Web Tokens [JWTs], OAuth2 access tokens). This
+    means when we generate a token, we can specify how long it is valid. But for a
+    username/password, we cannot specify a validity period. It is valid until we change
+    the password. If you need to enable basic authentication in your application,
+    it’s advised that you share basic credentials in a secure connection between client
+    and server. We pick basic authentication because it is easier to explain how authentication
+    works in gRPC.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s first discuss how to inject user credentials (in basic authentication)
+    into the call. Since there is no built-in support for basic authentication in
+    gRPC, we need to add it as custom credentials to the client context. In Go, we
+    can easily do this by defining a credential struct and implementing the `PerRPCCredentials`
+    interface as shown in [Example 6-5](#EX6-5).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 6-5\. Implement PerRPCCredentials interface to pass custom credentials
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_secured_grpc_CO5-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Define a struct to hold the collection on fields you want to inject in your
+    RPC calls (in our case, it is user credentials like username and password).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_secured_grpc_CO5-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implement the `GetRequestMetadata` method and convert user credentials to request
+    metadata. In our case, “Authorization” is the key and the value is “Basic” followed
+    by base64 (<username>:<password>).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_secured_grpc_CO5-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Specify whether channel security is required to pass these credentials. As mentioned
+    earlier, it is advisable to use channel security.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once we implement a credentials object, we need to initiate it with valid credentials
+    and pass it when creating the connection as shown in [Example 6-6](#EX6-6).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 6-6\. gRPC secured client application with basic authentication
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_secured_grpc_CO6-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Initialize the `auth` variable with valid user credentials (username and password).
+    The `auth` variable holds the values we are going to use.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_secured_grpc_CO6-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Pass the `auth` variable to the `grpc.WithPerRPCCredentials` function. The `grpc.WithPerRPCCredentials()`
+    function takes an interface as a parameter. Since we define our authentication
+    structure to comply with the interface, we can pass our variable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now the client is pushing extra metadata during its calls to the server, but
+    the server does not care. So we need to tell the server to check metadata. Let’s
+    update our server to read the metadata as shown in [Example 6-7](#EX6-7).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 6-7\. gRPC secured server with basic user credential validation
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_secured_grpc_CO7-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Add a new server option (`grpc.ServerOption`) with the TLS server certificate.
+    `grpc.UnaryInterceptor` is a function where we add an interceptor to intercept
+    all requests from the client. We pass a reference to a function (`ensureValidBasicCredentials`)
+    so the interceptor passes all client requests to that function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_secured_grpc_CO7-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Define a function called `ensureValidBasicCredentials` to validate caller identity.
+    Here, the `context.Context` object contains the metadata we need and that will
+    exist during the lifetime of the request.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_secured_grpc_CO7-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Extract the metadata from the context, get the value of the `authentication`,
+    and validate the credentials. The keys within `metadata.MD` are normalized to
+    lowercase. So we need to check the value for the lowercase key.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now the server is validating client identity in each call. This is a very simple
+    example. You can have complex authentication logic inside the server interceptor
+    to validate client identity.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Since you have a basic understanding of how client authentication works, per
+    request, let’s talk about commonly used and recommended token-based authentication
+    (OAuth 2.0).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using OAuth 2.0
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '[OAuth 2.0](https://oauth.net/2) is a framework for access delegation. It allows
+    users to grant limited access to services on their behalf, rather than giving
+    them total access like with a username and password. Here we are not going to
+    discuss OAuth 2.0 in detail. It is helpful if you have some basic knowledge about
+    how OAuth 2.0 works to enable it in your application.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'In the OAuth 2.0 flow, there are four main characters: the client, the authorization
+    server, the resource server, and the resource owner. The *client* wants to access
+    the resource in a resource server. To access the resource, the client needs to
+    get a token (which is an arbitrary string) from the *authorization server*. This
+    token must be of a proper length and should not be predictable. Once the client
+    receives the token, the client can send a request to the *resource server* with
+    the token. The resource server then talks to the corresponding authorization server
+    and validates the token. If it is validated by this *resource owner*, the client
+    can access the resource.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: gRPC has built-in support to enable OAuth 2.0 in a gRPC application. Let’s first
+    discuss how to inject a token into the call. Since we don’t have an authorization
+    server in our example, we are going to hardcode an arbitrary string for the token
+    value. [Example 6-8](#EX6-8) illustrates how to add an OAuth token to a client
+    request.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 6-8\. gRPC secured client application with OAuth token in Go
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_secured_grpc_CO8-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Set up the credentials for the connection. We need to provide an OAuth2 token
+    value to create the credentials. Here we use a hardcoded string value for the
+    token.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_secured_grpc_CO8-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Configure gRPC dial options to apply a single OAuth token for all RPC calls
+    on the same connection. If you want to apply an OAuth token per call, then you
+    need to configure the gRPC call with `CallOption`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note that we also enable channel security because OAuth requires the underlying
+    transport to be secure. Inside gRPC, the provided token is prefixed with the token
+    type and attached to the metadata with the key `authorization`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the server, we add a similar interceptor to check and validate the client
+    token that comes with the request as shown in [Example 6-9](#EX6-9).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 6-9\. gRPC secured server with OAuth user token validation
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_secured_grpc_CO9-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Add the new server option (`grpc.ServerOption`) along with the TLS server certificate.
+    With the `grpc.UnaryInterceptor` function, we add an interceptor to intercept
+    all requests from the client.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_secured_grpc_CO9-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Define a function called `ensureValidToken` to validate the token. If the token
+    is missing or invalid, the interceptor blocks the execution and gives an error.
+    Otherwise, the interceptor invokes the next handler passing the context and interface.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It is possible to configure token validation for all RPCs using an interceptor.
+    A server may configure either a `grpc.UnaryInterceptor` or a `grpc.StreamInterceptor`
+    depending on the service type.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Similar to OAuth 2.0 authentication, gRPC also supports JSON Web Token (JWT)-based
+    authentication. In the next section, we’ll discuss what changes we need to make
+    to enable JWT-based authentication.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using JWT
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: JWT defines a container to transport identity information between the client
+    and server. A signed JWT can be used as a self-contained access token, which means
+    the resource server doesn’t need to talk to the authentication server to validate
+    the client token. It can validate the token by validating the signature. The client
+    requests access from the authentication server, which verifies the client’s credentials,
+    creates a JWT, and sends it to the client. The client application with JWT allows
+    access to resources.
+  prefs: []
+  type: TYPE_NORMAL
+- en: gRPC has built-in support for JWT. If you have the JWT file from the authentication
+    server, you need to pass that token file and create JWT credentials. The code
+    snippet in [Example 6-10](#EX6-10) illustrates how to create JWT credentials from
+    the JWT token file (*token.json*) and pass them as `DialOptions` in a Go client
+    application.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 6-10\. Setting up a connection using a JWT in a Go client application
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_secured_grpc_CO10-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Call `oauth.NewJWTAccessFromFile` to initialize a `credentials.PerRPCCredentials`.
+    We need to provide a valid token file to create the credentials.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_secured_grpc_CO10-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Configure a gRPC dial with `DialOption WithPerRPCCredentials` to apply a JWT
+    token for all RPC calls on the same connection.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In addition to these authentication techniques, we can add any authentication
+    mechanism by extending RPC credentials on the client side and adding a new interceptor
+    on the server side. gRPC also provides special built-in support for calling gRPC
+    services deployed in Google Cloud. in the next section, we’ll discuss how to call
+    those services.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using Google Token-Based Authentication
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Identifying the users and deciding whether to let them use the services deployed
+    on the Google Cloud Platform is controlled by the Extensible Service Proxy (ESP).
+    ESP supports multiple authentication methods, including Firebase, Auth0, and Google
+    ID tokens. In each case, the client needs to provide a valid JWT in their requests.
+    In order to generate authenticating JWTs, we must create a service account for
+    each deployed service.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once we have the JWT token for the service, we can call the service method by
+    sending the token along with the request. We can create the channel passing the
+    credentials as shown in [Example 6-11](#EX6-11).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 6-11\. Setting up a connection with a Google endpoint in a Go client
+    application
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_secured_grpc_CO11-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Call `oauth.NewServiceAccountFromFile` to initialize `credentials.PerRPCCredentials`.
+    We need to provide a valid token file to create the credentials.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_secured_grpc_CO11-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Similar to authentication mechanisms discussed earlier, we configure a gRPC
+    dial with `DialOption WithPerRPCCredentials` to apply the authentication token
+    as metadata for all RPC calls on the same connection.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: When building a production-ready gRPC application, it is essential to have at
+    least minimum security requirements for the gRPC application to ensure secure
+    communication between the client and server. The gRPC library is designed to work
+    with different kinds of authentication mechanisms and capable of extending support
+    by adding a custom authentication mechanism. This makes it easy to safely use
+    gRPC to talk to other systems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are two types of credential supports in gRPC, channel and call. Channel
+    credentials are attached to the channels such as TLS, etc. Call credentials are
+    attached to the call, such as OAuth 2.0 tokens, basic authentication, etc. We
+    even can apply both credential types to the gRPC application. For example, we
+    can have TLS enable the connection between client and server and also attach credentials
+    to each RPC call made on the connection.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, you learned how to enable both credential types to your gRPC
+    application. In the next chapter, we’ll expand on the concepts and technologies
+    you’ve learned to build and run real-world gRPC applications in production. We’ll
+    also discuss how to write test cases for service and client applications, how
+    to deploy an application on Docker and Kubernetes, and how to observe the system
+    when it runs in production.
+  prefs: []
+  type: TYPE_NORMAL

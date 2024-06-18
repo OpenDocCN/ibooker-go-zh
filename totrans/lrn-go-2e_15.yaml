@@ -1,0 +1,1398 @@
+- en: Chapter 15\. Writing Tests
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Since the 2000s, the widespread adoption of automated testing has probably done
+    more to improve code quality than any other software engineering technique. As
+    a language and ecosystem focused on improving software quality, it’s not surprising
+    that Go includes testing support as part of its standard library. Go makes it
+    so easy to test your code, there’s no excuse to not do it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, you’ll see how to test Go code, group tests into unit and integration
+    tests, examine code coverage, write benchmarks, and learn how to check code for
+    concurrency issues by using the Go data race detector. Along the way, I’ll discuss
+    how to write code that is testable and why this improves our code quality.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Understanding the Basics of Testing
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Go’s testing support has two parts: libraries and tooling. The `testing` package
+    in the standard library provides the types and functions to write tests, while
+    the `go test` tool that’s bundled with Go runs your tests and generates reports.
+    Unlike many other languages, Go places its tests in the same directory and the
+    same package as the production code. Since tests are located in the same package,
+    they are able to access and test unexported functions and variables. You’ll see
+    in a bit how to write tests that ensure that you are testing only a public API.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Complete code samples for this chapter are found in the [Chapter 15 repository](https://oreil.ly/PNRJx).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s write a simple function and then a test to make sure the function works.
+    In the *sample_code/adder* directory, in the file *adder.go*, you have the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The corresponding test is in *adder_test.go*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: Every test is written in a file whose name ends with *_test.go*. If you are
+    writing tests against *foo.go*, place your tests in a file named *foo_test.go*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Test functions start with the word `Test` and take in a single parameter of
+    type `*testing.T`. By convention, this parameter is named `t`. Test functions
+    do not return any values. The name of the test (apart from starting with the word
+    “Test”) is meant to document what you are testing, so pick something that explains
+    what you are testing. When writing unit tests for individual functions, the convention
+    is to name the unit test `Test` followed by the name of the function. When testing
+    unexported functions, some people use an underscore between the word `Test` and
+    the name of the function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Also note that you use standard Go code to call the code being tested and to
+    validate that the responses are as expected. When there’s an incorrect result,
+    you report the error with the `t.Error` method, which works like the `fmt.Print`
+    function. You’ll see other error-reporting methods in a bit.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You’ve just seen the library portion of Go’s test support. Now let’s take a
+    look at the tooling. Just as `go build` builds a binary and `go run` runs a program,
+    the command `go test` runs the test functions in the current directory:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'It looks like you found a bug in your code. Taking a second look at `addNumbers`,
+    you see that you are adding `x` to `x`, not `x` to `y`. Let’s change the code
+    and rerun the test to verify that the bug is fixed:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `go test` command allows you to specify which packages to test. Using `./...`
+    for the package name specifies that you want to run tests in the current directory
+    and all subdirectories of the current directory. Include a `-v` flag to get verbose
+    testing output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Reporting Test Failures
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: There are several methods on `*testing.T` for reporting test failures. You’ve
+    already seen `Error`, which builds a failure description string out of a comma-separated
+    list of values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If you’d rather use a `Printf`-style formatting string to generate your message,
+    use the `Errorf` method instead:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: While `Error` and `Errorf` mark a test as failed, the test function continues
+    running. If you think a test function should stop processing as soon as a failure
+    is found, use the `Fatal` and `Fatalf` methods. The `Fatal` method works like
+    `Error`, and the `Fatalf` method works like `Errorf`. The difference is that the
+    test function exits immediately after the test failure message is generated. Note
+    that this doesn’t exit *all* tests; any remaining test functions will execute
+    after the current test function exits.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When should you use `Fatal`/`Fatalf` and when should you use `Error`/`Errorf`?
+    If the failure of a check in a test means that further checks in the same test
+    function will always fail or cause the test to panic, use `Fatal` or `Fatalf`.
+    If you are testing several independent items (such as validating fields in a struct),
+    then use `Error` or `Errorf` so you can report many problems at once. This makes
+    it easier to fix multiple problems without rerunning your tests over and over.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Setting Up and Tearing Down
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Sometimes you have some common state that you want to set up before any tests
+    run and remove when testing is complete. Use a `TestMain` function to manage this
+    state and run your tests:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: Both `TestFirst` and `TestSecond` refer to the package-level variable `testTime`.
+    Assume that it needs to be initialized in order for the tests to run properly.
+    You declare a function called `TestMain` with a parameter of type `*testing.M`.
+    If there’s a function named `TestMain` in a package, `go test` calls it instead
+    of the test functions. It is the responsibility of the `TestMain` function to
+    set up any state that’s necessary to make the tests in the package run correctly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once the state is configured, the `TestMain` function calls the `Run` method
+    on `*testing.M`. This runs the test functions in the package. The `Run` method
+    returns the exit code; `0` indicates that all tests passed. Finally, the `TestMain`
+    function must call `os.Exit` with the exit code returned from `Run`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Running `go test` on this produces the output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Be aware that `TestMain` is invoked once, not before and after each individual
+    test. Also be aware that you can have only one `TestMain` per package.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`TestMain` is useful in two common situations:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: When you need to set up data in an external repository, such as a database
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: When the code being tested depends on package-level variables that need to be
+    initialized
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: As mentioned before (and will be again!), you should avoid package-level variables
+    in your programs. They make it hard to understand how data flows through your
+    program. If you are using `TestMain` for this reason, consider refactoring your
+    code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `Cleanup` method on `*testing.T` is used to clean up temporary resources
+    created for a single test. This method has a single parameter, a function with
+    no input parameters or return values. The function runs when the test completes.
+    For simple tests, you can achieve the same result by using a `defer` statement,
+    but `Cleanup` is useful when tests rely on helper functions to set up sample data,
+    as you see in [Example 15-1](#EX15_1). It’s fine to call `Cleanup` multiple times.
+    Just like `defer`, the functions are invoked in last-added, first-called order.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 15-1\. Using `t.Cleanup`
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If your test uses temporary files, you can avoid writing cleanup code by taking
+    advantage of the `TempDir` method on `*testing.T`. This method creates a new temporary
+    directory every time it is invoked and returns the full path of the directory.
+    It also registers a handler with `Cleanup` to delete the directory and its contents
+    when the test has completed. You can use it to rewrite the previous example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: Testing with Environment Variables
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'It’s a common (and very good) practice to configure applications with environment
+    variables. To help you test your environment-variable–parsing code, Go provides
+    a helper method on `testing.T`. Call `t.Setenv()` to register a value for an environment
+    variable for your test. Behind the scenes, it calls `Cleanup` to revert the environment
+    variable to its previous state when the test exits:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: While it is good to use environment variables to configure your application,
+    it is also good to make sure that most of your code is entirely unaware of them.
+    Be sure to copy the values of environment variables into configuration structs
+    before your program starts its work, in your `main` function or soon afterward.
+    Doing so makes it easier to reuse and test code, since *how* the code is configured
+    has been abstracted away from *what* the code is doing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Rather than writing this code yourself, you should strongly consider using a
+    third-party configuration library, like [Viper](https://oreil.ly/-RUA-) or [envconfig](https://oreil.ly/rhGYk).
+    Also, look at [GoDotEnv](https://oreil.ly/sN2Sp) as a way to store environment
+    variables in *.env* files for development or continuous integration machines.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Storing Sample Test Data
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: As `go test` walks your source code tree, it uses the current package directory
+    as the current working directory. If you want to use sample data to test functions
+    in a package, create a subdirectory named *testdata* to hold your files. Go reserves
+    this directory name as a place to hold test files. When reading from *testdata*,
+    always use a relative file reference. Since `go test` changes the current working
+    directory to the current package, each package accesses its own *testdata* via
+    a relative file path.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The [`text` package](https://oreil.ly/lV_KJ) in the *sample_code* directory
+    of the Chapter 15 repository demonstrates how to use *testdata*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Caching Test Results
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Just as you learned in [Chapter 10](ch10.html#unique_chapter_id_10) that Go
+    caches compiled packages if they haven’t changed, Go also caches test results
+    when running tests across multiple packages if they have passed and their code
+    hasn’t changed. The tests are recompiled and rerun if you change any file in the
+    package or in the *testdata* directory. You can also force tests to always run
+    if you pass the flag `-count=1` to `go test`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Testing Your Public API
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The tests that you’ve written are in the same package as the production code.
+    This allows you to test both exported and unexported functions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you want to test just the public API of your package, Go has a convention
+    for specifying this. You still keep your test source code in the same directory
+    as the production source code, but you use `packagename_test` for the package
+    name. Let’s redo the initial test case, using an exported function instead. You
+    can find the code in the *sample_code/pubadder* directory in the [Chapter 15 repository](https://oreil.ly/PNRJx).
+    If you have the following function in the `pubadder` package
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'then you can test it as public API by using the following code in a file in
+    the `pubadder` package named *adder_public_test.go*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: Notice that the package name for the test file is `pubadder_test`. You have
+    to import `github.com/learning-go-book-2e/ch15/sample_code/pubadder` even though
+    the files are in the same directory. To follow the convention for naming tests,
+    the test function name matches the name of the `AddNumbers` function. Also note
+    that you use `pubadder.AddNumbers`, since you are calling an exported function
+    in a different package.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'If you are typing this code in by hand, you’ll need to create a module with
+    a *go.mod* file that has the module declaration:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: and that puts the source code in the *sample_code/pubadder* directory within
+    the module.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Just as you can call exported functions from within a package, you can test
+    your public API from a test that is in the same package as your source code. The
+    advantage of using the `_test` suffix in the package name is that it lets you
+    treat your tested package as a “black box.” You are forced to interact with it
+    only via its exported functions, methods, types, constants, and variables. Also
+    be aware that you can have test source files with both package names intermixed
+    in the same source directory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using go-cmp to Compare Test Results
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Writing a thorough comparison of a compound type’s two instances can be verbose.
+    While you can use `reflect.DeepEqual` to compare structs, maps, and slices, there’s
+    a better way. Google released a third-party module called [`go-cmp`](https://oreil.ly/9bWJf)
+    that does the comparison for you and returns a detailed description of what does
+    not match. Let’s see how it works by defining a simple `struct` and a factory
+    function that populates it. You can find this code in the *sample_code/cmp* directory
+    in the [Chapter 15 repository](https://oreil.ly/PNRJx):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In your test file, you need to import `github.com/google/go-cmp/cmp`, and your
+    test function looks like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `cmp.Diff` function takes in the expected output and the output that was
+    returned by the function that you’re testing. It returns a string that describes
+    any mismatches between the two inputs. If the inputs match, it returns an empty
+    string. You assign the output of the `cmp.Diff` function to a variable called
+    `diff` and then check whether `diff` is an empty string. If it is not, an error
+    occurred.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'When you build and run the test, you’ll see the output that `go-cmp` generates
+    when two struct instances don’t match:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The lines with a `-` and `+` indicate the fields whose values differ. The test
+    failed because the dates didn’t match. This is a problem because you can’t control
+    what date is assigned by the `CreatePerson` function. You have to ignore the `DateAdded`
+    field. You do that by specifying a comparator function. Declare the function as
+    a local variable in your test:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: Pass a function to the `cmp.Comparer` function to create a customer comparator.
+    The function that’s passed in must have two parameters of the same type and return
+    a `bool`. It also must be symmetric (the order of the parameters doesn’t matter),
+    deterministic (it always returns the same value for the same inputs), and pure
+    (it must not modify its parameters). In your implementation, you are comparing
+    the `Name` and `Age` fields and ignoring the `DateAdded` field.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Then change your call to `cmp.Diff` to include `comparer`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: This is only a quick preview of the most useful features in `go-cmp`. Check
+    its [documentation](https://oreil.ly/rmiWO) to learn more about how to control
+    what is compared and the output format.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Running Table Tests
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Most of the time, it takes more than a single test case to validate that a function
+    is working correctly. You could write multiple test functions to validate your
+    function or multiple tests within the same function, but you’ll find that a great
+    deal of the testing logic is repetitive. You set up supporting data and functions,
+    specify inputs, check the outputs, and compare to see if they match your expectations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Rather than writing this over and over, you can take advantage of a pattern
+    called *table tests*. Let’s take a look at a sample. You can find this code in
+    the *sample_code/table* directory in the [Chapter 15 repository](https://oreil.ly/PNRJx).
+    Assume you have the following function in the `table` package:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To test this function, you need to check the different branches, trying out
+    inputs that return valid results, as well as inputs that trigger errors. You could
+    write code like this, but it’s very repetitive:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let’s replace this repetition with a table test. First, you declare a slice
+    of anonymous structs. The struct contains fields for the name of the test, the
+    input parameters, and the return values. Each entry in the slice represents another
+    test:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Next, loop over each test case in `data`, invoking the `Run` method each time.
+    This is the line that does the magic. You pass two parameters to `Run`, a name
+    for the subtest and a function with a single parameter of type `*testing.T`. Inside
+    the function, you call `DoMath` by using the fields of the current entry in `data`,
+    using the same logic over and over. When you run these tests, you’ll see that
+    not only do they pass, but when you use the `-v` flag, each subtest also now has
+    a name:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: Tip
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Comparing error messages can be fragile, because there may not be any compatibility
+    guarantees on the message text. The function that you are testing uses `errors.New`
+    and `fmt.Errorf` to make errors, so the only option is to compare the messages.
+    If an error has a custom type or a named sentinel error, use `errors.Is` or `errors.As`
+    to check that the correct error is returned.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Running Tests Concurrently
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'By default, unit tests are run sequentially. Since each unit test is supposed
+    to be independent from every other unit test, they make ideal candidates for concurrency.
+    To make a unit test run concurrently with other tests, call the `Parallel` method
+    on `*testing.T` as the first line in your test:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: Parallel tests run concurrently with other tests marked as parallel.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The advantage of parallel tests is that it can speed up long-running test suites.
+    There are some disadvantages, though. If you have multiple tests that rely on
+    the same shared mutable state, do not mark them as parallel, because you will
+    get inconsistent results. (But after all of my warnings, you don’t have any shared
+    mutable state in your application, right?) Also be aware that your test will panic
+    if you mark it as parallel and use the `Setenv` method in your test function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Be careful when running table tests in parallel. When table tests run in parallel,
+    it’s just as you saw in [“Goroutines, for Loops, and Varying Variables”](ch12.html#shared_var_goroutine),
+    where you launched multiple goroutines within a `for` loop. If you run this example
+    using Go 1.21 or earlier (or on Go 1.22 or later with the Go version set to 1.21
+    or earlier in the `go` directive in the *go.mod* file), a reference to the variable
+    `d` is shared by all the parallel tests, so they all see the same value:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You can run this code on [The Go Playground](https://oreil.ly/b0S4n) or in
+    the *sample_code/parallel* directory in the [Chapter 15 repository](https://oreil.ly/PNRJx).
+    Take a look at the output and you’ll see that you test the last value in the table
+    test three times:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: This problem is common enough that Go 1.20 added a `go vet` check for this problem.
+    When you run `go vet` on this code, you get the message `loop variable d captured
+    by func literal` on each line where `d` is captured.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `for` loop changes in Go 1.22 or later resolve this issue. If you cannot
+    use Go 1.22, you can avoid this bug by shadowing `d` within the `for` loop before
+    invoking `t.Run`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now that you have a way to run lots of tests, you’ll learn about code coverage
+    to find out what your tests are testing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Checking Your Code Coverage
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Code coverage is a very useful tool for knowing whether you’ve missed any obvious
+    cases. However, reaching 100% code coverage doesn’t guarantee that there aren’t
+    bugs in your code for some inputs. First you’ll see how `go test` displays code
+    coverage and then you’ll look at the limitations of relying on code coverage alone.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Adding the `-cover` flag to the `go test` command calculates coverage information
+    and includes a summary in the test output. If you include a second flag `-coverprofile`,
+    you can save the coverage information to a file. Let’s go back to the *sample_code/table*
+    directory in the [Chapter 15 repository](https://oreil.ly/PNRJx) and gather code
+    coverage information:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If you run your table test with code coverage, the test output now includes
+    a line that indicates the amount of test code coverage, 87.5%. That’s good to
+    know, but it’d be more useful if you could see what you missed. The `cover` tool
+    included with Go generates an HTML representation of your source code with that
+    information:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: When you run it, your web browser should open and show you a page that looks
+    like [Figure 15-1](#initial_code_coverage).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Every file that’s tested appears in the combo box in the upper left. The source
+    code is in one of three colors. Gray is used for lines of code that aren’t testable,
+    green is used for code that’s been covered by a test, and red is used for code
+    that hasn’t been tested. (The reliance on color is unfortunate for readers of
+    the print edition and those who have red-green color blindness. If you are unable
+    to see the colors, the lighter gray is the covered lines.) From looking at this,
+    you can see that you didn’t write a test to cover the default case, when a bad
+    operator is passed to your function. Add that case to your slice of test cases:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: When you rerun `go test -v -cover -coverprofile=c.out` and `go tool cover` `-html=c.out`,
+    you see in [Figure 15-2](#final_code_coverage) that the final line is covered
+    and you have 100% test code coverage.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![Initial Code Coverage](assets/lgo2_1501.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 15-1\. Initial code coverage
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: '![Final Code Coverage](assets/lgo2_1502.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 15-2\. Final code coverage
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'Code coverage is a great thing, but it’s not enough. There’s actually a bug
+    in your code, even though you have 100% coverage. Have you noticed it? If not,
+    add another test case and rerun your tests:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You should see the error:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: Your case for multiplication has a typo. It adds the numbers together instead
+    of multiplying them. (Beware the dangers of copy-and-paste coding!) Fix the code,
+    rerun `go test -v -cover -coverprofile=c.out` and `go tool cover -html=c.out`,
+    and you’ll see that the tests pass again.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Warning
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Code coverage is necessary but not sufficient. You can have 100% code coverage
+    and still have bugs in your code!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Fuzzing
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: One of the most important lessons that every developer eventually learns is
+    that all data is suspect. No matter how well specified a data format is, you will
+    eventually have to process input that doesn’t match what you expect. This doesn’t
+    happen for only malicious reasons. Data can be corrupted in transit, in storage,
+    and even in memory. Programs that process data might have bugs, and specifications
+    for data formats always have corner cases that can be interpreted differently
+    by different developers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Even when developers do the work of writing good unit tests, it’s impossible
+    to think of everything. As you’ve seen, even 100% unit test code coverage is no
+    guarantee that your code is bug free. You need to supplement unit tests with generated
+    data that could break your program in ways you didn’t anticipate. That’s where
+    fuzzing helps.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Fuzzing* is a technique for generating random data and submitting it to code
+    to see whether it properly handles unexpected input. The developer can provide
+    a *seed corpus* or set of known good data, and the fuzzer uses that as a basis
+    for generating bad input. Let’s see how to use the fuzzing support in Go’s testing
+    tools to discover additional test cases.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Assume that you are writing a program to processes data files. You can find
+    the code for this example [on GitHub](https://oreil.ly/7dx6i). You are sending
+    a list of strings but want to efficiently allocate memory, so the number of strings
+    in a file is sent as the first line, while the remaining lines are the lines of
+    text. Here’s the sample function for processing this data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: You use a `bufio.Scanner` to read line-by-line from an `io.Reader`. If there’s
+    no data to be read, an error is returned. You then read the first line and attempt
+    to convert it to an int named `count`. If you can’t, an error is returned. Next,
+    you allocate the memory for your slice of strings, and read `count` number of
+    lines from the scanner. If there aren’t enough lines, an error is returned. If
+    all goes well, you return the lines you read.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A unit test has already been written to validate the code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: The unit test has 100% line coverage for `ParseData`, handling all its error
+    cases. You might think the code is ready for production, but let’s see if fuzzing
+    can help you discover errors that you hadn’t considered.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Be aware that fuzzing uses a lot of resources. A fuzz test can allocate (or
+    attempt to allocate) many gigabytes of memory and might write several gigabytes
+    of data to your local disk. If you are running something else on the same machine
+    at the same time as a fuzz test, don’t be surprised if it slows down.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You start by writing a fuzz test:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: A fuzz test looks similar to a standard unit test. The function name starts
+    with `Fuzz`, the only parameter is of type `*testing.F`, and it has no return
+    values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Next, you set up a seed corpus, which is composed of one or more sets of sample
+    data. The data can run successfully, error out, or even panic. The important things
+    are that you know how your program behaves when this data is provided and that
+    this behavior is accounted for by your fuzz test. These samples are mutated by
+    the fuzzer to generate bad inputs. This example uses only a single field of data
+    for each entry (a slice of bytes), but you can have as many fields as needed.
+    The fields in a corpus entry are currently limited to only certain types:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Any integer type (including unsigned types, `rune`, and `byte`)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Any floating-point type
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`bool`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`string`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`[]byte`'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Each entry in the corpus is passed to the `Add` method on the `*testing.F`
+    instance. In the example, you have a slice of bytes for each entry:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If the function being fuzzed needed an `int` and a `string`, the call to `Add`
+    would look like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: It’s a runtime error to pass a value of an invalid type to `Add`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Next you call the `Fuzz` method on your `*testing.F` instance. This looks a
+    bit like a call to `Run` when writing a table test in a standard unit test. `Fuzz`
+    takes in a single parameter, a function whose first parameter is of type `*testing.T`
+    and whose remaining parameters exactly match the types, order, and count of the
+    values that were passed in to `Add`. This also specifies the type of data generated
+    by the fuzzing engine during fuzzing. There’s no way for the Go compiler to enforce
+    this constraint, so it’s a runtime error if the convention is not followed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Finally, let’s look at the body of the fuzz target. Remember, fuzzing is used
+    to find cases where bad input is not handled correctly. Since the input is randomly
+    generated, you can’t write tests that have knowledge of what the output should
+    be. Instead, you have to use test conditions that will be true for all inputs.
+    In the case of `ParseData`, you can check for two things:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Does the code return an error for bad input, or does it panic?
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: If you convert the slice of strings back to a slice of bytes and re-parse it,
+    do you get the same result?
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Let’s see what happens when you run the fuzz test:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: If you don’t specify the `-fuzz` flag, your fuzz tests will be treated like
+    unit tests and will be run against the seed corpus. Only a single fuzz test can
+    be fuzzed at a time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: If you want to get the full experience, delete the contents of the *testdata/fuzz/FuzzParseData*
+    directory. This will cause the fuzzer to generate new seed corpus entries. Since
+    the fuzzer generates random input, your samples might be different from the ones
+    shown. The different entries will likely produce similar errors, though maybe
+    not in the same order.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The fuzz test runs for several seconds and then fails. In this case, the `go`
+    command reports that it has crashed. You don’t want programs that crash, so let’s
+    look at the input that was generated. Every time a test case fails, the fuzzer
+    writes it to the *testdata/fuzz/TESTNAME* subdirectory in the same package as
+    the failed test, adding a new entry to the seed corpus. The new seed corpus entry
+    in the file now becomes a new unit test, one that was automatically generated
+    by the fuzzer. It is run anytime `go test` runs the `FuzzParseData` function,
+    and acts as a regression test once you fix your bug.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here are the contents of the file:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: The first line is a header to indicate that this is test data for a fuzz test.
+    The subsequent lines have the data that caused the failure.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The failure message tells you how to isolate this failing case when you rerun
+    the test:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The problem is that you are trying to allocate a slice with the capacity to
+    hold 300,000,000,000 strings. That requires quite a bit more RAM than my computer
+    (and probably yours) has. You need to limit the number of expected text elements
+    to a reasonable number. Set the maximum number of rows to 1,000 by adding the
+    following code to `ParseData` after you parse the number of expected rows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Run the fuzzer again to see whether it finds any more errors:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This time you get a fuzz result that produces a panic. Looking at the file
+    generated by `go fuzz`, you see this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE41]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The line that’s generating the panic is shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You are trying to create a slice with negative capacity, which panics. Add
+    another condition to your code to look for negative numbers:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE43]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Run your fuzzer again, and it generates another error:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE44]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Looking at the file it created, you are generating blank lines with only `\r`
+    (return) characters. Blank lines are not what you expect in your input, so add
+    some code to the loop that reads lines of text from the `Scanner`. You’ll check
+    whether a line consists only of whitespace characters. If it does, return an error:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE45]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Run your fuzzer yet again:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE46]'
+  prefs: []
+  type: TYPE_PRE
+- en: After a few minutes, no more errors are found, so hit Ctrl-C to end fuzzing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Just because the fuzzer didn’t find additional issues doesn’t mean that the
+    code is now bug free. However, fuzzing allowed you to automatically find some
+    significant oversights in the original code. Writing fuzz tests takes practice,
+    as they require a slightly different mindset than writing unit tests. Once you
+    get the hang of them, they become an essential tool for validating how your code
+    handles unexpected user input.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using Benchmarks
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Determining how fast (or slow) code runs is surprisingly difficult. Rather
+    than trying to figure it out yourself, you should use the benchmarking support
+    that’s built into Go’s testing framework. Let’s explore it with a function in
+    the *sample_code/bench* directory in the [Chapter 15 repository](https://oreil.ly/PNRJx):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE47]'
+  prefs: []
+  type: TYPE_PRE
+- en: This function counts the number of characters in a file. It takes in two parameters,
+    the name of the file and the size of the buffer that you are using to read the
+    file (you’ll see the reason for the second parameter in a moment).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Before seeing how fast it is, you should test your library to make sure that
+    it works (it does). Here’s a simple test:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE48]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now you can see how long it takes your file-length function to run. Your goal
+    is to find out what size buffer you should use to read from the file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Before you spend time going down an optimization rabbit hole, be sure that you
+    need to optimize. If your program is already fast enough to meet your responsiveness
+    requirements and is using an acceptable amount of memory, your time is better
+    spent on adding features and fixing bugs. Your business requirements determine
+    what “fast enough” and “acceptable amount of memory” mean.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In Go, *benchmarks* are functions in your test files that start with the word
+    `Benchmark` and take in a single parameter of type `*testing.B`. This type includes
+    all the functionality of a `*testing.T` as well as additional support for benchmarking.
+    Let’s start by looking at a benchmark that uses a buffer size of 1 byte:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE49]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `blackhole` package-level variable is interesting. You write the results
+    from `FileLen` to this package-level variable to make sure that the compiler doesn’t
+    get too clever and decide to optimize away the call to `FileLen`, ruining your
+    benchmark.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Every Go benchmark must have a loop that iterates from 0 to `b.*N*`. The testing
+    framework calls your benchmark functions over and over with larger and larger
+    values for `*N*` until it is sure that the timing results are accurate. You’ll
+    see this in the output in a moment.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You run a benchmark by passing the `-bench` flag to `go test`. This flag expects
+    a regular expression to describe the name of the benchmarks to run. Use `-bench=.`
+    to run all benchmarks. A second flag, `-benchmem`, includes memory allocation
+    information in the benchmark output. All tests are run before the benchmarks,
+    so you can benchmark code only when tests pass.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here’s the output for the benchmark on my computer:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE50]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Running a benchmark with memory allocation information produces output with
+    five columns. Here’s what each one means:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: BenchmarkFileLen1-12
+  prefs: []
+  type: TYPE_NORMAL
+- en: The name of the benchmark, a hyphen, and the value of `GOMAXPROCS` for the benchmark.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '25'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The number of times that the test ran to produce a stable result.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 47201025 ns/op
+  prefs: []
+  type: TYPE_NORMAL
+- en: The amount of time it took to run a single pass of this benchmark, in nanoseconds
+    (there are 1,000,000,000 nanoseconds in a second).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 65342 B/op
+  prefs: []
+  type: TYPE_NORMAL
+- en: The number of bytes allocated during a single pass of the benchmark.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 65208 allocs/op
+  prefs: []
+  type: TYPE_NORMAL
+- en: The number of times bytes had to be allocated from the heap during a single
+    pass of the benchmark. This will always be less than or equal to the number of
+    bytes allocated.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now that you have results for a buffer of 1 byte, let’s see what the results
+    look like when you use buffers of different sizes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE51]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Just as you launched table tests using `t.Run`, you’re using `b.Run` to launch
+    benchmarks that vary based only on input. Here are the results of this benchmark
+    on my computer:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE52]'
+  prefs: []
+  type: TYPE_PRE
+- en: These results aren’t surprising; as you increase the size of the buffer, you
+    make fewer allocations and your code runs faster, until the buffer is bigger than
+    the file. When the buffer is bigger than the size of the file, extra allocations
+    slow the output. If you expect files of roughly this size, a buffer of 10,000
+    bytes would work best.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'But you can make a change that improves the numbers more. You are reallocating
+    the buffer every time you get the next set of bytes from the file. That’s unnecessary.
+    If you move the byte slice allocation before the loop and rerun your benchmark,
+    you see an improvement:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE53]'
+  prefs: []
+  type: TYPE_PRE
+- en: The number of allocations are now consistent and small, just four allocations
+    for every buffer size. What is interesting is that you now can make trade-offs.
+    If you are tight on memory, you can use a smaller buffer size and save memory
+    at the expense of performance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using Stubs in Go
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'So far, you’ve written tests for functions that didn’t depend on other code.
+    This is not typical, as most code is filled with dependencies. As you saw in [Chapter 7](ch07.html#unique_chapter_id_07),
+    Go allows you to abstract function calls in two ways: defining a function type
+    and defining an interface. These abstractions help you write not only modular
+    production code but also unit tests.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: When your code depends on abstractions, it’s easier to write unit tests!
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Let’s take a look at an example in the *sample_code/solver* directory in the
+    [Chapter 15 repository](https://oreil.ly/PNRJx). You define a type called `Processor`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE54]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'It has a field of type `MathSolver`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE55]'
+  prefs: []
+  type: TYPE_PRE
+- en: You’ll implement and test `MathSolver` in a bit.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`Processor` also has a method that reads an expression from an `io.Reader`
+    and returns the calculated value:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE56]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Let’s write the code to test `ProcessExpression`. First, you need a simple
+    implementation of the `Resolve` method to write your test:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE57]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Next, you write a unit test that uses this stub (production code should test
+    the error messages too, but for the sake of brevity, you’ll leave those out):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE58]'
+  prefs: []
+  type: TYPE_PRE
+- en: You can then run your test and see that everything works.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'While most Go interfaces specify only one or two methods, this isn’t always
+    the case. You sometimes find yourself with an interface that has many methods.
+    Let’s take a look at the code in the *sample_code/stub* directory in the [Chapter
+    15 repository](https://oreil.ly/PNRJx). Assume you have an interface that looks
+    like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE59]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'There are two patterns for testing code that depends on large interfaces. The
+    first is to embed the interface in a struct. Embedding an interface in a struct
+    automatically defines all the interface’s methods on the struct. It doesn’t provide
+    any implementations of those methods, so you need to implement the methods that
+    you care about for the current test. Let’s assume that `Logic` is a struct that
+    has a field of type `Entities`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE60]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Assume you want to test this method:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE61]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This method uses only one of the methods declared on `Entities`: `GetPets`.
+    Rather than creating a stub that implements every single method on `Entities`
+    just to test `GetPets`, you can write a stub struct that implements only the method
+    you need to test this method:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE62]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You then write your unit test, with your stub injected into `Logic`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE63]'
+  prefs: []
+  type: TYPE_PRE
+- en: (By the way, the `GetPetNames` method has a bug. Did you see it? Even simple
+    methods can sometimes have bugs.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Warning
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: If you embed an interface in a stub struct, make sure you provide an implementation
+    for every method that’s called during your test! If you call an unimplemented
+    method, your tests will panic.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If you need to implement only one or two methods in an interface for a single
+    test, this technique works well. The drawback comes when you need to call the
+    same method in different tests with different inputs and outputs. When that happens,
+    you need to either include every possible result for every test within the same
+    implementation or reimplement the struct for each test. This quickly becomes difficult
+    to understand and maintain. A better solution is to create a stub struct that
+    proxies method calls to function fields. For each method defined on `Entities`,
+    you define a function field with a matching signature on your stub struct:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE64]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You then make `EntitiesStub` meet the `Entities` interface by defining the
+    methods. In each method, you invoke the associated function field. For example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE65]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once you create this stub, you can supply different implementations of different
+    methods in different test cases via the fields in the data struct for a table
+    test:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE66]'
+  prefs: []
+  type: TYPE_PRE
+- en: You add a field of function type to `data`’s anonymous struct. In each test
+    case, you specify a function that returns the data that `GetPets` would return.
+    When you write your test stubs this way, it’s clear what the stubs should return
+    for each test case. As each test runs, you instantiate a new `EntitiesStub` and
+    assign the `getPets` function field in your test data to the `getPets` function
+    field in `EntitiesStub`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using httptest
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'It can be difficult to write tests for a function that calls an HTTP service.
+    Traditionally, this became an integration test, requiring you to stand up a test
+    instance of the service that the function calls. The Go standard library includes
+    the [`net/http/httptest`](https://oreil.ly/0c_MX) package to make it easier to
+    stub HTTP services. Let’s go back to the *sample_code/solver* directory in the
+    [Chapter 15 repository](https://oreil.ly/PNRJx) and provide an implementation
+    of `MathSolver` that calls an HTTP service to evaluate expressions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE67]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now let’s see how to use the `httptest` library to test this code without standing
+    up a server. The code is in the `TestRemoteSolver_Resolve` function in *sample_code/solver/remote_solver_test.go*
+    in the [Chapter 15 repository](https://oreil.ly/PNRJx), but here are the highlights.
+    First, you want to make sure that the data that’s passed into the function arrives
+    on the server. So in your test function, you define a type called `info` to hold
+    your input and output and a variable called `io` that is assigned the current
+    input and output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE68]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Next, you set up your fake remote server and use it to configure an instance
+    of `RemoteSolver`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE69]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `httptest.NewServer` function creates and starts an HTTP server on a random
+    unused port. You need to provide an `http.Handler` implementation to process the
+    request. Since this is a server, you must close it when the test completes. The
+    `server` instance has its URL specified in the `URL` field of the `server` instance
+    and a preconfigured `http.Client` for communicating with the test server. You
+    pass these into `RemoteSolver`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The rest of the function works like every other table test that you’ve seen:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE70]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The interesting thing to note is that the variable `io` has been captured by
+    two closures: the one for the stub server and the one for running each test. You
+    write to it in one closure and read it in the other. This is a bad idea in production
+    code, but it works well in test code within a single function.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using Integration Tests and Build Tags
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Even though `httptest` provides a way to avoid testing against external services,
+    you should still write *integration tests*, automated tests that connect to other
+    services. These validate that your understanding of the service’s API is correct.
+    The challenge is figuring out how to group your automated tests; you want to run
+    integration tests only when the support environment is present. Also, integration
+    tests tend to be slower than unit tests, so they are usually run less frequently.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In [“Using Build Tags”](ch11.html#build_tags), I covered build tags, which are
+    used by the Go compiler to control when a file is compiled. While they are primarily
+    intended to allow developers to write code that’s intended only for a specific
+    operating system, CPU, or Go version, you can take advantage of the ability to
+    specify custom build tags to control when integration tests are compiled and run.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s try this out with the math-solving project. Use [Docker](https://oreil.ly/5FWcb)
+    to download a server implementation with `docker pull jonbodner/math-server` and
+    then run the server locally on port 8080 with `docker run -p 8080:8080` `jonbodner/math-server`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: If you don’t have Docker installed or if you want to build the code for yourself,
+    you can find it on [GitHub](https://oreil.ly/yjMzc).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You need to write an integration test to make sure that your `Resolve` method
+    properly communicates with the math server. The *sample_code/solver/remote_solver_integration_test.go*
+    file in the [Chapter 15 repository](https://oreil.ly/PNRJx) has a complete test
+    in the `TestRemoteSolver_ResolveIntegration` function. The test looks like every
+    other table test that you’ve written. The interesting thing is the first line
+    of the file, separated from the package declaration by a newline:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE71]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'To run your integration test alongside the other tests you’ve written, use
+    this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE72]'
+  prefs: []
+  type: TYPE_PRE
+- en: You should be aware that some people in the Go community prefer to use environment
+    variables rather than build tags to create groups of integration tests. Peter
+    Bourgon describes the concept in a blog post with the unsubtle title [“Don’t Use
+    Build Tags for Integration Tests”](https://oreil.ly/BXSnu). His argument is that
+    it’s hard to find out what build tags to set in order to run integration tests.
+    An explicit check for an environment variable in each integration test, combined
+    with a detailed message in a `t.Skip` method call, makes it clear that tests aren’t
+    being run and how to run them. In the end, it’s a trade-off between verbosity
+    and discoverability. Feel free to use either technique.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finding Concurrency Problems with the Data Race Detector
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Even with Go’s built-in support for concurrency, bugs still happen. It’s easy
+    to accidentally reference a variable from two different goroutines without acquiring
+    a lock. The computer science term for this is a *data race*. To help find these
+    sorts of bugs, Go includes a *race checker*. It isn’t guaranteed to find every
+    single data race in your code, but if it finds one, you should put proper locks
+    around what it finds.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Look at a simple example in the file *sample_code/race/race.go* in the [Chapter
+    15 repository](https://oreil.ly/PNRJx):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE73]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This code launches five goroutines, has each of them update a shared `counter`
+    variable 1,000 times, and then returns the result. You’d expect it to be 5,000,
+    so let’s verify this with a unit test in *sample_code/race/race_test.go*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE74]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If you run `go test` a few times, you’ll see that sometimes it passes, but
+    most of the time it fails with an error message like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE75]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The problem is that there’s a data race in the code. In a program this simple,
+    the cause is obvious: multiple goroutines are trying to update `counter` simultaneously,
+    and some of their updates are lost. In more complicated programs, these sorts
+    of races are harder to see. Let’s see what the data race detector does. Use the
+    flag `-race` with `go test` to enable it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE76]'
+  prefs: []
+  type: TYPE_PRE
+- en: The traces make it clear that the line `counter++` is the source of your problems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Warning
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Some people try to fix race conditions by inserting “sleeps” into their code,
+    trying to space out access to the variable that’s being accessed by multiple goroutines.
+    *This is a bad idea*. Doing so might eliminate the problem in some cases, but
+    the code is still wrong and will fail in some situations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can also use the `-race` flag when you build your programs. This creates
+    a binary that includes the data race detector and that reports any races it finds
+    to the console. This allows you to find data races in code that doesn’t have tests.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If the data race detector is so useful, why isn’t it enabled all the time for
+    testing and production? A binary with `-race` enabled runs approximately 10 times
+    slower than a normal binary. That isn’t a problem for test suites that take a
+    second to run, but for large test suites that take several minutes, a 10× slowdown
+    reduces productivity.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For more information on the data race detector, check out its [official documentation](https://oreil.ly/0uLcW).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Exercises
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now that you’ve learned about writing tests and using the code-quality tools
+    included with Go, complete these exercises to apply that knowledge to a sample
+    application.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[Download the Simple Web App program](https://oreil.ly/5b_xI). Write unit tests
+    for the program and get as close to 100% code coverage as you can. If you find
+    any bugs, fix them.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Use the race detector to find a concurrency problem in the program and fix it.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Write a fuzz test against the `parser` function and fix any problems that you
+    find.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Wrapping Up
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In this chapter, you’ve learned how to write tests and improve code quality
+    by using Go’s built-in support for testing, code coverage, benchmarking, fuzzing,
+    and data race checking. In the next chapter, you’re going to explore some Go features
+    that allow you to break the rules: the `unsafe` package, reflection, and `cgo`.'
+  prefs: []
+  type: TYPE_NORMAL

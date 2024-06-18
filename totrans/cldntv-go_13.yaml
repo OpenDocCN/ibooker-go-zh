@@ -1,0 +1,1830 @@
+- en: Chapter 10\. Manageability
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Everyone knows that debugging is twice as hard as writing a program in the first
+    place. So if you’re as clever as you can be when you write it, how will you ever
+    debug it?^([1](ch10.xhtml#idm45983620458120))
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: ''
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: Brian Kernighan, The Elements of Programming Style (1978)
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: In a perfect world, you’d never have to deploy a new version of your service
+    or (heaven forbid!) shut down your entire system to fix or modify it to meet new
+    requirements.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Then again, in a perfect world, unicorns would exist and four out of five dentists
+    would recommend we eat pie for breakfast.^([2](ch10.xhtml#idm45983620454840))
+  prefs: []
+  type: TYPE_NORMAL
+- en: Clearly, we don’t live in a perfect world. But while unicorns might never exist,^([3](ch10.xhtml#idm45983620452296))
+    you don’t have to resign yourself to a world where you have to update your code
+    whenever you need to alter your system’s behavior.
+  prefs: []
+  type: TYPE_NORMAL
+- en: While you’ll probably always have to make code changes to update core logic,
+    it is possible to build your systems so that you—or, critically, somebody else—can
+    change a surprising variety of behaviors without having to recode and redeploy.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You may recall that we introduced this important attribute of cloud native systems
+    back in [“Manageability”](ch01.xhtml#section_ch01_manageability), where we defined
+    it as the ease with which a system’s behavior can be modified to keep it secure,
+    running smoothly, and compliant with changing requirements.
+  prefs: []
+  type: TYPE_NORMAL
+- en: While this sounds straightforward, there’s actually quite a bit more to manageability
+    than you might think. It goes far beyond configuration files (though that’s certainly
+    part of it). In this chapter, we’ll discuss what it means to have a manageable
+    system, and we’ll cover some of the techniques and implementations that can allow
+    you to build a system that can change *almost* as quickly as its requirements.
+  prefs: []
+  type: TYPE_NORMAL
+- en: What Is Manageability and Why Should I Care?
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: When considering manageability, it’s common to think in terms of a single service.
+    Can my service be configured easily? Does it have all the knobs and dials that
+    it might need?
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, this misses the larger point by focusing on the component at the expense
+    of the system. Manageability doesn’t end at the service boundary. For a system
+    to be manageable, the entire system has to be considered.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Take a moment to reconsider manageability with a complex system in mind. Can
+    its behavior be easily modified? Can its components be modified independently
+    of one another? Can they be easily replaced, if necessary? How do we know when
+    that is?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Manageability encompasses all possible dimensions of a system’s behavior. Its
+    functions can be said to fall into four broad categories:^([5](ch10.xhtml#idm45983620606648))
+  prefs: []
+  type: TYPE_NORMAL
+- en: Configuration and control
+  prefs: []
+  type: TYPE_NORMAL
+- en: It’s important that setting up and configuring a system—and each of its components—should
+    be easily configurable for optimal availability and performance. Some systems
+    need regular or real-time control, so having the right “knobs and levers” is absolutely
+    fundamental. This is where we’ll focus most of our attention in this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Monitoring, logging, and alerting
+  prefs: []
+  type: TYPE_NORMAL
+- en: These functions keep track of the system’s ability to do its job, and are critical
+    to effective system management. After all, without them, how would we know when
+    our system requires management? As vital as these features are to manageability,
+    we won’t discuss them in this chapter. Instead, they get an entire chapter of
+    their own in [Chapter 11, *Observability*](ch11.xhtml#chapter_11).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Deployment and updates
+  prefs: []
+  type: TYPE_NORMAL
+- en: Even in the absence of code changes, the ability to easily deploy, update, roll
+    back, and scale system components is valuable, especially when there are many
+    systems to manage. Obviously, this is useful during the initial deployment, but
+    it comes into effect throughout a system’s lifetime any time it has to be updated.
+    Fortunately, its lack of external runtimes and singular executable artifacts make
+    this an area in which Go excels.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Service discovery and inventory
+  prefs: []
+  type: TYPE_NORMAL
+- en: A key feature of cloud native systems is their distributed nature. It’s critical
+    that components be able to quickly and accurately detect one another, a function
+    called *service discovery*. Since service discovery is an architectural feature
+    rather than a programmatic one, we won’t go too deeply into it in this book.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Because this is more of a Go book than it is an architecture book,^([6](ch10.xhtml#idm45983620592520))
+    it focuses largely on service implementations. For that reason only—*not because
+    it’s more important*—most of this chapter will similarly focus on service-level
+    configuration. Unfortunately, an in-depth discussion of these is beyond the scope
+    of this book.^([7](ch10.xhtml#idm45983620591208))
+  prefs: []
+  type: TYPE_NORMAL
+- en: Managing complex computing systems is generally difficult and time-consuming,
+    and the costs of managing them can far exceed the costs of the underlying hardware
+    and software. By definition, a system designed to be manageable can be managed
+    more efficiently, and therefore more cheaply. Even if you don’t consider management
+    costs, complexity reduction can have a huge impact on the likelihood of human
+    error, making it easier and faster to undo when it inevitably creeps in. In that
+    way, manageability directly impacts reliability, availability, and security, making
+    it a key ingredient of system dependability.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Configuring Your Application
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The most basic function of manageability is the ability to configure an application.
+    In an ideally configurable application, anything that’s likely to vary between
+    environments—staging, production, developer environments, etc.—will be cleanly
+    separated from the code and be externally definable in some way.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You may recall that *The Twelve-Factor App*—a set of twelve rules and guidelines
+    for building web applications that we introduced way back in [Chapter 6](ch06.xhtml#chapter_6)—had
+    quite a bit to say on this subject. In fact, the third of its twelve rules—[“III.
+    Configuration”](ch06.xhtml#section_ch06_12_factor_app_configuration)—was concerned
+    entirely with application configuration, about which it says:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Store configuration in the environment.
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: 'As written, *The Twelve-Factor App* insists that all configurations should
+    be stored in environment variables. There are a plenty of opinions on this, but
+    in the years since its publication the industry seems to have reached a general
+    consensus that what really matters is:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Configuration should be strictly separated from the code
+  prefs: []
+  type: TYPE_NORMAL
+- en: Configuration—anything that’s likely to vary between environments—should always
+    be cleanly separated from the code. While configuration can vary substantially
+    across deploys, code does not. Configuration shouldn’t be baked into the code.
+    Ever.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Configurations should be stored in version control
+  prefs: []
+  type: TYPE_NORMAL
+- en: Storing configurations in version control—separately from the code—allows you
+    to quickly roll back a configuration change if necessary, and aids system re-creation
+    and restoration. Some deployment frameworks, like Kubernetes, make this distinction
+    naturally and relatively seamless by providing configuration primitives like the
+    ConfigMap.
+  prefs: []
+  type: TYPE_NORMAL
+- en: These days, it’s still quite common to see applications configured mainly by
+    environment variables, but it’s just as common to see command-line flags and configuration
+    files with various formats. Sometimes an application will even support more than
+    one of these options. In the subsequent sections, we’ll review some of these methods,
+    their various pros and cons, and how they can be implemented in Go.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Configuration Good Practice
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'When you’re building an application, you have a lot of options in how you define,
+    implement, and deploy your application configurations. However, in my experience,
+    I’ve found that certain general practices produce better long- and short-term
+    outcomes:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Version control your configurations
+  prefs: []
+  type: TYPE_NORMAL
+- en: Yes, I’m repeating myself, but this bears repeating. Configuration files should
+    be stored in version control before being deployed to the system. This makes it
+    possible to review them before deployment, to quickly reference them afterwards,
+    and to quickly roll back a change if necessary. It’s also helpful if (and when)
+    you need to re-create and restore your system.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Don’t roll your own format
+  prefs: []
+  type: TYPE_NORMAL
+- en: Write your configuration files using a standard format like JSON, YAML, or TOML.
+    We’ll cover some of these later in the chapter. If you *must* roll your own format,
+    be sure that you’re comfortable with the idea of maintaining it—and forcing any
+    future maintainers to deal with it—forever.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Make the zero value useful
+  prefs: []
+  type: TYPE_NORMAL
+- en: Don’t use nonzero default values unnecessarily. This is actually a good rule
+    in general; there’s even a “Go proverb” about it.^([8](ch10.xhtml#idm45983620384056))
+    Whenever possible, the behavior that results from an undefined configuration should
+    be acceptable, reasonable, and unsurprising. A simple, minimal configuration makes
+    errors less likely.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Configuring with Environment Variables
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'As we discussed in [Chapter 6](ch06.xhtml#chapter_6), and reviewed previously,
+    using environment variables to define configuration values is the method advocated
+    for in *The Twelve-Factor App*. There’s some merit to this preference: environment
+    variables are universally supported, they ensure that configurations don’t get
+    accidentally checked into the code, and using them generally requires less code
+    than using a configuration file. They’re also perfectly adequate for small applications.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: On the other hand, the process of setting and passing environment variables
+    can be ugly, tedious, and verbose. While some applications support defining environment
+    variables in a file, this largely defeats the purpose of using environment variables
+    in the first place.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The implicit nature of environment variables can introduce some challenges as
+    well. Since you can’t easily learn about the existence and behavior of environment
+    variables by looking at an existing configuration file or checking the help output,
+    applications that reply on them can sometimes be harder to use, and errors in
+    them harder to debug.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As with most high-level languages, Go makes environment variables easily accessible.
+    It does this through the standard `os` package, which provides the `os.Getenv`
+    function for this purpose:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `os.Getenv` function retrieves the value of the environment variable named
+    by the key, but if the variable isn’t present, it’ll return an empty string. If
+    you need to distinguish between an empty value and an unset value, Go also provides
+    the `os.LookEnv` function, which returns both the value and a `bool` that’s `false`
+    if the variable isn’t set:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This functionality is pretty minimal, but perfectly adequate for many (if not
+    most) purposes. If you’re in need of more sophisticated options, like default
+    values or typed variables, there are several excellent third-party packages that
+    provide this functionality. [Viper (spf13/viper)](https://oreil.ly/bS4RY)—which
+    we’ll discuss in [“Viper: The Swiss Army Knife of Configuration Packages”](#section_ch10_viper)—is
+    particularly popular.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Configuring with Command-Line Arguments
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: As configuration methods go, command-line arguments are definitely worth considering,
+    at least for smaller, less-complex applications. After all, they’re explicit,
+    and details of their existence and usage are usually available via a `--help`
+    option.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The standard flag package
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Go includes the `flag` package, which is a basic command-line parsing package,
+    in its standard library. While `flag` isn’t particularly feature-rich, it’s fairly
+    straightforward to use, and—unlike `os.Getenv`—supports typing out-of-the-box.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Take, for example, the following program, which uses `flag` to implement a
+    basic command that reads and outputs the values of command-line flags:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'As you can see from the previous code, the `flag` package allows you to register
+    command-line flags with types, default values, and short descriptions, and to
+    map those flags to variables. We can see a summary of these flags by running the
+    program and passing it the `-help` flag:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The help output presents us with a list of all of the available flags. Exercising
+    all of these flags gives us something like the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: It works! However, the `flag` package seems to have a couple of issues that
+    limit its usefulness.
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, as you may have noticed, the resulting flag syntax seems a little…nonstandard.
+    Many of us have come to expect command-line interfaces to follow [the GNU argument
+    standard,](https://oreil.ly/evqk4) with long-named options prefixed by two dashes
+    (`--version`) and short, single-letter equivalents (`-v`).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Second, all `flag` does is parse flags (though to be fair, it doesn’t claim
+    to do any more than that), and while that’s nice, it’s not as powerful as it could
+    be. It sure would be nice if we could map commands to functions, wouldn’t it?
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Cobra command-line parser
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The `flags` package is perfectly fine if all you need to do is parse flags,
+    but if you’re in the market for something a little more powerful to build your
+    command-line interfaces, you might want to consider [the Cobra package](https://oreil.ly/4oCyH).
+    Cobra has a number of features that make it a popular choice for building fully
+    featured command-line interfaces. It’s used in a number of high-profile projects,
+    including Kubernetes, CockroachDB, Docker, Istio, and Helm.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In addition to providing fully POSIX-compliant flags (short *and* long versions),
+    Cobra also supports nested subcommands, and automatically generates help (`--help`)
+    output and autocomplete for various shells. It also integrates with Viper, which
+    we’ll cover in [“Viper: The Swiss Army Knife of Configuration Packages”](#section_ch10_viper).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Cobra’s primary downside, as you might imagine, is that it’s quite complex
+    relative to the `flags` package. Using Cobra to implement the program from [“The
+    standard flag package”](#section_ch10_flags_package) looks like the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: In contrast to the `flags`-package version, which basically just reads some
+    flags and prints the results, the Cobra program has a bit more complexity, with
+    several distinct parts.
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, we declare the target variables with package scope, rather than locally
+    within a function. This is necessary because they have to be accessible to both
+    the `init` function and the function that implements the command logic proper.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Next, we create a `cobra.Command` struct, `rootCmd`, that represents the *root
+    command*. A separate `cobra.Command` instance is used to represent every command
+    and subcommand that the CLI makes available. The `Use` field spells out the command’s
+    one-line usage message and `Long` is the long message displayed in the help output.
+    `Run` is a function of type `func(cmd *Command, args []string)` that implements
+    the actual work to be done when the command is executed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Typically, commands are constructed in an `init` function. In our case, we add
+    three flags—`string`, `number`, and `boolean`—to our root command along with their
+    short flags, default values, and descriptions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Every command gets an automatically generated help output, which we can retrieve
+    using the `--help` flag:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This makes sense, and it’s also pretty! But does it run as we expect? Executing
+    the command (using the standard flags style), gives us the following output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: The outputs are identical; we have achieved parity. But this is just a single
+    command. One of the benefits of Cobra is that it also allows *subcommands*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: What does this mean? Take, for example, the `git` command. In this example,
+    `git` would be the root command. By itself, it doesn’t do much, but it has a series
+    of subcommands—`git clone`, `git init`, `git blame`, etc.—that are related but
+    are each distinct operations of their own.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Cobra provides this capability by treating commands as a tree structure. Each
+    command and subcommand (including the root command) are represented by a distinct
+    `cobra.Command` value. These are attached to one another using the `(c *Command)
+    AddCommand(cmds ...*Command)` function. We demonstrate this in the following example
+    by turning the `flags` command into a subcommand of a new root, which we call
+    `cng` (for *Cloud Native Go*).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To do this, we first have to rename the original `rootCmd` to `flagsCmd`. We
+    add a `Short` attribute to define its short description in help output, but it’s
+    otherwise identical. But now we need a new root command, so we create that as
+    well:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now we have two commands: the root command, `cng`, and a single subcommand,
+    `flags`. The next step is to add the `flags` subcommand to the root command so
+    that it’s immediately beneath the root in the command tree. This is typically
+    done in an `init` function, which we demonstrate here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding `init` function, we keep the three `Flags` methods, except
+    we now call them on `flagsCmd`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: What’s new, however, is the `AddCommand` method, which allows us to add `flagsCmd`
+    to `rootCmd` as a subcommand. We can repeat `AddCommand` as many times as we like
+    with multiple `Command` values, adding as many subcommands (or sub-subcommands,
+    or sub-sub-subcommands) as we want.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now that we’ve told Cobra about the new `flags` subcommand, its information
+    is reflected in the generated help output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now, according to this help output, we have a top-level root command named
+    `cng` that has *two* available subcommands: our `flags` command, and an automatically-generated
+    `help` subcommand that lets a user view any subcommand’s help. For example, `help
+    flags` provides us with information and instructions for the `flags` subcommand:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: Kind of neat, huh?
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is a tiny, tiny sample of what the Cobra library is capable of, but it’s
+    more than sufficient to let us to build a robust set of configuration options.
+    If you’re interested in learning more about Cobra and how you can use it to build
+    powerful command-line interfaces, take a look at its [GitHub repository](https://oreil.ly/oy7EN)
+    and its [listing on GoDoc](https://oreil.ly/JOeoJ).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Configuring with Files
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Last but not least, we have what is probably the most commonly used configuration
+    option: the configuration file.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Configuration files have a lot of advantages over environment variables, particularly
+    for more complex applications. They tend to be more explicit and comprehensible
+    by allowing behaviors to be logically grouped and annotated. Often, understanding
+    how to use a configuration file is just a matter of looking at its structure or
+    an example of its use.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Configuration files are particularly useful when managing a large number of
+    options, which is an advantage they have over both environment variables and command-line
+    flags. Command-line flags in particular can sometimes result in some pretty long
+    statements that can be tedious and difficult to construct.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Files aren’t the perfect solution though. Depending on your environment, distributing
+    them at scale in a way that maintains parity across a cluster can be a challenge.
+    This situation can be improved by having a single “source of truth,” such as a
+    distributed key/value store like etcd or HashiCorp Consul, or a central source
+    code repository from which the deployment automatically draws its configuration,
+    but this adds complexity and a dependency on another resource.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Fortunately, most orchestration platforms provide specialized configuration
+    resources—such as Kubernetes’ `ConfigMap` object—that largely alleviate the distribution
+    problem.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are probably dozens of file formats that have been used for configuration
+    over the years, but in recent years, two in particular have stood out: JSON and
+    YAML. In the next few sections, we’ll go into each of these—and how to use them
+    in Go—in a little more detail'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Our configuration data structure
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Before we proceed with a discussion of file formats and how to decode them,
+    we should discuss the two general ways in which configurations can be unmarshalled:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Configuration keys and values can be mapped to corresponding fields in a specific
+    struct type. For example, a configuration that contains the attribute `host: localhost`,
+    could be unmarshalled into a struct type that has a `Host string` field.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Configuration data can be decoded and unmarshalled into one or more, possibly
+    nested, maps of type `map[string]interface{}`. This can be convenient when you’re
+    working with arbitrary configurations, but it’s awkward to work with.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: If you know what your configuration is likely to look like in advance (which
+    you generally do), then the first approach to decoding configurations, mapping
+    them to a data structure created for that purpose, is by far the easiest. Although
+    it’s possible to decode and do useful work with arbitrary configuration schemas,
+    doing so can be very tedious and isn’t advisable for most configuration purposes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'So, for the remainder of this section, our example configurations will correspond
+    to the following `Config` struct:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: Warning
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: For a struct field to be marshallable or unmarshallable by *any* encoding package,
+    it *must* begin with a capital letter to indicate that it’s exported by its package.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For each of our examples we’ll start with the `Config` struct, occasionally
+    enhancing it with format-specific tags or other decorations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Working with JSON
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: JSON (JavaScript Object Notation) was invented in the early 2000s, growing out
+    of the need for a modern data interchange format to replace XML and other formats
+    in use at the time. It’s based on a subset of the JavaScript scripting language,
+    making it both relatively human-readable and efficient for machines to generate
+    and parse, while also offering the semantics for lists and mappings that were
+    absent from XML.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As common and successful as JSON is, it does have some drawbacks. It’s generally
+    considered less user-friendly than YAML. Its syntax is especially unforgiving
+    and can be easily broken by a misplaced (or missing) comma, and it doesn’t even
+    support comments.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, of the formats presented in this chapter, it’s the only one that’s
+    supported in Go’s standard library.
+  prefs: []
+  type: TYPE_NORMAL
+- en: What follows is a very brief introduction into encoding and decoding data to
+    and from JSON. For a somewhat more thorough review, take a look at Andrew Gerrand’s
+    “JSON and Go” on [*The Go Blog*](https://oreil.ly/6Uvl2).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Encoding JSON
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: The first step to understanding how to decode JSON (or any configuration format)
+    is understanding how to *encode* it. This may seem strange, particularly in a
+    section about reading configuration files, but encoding is important to the general
+    subject of JSON encoding, and provides a handy means of generating, testing, and
+    debugging your configuration files.^([9](ch10.xhtml#idm45983619649368))
+  prefs: []
+  type: TYPE_NORMAL
+- en: JSON encoding and decoding is supported by Go’s standard `encoding/json` package,
+    which provides a variety of helper functions useful for encoding, decoding, formatting,
+    validating, and otherwise working with JSON.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Among these is the `json.Marshal` function, which accepts an `interface{}`
+    value `v`, and returns a `[]byte` array containing a JSON-encoded representation
+    of `v`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: In other words, a value goes in, and JSON comes out.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This function really is as straightforward to use as it looks. For example,
+    if we have an instance of `Config`, we can pass it to `json.Marshal` to get its
+    JSON encoding:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If everything works as expected, `err` will be `nil`, and `bytes` will be a
+    `[]byte` value containing the JSON. The `fmt.Println` output will look something
+    like the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: Tip
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The `json.Marshal` function traverses the value of `v` recursively, so any internal
+    structs will be encoded as well as nested JSON.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'That was pretty painless, but if we’re generating a configuration file it sure
+    would be nice if the text was formatted for human consumption. Fortunately, `encoding/json`
+    also provides the following `json.MarshalIndent` function, which returns “pretty-printed”
+    JSON:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'As you can see, `json.MarshalIndent` works a lot like `json.Marshal`, except
+    that also takes `prefix` and `indent` strings, as demonstrated here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The preceding snippet prints exactly what we’d hope to see:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: The result is prettily printed JSON, formatted for humans like you and me^([10](ch10.xhtml#idm45983619331048))
+    to read. This is a very useful method for bootstrapping configuration files!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Decoding JSON
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: Now that we know how to encode a data structure into JSON, let’s take a look
+    at how to decode JSON as an existing data structure.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To do that, we use the conveniently named `json.Unmarshal` function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `json.Unmarshal` function parses the JSON-encoded text contained in the
+    `data` array and stores the result in the value pointed to by `v`. Importantly,
+    if `v` is `nil` or isn’t a pointer, `json.Unmarshal` returns an error.
+  prefs: []
+  type: TYPE_NORMAL
+- en: But, what type should `v` be, exactly? Ideally, it would be a pointer to a data
+    structure whose fields exactly correspond to the JSON structure. While it’s possible
+    to unmarshal arbitrary JSON into an unstructured map, as we’ll discuss in [“Decoding
+    Arbitrary JSON”](#sidebar_ch10_decoding_arbitrary_json), this really should only
+    be done if you really don’t have any other choice.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'As we’ll see, though, if you have a data type that reflects your JSON’s structure,
+    then `json.Unmarshal` is able to update it directly. To do this, we first have
+    to create an instance where our decoded data will be stored:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Now that we have our storage value, we can call `json.Unmarshal`, to which
+    we pass a `[]byte` that contains our JSON data and a pointer to `c`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If `bytes` contains valid JSON, then `err` will be `nil` and the data from
+    `bytes` will be stored in the struct `c`. Printing the value of `c` should now
+    provide output like the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Neat! But what happens when the structure of the JSON doesn’t exactly match
+    the Go type? Let’s find out:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Interestingly, this snippet doesn’t produce an error as you might expect. Instead,
+    `c` now contains the following values:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: It would seem that the value of `Host` was set, but `Food`, which has no corresponding
+    value in the `Config` struct, was ignored. As it turns out, `json.Unmarshal` will
+    only decode the fields that it can find in the target type. This behavior can
+    actually be quite useful if you want to cherry pick a few specific fields out
+    of a big JSON blob.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Field formatting with struct field tags
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: Under the covers, marshalling works by using reflection to examine a value and
+    generate appropriate JSON for its type. For structs, the struct’s field names
+    are directly used as the default JSON keys, and the struct’s field values become
+    the JSON values. Unmarshalling works essentially the same way, except in reverse.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'What happens when you marshal a zero-value struct? Well, as it turns out, when
+    you marshal a `Config{}` value, for example, this is the JSON you get:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: This isn’t all that pretty. Or efficient. Is it really necessary to even output
+    the empty values at all?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Similarly, struct fields have to be exported—and therefore capitalized—to be
+    written or read. Does that mean that we’re stuck with uppercase field names?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Fortunately, the answer to both questions is “no.”
+  prefs: []
+  type: TYPE_NORMAL
+- en: Go supports the use of *struct field tags*—short strings that appear in a struct
+    after the type declaration of a field—that allow metadata to be added to specific
+    struct fields. Field tags are most commonly used by encoding packages to modify
+    encoding and decoding behavior at the field level.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Go struct field tags are special strings containing one or more keys/values
+    pairs enclosed in backticks, after a field’s type declaration:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: In this example, the struct’s `Name` field is tagged with `example:"name"`.
+    These tags can be accessed using run-time reflection via the `reflect` package,
+    but their most common use case is to provide encoding and decoding directives.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `encoding/json` package supports several such tags. The general format uses
+    the `json` key in the struct field’s tag, and a value that specifies the name
+    of the field, possibly followed by a comma-separated list of options. The name
+    may be empty in order to specify options without overriding the default field
+    name.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The available options supported by `encoding/json` are shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Customizing JSON keys
+  prefs: []
+  type: TYPE_NORMAL
+- en: By default, a struct field will case-sensitively map to a JSON key of the exact
+    same name. A tag overrides this default name by setting the first (or only) value
+    in the tag’s options list.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Example: `` CustomKey string `json:"custom_key"` ``'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Omitting empty values
+  prefs: []
+  type: TYPE_NORMAL
+- en: By default, a field will always appear in the JSON, even if it’s empty. Using
+    the `omitempty` option will cause fields to be skipped if they contain a zero-value.
+    Note the leading comma in front of `omitempty`!
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Example: `` OmitEmpty string `json:",omitempty"` ``'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Ignoring a field
+  prefs: []
+  type: TYPE_NORMAL
+- en: Fields using the `-` (dash) option always will be completely ignored during
+    encoding and decoding.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Example: `` IgnoredName string `json:"-"` ``'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A struct that uses all of the previous tags might look like the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: For more information on how how `json.Marshal` encodes data, take a look at
+    [the function’s documentation on golang.org](https://oreil.ly/5QeJ4).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Working with YAML
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: YAML (YAML Ain’t Markup Language^([11](ch10.xhtml#idm45983618773656))) is an
+    extensible file format that’s popular with projects like Kubernetes that depend
+    on complex, hierarchical configurations. It’s highly expressive, though its syntax
+    can also be a bit brittle, and configurations that use it can start to suffer
+    from readability issues as they scale up.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Unlike JSON, which was originally created as a data interchange format, YAML
+    is largely a configuration language at heart. Interestingly, however, YAML 1.2
+    is a superset of JSON, and the two formats are largely inter-convertible. YAML
+    does have some advantages over JSON though: it can self-reference, it allows embedded
+    block literals, and it supports comments and complex data types.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unlike JSON, YAML isn’t supported in Go’s core libraries. While there are a
+    few YAML packages to choose from, the standard choice is [Go-YAML](https://oreil.ly/yhERJ).
+    Version 1 of Go-YAML started in 2014 as an internal project within Canonical to
+    port the well-known `libyaml` C library to Go. As a project, it’s exceptionally
+    mature and well maintained. Its syntax is also conveniently very similar to `encoding/json`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Encoding YAML
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: 'Using Go-YAML to encode data is a *lot* like encoding JSON. Exactly like it.
+    In fact, the signatures for both packages’ `Marshal` functions are identical.
+    Like its `encoding/json` equivalent, Go-YAML’s `yaml.Marshal` function also accepts
+    an `interface{}` value, and returns its YAML encoding as a `[]byte` value:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Just as we did in [“Encoding JSON”](#section_ch10_encoding_json), we demonstrate
+    its use by creating an instance of `Config`, which we pass to `yaml.Marshal` to
+    get its YAML encoding:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once again, if everything works as expected, `err` will be `nil` and `bytes`
+    will be a `[]byte` value containing the YAML. Printing the string value of `bytes`
+    will provide something like the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: Also, just like the version provided by `encoding/json`, Go-YAML’s `Marshal`
+    function traverses the value `v` recursively. Any composite types that it finds—arrays,
+    slices, maps, and structs—will be encoded appropriately and will be present in
+    the output as nested YAML elements.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Decoding YAML
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: 'In keeping with the theme we’ve established with the similarity of the `Marshal`
+    functions from `encoding/json` and Go-YAML, the same consistency is evident between
+    the two packages’ `Unmarshal` functions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Again, the `yaml.Unmarshal` function parses the YAML-encoded data in the `data`
+    array and stores the result in the value pointed to by `v`. If `v` is `nil` or
+    not a pointer, `yaml.Unmarshal` returns an error. As shown here, the similarities
+    are very clear:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Just as we did in [“Decoding JSON”](#section_ch10_decoding_json), we pass `yaml.Unmarshal`
+    a pointer to a `Config` instance, whose fields correspond to the fields found
+    in the YAML. Printing the value of `c` should (once again) provide output like
+    the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'There are other behavioral similarities between `encoding/json` and Go-YAML:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Both will ignore attributes in a source document that cannot be mapped to the
+    `Unmarshal` function. Again, this can be useful if you only care about a subset
+    of the document, but it can be a “gotcha,” too: if you forget to export the struct
+    field, `Unmarshal` will always silently ignore it, and it’ll never get set.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Both are capable of unmarshalling arbitrary data by passing an `interface{}`
+    value to `Unmarshal`. However, while `json.Unmarshal` will provide a `map[string]interface{}`,
+    `yaml.Unmarshal` will return a `map[interface{}]interface{}`. A minor difference,
+    but another potential gotcha!
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Struct field tags for YAML
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: 'In addition to the “standard” struct field tags—custom keys, `omitempty`, and
+    `-` (dash)—detailed in [“Field formatting with struct field tags”](#section_ch10_field_formatting_with_struct_field_tags),
+    Go-YAML supports two additional tags particular to YAML marshal formatting:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Flow style
+  prefs: []
+  type: TYPE_NORMAL
+- en: Fields using the `flow` option will be marshalled using [the flow style](https://oreil.ly/zyUpd),
+    which can be useful for structs, sequences, and maps.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Example: `` Flow map[string]string `yaml:"flow"` ``'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Inlining structs and maps
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `inline` option causes all of a struct or map fields or keys to be processed
+    as if they were part of the outer struct. For maps, keys must not conflict with
+    the keys of other struct fields.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Example: `` Inline map[string]string `yaml:",inline"` ``'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A struct that uses both of these options might look like the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: As you can see, the tagging syntax is also consistent, except that instead of
+    using the `json` prefix, Go-YAML tags use the `yaml` prefix.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Watching for configuration file changes
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: When working with configuration files, you’ll inevitably be confronted with
+    a situation in which changes have to be made to the configuration of a running
+    program. If it doesn’t explicitly watch for and reload changes, then it’ll generally
+    have to be restarted to reread its configuration, which can be inconvenient at
+    best, and introduce downtime at worst.
+  prefs: []
+  type: TYPE_NORMAL
+- en: At some point, you’re going to have to decide how you want your program to respond
+    to such changes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The first (and least complex) option is to do nothing, and just expect the
+    program to have to restart when its configuration changes. This is actually a
+    fairly common choice, since it ensures that no trace of the former configuration
+    exists. It also allows a program to “fail fast” when an error is introduced into
+    the configuration file: the program just has to spit out an angry error message
+    and refuse to start.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, you might prefer to add logic to your program that detects changes
+    in your configuration file (or files) and reloads them appropriately.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Making your configuration reloadable
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: If you’d like your internal configuration representations to reload whenever
+    the underlying file changes, you’ll have to plan a little ahead.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, you’ll want to have a single global instance of your configuration struct.
+    For now, we’ll use a `Config` instance of the kind we introduced in [“Our configuration
+    data structure”](#section_ch10_config_data_structure). In a slightly larger project,
+    you might even put this in a `config` package:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: Very often you’ll see code in which an explicit `config` parameter is passed
+    to just about every method and function. I’ve seen this quite a lot; often enough
+    to know that this particular antipattern just makes life harder. Also, because
+    the configuration now lives in N places instead of one, it also tends to make
+    configuration reloading more complicated.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Once we have our `config` value, we’ll want to add the logic that reads the
+    configuration file and loads it into the struct. Something like the following
+    `loadConfiguration` function will do just fine:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: Our `loadConfiguration` function works almost the same way that we discussed
+    in [“Working with YAML”](#section_ch10_working_with_yaml), except that it uses
+    the `ioutil.ReadFile` function from the `io/ioutil` standard library to retrieve
+    the bytes that it passes to `yaml.Unmarshal`. The choice to use YAML here was
+    entirely arbitrary.^([12](ch10.xhtml#idm45983618296888)) The syntax for a JSON
+    configuration would be practically identical.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now that we have logic to load our configuration file into a canonical struct,
+    we need something to call it whenever it gets a notification that the file has
+    changed. For that we have `startListening`, which monitors an `updates` channel:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'As you can see, `startListening` accepts two channels: `updates`, which emits
+    the name of a file (presumably the configuration file) when that file changes,
+    and an `errors` channel.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: It watches both channels in a `select` inside of an infinite loop so that if
+    a configuration file changes, the `updates` channel sends its name, which is then
+    passed to `loadConfiguration`. If `loadConfiguration` doesn’t return a non-`nil`
+    error, then the `Config` value it returns replaces the current one.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Stepping back another level, we have an `init` function that retrieves the
+    channels from a `watchConfig` function and passes them to `startListening`, which
+    it runs as a goroutine:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'But what’s this `watchConfig` function? Well, we don’t quite know the details
+    yet. We’ll figure that out in the next couple of sections. We do know that it
+    implements some configuration watching logic, and that it has a function signature
+    that looks like the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `watchConfig` function, whatever its implementation, returns two channels—a
+    `string` channel that sends the path of the updated configuration file, and an
+    `error` channel that notifies about invalid configurations—and an `error` value
+    that reports if there’s a fatal error on startup.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The exact implementation of `watchConfig` can go a couple of different ways,
+    each with its pros and cons. Now let’s take a look at the two most common of those.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Polling for configuration changes
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: Polling, where you check for changes in your configuration file on some regular
+    cadence, is a common way of watching a configuration file. A standard implementation
+    uses a `time.Ticker` to recalculate a hash of your configuration file every few
+    seconds and reload if the hash changes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Go makes a number of common hash algorithms available in its `crypto` package,
+    each of which lives in its own subpackage of `crypto` and satisfies both the `crypto.Hash`
+    and `io.Writer` interfaces.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For example, Go’s standard implementation of `SHA256` can be found in `crypto/sha256`.
+    To use it, you use its `sha256.New` function to get a new `sha256.Hash` value,
+    into which you then write the data you want to calculate the hash of, just as
+    you would any `io.Writer`. When that’s complete, you use its `Sum` method to retrieve
+    the resulting hash sum:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs: []
+  type: TYPE_PRE
+- en: Generating a hash for a configuration has three distinct parts. First, we get
+    a `[]byte` source in the form of an `io.Reader`. In this example we use an `io.File`.
+    Next, we copy those bytes from the `io.Reader` to our `sha256.Hash` instance,
+    which we do with a call to `io.Copy`. Finally, we use the `Sum` method to retrieve
+    the hash sum from `hash`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now that we have our `calculateFileHash` function, creating our `watchConfig`
+    implementation is just a matter of using a `time.Ticker` to concurrently check
+    it on some cadence, and emit any positive results (or errors) to the appropriate
+    channel:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE41]'
+  prefs: []
+  type: TYPE_PRE
+- en: The polling approach has some benefits. It’s not especially complex, which is
+    always a big plus, and it works for any operating system. Perhaps most interestingly,
+    because hashing only cares about the configuration’s contents, it even can be
+    generalized to detect changes in places like remote key/value stores that aren’t
+    technically files.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unfortunately, the polling approach can be a little computationally wasteful,
+    especially for very large or many files. By its nature, it also incurs also a
+    brief delay between the time the file is changed and the detection of that change.
+    If you’re definitely working with local files, it would probably be more efficient
+    to watch OS-level filesystem notifications, which we discuss in the next section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Watching OS filesystem notifications
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: Polling for changes works well enough, but this method has some drawbacks. Depending
+    on your use case, you may find it more efficient to instead monitor OS-level filesystem
+    notifications.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Actually doing so, however, is complicated by the fact that each operating system
+    has a different notification mechanism. Fortunately, the [fsnotify](https://oreil.ly/ziw4J)
+    package provides a workable abstraction that supports most operating systems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To use this package to watch one or more files, you use the `fsnotify.NewWatcher`
+    function to get a new `fsnotify.Watcher` instance, and use the `Add` method to
+    register more files to watch. The `Watcher` provides two channels, `Events` and
+    `Errors`, which sends notifications of file events and errors, respectively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For example, if we wanted to watch our config file, we could do something like
+    the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note the statement `event.Op & fsnotify.Write == fsnotify.Write`, which uses
+    a bitwise AND (`&`) to filter for “write” events. We do this because the `fsnotify.Event`
+    can potentially include multiple operations, each of which is represented as one
+    bit in an unsigned integer. For example, a simultaneous `fsnotify.Write` (`2`,
+    binary `0b00010`) and `fsnotify.Chmod` (`16`, binary `0b10000`) would result in
+    an `event.Op` value of `18` (binary `0b10010`). Because `0b10010 & 0b00010 = 0b00010`,
+    the bitwise AND allows us to guarantee that an operation includes a `fsnotify.Write`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Viper: The Swiss Army Knife of Configuration Packages'
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '[Viper (spf13/viper)](https://oreil.ly/pttZM) bills itself as a complete configuration
+    solution for Go applications, and justifiably so. Among other things, it allows
+    application configuration by a variety of mechanisms and formats, including, in
+    order of precedence:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Explicitly set values
+  prefs: []
+  type: TYPE_NORMAL
+- en: This takes precedence over all other methods, and can be useful during testing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Command-line flags
+  prefs: []
+  type: TYPE_NORMAL
+- en: Viper is designed to be a companion to Cobra, which we introduced in [“The Cobra
+    command-line parser”](#section_ch10_cobra).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Environment variables
+  prefs: []
+  type: TYPE_NORMAL
+- en: Viper has full support for environment variables. Importantly, Viper treats
+    environment variables as case-sensitive!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Configuration files, in multiple file formats
+  prefs: []
+  type: TYPE_NORMAL
+- en: Out of the box, Viper supports JSON and YAML with the packages we introduced
+    previously; as well as TOML, HCL, INI, envfile, and Java Properties files. It
+    can also write configuration files to help bootstrap your configurations, and
+    even optionally supports live watching and rereading of configuration files.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Remote key/value stores
+  prefs: []
+  type: TYPE_NORMAL
+- en: Viper can access key/value stores like etcd or Consul, and can watch them for
+    changes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It also supports features like default values and typed variables, which the
+    standard packages typically don’t provide.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Keep in mind though, that while Viper does *a lot*, it’s also a pretty big hammer
+    that brings in a lot of dependencies. If you’re trying to build a slim, streamlined
+    application, Viper may be more than you need.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Explicitly setting values in Viper
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Viper allows you to use the `viper.Set` function to explicitly set values from,
+    for example, command-line flags or the application logic. This can be pretty handy
+    during testing:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE43]'
+  prefs: []
+  type: TYPE_PRE
+- en: Explicitly set values have the highest priority, and override values that would
+    be set by other mechanisms.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Working with command-line flags in Viper
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Viper was designed to be a companion to the [Cobra library](https://oreil.ly/67LFI),
+    which we briefly discussed in the context of constructing command-line interfaces
+    in [“The Cobra command-line parser”](#section_ch10_cobra). This close integration
+    with Cobra makes it straightforward to bind command-line flags to configuration
+    keys.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Viper provides the `viper.BindPFlag` function, which allows individual command-line
+    flags to be bound to a named key, and `viper.BindPFlags`, which binds a full flag
+    set using each flag’s long name as the key.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Because the actual value of the configuration value is set when the binding
+    is accessed, rather than when it’s called, you can call `viper.BindPFlag` in an
+    `init` function as we do here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE44]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding snippet, we declare a `&cobra.Command` and define an integer
+    flag called “number.” Note that we use the `IntP` method instead of `IntVarP`,
+    since there’s no need to store the value of the flag in an external value when
+    Cobra is used in this way. Then, using the `viper.BindPFlag` function, we bind
+    the “number” flag to a configuration key of the same name.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'After it’s been bound (and the command-line flags parsed), the value of the
+    bound key can be retrieved from Viper by using the `viper.GetInt` function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE45]'
+  prefs: []
+  type: TYPE_PRE
+- en: Working with environment variables in Viper
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Viper provides several functions for working with environment variables as
+    a configuration source. The first of these is `viper.BindEnv`, which is used to
+    bind a configuration key to an environment variable:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE46]'
+  prefs: []
+  type: TYPE_PRE
+- en: If only a key is provided, `viper.BindEnv` will bind to the environment variable
+    matching the key. More arguments can be provided to specify one or more environment
+    variables to bind to. In both cases, Viper automatically assumes that the name
+    of the environment variable is in all caps.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Viper provides several additional helper functions for working with environment
+    variables. See [the Viper GoDoc](https://oreil.ly/CGpPS) for more details on these.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Working with configuration files in Viper
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Out of the box, Viper supports JSON and YAML using the packages we introduced
+    previously; as well as TOML, HCL, INI, envfile, and Java Properties files. It
+    can also write configuration files to help bootstrap your configurations, and
+    even optionally supports live watching and rereading of configuration files.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A discussion of local configuration files may seem unexpected in a book on cloud
+    native, but files are still a commonly used structure in any context. After all,
+    shared filesystems—be they Kubernetes ConfigMaps or NFS mounts—are quite common,
+    and even cloud native services can be deployed by a configuration management system
+    that installs a read-only local copy of a file for all service replicas to read.
+    A configuration file could even be baked or mounted into a container image in
+    a way that looks—as far as a containerized service is concerned—exactly like any
+    other local file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Reading configuration files
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: 'To read configurations from files, Viper just needs to know the names of the
+    files, and where to look for them. Also, it needs to know its type, if that can’t
+    be inferred from a file extension. The `viper.ReadInConfig` function instructs
+    Viper to find and read the configuration file, potentially returning an `error`
+    value if something goes wrong. All of those steps are demonstrated here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE47]'
+  prefs: []
+  type: TYPE_PRE
+- en: As you can see, Viper can search multiple paths for a configuration file. Unfortunately,
+    at this time, a single Viper instance only supports reading a single configuration
+    file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Watching and rereading configuration files in Viper
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: Viper natively allows your application to watch a configuration file for modifications
+    and reload when changes are detected, which means that configurations can change
+    without having to restart the server for them to take effect.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'By default, this functionality is turned off. The `viper.WatchConfig` function
+    can be used to enable it. Additionally, the `viper.OnConfigChange` function allows
+    you to specify a function that’s called whenever the configuration file is updated:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE48]'
+  prefs: []
+  type: TYPE_PRE
+- en: Warning
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Make sure that any calls to `viper.AddConfigPath` are made *before* calling
+    `viper.WatchConfig`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Interestingly, Viper actually uses the `fsnotify/fsnotify` package behind the
+    scenes, the same mechanism that we detailed in [“Watching for configuration file
+    changes”](#section_ch10_watching_files).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using remote key/value stores with Viper
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Perhaps the most interesting feature of Viper is its ability to read a configuration
+    string written in any supported format from a path in a remote key/value store,
+    like [etcd](https://etcd.io) or [HashiCorp Consul](https://consul.io). These values
+    take precedence over default values, but are overridden by configuration values
+    retrieved from disk, command-line flags, or environment variables.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To enable remote support in Viper, you first have to do a blank import of the
+    `viper/remote` package:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE49]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'A remote key/value configuration source can then be registered using the `viper.AddRemoteProvider`
+    method, whose signature is as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE50]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `provider` parameter can be one of `etcd`, `consul`, or `firestore`.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The `endpoint` is the URL of the remote resource. An odd quirk of Viper is that
+    the etcd provider requires the URL to include a scheme (`http://ip:port`), while
+    Consul requires *no scheme* (ip:port).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The `path` is the path in the key-value store to retrieve the configuration
+    from.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'To read a JSON-formatted configuration file from an etcd service, for example,
+    you’ll do something like the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE51]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that even though the configuration path includes a file extension, we also
+    use `viper.SetConfigType` to explicitly define the configuration type. This is
+    because from Viper’s perspective, the resource is just a stream of bytes, so it
+    can’t automatically infer the format.^([13](ch10.xhtml#idm45983617110392)) As
+    of the time of writing, the supported formats are *json*, *toml*, *yaml*, *yml*,
+    *properties*, *props*, *prop*, *env*, and *dotenv*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Multiple providers may be added, in which case they’re searched in the order
+    in which they were added.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is just a very basic introduction to what Viper can do with remote key/value
+    stores. For more details about how to use Viper to read from Consul, watch for
+    configuration changes, or read encrypted configurations, take a look at [Viper’s
+    README](https://oreil.ly/1iE2y).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Setting defaults in Viper
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Unlike all of the other packages we reviewed in this chapter, Viper optionally
+    allows default values to be defined for a key, by way of the `SetDefault` function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Default values can sometimes be useful, but care should be taken with this functionality.
+    As mentioned in [“Configuration Good Practice”](#section_ch10_good_practice),
+    useful zero values are generally preferable to implicit defaults, which can lead
+    to surprising behaviors when thoughtlessly applied.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A snippet of Viper showing default values in action might look like the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE52]'
+  prefs: []
+  type: TYPE_PRE
+- en: Default values have the lowest priority, and will only take effect if a key
+    isn’t explicitly set by another mechanism.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Feature Management with Feature Flags
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '*Feature flagging* (or *feature toggling*^([14](ch10.xhtml#idm45983616980664)))
+    is a software development pattern designed to increase the speed and safety with
+    which new features can be developed and delivered by allowing specific functionality
+    to be turned on or off during runtime, without having to deploy new code.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A feature flag is essentially a conditional in your code that enables or disables
+    a feature based on some external criteria, often (but not always) a configuration
+    setting. By setting the configuration to different values, a developer can, for
+    example, choose to enable an incomplete feature for testing and disable it for
+    other users.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Having the ability to release a product with unfinished features provides a
+    number of powerful benefits.
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, feature flags allow many small incremental versions of software to be
+    delivered without the overhead of branching and merging that comes with using
+    feature branches. In other words, feature flags decouple the release of a feature
+    from its deployment. Combined with the fact that feature flags, by their very
+    nature, require code changes to be integrated as early as possible, which both
+    encourages and facilitates continuous deployment and delivery. As a result, developers
+    get more rapid feedback about their code, which in turn allows smaller, faster,
+    and safer iterations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Second, not only can feature flags allow features to be more easily tested before
+    they’re deemed ready for release, but they can also do so dynamically. For example,
+    logic can be used to build feedback loops that can be combined with a circuit
+    breaker–like pattern to enable or disable flags automatically under specific conditions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, logically executing flags can even be used to target feature rollouts
+    to specific subsets of users. This technique, called *feature gating*, can be
+    used as an alternative to proxy rules for canary deployments and staged or geographically
+    based rollouts. When combined with observability techniques, feature gating can
+    even allow you to more easily execute experiments like A/B testing or targeted
+    tracing that instrument particular slices of user base, or even single customers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Evolution of a Feature Flag
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: In this section, we’ll step through the iterative implementation of a feature
+    flag with a function taken directly from the key-value REST service that we built
+    in [Chapter 5](ch05.xhtml#chapter_5). Starting with the baseline function, we’ll
+    progress through several evolutionary stages, from flaglessness all the way to
+    a dynamic feature flag that toggles on for a particular subset of users.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In our scenario, we’ve decided that we want to be able to scale our key-value
+    store, so we want to update the logic so that it’s backed by a fancy distributed
+    data structure instead of a local map.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Generation 0: The Initial Implementation'
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: For our first iteration, we’ll start with the `keyValueGetHandler` function
+    from [“Implementing the read function”](ch05.xhtml#section_ch05_implementing_read_function).
+    You may recall that `keyValueGetHandler` is an HTTP handler function that satisfies
+    the `HandlerFunc` interface defined in the `net/http` package. If you’re a little
+    rusty on what that means, you may want to take a look back at [“Building an HTTP
+    Server with net/http”](ch05.xhtml#section_ch05_server_with_nethttp).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The initial handler function, copied almost directly from [Chapter 5](ch05.xhtml#chapter_5)
+    (minus some of its error handling, for brevity) is shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE53]'
+  prefs: []
+  type: TYPE_PRE
+- en: As you can see, this function has no feature toggle logic (or indeed anything
+    to toggle *to*). All it does is retrieve the key from the request variables, use
+    the `Get` function to retrieve the value associated with that key, and write that
+    value to the response.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In our next implementation, we’ll start testing a new feature: a fancy distributed
+    data structure to replace the local `map[string]string` that’ll allow the service
+    to scale beyond a single instance.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Generation 1: The Hard-Coded Feature Flag'
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: In this implementation, we’ll imagine that we’ve built our new and experimental
+    distributed backend, and made it accessible via the `NewGet` function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Our first attempt at creating a feature flag introduces a condition that allows
+    us to use a simple Boolean value, `useNewStorage`, to switch between the two implementations:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE54]'
+  prefs: []
+  type: TYPE_PRE
+- en: This first iteration shows some progress, but it’s far from where we want to
+    be. Having the flag condition fixed in the code as a hard-coded value makes it
+    possible to toggle between implementations well enough for local testing, but
+    it won’t be easy to test both together in an automated and continuous manner.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Plus, you’ll have to rebuild and redeploy the service whenever you want to change
+    the algorithm you’re using in a deployed instance, which largely negates the benefits
+    of having a feature flag in the first place.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Practice good feature flag hygiene! If you haven’t updated a feature flag in
+    a while, consider removing it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Generation 2: The Configurable Flag'
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: A little time has gone by, and the shortcomings of hard-coded feature flags
+    have become evident. For one thing, it would be really nice if we could use an
+    external mechanism to change the value of the flag so we can test *both* algorithms
+    in our tests.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In this example, we use Viper to bind and read an environment variable, which
+    we can now use to enable or disable the feature at runtime. The choice of configuration
+    mechanism isn’t really important here. All that matters is that we’re able to
+    externally update the flag without having to rebuild the code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE55]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In addition to using Viper to read the environment variable that sets the `use-new-storage`
+    flag, we’ve also introduced a new function: `FeatureEnabled`. At the moment all
+    this does is perform `viper.GetBool(flag)`, but more importantly it also concentrates
+    the flag reading logic in a single place. We’ll see exactly what the benefit of
+    this is in the next iteration.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: You might be wondering why `FeatureEnabled` accepts an `*http.Request`. Well,
+    it doesn’t use it yet, but it’ll make sense in the next iteration.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Generation 3: Dynamic Feature Flags'
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The feature is now deployed, but turned off behind a feature flag. Now we’d
+    like to be able to test it in production on a specific subset of your user base.
+    It’s clear that we’re not going to be able to implement this kind of flag with
+    a configuration setting. Instead, we’ll have to build dynamic flags that can *figure
+    out for themselves* if they should be set. That means associating flags with functions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Dynamic flags as functions
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'The first step in building dynamic flag functions is deciding what the signature
+    of the functions will be. While it’s not strictly required, it’s helpful to define
+    this explicitly with a function type like the one shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE56]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `Enabled` function type is the prototype for all of our dynamic feature
+    flags functions. Its contract defines a function that accepts the flag name as
+    a `string` and the `*http.Request`, and it returns a `bool` that’s `true` if the
+    requested flag is enabled.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementing a dynamic flag function
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Using the contract provided by the `Enabled` type, we can now implement a function
+    that we can use to determine whether a request is coming from a private network
+    by comparing the request’s remote address against a standard list of IP ranges
+    allocated for private networks:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE57]'
+  prefs: []
+  type: TYPE_PRE
+- en: As you can see, the `fromPrivateIP` function conforms to `Enabled` by receiving
+    a `string` value (the flag name) and an `*http.Request` (specifically, the instance
+    associated with the initiating request). It returns `true` if the request originates
+    from a private IP range (as defined by [RFC 1918](https://oreil.ly/lZ5PQ)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: To make this determination, the `fromPrivateIP` function first retrieves the
+    remote address, which contains the network address that sent the request, from
+    the `*http.request`. After parsing off the host IP with `net.SplitHostPort` and
+    using `net.ParseIP` to parse it into a `*net.IP` value, it compares the originating
+    IP against each of the private CIDR ranges contained in `privateCIDRs`, returning
+    `true` if a match is found.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Warning
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: This function also returns `true` if the request is traversing a load balancer
+    or reverse proxy. A production-grade implementation will need to be aware of this,
+    and would ideally be [proxy protocol-aware](https://oreil.ly/S3btg).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Of course, this function is just an example. I used it because it’s relatively
+    simple, but a similar technique can be used to enable or disable a flag for a
+    geographic region, a fixed percentage of users, or even for a specific customer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The flag function lookup
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Now that we have a dynamic flag function in the form of `fromPrivateIP`, we
+    have to implement some mechanism of associating flags with it, by name. Perhaps
+    the most straightforward way of doing this is to use a map of flag name strings
+    to `Enabled` functions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE58]'
+  prefs: []
+  type: TYPE_PRE
+- en: Using a map in this manner to indirectly reference functions provides us with
+    a good deal of flexibility. We can even associate a function with multiple flags,
+    if we like. This could be useful if we want a set of related features to always
+    be active under the same conditions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You may have noticed that we’re using an `init` function to fill the `enabledFunctions`
+    map. But wait, didn’t we already have an `init` function?
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Yes, we did, and that’s okay. The `init` function is special: you’re allowed
+    to have multiple `init` functions if you like.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The router function
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Finally, we get to tie everything together.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We do this by refactoring the `FeatureEnabled` function to look up the appropriate
+    dynamic flag function, call it if it finds it, and return the result:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE59]'
+  prefs: []
+  type: TYPE_PRE
+- en: At this point, `FeatureEnabled` has become a full-fledged router function that
+    can dynamically control which code path is live according to explicit feature-flag
+    settings and the output of flag functions. In this implementation, flags that
+    have been explicitly set take precedence over everything else. This allows automated
+    tests to verify both sides of a flagged feature.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Our implementation uses a simple in-memory lookup to determine the behavior
+    of particular flags, but this could just as easily be implemented with a database
+    or other data source, or even a sophisticated managed service like LaunchDarkly.
+    Keep in mind, though, that these solutions do introduce a new dependency.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Manageability isn’t the most glamorous subject in the cloud native world—or
+    any world, really—but I still really enjoyed how much we got our hands dirty with
+    details in this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We dug into some of the nuts and bolts of various configuration styles, including
+    environment variables, command-line flags, and variously formatted files. We even
+    went over a couple of strategies for detecting configuration changes to trigger
+    a reload. That’s not to mention Viper, which pretty much does all of that and
+    more.
+  prefs: []
+  type: TYPE_NORMAL
+- en: I do feel like there may be some potential to go a lot deeper on some things,
+    and I might have had it not been for the constraints of time and space. Feature
+    flags and feature management are a pretty big subject, for example, and I definitely
+    would have liked to have been able to explore them a bit more. Some subjects,
+    like deployments and service discovery, we couldn’t even cover at all. I guess
+    we have some things to look forward to in the next edition, right?
+  prefs: []
+  type: TYPE_NORMAL
+- en: As much as I enjoyed this chapter, I’m especially excited about [Chapter 11](ch11.xhtml#chapter_11),
+    in which we’ll get to dive into observability in general, and OpenTelemetry in
+    particular.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Finally, I’ll leave you with some advice: always be yourself, and remember
+    that luck comes from hard work.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([1](ch10.xhtml#idm45983620458120-marker)) Kernighan, Brian W., and P. J. Plauger.
+    *The Elements of Programming Style*. McGraw-Hill, 1978.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '^([2](ch10.xhtml#idm45983620454840-marker)) Staff, America’s Test Kitchen.
+    *Perfect Pie: Your Ultimate Guide to Classic and Modern Pies, Tarts, Galettes,
+    and More*. America’s Test Kitchen, 2019\. [*https://oreil.ly/rl5TP*](https://oreil.ly/rl5TP).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([3](ch10.xhtml#idm45983620452296-marker)) They’re doing some pretty amazing
+    things with genetic engineering. Don’t stop believing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '^([4](ch10.xhtml#idm45983620614104-marker)) “Systems and Software Engineering:
+    Vocabulary.” ISO/IEC/IEEE 24765:2010(E), 15 Dec. 2010\. [*https://oreil.ly/NInvC*](https://oreil.ly/NInvC).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([5](ch10.xhtml#idm45983620606648-marker)) Radle, Byron, et al. “What Is Manageability?”
+    *NI*, National Instruments, 5 Mar. 2019\. [*https://oreil.ly/U3d7Q*](https://oreil.ly/U3d7Q).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([6](ch10.xhtml#idm45983620592520-marker)) Or so I told my editors. Hi, Amelia!
+    Hi, Zan!
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([7](ch10.xhtml#idm45983620591208-marker)) This makes me sad. These are important
+    topics, but we have to focus.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([8](ch10.xhtml#idm45983620384056-marker)) Pike, Rob. “Go Proverbs.” Gopherfest,
+    18 Nov. 2015, YouTube. [*https://oreil.ly/5bOxW*](https://oreil.ly/5bOxW).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([9](ch10.xhtml#idm45983619649368-marker)) Neat trick, huh?
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([10](ch10.xhtml#idm45983619331048-marker)) Well, like you.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([11](ch10.xhtml#idm45983618773656-marker)) Seriously, that really is what
+    it stands for.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([12](ch10.xhtml#idm45983618296888-marker)) Also, I just love JSON *so much*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([13](ch10.xhtml#idm45983617110392-marker)) Or that feature just hasn’t been
+    implemented. I don’t know.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([14](ch10.xhtml#idm45983616980664-marker)) I’ve also seen “feature switch,”
+    “feature flipper,” “conditional feature,” and more. The industry seems to be settling
+    on “flag” and “toggle,” probably because the other names are just a little silly.
+  prefs: []
+  type: TYPE_NORMAL

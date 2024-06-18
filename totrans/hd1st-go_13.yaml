@@ -1,0 +1,1042 @@
+- en: 'Chapter 12\. back on your feet: Recovering from Failure'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0349-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Every program encounters errors. You should plan for them.**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sometimes handling an error can be as simple as reporting it and exiting the
+    program. But other errors may require additional action. You may need to close
+    opened files or network connections, or otherwise clean up, so your program doesn’t
+    leave a mess behind. In this chapter, we’ll show you how to **defer** cleanup
+    actions so they happen even when there’s an error. We’ll also show you how to
+    make your program **panic** in those (rare) situations where it’s appropriate,
+    and how to **recover** afterward.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Reading numbers from a file, revisited
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We’ve talked about handling errors in Go quite a lot. But the techniques we’ve
+    shown thus far don’t work in every situation. Let’s look at one such scenario.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0350-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We want to create a program, *sum.go*, that reads `float64` values from a text
+    file, adds them all together, and prints their sum.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In [Chapter 6](ch06.html#appending_issuecolon_slices) we created a `GetFloats`
+    function that opened a text file, converted each line of the file to a `float64`
+    value, and returned those values as a slice.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here, we’ve moved `GetFloats` to the `main` package and updated it to rely on
+    two new functions, `OpenFile` and `CloseFile`, to open and close the text file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0350-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We want to specify the name of the file we’re going to read as a command-line
+    argument. You may recall using the `os.Args` slice in [Chapter 6](ch06.html#appending_issuecolon_slices)—it’s
+    a slice of `string` values containing all the arguments used when the program
+    is run.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So in our `main` function, we get the name of the file to open from the first
+    command-line argument by accessing `os.Args[1]`. (Remember, the `os.Args[0]` element
+    is the name of the program being run; the actual program arguments appear in `os.Args[1]`
+    and later elements.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: We then pass that filename to `GetFloats` to read the file, and get a slice
+    of `float64` values back.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If any errors are encountered along the way, they’ll be returned from the `GetFloats`
+    function, and we’ll store them in the `err` variable. If `err` is not `nil`, it
+    means there was an error, so we simply log it and exit.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Otherwise, it means the file was read successfully, so we use a `for` loop to
+    add every value in the slice together, and end by printing the total.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0351-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Let’s save all this code together in a file named *sum.go*. Then, let’s create
+    a plain-text file filled with numbers, one number per line. We’ll name it *data.txt*
+    and save it in the same directory as *sum.go*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0351-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We can run the program with `go run sum.go data.txt`. The string `"data.txt"`
+    will be the first argument to the *sum.go* program, so that’s the filename that
+    will be passed to `GetFloats`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can see when the `OpenFile` and `CloseFile` functions get called, since they
+    both include calls to `fmt.Println`. And at the end of the output, we can see
+    the total of all the numbers in *data.txt*. Looks like everything’s working!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0351-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Any errors will prevent the file from being closed!
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: If we give the *sum.go* program an improperly formatted file, though, we run
+    into problems. A file with a line that can’t be parsed into a `float64` value,
+    for example, results in an error.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0352-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Now, that in itself is fine; every program receives invalid data occasionally.
+    But the `GetFloats` function is supposed to call the `CloseFile` function when
+    it’s done. We don’t see “`Closing file`” in the program output, which would suggest
+    that `CloseFile` isn’t getting called!
+  prefs: []
+  type: TYPE_NORMAL
+- en: The problem is that when we call `strconv.ParseFloat` with a string that can’t
+    be converted to a `float64`, it returns an error. Our code is set up to return
+    from the `GetFloats` function at that point.
+  prefs: []
+  type: TYPE_NORMAL
+- en: But that return happens *before* the call to `CloseFile`, which means the file
+    never gets closed!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0352-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Deferring function calls
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now, failing to close a file may not seem like such a big deal. And for a simple
+    program that just opens a single file, it’s probably fine. But each file that’s
+    left open continues to consume operating system resources. Over time, multiple
+    files left open can build up and cause a program to fail, or even hamper performance
+    of the entire system. It’s really important to get in the habit of ensuring that
+    files are closed when your program is done with them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: But how can we accomplish this? The `GetFloats` function is set up to immediately
+    exit if it encounters an error reading the file, even if `CloseFile` hasn’t been
+    called yet!
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you have a function call that you want to ensure is run, *no matter what*,
+    you can use a `defer` statement. You can place the `defer` keyword before any
+    ordinary function or method call, and Go will defer (that is, delay) making the
+    function call until after the current function exits.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Normally, function calls are executed as soon as they’re encountered. In this
+    code, the `fmt.Println("Goodbye!")` call runs before the other two `fmt.Println`
+    calls.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0353-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: But if we add the `defer` keyword before the `fmt.Println("Goodbye!")` call,
+    then that call won’t be run until all the remaining code in the `Socialize` function
+    runs, and `Socialize` exits.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0353-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Recovering from errors using deferred function calls
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0354-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The `defer` keyword ensures a function call takes place even if the calling
+    function exits early, say, by using the `return` keyword.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**The “defer” keyword ensures a function call takes place, even if the calling
+    function exits early.**'
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: Below, we’ve updated our `Socialize` function to return an `error` because we
+    don’t feel like talking. `Socialize` will exit before the `fmt.Println("Nice weather,
+    eh?")` call. But because we include a `defer` keyword before the `fmt.Println("Goodbye!")`
+    call, `Socialize` will always be polite enough to print “`Goodbye!`” before ending
+    the conversation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0354-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Ensuring files get closed using deferred function calls
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Because the `defer` keyword can ensure a function call is made “no matter what,”
+    it’s usually used for code that needs to be run even in the event of an error.
+    One common example of this is closing files after they’ve been opened.
+  prefs: []
+  type: TYPE_NORMAL
+- en: And that’s exactly what we need in our *sum.go* program’s `GetFloats` function.
+    After we call the `OpenFile` function, we need it to call `CloseFile`, even if
+    there’s an error parsing the file contents.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0355-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We can achieve this by simply moving the call to `CloseFile` immediately after
+    the call to `OpenFile` (and its accompanying error handling code), and placing
+    the `defer` keyword in front of it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using `defer` ensures `CloseFile` will be called when `GetFloats` exits, whether
+    it completes normally or there’s an error parsing the file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now, even if *sum.go* is given a file with bad data, it will still close the
+    file before exiting!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0355-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Code Magnets
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0356-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: This code sets up a `Refrigerator` type that simulates a refrigerator. `Refrigerator`
+    uses a slice of strings as its underlying type; the strings represent the names
+    of foods the refrigerator contains. The type has an `Open` method that simulates
+    opening the door, and a corresponding `Close` method to close it again (we don’t
+    want to waste energy, after all). The `FindFood` method calls `Open` to open the
+    door, calls a `find` function we’ve written to search the underlying slice for
+    a particular food, and then calls `Close` to close the door again.
+  prefs: []
+  type: TYPE_NORMAL
+- en: But there’s a problem with `FindFood`. It’s set up to return an error value
+    if the food we’re searching for isn’t found. But when that happens, it’s returning
+    before `Close` gets called, leaving the virtual refrigerator door wide open!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0356-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![image](assets/arrow.png) Answers in [“Code Magnets Solution”](#code_magnets_solution_7).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Use the magnets below to create an updated version of the `FindFood` method.
+    It should defer the call to the `Close` method, so that it runs when `FindFood`
+    exits (regardless of whether the food was found successfully).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0357-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: there are no Dumb Questions
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**Q: So I can defer function and method calls... Can I defer other statements
+    too, like `for` loops or variable assignments?**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**A:** No, only function and method calls. You can write a function or method
+    to do whatever you want and then defer a call to that function or method, but
+    the `defer` keyword itself can only be used with a function or method call.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Listing the files in a directory
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/common3.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Go has a couple more features to help you handle errors, and we’ll be showing
+    you a program that demonstrates them in a bit. But that program uses a couple
+    new tricks, which we’ll need to show you before we dive in. First up, we’re going
+    to need to know how to read the contents of a directory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Try creating a directory, named *my_directory*, that includes two files and
+    a subdirectory, as shown at the right. The program below will list the contents
+    of *my_directory*, indicating the name of each item it contains, and whether it’s
+    a file or a subdirectory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0358-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The `io/ioutil` package includes a `ReadDir` function that will let us read
+    the directory contents. You pass `ReadDir` the name of a directory, and it will
+    return a slice of values, one for each file or subdirectory the directory contains
+    (along with any error it encounters).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Each of the slice’s values satisfies the `FileInfo` interface, which includes
+    a `Name` method that returns the file’s name, and an `IsDir` method that returns
+    `true` if it’s a directory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So our program calls `ReadDir`, passing it the name of *my_directory* as an
+    argument. It then loops over each value in the slice it gets back. If `IsDir`
+    returns `true` for the value, it prints `"Directory:"` and the file’s name. Otherwise,
+    it prints `"File:"` and the file’s name.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0358-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Save the above code as *files.go*, in the same directory as *my_directory*.
+    In your terminal, change to that parent directory, and type `**go run files.go**`.
+    The program will run and produce a list of the files and directories *my_directory*
+    contains.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0358-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Listing the files in subdirectories (will be trickier)
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/common3.png)![image](assets/f0359-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: A program that reads the contents of a single directory isn’t too complicated.
+    But suppose we wanted to list the contents of something more complicated, like
+    a Go workspace directory. That would contain an entire tree of subdirectories
+    nested within subdirectories, some containing files, some not.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Normally, such a program would be quite complicated. In outline form, the logic
+    would be something like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0359-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Pretty complicated, right? We’d rather not have to write *that* code!
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'But what if there were a simpler way? Some logic like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Get a list of files in the directory.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Get the next file.
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Is the file a directory?
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'If yes: start over at step **I** with this directory.'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'If no: just print the filename.'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: It’s not clear how to handle the “Start the logic over with this new directory”
+    part, though. To achieve this, we’ll need a new programming concept...
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0359-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Recursive function calls
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/common3.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: That brings us to the second (and last) trick we’ll need to show you before
+    we end our detour and get back to handling errors.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Go is one of many programming languages that support **recursion**, which allows
+    a function to call itself.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If you do this carelessly, you’ll just wind up with an infinite loop where
+    the function calls itself over and over:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0360-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: But if you make sure that the recursion loop stops itself eventually, recursive
+    functions can actually be useful.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here’s a recursive `count` function that counts from a starting number up to
+    an ending number. (Normally a loop would be more efficient, but this is a simple
+    way of demonstrating how recursion works.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0360-02.png)![image](assets/common3.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Here’s the sequence the program follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`main` calls `count` with a `start` parameter of `1` and an `end` of `3`'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '`count` prints the `start` parameter: `1`'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '`start` (`1`) is less than `end` (`3`), so `count` calls itself with a `start`
+    of `2` and an `end` of `3`'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'This second invocation of `count` prints its new `start` parameter: `2`'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '`start` (`2`) is less than `end` (`3`), so `count` calls itself with a `start`
+    of `3` and an `end` of `3`'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'The third invocation of `count` prints its new `start` parameter: `3`'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '`start` (`3`) is *not* less than `end` (`3`), so `count` does *not* call itself
+    again; it just returns'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The previous two invocations of `count` return as well, and the program ends
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'If we add calls to `Printf` showing each time `count` is called and each time
+    the function exits, this sequence will be a little more obvious:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0361-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: So that’s a simple recursive function. Let’s try applying recursion to our *files.go*
+    program, and see if it can help us list the contents of subdirectories...
+  prefs: []
+  type: TYPE_NORMAL
+- en: Recursively listing directory contents
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/common3.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'We want our *files.go* program to list the contents of all of the subdirectories
+    in our Go workspace directory. We’re hoping to achieve that using recursive logic
+    like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Get a list of files in the directory.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Get the next file.
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Is the file a directory?
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'If yes: start over at step **I** with this directory.'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'If no: just print the filename.'
+  prefs:
+  - PREF_IND
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '![image](assets/f0362-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We’ve removed the code from the `main` function that reads the directory contents;
+    `main` now simply calls a recursive `scanDirectory` function. The `scanDirectory`
+    function takes the path of the directory it should scan, so we pass it the path
+    of the `"go"` subdirectory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The first thing `scanDirectory` does is print the current path, so we know what
+    directory we’re working in. Then it calls `ioutil.ReadDir` on that path, to get
+    the directory contents.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It loops over the slice of `FileInfo` values that `ReadDir` returns, processing
+    each one. It calls `filepath.Join` to join the current directory path and the
+    current filename together with slashes (so `"go"` and `"src"` are joined to become
+    `"go/src"`).
+  prefs: []
+  type: TYPE_NORMAL
+- en: If the current file isn’t a directory, `scanDirectory` just prints its full
+    path, and moves on to the next file (if there are any more in the current directory).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'But if the current file *is* a directory, the recursion kicks in: `scanDirectory`
+    calls itself with the subdirectory’s path. If that subdirectory has any subdirectories,
+    `scanDirectory` will call itself with each of *those* subdirectories, and so on
+    through the whole file tree.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0362-02.png)![image](assets/f0363-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Save the preceding code as *files.go* in the directory that contains your Go
+    workspace (probably your user’s home directory). In your terminal, change to that
+    directory, and run the program with `**go run files.go**`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'When you see the `scanDirectory` function at work, you’ll see the real beauty
+    of recursion. For our sample directory structure, the process goes something like
+    this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`main` calls `scanDirectory` with a path of `"go"`'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '`scanDirectory` prints the path it’s passed, `"go"`, indicating the directory
+    it’s working in'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: It calls `ioutil.ReadDir` with the `"go"` path
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'There’s only one entry in the returned slice: `"src"`'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Calling `filepath.Join` with the current directory path of `"go"` and a filename
+    of `"src"` gives a new path of `"go/src"`
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '*src* is a subdirectory, so `scanDirectory` is called again, this time with
+    a path of `"go/src"`'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_IND
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Recursion!
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '`scanDirectory` prints the new path: `"go/src"`'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: It calls `ioutil.ReadDir` with the `"go/src"` path
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The first entry in the returned slice is `"geo"`
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Calling `filepath.Join` with the current directory path of `"go/src"` and a
+    filename of `"geo"` gives a new path of `"go/src/geo"`
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '*geo* is a subdirectory, so `scanDirectory` is called again, this time with
+    a path of `"go/src/geo"`'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_IND
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Recursion!
+  prefs:
+  - PREF_IND
+  type: TYPE_NORMAL
+- en: '`scanDirectory` prints the new path: `"go/src/geo"`'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: It calls `ioutil.ReadDir` with the `"go/src/geo"` path
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: The first entry in the returned slice is `"coordinates.go"`
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: '*coordinates.go* is *not* a directory, so its name is simply printed'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: And so on...
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Recursive functions can be tricky to write, and they often consume more computing
+    resources than nonrecursive solutions. But sometimes, recursive functions offer
+    solutions to problems that would be very difficult to solve using other means.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that our *files.go* program is set up, we can end our detour. Up next, we’ll
+    return to our discussion of Go’s error handling features.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0363-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Error handling in a recursive function
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: If `scanDirectory` encounters an error while scanning any subdirectory (for
+    example, if a user doesn’t have permission to access that directory), it will
+    return an error. This is expected behavior; the program doesn’t have any control
+    over the filesystem, and it’s important to report errors when they inevitably
+    occur.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0364-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'But if we add a couple `Printf` statements showing the errors being returned,
+    we’ll see that the *way* this error is handled isn’t ideal:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0364-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: If an error occurs in one of the recursive `scanDirectory` calls, that error
+    has to be returned up the entire chain until it reaches the `main` function!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0364-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Starting a panic
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Our `scanDirectory` function is a rare example of a place it might be appropriate
+    for a program to panic at runtime.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We’ve encountered panics before. We’ve seen them when accessing invalid indexes
+    in arrays and slices:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We’ve also seen them when a type assertion fails (if we didn’t use the optional
+    `ok` Boolean value):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0365-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: When a program panics, the current function stops running, and the program prints
+    a log message and crashes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can cause a panic yourself simply by calling the built-in `panic` function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0365-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The `panic` function expects a single argument that satisfies the empty interface
+    (that is, it can be of any type). That argument is converted to a string (if necessary)
+    and printed as part of the panic’s log message.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Stack traces
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Each function that’s called needs to return to the function that called it.
+    To enable this, like other programming languages, Go keeps a **call stack**, a
+    list of the function calls that are active at any given point.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When a program panics, a **stack trace**, or listing of the call stack, is included
+    in the panic output. This can be useful in determining what caused the program
+    to crash.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0366-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Deferred calls completed before crash
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: When a program panics, all deferred function calls will still be made. If there’s
+    more than one deferred call, they’ll be made in the reverse of the order they
+    were deferred in.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The code below defers two calls to `Println` and then panics. The top of the
+    program output shows the two calls being completed before the program crashes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0366-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Using “panic” with scanDirectory
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The `scanDirectory` function at the right has been updated to call `panic` instead
+    of returning an error value. This greatly simplifies the error handling.
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, we remove the `error` return value from the `scanDirectory` declaration.
+    If an `error` value is returned from `ReadDir`, we pass it to `panic` instead.
+    We can remove the error handling code from the recursive call to `scanDirectory`,
+    and the call to `scanDirectory` in `main`, as well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0367-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Now, when `scanDirectory` encounters an error reading a directory, it simply
+    panics. All the recursive calls to `scanDirectory` exit.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0367-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: When to panic
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0368-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We’ll show you a way to prevent the program from crashing in a moment. But it’s
+    true that calling `panic` is rarely the ideal way to deal with errors.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Things like inaccessible files, network failures, and bad user input should
+    usually be considered “normal,” and should be handled gracefully though `error`
+    values. Generally, calling `panic` should be reserved for “impossible” situations:
+    errors that indicate a bug in the program, not a mistake on the user’s part.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here’s a program that uses `panic` to indicate a bug. It awards a prize hidden
+    behind one of three virtual doors. The `doorNumber` variable is populated not
+    with user input, but with a random number chosen by the `rand.Intn` function.
+    If `doorNumber` contains any number other than `1`, `2`, or `3`, it’s not user
+    error, it’s a bug in the program.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So it makes sense to call `panic` if `doorNumber` contains an invalid value.
+    It *should* never happen, and if it does, we want to stop the program before it
+    behaves in unexpected ways.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0368-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The “recover” function
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Changing our `scanDirectory` function to use `panic` instead of returning an
+    error greatly simplified the error handling code. But panicking is also causing
+    our program to crash with an ugly stack trace. We’d rather just show users the
+    error message.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Go offers a built-in `recover` function that can stop a program from panicking.
+    We’ll need to use it to exit the program gracefully.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'When you call `recover` during normal program execution, it just returns `nil`
+    and does nothing else:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0370-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'If you call `recover` when a program is panicking, it will stop the panic.
+    But when you call `panic` in a function, that function stops executing. So there’s
+    no point calling `recover` in the same function as `panic`, because the panic
+    will continue anyway:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0370-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: But there *is* a way to call `recover` when a program is panicking... During
+    a panic, any deferred function calls are completed. So you can place a call to
+    `recover` in a separate function, and use `defer` to call that function before
+    the code that panics.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0370-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Calling `recover` will *not* cause execution to resume at the point of the panic,
+    at least not exactly. The function that panicked will return immediately, and
+    none of the code in that function’s block following the panic will be executed.
+    After the function that panicked returns, however, normal execution resumes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0371-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The panic value is returned from recover
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As we mentioned, when there is no panic, calls to `recover` return `nil`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0371-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: But when there *is* a panic, `recover` returns whatever value was passed to
+    `panic`. This can be used to gather information about the panic, to aid in recovering
+    or to report errors to the user.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0371-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Back when we introduced the `panic` function, we mentioned the type for its
+    argument is `interface{}`, the empty interface, so that `panic` can accept any
+    value. Likewise, the type for `recover`’s return value is also `interface{}`.
+    You can pass `recover`’s return value to `fmt` functions like `Println` (which
+    accept `interface{}` values), but you won’t be able to call methods on it directly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here’s some code that passes an `error` value to `panic`. But in doing so, the
+    `error` is converted to an `interface{}` value. When the deferred function calls
+    `recover` later, that `interface{}` value is what’s returned. So even though the
+    underlying `error` value has an `Error` method, attempting to call `Error` on
+    the `interface{}` value results in a compile error.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0372-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: To call methods or do anything else with the panic value, you’ll need to convert
+    it back to its underlying type using a type assertion.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here’s an update to the above code that takes the return value of `recover`
+    and converts it back to an `error` value. Once that’s done, we can safely call
+    the `Error` method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0372-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Recovering from panics in scanDirectory
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: When we last left our *files.go* program, adding a call to `panic` in the `scanDirectory`
+    function cleaned up our error handling code, but it also caused the program to
+    crash. We can take everything we’ve learned so far about `defer`, `panic`, and
+    `recover` and use it to print an error message and exit the program gracefully.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We do this by adding a `reportPanic` function, which we’ll call using `defer`
+    in `main`. We do this *before* calling `scanDirectory`, which could potentially
+    panic.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Within `reportPanic`, we call `recover` and store the panic value it returns.
+    If the program is panicking, this will stop the panic.
+  prefs: []
+  type: TYPE_NORMAL
+- en: But when `reportPanic` is called, we *don’t* know whether the program is actually
+    panicking or not. The deferred call to `reportPanic` will be made regardless of
+    whether `scanDirectory` calls `panic` or not. So the first thing we do is test
+    whether the panic value returned from `recover` is `nil`. If it is, it means there’s
+    no panic, so we return from `reportPanic` without doing anything further.
+  prefs: []
+  type: TYPE_NORMAL
+- en: But if the panic value is *not* `nil`, it means there’s a panic, and we need
+    to report it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Because `scanDirectory` passes an `error` value to `panic`, we use a type assertion
+    to convert the `interface{}` panic value to an `error` value. If that conversion
+    is successful, we print the `error` value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: With these changes in place, instead of an ugly panic log and stack trace, our
+    users will simply see an error message!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0373-01.png)![image](assets/f0373-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Reinstating a panic
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: There’s one other potential issue with `reportPanic` that we need to address.
+    Right now, it intercepts *any* panic, even ones that didn’t originate from `scanDirectory`.
+    And if the panic value can’t be converted to an `error` type, `reportPanic` won’t
+    print it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can test this out by adding another call to `panic` within `main` using
+    a `string` argument:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0374-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The `reportPanic` function recovers from the new panic, but because the panic
+    value isn’t an `error`, `reportPanic` doesn’t print it. Our users are left wondering
+    why the program failed!
+  prefs: []
+  type: TYPE_NORMAL
+- en: A common strategy for dealing with unanticipated panics you’re not prepared
+    to recover from is to simply renew the panic state. Panicking again is usually
+    appropriate because, after all, this is an unanticipated situation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The code at right updates `reportPanic` to handle unanticipated panics. If the
+    type assertion to convert the panic value to an `error` succeeds, we simply print
+    it as before. But if it fails, we simply call `panic` again with the same panic
+    value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0374-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Running *files.go* again shows that the fix works: `reportPanic` recovers from
+    our test call to `panic`, but then panics again when the `error` type assertion
+    fails. Now we can remove the call to `panic` in `main`, confident that any other
+    unanticipated panics will be reported!'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0374-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: there are no Dumb Questions
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**Q: I’ve seen other programming languages that have “exceptions.” The `panic`
+    and `recover` functions seem to work in a similar way. Can I use them like exceptions?**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**A:** We strongly recommend against it, and so do the Go language maintainers.
+    It can even be said that using `panic` and `recover` is discouraged by the design
+    of the language itself. In a conference keynote in 2012, Rob Pike (one of the
+    creators of Go) described `panic` and `recover` as “intentionally clumsy.” That
+    means that when designing Go, its creators didn’t try to make `panic` and `recover`
+    easy or pleasant to use, so that they’d be used *less* often.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This is the Go designers’ response to one of the major weaknesses of exceptions:
+    they can make program flow much more complex. Instead, Go developers are encouraged
+    to handle errors the exact same way they handle the other parts of their program:
+    with `if` and `return` statements, along with `error` values. Sure, dealing with
+    errors directly within a function can make that function’s code a little longer,
+    but that beats not dealing with the errors at all. (The Go creators found many
+    developers using exceptions would just raise an exception and then not properly
+    handle it later.) Dealing with errors directly also makes it immediately obvious
+    how the error is handled—you don’t have to go look at a different part of the
+    program to see the error handling code.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: So don’t look for an equivalent to exceptions in Go. That feature has been left
+    out, on purpose. It may require a period of adjustment for developers used to
+    using exceptions, but the Go maintainers believe it makes for better software
+    in the end.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'You can review a summary of Rob Pike’s talk at:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[https://talks.golang.org/2012/splash.article#TOC_16](https://talks.golang.org/2012/splash.article#TOC_16).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Your Go Toolbox
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**That’s it for [Chapter 12](#back_on_your_feetcolon_recovering_from_f)! You’ve
+    added deferred function calls and recovery from panics to your toolbox.**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0376-01.png)![image](assets/f0376-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Code Magnets Solution
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: '![image](assets/f0377-01.png)'
+  prefs: []
+  type: TYPE_IMG

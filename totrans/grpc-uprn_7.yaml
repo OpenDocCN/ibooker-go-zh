@@ -1,0 +1,1417 @@
+- en: Chapter 7\. Running gRPC in Production
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In previous chapters, we focused on various aspects of designing and developing
+    gRPC-based applications. Now, it’s time to dive into the details of running gRPC
+    applications in production. In this chapter, we’ll discuss how you can develop
+    unit testing or integration testing for your gRPC services and client as well
+    as how you can integrate them with continuous integration tools. Then we’ll move
+    into the continuous deployment of a gRPC application where we explore some deployment
+    patterns on virtual machines (VMs), Docker, and Kubernetes. Finally, to operate
+    your gRPC applications in production environments, you need to have a solid observability
+    platform. This is where we will discuss different observability tools for gRPC
+    applications and explore troubleshooting and debugging techniques for gRPC applications.
+    Let’s begin our discussion with testing these applications.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Testing gRPC Applications
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Any software application that you develop (including gRPC applications) needs
+    to have associated unit testing along with the application. As gRPC applications
+    always interact with the network, the testing should also cover the network RPC
+    aspect of both the server and client gRPC applications. We’ll start by testing
+    the gRPC server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Testing a gRPC Server
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: gRPC service testing is often done using a gRPC client application as part of
+    the test cases. The server-side testing consists of starting a gRPC server with
+    the required gRPC service and then connecting to the server using the client application
+    where you implement your test cases. Let’s take a look at a sample test case written
+    for the Go implementation of our `ProductInfo` service. In Go, the implementation
+    of the gRPC test case should be implemented as a generic test case of Go using
+    the `testing` package (see [Example 7-1](#EX7-1)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 7-1\. gRPC server-side test using Go
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_running_grpc_in_production_CO1-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Conventional test that starts a gRPC server and client to test the service with
+    RPC.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_running_grpc_in_production_CO1-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Starting a conventional gRPC server running on HTTP/2.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_running_grpc_in_production_CO1-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Connecting to the server application.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_running_grpc_in_production_CO1-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sends RPC for `AddProduct` method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_running_grpc_in_production_CO1-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Verification of the response message.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As gRPC test cases are based on standard language test cases, the way in which
+    you execute them will not be different from a standard test case. One special
+    thing about the server-side gRPC tests is that they require the server application
+    to open up a port the client application connects to. If you prefer not to do
+    this, or your testing environment doesn’t allow it, you can use a library to help
+    avoid starting up a service with a real port number. In Go, you can use the [`bufconn`
+    package](https://oreil.ly/gOq46), which provides a `net.Conn` implemented by a
+    buffer and related dialing and listening functionality. You can find the full
+    code sample in the source code repository for this chapter. If you are using Java
+    you can use a test framework such as *JUnit* and follow the exact same procedure
+    to write a server-side gRPC test. However, if you prefer to write the test case
+    without starting a gRPC server instance, then you can use the gRPC in-process
+    server of the Java implementation. You can find a complete Java code example for
+    this in the code repository of this book.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It is also possible to unit test the business logic of the remote functions
+    that you develop without going through the RPC network layer. You can instead
+    directly test the functions by invoking them without using a gRPC client.
+  prefs: []
+  type: TYPE_NORMAL
+- en: With this, we have learned how to write tests for gRPC services. Now let’s talk
+    about how to test your gRPC client applications.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Testing a gRPC Client
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: When we are developing tests for a gRPC client, one of the possible approaches
+    to testing would be to start a gRPC server and implement a mock service. However,
+    this won’t be a very straightforward task as it will have the overhead of opening
+    a port and connecting to a server. Therefore, to test client-side logic without
+    the overhead of connecting to a real server, you can use a mocking framework.
+    Mocking of the gRPC server side enables developers to write lightweight unit tests
+    to check functionalities on the client side without invoking RPC calls to a server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If you are developing a gRPC client application with Go, you can use [Gomock](https://oreil.ly/8GAWB)
+    to mock the client interface (using the generated code) and programmatically set
+    its methods to expect and return predetermined values. Using Gomock, you can generate
+    mock interfaces for the gRPC client application using:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: Here, we’ve specified `ProductInfoClient` as the interface to be mocked. Then
+    the test code you write can import the package generated by `mockgen` along with
+    the `gomock` package to write unit tests around client-side logic. As shown in
+    [Example 7-2](#EX7-2), you can create a mock object to expect a call to its method
+    and return a response.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 7-2\. gRPC client-side test with Gomock
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_running_grpc_in_production_CO2-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating a mock object to expect calls to remote methods.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_running_grpc_in_production_CO2-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Programming the mock object.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_running_grpc_in_production_CO2-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Expect a call to the `AddProduct` method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_running_grpc_in_production_CO2-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Return a mock value for product ID.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_running_grpc_in_production_CO2-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Call the actual test method that invokes the remote method of the client stub.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you are using Java, you can test the client application using [Mockito](https://site.mockito.org)
+    and the in-process server implementation for the Java implementation of gRPC.
+    You can refer to the source code repository for more details of these samples.
+    Once you have the required server- and client-side testing in place you can integrate
+    them with the continuous integration tools that you use.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It is important to keep in mind that mocking gRPC servers will not give you
+    the exact same behavior as with a real gRPC server. So certain capabilities may
+    not be able to be verified via test unless you re-implement all the error logic
+    present in gRPC servers. In practice, you can verify a selected set of capabilities
+    via mocking and the rest needs to be verified against the actual gRPC server implementation.
+    Now let’s look at how you can do load testing and benchmarking of your gRPC applications.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Load Testing
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: It is difficult to conduct load testing and benchmarking for gRPC applications
+    using conventional tools, as these applications are more or less bound to specific
+    protocols such as HTTP. Therefore, for gRPC we need tailor-made load-testing tools
+    that can load test the gRPC server by generating a virtual load of RPCs to the
+    server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[ghz](https://ghz.sh) is such a load-testing tool; it is implemented as a command-line
+    utility using Go. It can be used for testing and debugging services locally, and
+    also in automated continuous integration environments for performance regression
+    testing. For example, using ghz you can run a load test with the following command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: Here we invoke a `SayHello` remote method of the `Greeter` service insecurely.
+    We can specify the total number of requests (`-n 2000`) and concurrency (20 threads).
+    The results can also be generated in various output formats.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once you have the required server- and client-side testing in place, you can
+    integrate them with the continuous integration tools that you use.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Continuous Integration
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: If you are new to *continuous integration* (CI), it is a development practice
+    that requires developers to frequently integrate code into a shared repository.
+    During each check-in the code is then verified by an automated build, allowing
+    teams to detect problems early. When it comes to gRPC applications, often the
+    server- and client-side applications are independent and may be built with disparate
+    technologies. So, as part of the CI process, you will have to verify the gRPC
+    client- or server-side code using the unit and integration testing techniques
+    that we learned in the previous section. Then based on the language that you use
+    to build the gRPC application, you can integrate the testing (e.g., Go testing
+    or Java JUnit) of those applications with the CI tool of your choice. For instance,
+    if you have written tests using Go, then you can easily integrate your Go tests
+    with tools such as [Jenkins](https://jenkins.io), [TravisCI](https://travis-ci.com),
+    [Spinnaker](https://www.spinnaker.io), etc.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once you establish a testing and CI procedure for your gRPC application, the
+    next thing that you need to look into is the deployment of your gRPC applications.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Deployment
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now, let’s look into the different deployment methods for the gRPC applications
+    that we develop. If you intend to run a gRPC server or client application locally
+    or on VMs, the deployment merely depends on the binaries that you generate for
+    the corresponding programming language of your gRPC application. For local or
+    VM-based deployment, the scaling and high availability of gRPC server applications
+    is usually achieved using standard deployment practices such as using load balancers
+    that support the gRPC protocol.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Most modern applications are now deployed as containers. Therefore, it’s quite
+    useful to take a look at how you can deploy your gRPC applications on containers.
+    Docker is the standard platform for container-based application deployment.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Deploying on Docker
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '[Docker](https://www.docker.com) is an open platform for developing, shipping,
+    and running applications. Using Docker, you can separate your applications from
+    your infrastructure. It offers the ability to package and run an application in
+    an isolated environment called a *container* so that you can run multiple containers
+    on the same host. Containers are much more lightweight than conventional VMs and
+    run directly within the host machine’s kernel.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s look at some examples of deploying a gRPC application as a Docker container.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The fundamentals of Docker are beyond the scope of this book. Hence, we recommend
+    you refer to the [Docker documentation](https://docs.docker.com) and other resources
+    if you are not familiar with Docker.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once you develop a gRPC server application, you can create a Docker container
+    for it. [Example 7-3](#EX7-3) shows a Dockerfile of a Go-based gRPC server. There
+    are many gRPC-specific constructs in the Dockerfile. In this example, we have
+    used a multistage Docker build where we build the application in stage 1, and
+    then run the application in stage 2 as a much more lightweight runtime. The generated
+    server-side code is also added into the container prior to building the application.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 7-3\. Dockerfile for Go gRPC server
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_running_grpc_in_production_CO3-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Only the Go language and Alpine Linux is needed to build the program.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_running_grpc_in_production_CO3-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Download all the dependencies.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_running_grpc_in_production_CO3-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Install all the packages.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_running_grpc_in_production_CO3-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building the server application.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_running_grpc_in_production_CO3-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Go binaries are self-contained executables.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![6](assets/6.png)](#co_running_grpc_in_production_CO3-6)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Copy the binary that we built in the previous stage to the new location.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Once you create the Dockerfile you can build the Docker image using:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: The gRPC client application can be created using the same approach. One exception
+    here is that, since we are running our server application on Docker, the hostname
+    and port that the client application uses to connect to gRPC is now different.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'When we run both the server and client gRPC applications on Docker, they need
+    to communicate with each other and the outside world via the host machine. So
+    there has to be a layer of networking involved. Docker supports different types
+    of networks, each fit for certain use cases. So, when we run the server and client
+    Docker containers, we can specify a common network so that the client application
+    can discover the location of the server application based on the hostname. This
+    means that the client application code has to change so that it connects to the
+    hostname of the server. For example, our Go gRPC application must be modified
+    to call the service hostname instead of localhost:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You may read the hostname from the environment rather than hardcoding it in
+    your client application. Once you are done with the changes to the client application,
+    you need to rebuild the Docker image and then run both the server and client images
+    as shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_running_grpc_in_production_CO4-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Running the gRPC server with hostname `productinfo`, port 50051 on Docker network
+    *my-net*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_running_grpc_in_production_CO4-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Running the gRPC client on Docker network *my-net*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When starting Docker containers, you can specify a Docker network that a given
+    container runs on. If the service shares the same network, then the client application
+    can discover the actual address of the host service using the hostname provided
+    along with the `docker run` command.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When the number of containers you run is small and their interactions are relatively
+    simple, then you can possibly build your solution entirely on Docker. However,
+    most real-world scenarios require the management of multiple containers and their
+    interactions. Building such solutions solely based on Docker is quite tedious.
+    That’s where a container orchestration platform comes into the picture.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Deploying on Kubernetes
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Kubernetes is an open source platform for automating deployment, scaling, and
+    management of containerized applications. When you run a containerized gRPC application
+    using Docker, there’s no scalability or high-availability guarantee provided out
+    of the box. You need to build those things outside the Docker containers. Kubernetes
+    provides a wide range of such capabilities, so that you can offload most container-management
+    and orchestration tasks to the underlying Kubernetes platform.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: '[Kubernetes](https://kubernetes.io) provides a reliable and scalable platform
+    for running containerized workloads. Kubernetes takes care of scaling requirements,
+    failover, service, discovery, configuration management, security, deployment patterns,
+    and much more.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The fundamentals of Kubernetes are beyond the scope of this book. Hence, we
+    recommend that you refer to the [Kubernetes documentation](https://oreil.ly/csW_8)
+    and other such resources to learn more.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s look at how your gRPC server application can be deployed into Kubernetes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Kubernetes deployment resource for a gRPC server
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: To deploy in Kubernetes, the first thing you need to do is create a Docker container
+    for your gRPC server application. We did exactly this in the previous section,
+    and you can use the same container here. You can push the container image to a
+    container registry such as Docker Hub.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For this example, we have pushed the gRPC server Docker image to Docker Hub
+    under the tag `kasunindrasiri/grpc-productinfo-server`. The Kubernetes platform
+    doesn’t directly manage containers, rather, it uses an abstraction called *pods*.
+    A pod is a logical unit that may contain one or more containers; it is the unit
+    of replication in Kubernetes. For example, if you need multiple instances of the
+    gRPC server application, then Kubernetes will create more pods. The containers
+    running on a given pod share the same resources and local network. However, in
+    our case, we only need to run a gRPC server container in our pod. So, it’s a pod
+    with a single container. Kubernetes doesn’t manage pods directly. Rather, it uses
+    another abstraction called a *deployment*. A deployment specifies the number of
+    pods that should be running at a time. When a new deployment is created, Kubernetes
+    spins up the number of pods specified in the deployment.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To deploy our gRPC server application in Kubernetes, we need to create a Kubernetes
+    deployment using the YAML descriptor shown in [Example 7-4](#EX7-4).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 7-4\. Kubernetes deployment descriptor of a Go gRPC server application
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_running_grpc_in_production_CO5-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Declaring a Kubernetes `Deployment` object.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_running_grpc_in_production_CO5-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Name of the deployment.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_running_grpc_in_production_CO5-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Number of gRPC server pods that should be running at a time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_running_grpc_in_production_CO5-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Name of the associated gRPC server container.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_running_grpc_in_production_CO5-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Image name and tag of the gRPC server container.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When you apply this descriptor in Kubernetes using `kubectl apply -f server/grpc-prodinfo-server.yaml`,
+    you get a Kubernetes deployment of one gRPC server pod running in your Kubernetes
+    cluster. However, if the gRPC client application has to access a gRPC server pod
+    running in the same Kubernetes cluster, it has to find out the exact IP address
+    and port of the pod and send the RPC. However, the IP address may change when
+    the pod gets restarted, and if you are running multiple replicas you have to deal
+    with multiple IP addresses of each replica. To overcome this limitation, Kubernetes
+    provides an abstraction called a *service*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Kubernetes service resource for a gRPC server
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: You can create a Kubernetes service and associate it with the matching pods
+    (gRPC server pods in this case) and you will get a DNS name that will automatically
+    route the traffic to any matching pod. So, you can think of a service as a web
+    proxy or a load balancer that forwards the requests to the underlying pods. [Example 7-5](#EX7-5)
+    shows the Kubernetes service descriptor for the gRPC server application.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 7-5\. Kubernetes service descriptor of a Go gRPC server application
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_running_grpc_in_production_CO6-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Specifying a `Service` descriptor.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_running_grpc_in_production_CO6-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Name of the service. This will be used by the client application when connecting
+    to the service.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_running_grpc_in_production_CO6-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: This tells the service to route requests to the pods for matching label `grpc-productinfo-server`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_running_grpc_in_production_CO6-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Service runs on port 50051 and forwards the requests to target port 50051.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So, once you have created both the `Deployment` and `Service` descriptor, you
+    can deploy this application into Kubernetes using `kubectl apply -f server/grpc-prodinfo-server.yaml`
+    (you can have both descriptors in the same YAML file). A successful deployment
+    of these objects should give you a running gRPC server pod, a Kubernetes service
+    for a gRPC server, and a deployment.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The next step is deploying the gRPC client into Kubernetes cluster.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Kubernetes Job for running a gRPC Client
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: When you have the gRPC server up and running on the Kubernetes cluster, then
+    you can also run the gRPC client application in the same cluster. The client can
+    access the gRPC server via the gRPC service `productinfo` that we created in the
+    previous step. So from the client’s code, you should refer to the Kubernetes service
+    name as the hostname and use the service port as the port name of the gRPC server.
+    Therefore, the client will be using `grpc.Dial("productinfo:50051", grpc.WithInsecure())`
+    when connecting to the server in the Go implementation of the client. If we assume
+    that our client application needs to run a specified number of times (i.e., just
+    calls the gRPC service, logs the response, and exits), then rather than using
+    a Kubernetes Deployment, we may use a Kubernetes *job*. A Kubernetes job is designed
+    to run a Pod a specified number of times.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can create the client application container the same way we did in the gRPC
+    server. Once you have the container pushed into the Docker registry, then you
+    can specify the Kubernetes `Job` descriptor as shown in [Example 7-6](#EX7-6).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 7-6\. gRPC client application runs as a Kubernetes job
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_running_grpc_in_production_CO7-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Specifying a Kubernetes `Job`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_running_grpc_in_production_CO7-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Name of the job.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_running_grpc_in_production_CO7-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Number of times that the pod needs to run successfully before the job is considered
+    completed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_running_grpc_in_production_CO7-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: How many pods should run in parallel.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_running_grpc_in_production_CO7-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Name of the associated gRPC client container.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![6](assets/6.png)](#co_running_grpc_in_production_CO7-6)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Container image that this job is associated with.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Then you can deploy the Job for the gRPC client application using `kubectl apply
+    -f client/grpc-prodinfo-client-job.yaml` and check the status of the pod.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Successful completion of the execution of this Job sends an RPC to add a product
+    in our `ProductInfo` gRPC service. So you can observe the logs for both server
+    and client pods to see whether we get the expected information.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Then we can proceed to exposing your gRPC services outside the Kubernetes cluster
+    using ingress resources.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Kubernetes Ingress for exposing a gRPC service externally
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: So far what we have done is deploy a gRPC server on Kubernetes and make it accessible
+    to another pod (which is running as a Job) running in the same cluster. What if
+    we want to expose the gRPC service to the external applications outside the Kubernetes
+    cluster? As you learned, the Kubernetes service construct is only meant to expose
+    given Kubernetes pods to the other pods running in the cluster. So, the Kubernetes
+    service is not accessible by the external applications that are outside the Kubernetes
+    cluster. Kubernetes gives another abstraction called an *ingress* to serve this
+    purpose.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can think of an ingress as a load balancer that sits between the Kubernetes
+    service and the external applications. `Ingress` routes the external traffic to
+    the service; the service then routes the internal traffic between the matching
+    pods. An ingress controller manages the ingress resource in a given Kubernetes
+    cluster. The type and the behavior of the ingress controller may change based
+    on the cluster you use. Also, when you expose a gRPC service to the external application,
+    one of the mandatory requirements is to support gRPC routing at the ingress level.
+    Therefore, we need to select an ingress controller that supports gRPC.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For this example, we’ll use the [Nginx](https://oreil.ly/0UC0a) ingress controller,
+    which is based on the [Nginx](https://www.nginx.com) load balancer. (Based on
+    the Kubernetes cluster you use, you may select the most appropriate ingress controller
+    that supports gRPC.) [Nginx Ingress](https://oreil.ly/wZo5w) supports gRPC for
+    routing external traffic into internal services.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So, to expose our `ProductInfo` gRPC server application to the external world
+    (i.e., outside the Kubernetes cluster), we can create an `Ingress` resource as
+    shown in [Example 7-7](#EX7-7).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 7-7\. Kubernetes Ingress resource of a Go gRPC server application
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_running_grpc_in_production_CO8-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Specifying an `Ingress` resource.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_running_grpc_in_production_CO8-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Annotations related to Nginx Ingress controller and specifying gRPC as the backend
+    protocol.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_running_grpc_in_production_CO8-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Name of the `Ingress` resource.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_running_grpc_in_production_CO8-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is the hostname exposed to the external world.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_running_grpc_in_production_CO8-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Name of the associated Kubernetes service.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![6](assets/6.png)](#co_running_grpc_in_production_CO8-6)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Name of the service port specified in the Kubernetes service.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You will need to install the Nginx Ingress controller prior to deploying the
+    preceding ingress resource. You can find more details on installing and using
+    the Nginx Ingress with gRPC in the [Ingress-Nginx](https://oreil.ly/l-vFp) repository
+    of Kubernetes. Once you deploy this `Ingress` resource, any external application
+    can invoke the gRPC server via the hostname (`productinfo`) and the default port
+    (80).
+  prefs: []
+  type: TYPE_NORMAL
+- en: With that, you have learned all the fundamentals related to deploying a production-ready
+    gRPC application on Kubernetes. As you have seen, owing to the capabilities that
+    Kubernetes and Docker offer, we don’t really have to worry much about most nonfunctional
+    requirements such as scalability, high availability, load balancing, failover,
+    etc., because Kubernetes is providing them as part of the underlying platform.
+    Hence, certain concepts that we learned in [Chapter 6](ch06.html#ch_06), such
+    as load balancing, name resolving at the gRPC code level, etc., are not required
+    if you are running your gRPC applications on Kubernetes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once you have a gRPC-based application up and running, you need to ensure the
+    smooth operation of the application in production. To accomplish that goal, you
+    need to consistently observe your gRPC application and take the necessary actions
+    when required. Let’s look into the details of the observability aspects of gRPC
+    applications.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Observability
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As we discussed in the previous section, gRPC applications are normally deployed
+    and run in containerized environments where there are multiples of such containers
+    running and talking to each other over the network. Then comes the problem of
+    how to keep track of each container and make sure they are actually working. This
+    is where *observability* comes into the picture.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As the [Wikipedia definition](https://oreil.ly/FVPTN) states, “observability
+    is a measure of how well internal states of a system can be inferred from knowledge
+    of its external outputs.” Basically, the purpose of having observability into
+    a system is to answer the question, “Is anything wrong in the system right now?”
+    If the answer is yes, we should also be able to answer a bunch of other questions
+    like “What is wrong?” and “Why is it happening?” If we can answer those questions
+    at any given time and in any part of the system, we can say that our system is
+    observable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It is also important to note that observability is an attribute of a system
+    that is as important as efficiency, usability, and reliability. So it must be
+    considered from the beginning when we are building gRPC applications.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'When talking about observability, there are three main pillars that we normally
+    talk about: metrics, logging, and tracing. These are the main techniques used
+    to gain the observability of the system. Let’s discuss each of them separately
+    in the following sections.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Metrics
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '*Metrics* are a numeric representation of data measured over intervals of time.
+    When talking about metrics, there are two types of data we can collect. One is
+    system-level metrics like CPU usage, memory usage, etc. The other one is application-level
+    metrics like inbound request rate, request error rate, etc.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: System-level metrics are normally captured when the application is running.
+    These days, there are lots of tools to capture those metrics, and they’re usually
+    captured by the DevOps team. But application-level metrics differ between applications.
+    So when designing a new application, it is the task of an application developer
+    to decide what kind of application-level metrics need to be captured to get an
+    understanding of the behavior of a system. In this section, we are going to focus
+    on how to enable application-level metrics in our applications.
+  prefs: []
+  type: TYPE_NORMAL
+- en: OpenCensus with gRPC
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: For gRPC applications, there are standard metrics that are provided by the [OpenCensus](https://oreil.ly/EMfF-)
+    library. We can easily enable them by adding handlers to both the client and server
+    applications. We can also add our own metrics collector ([Example 7-8](#EX7-8)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: '[OpenCensus](https://opencensus.io) is a set of open source libraries for collecting
+    application metrics and distributed traces; it supports various languages. It
+    collects metrics from the target application and transfers the data to the backend
+    of your choice in real time. Supported backends currently available include Azure
+    Monitor, Datadog, Instana, Jaeger, SignalFX, Stackdriver, and Zipkin. We can also
+    write our own exporter for other backends.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 7-8\. Enable OpenCensus monitoring for the gRPC Go server
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_running_grpc_in_production_CO9-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Specify external libraries we need to add to enable monitoring. gRPC OpenCensus
+    provides a predefined set of handlers to support OpenCensus monitoring. Here we
+    are going to use those handlers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_running_grpc_in_production_CO9-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Register stat exporters to export the collected data. Here we add `PrintExporter`
+    and it logs exported data to the console. This is only for demonstration purposes;
+    normally it’s not recommended that you log all production loads.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_running_grpc_in_production_CO9-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Register the views to collect the server request count. These are the predefined
+    default service views that collect received bytes per RPC, sent bytes per RPC,
+    latency per RPC, and completed RPC. We can write our own views to collect data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_running_grpc_in_production_CO9-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Create a gRPC server with a stats handler.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_running_grpc_in_production_CO9-6)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Register our `ProductInfo` service to the gRPC server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![6](assets/6.png)](#co_running_grpc_in_production_CO9-7)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Start listening to incoming messages on the port (50051).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![7](assets/7.png)](#co_running_grpc_in_production_CO9-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Starts a z-Pages server. An HTTP endpoint starts with the context of `/debug`
+    in port 8081 for metrics visualization.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Similar to the gRPC server, we can enable OpenCensus monitoring in gRPC clients
+    using client-side handlers. [Example 7-9](#EX7-9) provides the code snippet for
+    adding a metrics handler to a gRPC client written in Go.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 7-9\. Enable OpenCensus monitoring for the gRPC Go server
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_running_grpc_in_production_CO10-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Specify external libraries we need to add to enable monitoring.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_running_grpc_in_production_CO10-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Register stats and trace exporters to export the collected data. Here we will
+    add `PrintExporter`, which logs exported data to the console. This is only for
+    demonstration purposes. Normally it is not recommended to log all production loads.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_running_grpc_in_production_CO10-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Register the views to collect server request count. These are the predefined
+    default service views that collect received bytes per RPC, sent bytes per RPC,
+    latency per RPC, and completed RPC. We can write our own views to collect data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_running_grpc_in_production_CO10-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Set up a connection to the server with client stats handlers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_running_grpc_in_production_CO10-6)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Create a client stub using the server connection.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![6](assets/6.png)](#co_running_grpc_in_production_CO10-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Close the connection when everything is done.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once we run the server and client, we can access the server and client metrics
+    through the created HTTP endpoint (e.g., RPC metrics on [*http://localhost:8081/debug/rpcz*](http://localhost:8081/debug/rpcz)
+    and traces on [*http://localhost:8081/debug/tracez)*](http://localhost:8081/debug/tracez)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: As mentioned before, we can use predefined exporters to publish data to the
+    supported backend or we can write our own exporter to send traces and metrics
+    to any backend that is capable of consuming them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next section we’ll discuss another popular technology, [Prometheus](https://prometheus.io),
+    which is commonly used for enabling metrics for gRPC applications.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Prometheus with gRPC
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Prometheus is an open source toolkit for system monitoring and alerting. You
+    can use Prometheus for enabling metrics for your gRPC application using the [gRPC
+    Prometheus library](https://oreil.ly/nm84_). We can easily enable this by adding
+    an interceptor to both the client and server applications and we can also add
+    our own metrics collector, too.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Prometheus collects metrics from the target application by calling an HTTP endpoint
+    that starts with the context `/metrics`. It stores all collected data and runs
+    rules over this data to either aggregate and record new time series from existing
+    data or generate alerts. We can visualize those aggregated results using tools
+    like [Grafana](https://grafana.com).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[Example 7-10](#EX7-10) illustrates how to add a metrics interceptor and a
+    custom metrics collector to our product management server written in Go.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 7-10\. Enable Prometheus monitoring for the gRPC Go server
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_running_grpc_in_production_CO11-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Specifies external libraries we need to add to enable monitoring. The gRPC ecosystem
+    provides a predefined set of interceptors to support Prometheus monitoring. Here
+    we are going to use those interceptors.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_running_grpc_in_production_CO11-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creates a metrics registry. This holds all data collectors registered in the
+    system. If we need to add a new collector, we need to register it in this registry.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_running_grpc_in_production_CO11-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creates standard client metrics. These are the predefined metrics defined in
+    the library.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_running_grpc_in_production_CO11-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creates a custom metrics counter with the name `product_mgt_server_handle_count`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_running_grpc_in_production_CO11-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Registers standard server metrics and custom metrics collector to the registry
+    created in step 2.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![6](assets/6.png)](#co_running_grpc_in_production_CO11-6)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creates an HTTP server for Prometheus. An HTTP endpoint starts with the context
+    `/metrics` on port 9092 for metrics collection.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![7](assets/7.png)](#co_running_grpc_in_production_CO11-7)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creates a gRPC server with a metrics interceptor. Here we use `grpcMetrics.UnaryServerInterceptor`,
+    since we have unary service. There is another interceptor called `grpcMetrics.StreamServerInterceptor()`
+    for streaming services.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![8](assets/8.png)](#co_running_grpc_in_production_CO11-8)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Initializes all standard metrics.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using the custom metrics counter created in step 4, we can add more metrics
+    for monitoring. Let’s say we want to collect how many products with the same name
+    are added to our product management system. As shown in [Example 7-11](#EX7-11),
+    we can add a new metric to `customMetricCounter` in the `addProduct` method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 7-11\. Add new metrics to the custom metric counter
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: Similar to the gRPC server, we can enable Prometheus monitoring in gRPC clients
+    using client-side interceptors. [Example 7-12](#EX7-12) provides the code snippet
+    for adding a metrics interceptor to the gRPC client written in Go.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 7-12\. Enable Prometheus monitoring for the gRPC Go client
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_running_grpc_in_production_CO12-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Specifies external libraries we need to add to enable monitoring.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_running_grpc_in_production_CO12-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creates a metrics registry. Similar to server code, this holds all data collectors
+    registered in the system. If we need to add a new collector, we need to register
+    it to this registry.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_running_grpc_in_production_CO12-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creates standard server metrics. These are the predefined metrics defined in
+    the library.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_running_grpc_in_production_CO12-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Registers standard client metrics to the registry created in step 2.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_running_grpc_in_production_CO12-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sets up a connection to the server with the metrics interceptor. Here we use
+    `grpcMetrics.UnaryClientInterceptor`, since we have a unary client. Another interceptor,
+    called `grpcMetrics.StreamClientInterceptor()`, is used for streaming clients.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![6](assets/6.png)](#co_running_grpc_in_production_CO12-6)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creates an HTTP server for Prometheus. An HTTP endpoint starts with the context
+    `/metrics` on port 9094 for metrics collection.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once we run the server and client, we can access the server and client metrics
+    through the created HTTP endpoint (e.g., server metrics on [*http://localhost:9092/metrics*](http://localhost:9092/metrics)
+    and client metrics on [*http://localhost:9094/metrics)*](http://localhost:9094/metrics)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: As we mentioned before, Prometheus can collect metrics by accessing the preceding
+    URLs. Prometheus stores all metrics data locally and applies a set of rules to
+    aggregate and create new records. And, using Prometheus as a data source, we can
+    visualize metrics in a dashboard using tools like Grafana.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Grafana is an open source metrics dashboard and graph editor for Graphite, Elasticsearch,
+    and Prometheus. It allows you to query, visualize, and understand your metrics
+    data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: One advantage of metrics-based monitoring in the system is that the cost of
+    handling metrics data doesn’t increase with the activities of the system. For
+    example, an increase in the application’s traffic will not increase handling costs
+    like disk utilization, processing complexity, speed of visualization, operational
+    costs, etc. It has constant overhead. Also, once we collect metrics, we can do
+    numerous mathematical and statistical transformations and create valuable conclusions
+    about the system.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another pillar of observability is logs, which we’ll discuss in the next section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Logs
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Logs are immutable, time-stamped records of discrete events that happened over
+    time. We, as application developers, normally dump data into logs to tell where
+    and what the internal state of the system is at a given point. The benefit of
+    logs is they are the easiest to generate and more granular than metrics. We can
+    attach specific actions or a bunch of context to it like unique IDs, what we are
+    going to do, stack traces, etc. The downside is that they are very expensive because
+    we need to store and index them in a way that makes it easy to search and use
+    them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In gRPC applications, we can enable logging using interceptors. As we discussed
+    in [Chapter 5](ch05.html#ch_05), we can attach a new logging interceptor on both
+    the client side and server side and log request and response messages of each
+    remote call.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The gRPC ecosystem provides a set of predefined logging interceptors for Go
+    applications. This includes `grpc_ctxtags`, a library that adds a Tag map to context,
+    with data populated from the request body; `grpc_zap`, integration of the [zap](https://oreil.ly/XMlIg)
+    logging library into gRPC handlers; and `grpc_logrus`, integration of the [logrus](https://oreil.ly/oKJX5)
+    logging library into gRPC handlers. For more information about these interceptors,
+    check out the [gRPC Go Middleware repository](https://oreil.ly/8lNaH).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once you add logs in your gRPC application, they’ll print in either the console
+    or logfile, depending on how you configure logging. How to configure logging depends
+    on the logging framework you used.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We’ve now discussed two pillars of observability: metrics and logs. These are
+    sufficient for understanding the performance and behavior of individual systems,
+    but they aren’t sufficient to understand the lifetime of a request that traverses
+    multiple systems. Distributed tracing is a technique that brings visibility of
+    the lifetime of a request across several systems.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tracing
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: A trace is a representation of a series of related events that constructs the
+    end-to-end request flow through a distributed system. As we discussed in the section
+    [“Using gRPC for Microservices Communication”](ch03.html#using_grpc_for_microservices_communication),
+    in a real-world scenario we have multiple microservices serving different and
+    specific business capabilities. Therefore, a request starting from the client
+    is normally going through a number of services and different systems before the
+    response going back to the client. All these intermediate events are part of the
+    request flow. With tracing, we gain visibility into both the path traversed by
+    a request as well as the structure of a request.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In tracing, a trace is a tree of *spans*, which are the primary building blocks
+    of distributed tracing. The span contains the metadata about the task, the latency
+    (the time spent to complete the task), and other related attributes of the task.
+    A trace has its own ID called TraceID and it is a unique byte sequence. This traceID
+    groups and distinguishes spans from each other. Let’s try to enable tracing in
+    our gRPC application.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Like metrics, the OpenCensus library provides support to enable tracing in gRPC
+    applications. We will use OpenCensus to enable tracing in our Product Management
+    application. As we said earlier, we can plug any supported exporters to export
+    tracing data to different backends. We will use Jaeger for the distributed tracing
+    sample.
+  prefs: []
+  type: TYPE_NORMAL
+- en: By default, tracing is enabled in gRPC Go. So it only requires registering an
+    exporter to start collecting traces with gRPC Go integration. Let’s initiate a
+    Jaeger exporter in both client and server applications. [Example 7-13](#EX7-13)
+    illustrates how we can initiate the OpenCensus Jaeger exporter using the library.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 7-13\. Initialize OpenCensus Jaeger exporter
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_running_grpc_in_production_CO13-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Import the OpenTracing and Jaeger libraries.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_running_grpc_in_production_CO13-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Create the Jaeger exporter with the collector endpoint, service name, and agent
+    endpoint.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_running_grpc_in_production_CO13-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Register the exporter with the OpenCensus tracer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once we register the exporter with the server, we can instrument the server
+    by tracing. [Example 7-14](#EX7-14) illustrates how to instrument tracing in service
+    method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 7-14\. Instrument gRPC service method
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_running_grpc_in_production_CO14-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Start new span with span name and context.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_running_grpc_in_production_CO14-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Stop the span when everything is done.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Similar to the gRPC server, we can instrument the client by tracing as shown
+    in [Example 7-15](#EX7-15).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 7-15\. Instrument gRPC client
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_running_grpc_in_production_CO15-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Import the OpenTracing and Jaeger libraries.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_running_grpc_in_production_CO15-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Call the `initTracing` function and initialize the Jaeger exporter instance
+    and register with trace.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_running_grpc_in_production_CO15-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Start new span with span name and context.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_running_grpc_in_production_CO15-6)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Stop the span when everything is done.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_running_grpc_in_production_CO15-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Invoke addProduct remote method by passing new product details.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![6](assets/6.png)](#co_running_grpc_in_production_CO15-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Invoke getProduct remote method by passing productID.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once we run the server and client, trace spans are published to the Jaeger agent
+    for which a daemon process acts as a buffer to abstract out batch processing and
+    routing from the clients. Once the Jaeger agent receives trace logs from the client,
+    it forwards them to the collector. The collector processes the logs and stores
+    them. From the Jaeger server, we can visualize tracing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: From that, we are going to conclude the discussion of observability. Logs, metrics,
+    and traces serve their own unique purpose, and it’s better to have all three pillars
+    enabled in your system to gain maximum visibility of the internal state.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once you have a gRPC-based observable application running in production, you
+    can keep watching its state and easily find out whenever there is an issue or
+    system outage. When you diagnose an issue in the system, it is important to find
+    the solution, test it, and deploy it to production as soon as possible. To accomplish
+    that goal, you need to have good debugging and troubleshooting mechanisms. Let’s
+    look into the details of these mechanisms for gRPC applications.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Debugging and Troubleshooting
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Debugging and troubleshooting is the process to find out the root cause of a
+    problem and solve the issue that occurred in applications. In order to debug and
+    troubleshoot the issue, we first need to reproduce the same issue in lower environments
+    (referred to as dev or test environments). So we need a set of tools to generate
+    similar kinds of request loads as the production environment.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This process is relatively harder in gRPC services than in the HTTP service,
+    because tools need to support both encoding and decoding messages based on the
+    service definition, and be able to support HTTP/2\. Common tools like curl or
+    Postman, which are used to test HTTP services, cannot be used to test gRPC services.
+  prefs: []
+  type: TYPE_NORMAL
+- en: But there are a lot of interesting tools available for debugging and testing
+    gRPC services. You can find a list of those tools in the [awesome gRPC repository](https://oreil.ly/Ki2aZ).
+    It contains a great collection of resources available for gRPC. One of the most
+    common ways of debugging gRPC applications is by using extra logging.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Enabling Extra Logging
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'We can enable extra logs and traces to diagnose the problem of your gRPC application.
+    In the gRPC Go application, we can enable extra logs by setting the following
+    environment variables:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_running_grpc_in_production_CO16-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Verbosity* means how many times any single info message should print every
+    five minutes. The verbosity is set to 0 by default.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_running_grpc_in_production_CO16-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Sets log severity level to `info`. All the informational messages will be printed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the gRPC Java application, there are no environment variables to control
+    the log level. We can turn on extra logs by providing a *logging.properties* file
+    with log-level changes. Let’s say we want to troubleshoot transport-level frames
+    in our application. We can create a new *logging.properties* file in our application
+    and set the lower log level to a specific Java package (netty transport package)
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Then start up the Java binary with the JVM flag:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: Once we set the lower log level in our application, all the logs in which the
+    level is equal or higher than the configured log level will print in the console/logfile.
+    We can gain valuable insight into the state of the system by reading the logs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: With that, we have covered most of what you should know when running a gRPC
+    application in production.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Making production-ready gRPC applications requires us to focus on multiple aspects
+    related to application development. We start by designing the service contract
+    and generating code for the service or the client, then implementing our service’s
+    business logic. Once we implement the service, we need to focus on the following
+    to make the gRPC application production ready. *Testing* of gRPC server and client
+    applications is essential.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The *deployment* of gRPC applications follows the standard application development
+    methodologies. For local and VM deployments, simply use the generated binaries
+    of the server or client program. You can run gRPC applications as a Docker container,
+    and find the sample standard Dockerfiles for deploying Go and Java applications
+    on Docker. Running gRPC on Kubernetes is similar to standard Kubernetes deployment.
+    When you run a gRPC application on Kubernetes, you use underlying features such
+    as load balancing, high availability, ingress controllers,etc. Making gRPC applications
+    observable is critical to using them in production, and gRPC application-level
+    metrics are often used when gRPC applications operate in production.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In one of the most popular implementations for metrics support in gRPC, the
+    gRPC-Prometheus library, we use an interceptor at the server and client side to
+    collect metrics, while logging in gRPC is also enabled using an interceptor. For
+    gRPC applications in production, you may need to troubleshoot or debug by enabling
+    extra logging. In the next chapter, we’ll explore some of the gRPC ecosystem components
+    that are useful in building gRPC applications.
+  prefs: []
+  type: TYPE_NORMAL

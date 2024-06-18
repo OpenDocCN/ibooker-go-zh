@@ -1,0 +1,1523 @@
+- en: Chapter 3\. Composite Types
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'In the previous chapter, you looked at literals and predeclared variable types:
+    numbers, booleans, and strings. In this chapter, you’ll learn about the composite
+    types in Go, the built-in functions that support them, and the best practices
+    for working with them.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Arrays—Too Rigid to Use Directly
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Like most programming languages, Go has arrays. However, arrays are rarely used
+    directly in Go. You’ll learn why in a bit, but first let’s quickly cover array
+    declaration syntax and use.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'All elements in the array must be of the type that’s specified. There are a
+    few declaration styles. In the first, you specify the size of the array and the
+    type of the elements in the array:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This creates an array of three `int`s. Since no values were specified, all
+    of the elements (`x[0]`, `x[1]`, and `x[2]`) are initialized to the zero value
+    for an `int`, which is (of course) 0\. If you have initial values for the array,
+    you specify them with an *array literal*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If you have a *sparse array* (an array where most elements are set to their
+    zero value), you can specify only the indices with nonzero values in the array
+    literal:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This creates an array of 12 `int`s with the following values: [1, 0, 0, 0,
+    0, 4, 6, 0, 0, 0, 100, 15].'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'When using an array literal to initialize an array, you can replace the number
+    that specifies the number of elements in the array with `...`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You can use `==` and `!=` to compare two arrays. Arrays are equal if they are
+    the same length and contain equal values:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Go has only one-dimensional arrays, but you can simulate multidimensional arrays:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: This declares `x` to be an array of length 2 whose type is an array of `int`s
+    of length 3\. This sounds pedantic, but some languages have true matrix support,
+    like Fortran or Julia; Go isn’t one of them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Like most languages, arrays in Go are read and written using bracket syntax:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: You cannot read or write past the end of an array or use a negative index. If
+    you do this with a constant or literal index, it is a compile-time error. An out-of-bounds
+    read or write with a variable index compiles but fails at runtime with a *panic*
+    (you’ll learn more about panics in [“panic and recover”](ch09.html#panic_recover)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Finally, the built-in function `len` takes in an array and returns its length:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Earlier I said that arrays in Go are rarely used explicitly. This is because
+    they come with an unusual limitation: Go considers the *size* of the array to
+    be part of the *type* of the array. This makes an array that’s declared to be
+    `[3]int` a different type from an array that’s declared to be `[4]int`. This also
+    means that you cannot use a variable to specify the size of an array, because
+    types must be resolved at compile time, not at runtime.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: What’s more, *you can’t use a type conversion to directly convert arrays of
+    different sizes to identical types*. Because you can’t convert arrays of different
+    sizes into each other, you can’t write a function that works with arrays of any
+    size and you can’t assign arrays of different sizes to the same variable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: You’ll learn how arrays work behind the scenes when I discuss memory layout
+    in [Chapter 6](ch06.html#unique_chapter_id_06).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Because of these restrictions, don’t use arrays unless you know the exact length
+    you need ahead of time. For example, some of the cryptographic functions in the
+    standard library return arrays because the sizes of checksums are defined as part
+    of the algorithm. This is the exception, not the rule.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This raises the question: why is such a limited feature in the language? The
+    main reason arrays exist in Go is to provide the backing store for *slices*, which
+    are one of the most useful features of Go.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Slices
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Most of the time, when you want a data structure that holds a sequence of values,
+    a slice is what you should use. What makes slices so useful is that you can grow
+    slices as needed. This is because the length of a slice is *not* part of its type.
+    This removes the biggest limitations of arrays and allows you to write a single
+    function that processes slices of any size (I’ll cover function writing in [Chapter 5](ch05.html#unique_chapter_id_05)).
+    After going over the basics of using slices in Go, I’ll cover the best ways to
+    use them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Working with slices looks a lot like working with arrays, but subtle differences
+    exist. The first thing to notice is that you don’t specify the size of the slice
+    when you declare it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: Tip
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Using `[...]` makes an array. Using `[]` makes a slice.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This creates a slice of three `int`s using a *slice literal*. Just as with
+    arrays, you can also specify only the indices with nonzero values in the slice
+    literal:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This creates a slice of 12 `int`s with the following values: [1, 0, 0, 0, 0,
+    4, 6, 0, 0, 0, 100, 15].'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You can simulate multidimensional slices and make a slice of slices:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You read and write slices using bracket syntax, and, just as with arrays, you
+    can’t read or write past the end or use a negative index:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'So far, slices have seemed identical to arrays. You start to see the differences
+    between arrays and slices when you look at declaring slices without using a literal:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This creates a slice of `int`s. Since no value is assigned, `x` is assigned
+    the zero value for a slice, which is something you haven’t seen before: `nil`.
+    I’ll talk more about `nil` in [Chapter 6](ch06.html#unique_chapter_id_06), but
+    it is slightly different from the `null` that’s found in other languages. In Go,
+    `nil` is an identifier that represents the lack of a value for some types. Like
+    the untyped numeric constants you saw in the previous chapter, `nil` has no type,
+    so it can be assigned or compared against values of different types. A `nil` slice
+    contains nothing.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A slice is the first type you’ve seen that isn’t *comparable*. It is a compile-time
+    error to use `==` to see if two slices are identical or `!=` to see if they are
+    different. The only thing you can compare a slice with using `==` is `nil`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: Since Go 1.21, the `slices` package in the standard library includes two functions
+    to compare slices. The `slices.Equal` function takes in two slices and returns
+    `true` if the slices are the same length, and all of the elements are equal. It
+    requires the elements of the slice to be comparable. The other function, `slices.EqualFunc`,
+    lets you pass in a function to determine equality and does not require the slice
+    elements to be comparable. You’ll learn about passing functions into functions
+    in [“Passing Functions as Parameters”](ch05.html#func_param). The other functions
+    in the `slices` package are covered in [“Adding Generics to the Standard Library”](ch08.html#slice_map_funcs).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: Warning
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The `reflect` package contains a function called `DeepEqual` that can compare
+    almost anything, including slices. It’s a legacy function, primarily intended
+    for testing. Before the inclusion of `slices.Equal` and `slices.EqualFunc`, `reflect.DeepEqual`
+    was often used to compare slices. Don’t use it in new code, as it is slower and
+    less safe than using the functions in the `slices` package.
+  prefs: []
+  type: TYPE_NORMAL
+- en: len
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Go provides several built-in functions to work with slices. You’ve already seen
+    the built-in `len` function when looking at arrays. It works for slices too. Passing
+    a `nil` slice to `len` returns 0.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Functions like `len` are built into Go because they can do things that can’t
+    be done by the functions that you can write. You’ve already seen that `len`’s
+    parameter can be any type of array or any type of slice. You’ll soon see that
+    it also works for strings and maps. In [“Channels”](ch12.html#channels), you’ll
+    see it working with channels. Trying to pass a variable of any other type to `len`
+    is a compile-time error. As you’ll see in [Chapter 5](ch05.html#unique_chapter_id_05),
+    Go doesn’t let developers write a function that accepts any string, array, slice,
+    channel, or map, but rejects other types.
+  prefs: []
+  type: TYPE_NORMAL
+- en: append
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The built-in `append` function is used to grow slices:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `append` function takes at least two parameters, a slice of any type and
+    a value of that type. It returns a slice of the same type, which is assigned to
+    the variable that was passed to `append`. In this example, you are appending to
+    a `nil` slice, but you can append to a slice that already has elements:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You can append more than one value at a time:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'One slice is appended onto another by using the `...` operator to expand the
+    source slice into individual values (you’ll learn more about the `...` operator
+    in [“Variadic Input Parameters and Slices”](ch05.html#vararg)):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: It is a compile-time error if you forget to assign the value returned from `append`.
+    You might be wondering why as it seems a bit repetitive. I will talk about this
+    in greater detail in [Chapter 5](ch05.html#unique_chapter_id_05), but Go is a
+    *call-by-value* language. Every time you pass a parameter to a function, Go makes
+    a copy of the value that’s passed in. Passing a slice to the `append` function
+    actually passes a copy of the slice to the function. The function adds the values
+    to the copy of the slice and returns the copy. You then assign the returned slice
+    back to the variable in the calling function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Capacity
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: As you’ve seen, a slice is a sequence of values. Each element in a slice is
+    assigned to consecutive memory locations, which makes it quick to read or write
+    these values. The length of a slice is the number of consecutive memory locations
+    that have been assigned a value. Every slice also has a *capacity*, which is the
+    number of consecutive memory locations reserved. This can be larger than the length.
+    Each time you append to a slice, one or more values is added to the end of the
+    slice. Each value added increases the length by one. When the length reaches the
+    capacity, there’s no more room to put values. If you try to add additional values
+    when the length equals the capacity, the `append` function uses the Go runtime
+    to allocate a new backing array for the slice with a larger capacity. The values
+    in the original backing array are copied to the new one, the new values are added
+    to the end of the new backing array, and the slice is updated to refer to the
+    new backing array. Finally, the updated slice is returned.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When a slice grows via `append`, it takes time for the Go runtime to allocate
+    new memory and copy the existing data from the old memory to the new. The old
+    memory also needs to be garbage collected. For this reason, the Go runtime usually
+    increases a slice by more than one each time it runs out of capacity. The rule
+    as of Go 1.18 is to double the capacity of a slice when the current capacity is
+    less than 256\. A bigger slice increases by `(current_capacity + 768)/4`. This
+    slowly converges at 25% growth (a slice with capacity of 512 will grow by 63%,
+    but a slice with capacity 4,096 will grow by only 30%).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Just as the built-in `len` function returns the current length of a slice, the
+    built-in `cap` function returns the current capacity of a slice. It is used far
+    less frequently than `len`. Most of the time, `cap` is used to check if a slice
+    is large enough to hold new data, or if a call to `make` is needed to create a
+    new slice.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can also pass an array to the `cap` function, but `cap` always returns the
+    same value as `len` for arrays. Don’t put it in your code, but save this trick
+    for Go trivia night.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s take a look at how adding elements to a slice changes the length and capacity.
+    Run the code in [Example 3-1](#EX3_1) on [The Go Playground](https://oreil.ly/yiHu-)
+    or in the *sample_code/len_cap* directory in the [Chapter 3 repository](https://oreil.ly/dZMDe).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 3-1\. Understanding capacity
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'When you build and run the code, you’ll see the following output. Notice how
+    and when the capacity increases:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: While it’s nice that slices grow automatically, it’s far more efficient to size
+    them once. If you know how many things you plan to put into a slice, create it
+    with the correct initial capacity. You do that with the `make` function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: make
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'You’ve already seen two ways to declare a slice, using a slice literal or the
+    `nil` zero value. While useful, neither way allows you to create an empty slice
+    that already has a length or capacity specified. That’s the job of the built-in
+    `make` function. It allows you to specify the type, length, and, optionally, the
+    capacity. Let’s take a look:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: This creates an `int` slice with a length of 5 and a capacity of 5\. Since it
+    has a length of 5, `x[0]` through `x[4]` are valid elements, and they are all
+    initialized to 0.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'One common beginner mistake is to try to populate those initial elements using
+    `append`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: The 10 is placed at the end of the slice, *after* the zero values in elements
+    0–4 because `append` always increases the length of a slice. The value of `x`
+    is now [0 0 0 0 0 10], with a length of 6 and a capacity of 10 (the capacity was
+    doubled as soon as the sixth element was appended).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You can also specify an initial capacity with `make`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: This creates an `int` slice with a length of 5 and a capacity of 10.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You can also create a slice with zero length but a capacity that’s greater
+    than zero:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In this case, you have a non-`nil` slice with a length of 0 but a capacity
+    of 10\. Since the length is 0, you can’t directly index into it, but you can append
+    values to it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: The value of `x` is now [5 6 7 8], with a length of 4 and a capacity of 10.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Warning
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Never specify a capacity that’s less than the length! It is a compile-time error
+    to do so with a constant or numeric literal. If you use a variable to specify
+    a capacity that’s smaller than the length, your program will panic at runtime.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Emptying a Slice
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Go 1.21 added a `clear` function that takes in a slice and sets all of the
+    slice’s elements to their zero value. The length of the slice remains unchanged.
+    The following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'prints out:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: (Remember, the zero value for a string is an empty string `""`!)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Declaring Your Slice
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Now that you’ve seen all these ways to create slices, how do you choose which
+    slice declaration style to use? The primary goal is to minimize the number of
+    times the slice needs to grow. If it’s possible that the slice won’t need to grow
+    at all, use a `var` declaration with no assigned value to create a `nil` slice,
+    as shown in [Example 3-2](#EX3_7).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 3-2\. Declaring a slice that might stay `nil`
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'You can create a slice using an empty slice literal:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: This creates a slice with zero length and zero capacity. It is confusingly different
+    from a `nil` slice. Because of implementation reasons, comparing a zero-length
+    slice to `nil` returns `false`, while comparing a `nil` slice to `nil` returns
+    `true`. For simplicity, favor `nil` slices. A zero-length slice is useful only
+    when converting a slice to JSON. You’ll look at this more in [“encoding/json”](ch13.html#json).
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you have some starting values, or if a slice’s values aren’t going to change,
+    then a slice literal is a good choice (see [Example 3-3](#EX3_8)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 3-3\. Declaring a slice with default values
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If you have a good idea of how large your slice needs to be, but don’t know
+    what those values will be when you are writing the program, use `make`. The question
+    then becomes whether you should specify a nonzero length in the call to `make`
+    or specify a zero length and a nonzero capacity. There are three possibilities:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you are using a slice as a buffer (you’ll see this in [“io and Friends”](ch13.html#io_friends)),
+    then specify a nonzero length.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: If you are *sure* you know the exact size you want, you can specify the length
+    and index into the slice to set the values. This is often done when transforming
+    values in one slice and storing them in a second. The downside to this approach
+    is that if you have the size wrong, you’ll end up with either zero values at the
+    end of the slice or a panic from trying to access elements that don’t exist.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In other situations, use `make` with a zero length and a specified capacity.
+    This allows you to use `append` to add items to the slice. If the number of items
+    turns out to be smaller, you won’t have an extraneous zero value at the end. If
+    the number of items is larger, your code will not panic.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The Go community is split between the second and third approaches. I personally
+    prefer using `append` with a slice initialized to a zero length. It might be slower
+    in some situations, but it is less likely to introduce a bug.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Warning
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: '`append` always increases the length of a slice! If you have specified a slice’s
+    length using `make`, be sure that you mean to append to it before you do so, or
+    you might end up with a bunch of surprise zero values at the beginning of your
+    slice.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Slicing Slices
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: A *slice expression* creates a slice from a slice. It’s written inside brackets
+    and consists of a starting offset and an ending offset, separated by a colon (:).
+    The starting offset is the first position in the slice that is included in the
+    new slice, and the ending offset is one past the last position to include. If
+    you leave off the starting offset, 0 is assumed. Likewise, if you leave off the
+    ending offset, the end of the slice is substituted. You can see how this works
+    by running the code in [Example 3-4](#EX3_9) on [The Go Playground](https://oreil.ly/PFtfZ)
+    or in the *sample_code/slicing_slices* directory in the [Chapter 3 repository](https://oreil.ly/Ka-rJ).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 3-4\. Slicing slices
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'It gives the following output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: When you take a slice from a slice, you are *not* making a copy of the data.
+    Instead, you now have two variables that are sharing memory. This means that changes
+    to an element in a slice affect all slices that share that element. Let’s see
+    what happens when you change values. You can run the code in [Example 3-5](#EX3_10)
+    on [The Go Playground](https://oreil.ly/xEw9J) or in the *sample_code/slice_share_storage*
+    directory in the [Chapter 3 repository](https://oreil.ly/nYkrx).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 3-5\. Slices with overlapping storage
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You get the following output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: Changing `x` modified both `y` and `z`, while changes to `y` and `z` modified
+    `x`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Slicing slices gets extra confusing when combined with `append`. Try out the
+    code in [Example 3-6](#EX3_11) on [The Go Playground](https://oreil.ly/4f4pd)
+    or in the *sample_code/slice_append_storage* directory in the [Chapter 3 repository](https://oreil.ly/H1YKD).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 3-6\. `append` makes overlapping slices more confusing
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Running this code gives the following output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: What’s going on? Whenever you take a slice from another slice, the subslice’s
+    capacity is set to the capacity of the original slice, minus the starting offset
+    of the subslice within the original slice. This means elements of the original
+    slice beyond the end of the subslice, including unused capacity, are shared by
+    both slices.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When you make the `y` slice from `x`, the length is set to 2, but the capacity
+    is set to 4, the same as `x`. Since the capacity is 4, appending onto the end
+    of `y` puts the value in the third position of `x`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This behavior creates some odd scenarios, with multiple slices appending and
+    overwriting each other’s data. See if you can guess what the code in [Example 3-7](#EX3_12)
+    prints out, then run it on [The Go Playground](https://oreil.ly/KCveh) or in the
+    *sample_code/confusing_slices* directory in the [Chapter 3 repository](https://oreil.ly/Ur5f2)
+    to see if you guessed correctly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 3-7\. Even more confusing slices
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: To avoid complicated slice situations, you should either never use `append`
+    with a subslice or make sure that `append` doesn’t cause an overwrite by using
+    a *full slice expression*. This is a little weird, but it makes clear how much
+    memory is shared between the parent slice and the subslice. The full slice expression
+    includes a third part, which indicates the last position in the parent slice’s
+    capacity that’s available for the subslice. Subtract the starting offset from
+    this number to get the subslice’s capacity. [Example 3-8](#EX3_13) shows the first
+    four lines from the previous example, modified to use full slice expressions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 3-8\. The full slice expression protects against `append`
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs: []
+  type: TYPE_PRE
+- en: Try out this code on [The Go Playground](https://oreil.ly/G7YBT) or in the *sample_code/full_slice_expression*
+    directory in the [Chapter 3 repository](https://oreil.ly/Ur5f2). Both `y` and
+    `z` have a capacity of `2`. Because you limited the capacity of the subslices
+    to their lengths, appending additional elements onto `y` and `z` created new slices
+    that didn’t interact with the other slices. After this code runs, `x` is set to
+    `[a b c d x]`, `y` is set to `[a b i j k]`, and `z` is set to `[c d y]`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Warning
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Be careful when taking a slice of a slice! Both slices share the same memory,
+    and changes to one are reflected in the other. Avoid modifying slices after they
+    have been sliced or if they were produced by slicing. Use a three-part slice expression
+    to prevent `append` from sharing capacity between slices.
+  prefs: []
+  type: TYPE_NORMAL
+- en: copy
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'If you need to create a slice that’s independent of the original, use the built-in
+    `copy` function. Let’s take a look at a simple example, which you can run on [The
+    Go Playground](https://oreil.ly/ilMNY) or in the *sample_code/copy_slice* directory
+    in the [Chapter 3 repository](https://oreil.ly/Ur5f2):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You get this output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `copy` function takes two parameters. The first is the destination slice,
+    and the second is the source slice. The function copies as many values as it can
+    from source to destination, limited by whichever slice is smaller, and returns
+    the number of elements copied. The *capacity* of `x` and `y` doesn’t matter; it’s
+    the length that’s important.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You can also copy a subset of a slice. The following code copies the first
+    two elements of a four-element slice into a two-element slice:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE41]'
+  prefs: []
+  type: TYPE_PRE
+- en: The variable `y` is set to [1 2], and `num` is set to 2.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You could also copy from the middle of the source slice:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs: []
+  type: TYPE_PRE
+- en: You are copying the third and fourth elements in `x` by taking a slice of the
+    slice. Also note that *you don’t assign the output of `copy` to a variable*. If
+    you don’t need the number of elements copied, you don’t need to assign it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `copy` function allows you to copy between two slices that cover overlapping
+    sections of an underlying slice:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE43]'
+  prefs: []
+  type: TYPE_PRE
+- en: In this case, you are copying the last three values in `x` on top of the first
+    three values of `x`. This prints out [2 3 4 4] 3.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You can use `copy` with arrays by taking a slice of the array. You can make
+    the array either the source or the destination of the copy. You can try out the
+    following code on [The Go Playground](https://oreil.ly/-mhRW) or in the *sample_code/copy_array*
+    directory in the [Chapter 3 repository](https://oreil.ly/Ur5f2):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE44]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The first call to `copy` copies the first two values in array `d` into slice
+    `y`. The second copies all of the values in slice `x` into array `d`. This produces
+    the following output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE45]'
+  prefs: []
+  type: TYPE_PRE
+- en: Converting Arrays to Slices
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Slices aren’t the only thing you can slice. If you have an array, you can take
+    a slice from it using a slice expression. This is a useful way to bridge an array
+    to a function that takes only slices. To convert an entire array into a slice,
+    use the `[:]` syntax:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE46]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You can also convert a subset of an array into a slice:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE47]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Be aware that taking a slice from an array has the same memory-sharing properties
+    as taking a slice from a slice. If you run the following code on [The Go Playground](https://oreil.ly/kliaJ)
+    or in the *sample_code/slice_array_memory* directory in the [Chapter 3 repository](https://oreil.ly/Ur5f2):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE48]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'you get this output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE49]'
+  prefs: []
+  type: TYPE_PRE
+- en: Converting Slices to Arrays
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Use a type conversion to make an array variable from a slice. You can convert
+    an entire slice to an array of the same type, or you can create an array from
+    a subset of the slice.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When you convert a slice to an array, the data in the slice is copied to new
+    memory. That means that changes to the slice won’t affect the array, and vice
+    versa.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE50]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'prints out:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE51]'
+  prefs: []
+  type: TYPE_PRE
+- en: The size of the array must be specified at compile time. It’s a compile-time
+    error to use `[...]` in a slice to array type conversion.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'While the size of the array can be smaller than the size of the slice, it cannot
+    be bigger. Unfortunately, the compiler cannot detect this, and your code will
+    panic at runtime if you specify an array size that’s bigger than the length (not
+    the capacity) of the slice. The following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE52]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'panics at runtime with the message:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE53]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'I haven’t talked about pointers yet, but you can also use a type conversion
+    to convert a slice into a pointer to an array:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE54]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'After converting a slice to an array pointer, the storage between the two is
+    shared. A change to one will change the other:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE55]'
+  prefs: []
+  type: TYPE_PRE
+- en: Pointers are covered in [Chapter 6](ch06.html#unique_chapter_id_06).
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can try all of the array type conversions on [The Go Playground](https://oreil.ly/Ss4Ea)
+    or in the *sample_code/array_conversion* directory in the [Chapter 3 repository](https://oreil.ly/Ur5f2).
+  prefs: []
+  type: TYPE_NORMAL
+- en: In [“Arrays—Too Rigid to Use Directly”](#arrays), I mentioned that you can’t
+    use arrays as function parameters when the size of the array being passed in might
+    vary. Technically, you can work around this limitation by converting an array
+    to a slice, converting the slice to an array of a different size, and then passing
+    the second array in to a function. The second array must be shorter than the first
+    array, or your program will panic. While this might be helpful in a pinch, if
+    you find yourself doing this frequently, strongly consider changing your function’s
+    API to take a slice instead of an array.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Strings and Runes and Bytes
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now that I’ve talked about slices, we can look at strings again. You might think
+    that a string in Go is made out of runes, but that’s not the case. Under the covers,
+    Go uses a sequence of bytes to represent a string. These bytes don’t have to be
+    in any particular character encoding, but several Go library functions (and the
+    `for-range` loop that I discuss in the next chapter) assume that a string is composed
+    of a sequence of UTF-8-encoded code points.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: According to the language specification, Go source code is always written in
+    UTF-8\. Unless you use hexadecimal escapes in a string literal, your string literals
+    are written in UTF-8.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Just as you can extract a single value from an array or a slice, you can extract
+    a single value from a string by using an *index expression*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE56]'
+  prefs: []
+  type: TYPE_PRE
+- en: Like arrays and slices, string indexes are zero-based; in this example, `b`
+    is assigned the numeric value of the seventh position in `s`, which is `116` (the
+    UTF-8 value of a lowercase t).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The slice expression notation that you used with arrays and slices also works
+    with strings:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE57]'
+  prefs: []
+  type: TYPE_PRE
+- en: This assigns “o t” to `s2`, “Hello” to `s3`, and “there” to `s4`. You can try
+    out this code [on The Go Playground](https://oreil.ly/pF8T6) or in the *sample_code/string_slicing*
+    directory in the [Chapter 3 repository](https://oreil.ly/Ur5f2).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'While it’s handy that Go allows you to use slicing notation to make substrings
+    and use index notation to extract individual entries from a string, you should
+    be careful when doing so. Since strings are immutable, they don’t have the modification
+    problems that slices of slices do. There is a different problem, though. A string
+    is composed of a sequence of bytes, while a code point in UTF-8 can be anywhere
+    from one to four bytes long. The previous example was entirely composed of code
+    points that are one byte long in UTF-8, so everything worked out as expected.
+    But when dealing with languages other than English or with emojis, you run into
+    code points that are multiple bytes long in UTF-8:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE58]'
+  prefs: []
+  type: TYPE_PRE
+- en: In this example, `s3` will still be equal to “Hello.” The variable `s4` is set
+    to the sun emoji. But `s2` is not set to “o ![](assets/sun.png).” Instead, you
+    get “o ![](assets/replacement.png).” That’s because you copied only the first
+    byte of the sun emoji’s code point, which is not a valid code point on its own.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Go allows you to pass a string to the built-in `len` function to find the length
+    of the string. Given that string index and slice expressions count positions in
+    bytes, it’s not surprising that the length returned is the length in bytes, not
+    in code points:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE59]'
+  prefs: []
+  type: TYPE_PRE
+- en: This code prints out 10, not 7, because it takes four bytes to represent the
+    sun with smiling face emoji in UTF-8\. You can run these sun emoji examples on
+    [The Go Playground](https://oreil.ly/6ngTb) or in the *sample_code/sun_slicing*
+    directory in the [Chapter 3 repository](https://oreil.ly/Ur5f2).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Warning
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Even though Go allows you to use slicing and indexing syntax with strings, you
+    should use it only when you know that your string contains only characters that
+    take up one byte.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Because of this complicated relationship among runes, strings, and bytes, Go
+    has some interesting type conversions between these types. A single rune or byte
+    can be converted to a string:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE60]'
+  prefs: []
+  type: TYPE_PRE
+- en: Warning
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'A common bug for new Go developers is to try to make an `int` into a `string`
+    by using a type conversion:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE61]'
+  prefs: []
+  type: TYPE_PRE
+- en: This results in `y` having the value “A,” not “65.” As of Go 1.15, `go vet`
+    blocks a type conversion to string from any integer type other than `rune` or
+    `byte`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A string can be converted back and forth to a slice of bytes or a slice of runes.
+    Try [Example 3-9](#EX1-2) on [The Go Playground](https://oreil.ly/N7fOB) or in
+    the *sample_code/string_to_slice* directory in the [Chapter 3 repository](https://oreil.ly/Ur5f2).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 3-9\. Converting strings to slices
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE62]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'When you run this code, you see the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE63]'
+  prefs: []
+  type: TYPE_PRE
+- en: The first output line has the string converted to UTF-8 bytes. The second has
+    the string converted to runes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Most data in Go is read and written as a sequence of bytes, so the most common
+    string type conversions are back and forth with a slice of bytes. Slices of runes
+    are uncommon.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Rather than use the slice and index expressions with strings, you should extract
+    substrings and code points from strings using the functions in the `strings` and
+    `unicode/utf8` packages in the standard library. In the next chapter, you’ll see
+    how to use a `for-range` loop to iterate over the code points in a string.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Maps
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Slices are useful when you have sequential data. Like most languages, Go provides
+    a built-in data type for situations where you want to associate one value to another.
+    The map type is written as `map[keyType]valueType`. Let’s take a look at a few
+    ways to declare maps. First, you can use a `var` declaration to create a map variable
+    that’s set to its zero value:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE64]'
+  prefs: []
+  type: TYPE_PRE
+- en: In this case, `nilMap` is declared to be a map with `string` keys and `int`
+    values. The zero value for a map is `nil`. A `nil` map has a length of 0\. Attempting
+    to read a `nil` map always returns the zero value for the map’s value type. However,
+    *attempting to write to a `nil` map variable causes a panic*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You can use a `:=` declaration to create a map variable by assigning it a *map
+    literal*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE65]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In this case, you are using an empty map literal. This is not the same as a
+    `nil` map. It has a length of 0, but you can read and write to a map assigned
+    an empty map literal. Here’s what a nonempty map literal looks like:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE66]'
+  prefs: []
+  type: TYPE_PRE
+- en: A map literal’s body is written as the key, followed by a colon (:), then the
+    value. A comma separates each key-value pair in the map, even on the last line.
+    In this example, the value is a slice of strings. The type of the value in a map
+    can be anything. There are some restrictions on the types of the keys that I’ll
+    discuss in a bit.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If you know how many key-value pairs you intend to put in the map but don’t
+    know the exact values, you can use `make` to create a map with a default size:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE67]'
+  prefs: []
+  type: TYPE_PRE
+- en: Maps created with `make` still have a length of 0, and they can grow past the
+    initially specified size.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Maps are like slices in several ways:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Maps automatically grow as you add key-value pairs to them.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: If you know how many key-value pairs you plan to insert into a map, you can
+    use `make` to create a map with a specific initial size.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Passing a map to the `len` function tells you the number of key-value pairs
+    in a map.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The zero value for a map is `nil`.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Maps are not comparable. You can check if they are equal to `nil`, but you cannot
+    check if two maps have identical keys and values using `==` or differ using `!=`.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The key for a map can be any comparable type. This means *you cannot use a slice
+    or a map as the key for a map*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: When should you use a map, and when should you use a slice? You should use slices
+    for lists of data when the data should be processed sequentially or the order
+    of the elements is important.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Maps are useful when you need to organize values using something other than
+    an increasing integer value, such as a name.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Reading and Writing a Map
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Let’s look at a short program that declares, writes to, and reads from a map.
+    You can run the program in [Example 3-10](#EX3_MAP_RW) on [The Go Playground](https://oreil.ly/gBMvf)
+    or in the *sample_code/map_read_write* directory in the [Chapter 3 repository](https://oreil.ly/Ur5f2).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 3-10\. Using a map
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE68]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'When you run this program, you’ll see the following output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE69]'
+  prefs: []
+  type: TYPE_PRE
+- en: You assign a value to a map key by putting the key within brackets and using
+    `=` to specify the value, and you read the value assigned to a map key by putting
+    the key within brackets. Note that you cannot use `:=` to assign a value to a
+    map key.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When you try to read the value assigned to a map key that was never set, the
+    map returns the zero value for the map’s value type. In this case, the value type
+    is an `int`, so you get back a 0\. You can use the `++` operator to increment
+    the numeric value for a map key. Because a map returns its zero value by default,
+    this works even when there’s no existing value associated with the key.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The comma ok Idiom
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'As you’ve seen, a map returns the zero value if you ask for the value associated
+    with a key that’s not in the map. This is handy when implementing things like
+    the `totalWins` counter you saw earlier. However, you sometimes do need to find
+    out if a key is in a map. Go provides the *comma ok idiom* to tell the difference
+    between a key that’s associated with a zero value and a key that’s not in the
+    map:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE70]'
+  prefs: []
+  type: TYPE_PRE
+- en: Rather than assign the result of a map read to a single variable, with the comma
+    ok idiom you assign the results of a map read to two variables. The first gets
+    the value associated with the key. The second value returned is a bool. It is
+    usually named `ok`. If `ok` is `true`, the key is present in the map. If `ok`
+    is `false`, the key is not present. In this example, the code prints out `5 true`,
+    `0 true`, and `0 false`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The comma ok idiom is used in Go when you want to differentiate between reading
+    a value and getting back the zero value. You’ll see it again when you read from
+    channels in [Chapter 12](ch12.html#unique_chapter_id_12) and when you use type
+    assertions in [Chapter 7](ch07.html#unique_chapter_id_07).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Deleting from Maps
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Key-value pairs are removed from a map via the built-in `delete` function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE71]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `delete` function takes a map and a key and then removes the key-value pair
+    with the specified key. If the key isn’t present in the map or if the map is `nil`,
+    nothing happens. The `delete` function doesn’t return a value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Emptying a Map
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The `clear` function that you saw in [“Emptying a Slice”](#empty_slice) works
+    on maps also. A cleared map has its length set to zero, unlike a cleared slice.
+    The following code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE72]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'prints out:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE73]'
+  prefs: []
+  type: TYPE_PRE
+- en: Comparing Maps
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Go 1.21 added a package to the standard library called `maps` that contains
+    helper functions for working with maps. You’ll learn more about this package in
+    [“Adding Generics to the Standard Library”](ch08.html#slice_map_funcs). Two functions
+    in the package are useful for comparing if two maps are equal, `maps.Equal` and
+    `maps.EqualFunc`. They are analogous to the `slices.Equal` and `slices.EqualFunc`
+    functions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE74]'
+  prefs: []
+  type: TYPE_PRE
+- en: Using Maps as Sets
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Many languages include a set in their standard library. A *set* is a data type
+    that ensures there is at most one of a value, but doesn’t guarantee that the values
+    are in any particular order. Checking to see if an element is in a set is fast,
+    no matter how many elements are in the set. (Checking to see if an element is
+    in a slice takes longer, as you add more elements to the slice.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Go doesn’t include a set, but you can use a map to simulate some of its features.
+    Use the key of the map for the type that you want to put into the set and use
+    a `bool` for the value. The code in [Example 3-11](#EX3_SET) demonstrates the
+    concept. You can run it on [The Go Playground](https://oreil.ly/wC6XK) or in the
+    *sample_code/map_set* directory in the [Chapter 3 repository](https://oreil.ly/Ur5f2).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 3-11\. Using a map as a set
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE75]'
+  prefs: []
+  type: TYPE_PRE
+- en: You want a set of `int`s, so you create a map where the keys are of `int` type
+    and the values are of `bool` type. You iterate over the values in `vals` using
+    a `for-range` loop (which I discuss in [“The for-range Statement”](ch04.html#for_range))
+    to place them into `intSet`, associating each `int` with the boolean value `true`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We wrote 11 values into `intSet`, but the length of `intSet` is 8, because you
+    cannot have duplicate keys in a map. If you look for 5 in `intSet`, it returns
+    `true`, because there is a key with the value 5\. However, if you look for 500
+    or 100 in `intSet`, it returns `false`. This is because you haven’t put either
+    value into `intSet`, which causes the map to return the zero value for the map
+    value, and the zero value for a `bool` is `false`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you need sets that provide operations like union, intersection, and subtraction,
+    you can either write one yourself or use one of the many third-party libraries
+    that provide the functionality. (You’ll learn more about using third-party libraries
+    in [Chapter 10](ch10.html#unique_chapter_id_10).)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Some people prefer to use `struct{}` for the value when a map is being used
+    to implement a set. (I’ll discuss structs in the next section.) The advantage
+    is that an empty struct uses zero bytes, while a boolean uses one byte.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The disadvantage is that using a `struct{}` makes your code clumsier. You have
+    a less obvious assignment, and you need to use the comma ok idiom to check if
+    a value is in the set:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE76]'
+  prefs: []
+  type: TYPE_PRE
+- en: Unless you have very large sets, the difference in memory usage will not likely
+    be significant enough to outweigh the disadvantages.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Structs
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Maps are a convenient way to store some kinds of data, but they have limitations.
+    They don’t define an API since there’s no way to constrain a map to allow only
+    certain keys. Also, all values in a map must be of the same type. For these reasons,
+    maps are not an ideal way to pass data from function to function. When you have
+    related data that you want to group together, you should define a *struct*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'If you already know an object-oriented language, you might be wondering about
+    the difference between classes and structs. The difference is simple: Go doesn’t
+    have classes, because it doesn’t have inheritance. This doesn’t mean that Go doesn’t
+    have some of the features of object-oriented languages it just does things a little
+    differently. You’ll learn more about the object-oriented features of Go in [Chapter 7](ch07.html#unique_chapter_id_07).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Most languages have a concept that’s similar to a struct, and the syntax that
+    Go uses to read and write structs should look familiar:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE77]'
+  prefs: []
+  type: TYPE_PRE
+- en: A struct type is defined with the keyword `type`, the name of the struct type,
+    the keyword `struct`, and a pair of braces (`{}`). Within the braces, you list
+    the fields in the struct. Just as you put the variable name first and the variable
+    type second in a `var` declaration, you put the struct field name first and the
+    struct field type second. Also note that unlike in map literals, no commas separate
+    the fields in a struct declaration. You can define a struct type inside or outside
+    of a function. A struct type that’s defined within a function can be used only
+    within that function. (You’ll learn more about functions in [Chapter 5](ch05.html#unique_chapter_id_05).)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Technically, you can scope a struct definition to any block level. You’ll learn
+    more about blocks in [Chapter 4](ch04.html#unique_chapter_id_04).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Once a struct type is declared, you can define variables of that type:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE78]'
+  prefs: []
+  type: TYPE_PRE
+- en: Here we are using a `var` declaration. Since no value is assigned to `fred`,
+    it gets the zero value for the `person` struct type. A zero value struct has every
+    field set to the field’s zero value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A *struct literal* can be assigned to a variable as well:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE79]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Unlike maps, there is no difference between assigning an empty struct literal
+    and not assigning a value at all. Both initialize all fields in the struct to
+    their zero values. There are two styles for a nonempty struct literal. First,
+    a struct literal can be specified as a comma-separated list of values for the
+    fields inside of braces:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE80]'
+  prefs: []
+  type: TYPE_PRE
+- en: When using this struct literal format, a value for every field in the struct
+    must be specified, and the values are assigned to the fields in the order they
+    were declared in the struct definition.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The second struct literal style looks like the map literal style:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE81]'
+  prefs: []
+  type: TYPE_PRE
+- en: You use the names of the fields in the struct to specify the values. This style
+    has some advantages. It allows you to specify the fields in any order, and you
+    don’t need to provide a value for all fields. Any field not specified is set to
+    its zero value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You cannot mix the two struct literal styles: either all fields are specified
+    with names, or none of them are. For small structs where all fields are always
+    specified, the simpler struct literal style is fine. In other cases, use the names.
+    It’s more verbose, but it makes clear what value is being assigned to what field
+    without having to reference the struct definition. It’s also more maintainable.
+    If you initialize a struct without using the field names and a future version
+    of the struct adds additional fields, your code will no longer compile.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A field in a struct is accessed with dot notation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE82]'
+  prefs: []
+  type: TYPE_PRE
+- en: Just as you use brackets for both reading and writing to a map, you use dotted
+    notation for reading and writing to struct fields.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Anonymous Structs
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'You can also declare that a variable implements a struct type without first
+    giving the struct type a name. This is called an *anonymous struct*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE83]'
+  prefs: []
+  type: TYPE_PRE
+- en: In this example, the types of the variables `person` and `pet` are anonymous
+    structs. You assign (and read) fields in an anonymous struct just as you do for
+    a named struct type. Just as you can initialize an instance of a named struct
+    with a struct literal, you can do the same for an anonymous struct as well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You might wonder when it’s useful to have a data type that’s associated only
+    with a single instance. Anonymous structs are handy in two common situations.
+    The first is when you translate external data into a struct or a struct into external
+    data (like JSON or Protocol Buffers). This is called *unmarshaling* and *marshaling*
+    data, respectively. You’ll learn how to do this in [“encoding/json”](ch13.html#json).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Writing tests is another place where anonymous structs pop up. You’ll use a
+    slice of anonymous structs when writing table-driven tests in [Chapter 15](ch15.html#unique_chapter_id_15).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Comparing and Converting Structs
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Whether a struct is comparable depends on the struct’s fields. Structs that
+    are entirely composed of comparable types are comparable; those with slice or
+    map fields are not (as you will see in later chapters, function and channel fields
+    also prevent a struct from being comparable).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unlike in Python or Ruby, in Go there’s no magic method that can be overridden
+    to redefine equality and make `==` and `!=` work for incomparable structs. You
+    can, of course, write your own function that you use to compare structs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Just as Go doesn’t allow comparisons between variables of different primitive
+    types, Go doesn’t allow comparisons between variables that represent structs of
+    different types. Go does allow you to perform a type conversion from one struct
+    type to another *if the fields of both structs have the same names, order, and
+    types*. Let’s see what this means. Given this struct:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE84]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'you can use a type conversion to convert an instance of `firstPerson` to `secondPerson`,
+    but you can’t use `==` to compare an instance of `firstPerson` and an instance
+    of `secondPerson`, because they are different types:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE85]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You can’t convert an instance of `firstPerson` to `thirdPerson`, because the
+    fields are in a different order:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE86]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You can’t convert an instance of `firstPerson` to `fourthPerson` because the
+    field names don’t match:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE87]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Finally, you can’t convert an instance of `firstPerson` to `fifthPerson` because
+    there’s an additional field:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE88]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Anonymous structs add a small twist: if two struct variables are being compared
+    and at least one has a type that’s an anonymous struct, you can compare them without
+    a type conversion if the fields of both structs have the same names, order, and
+    types. You can also assign between named and anonymous struct types if the fields
+    of both structs have the same names, order, and types:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE89]'
+  prefs: []
+  type: TYPE_PRE
+- en: Exercises
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The following exercises will test what you’ve learned about Go’s composite types.
+    You can find solutions in the *exercise_solutions* directory in the [Chapter 3
+    Repository](https://oreil.ly/d2nrA).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Write a program that defines a variable named `greetings` of type slice of
+    strings with the following values: `"Hello"`, `"Hola"`, `"नमस्कार"`, `"こんにちは"`,
+    and `"Привіт"`. Create a subslice containing the first two values; a second subslice
+    with the second, third, and fourth values; and a third subslice with the fourth
+    and fifth values. Print out all four slices.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Write a program that defines a string variable called `message` with the value
+    `"Hi ![](assets/woman.png) and ![](assets/man.png)"` and prints the fourth rune
+    in it as a character, not a number.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Write a program that defines a struct called `Employee` with three fields:
+    `firstName`, `lastName`, and `id`. The first two fields are of type `string`,
+    and the last field (`id`) is of type `int`. Create three instances of this struct
+    using whatever values you’d like. Initialize the first one using the struct literal
+    style without names, the second using the struct literal style with names, and
+    the third with a `var` declaration. Use dot notation to populate the fields in
+    the third struct. Print out all three structs.'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Wrapping Up
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'You’ve learned a lot about composite types in Go. In addition to learning more
+    about strings, you now know how to use the built-in generic container types: slices
+    and maps. You can also construct your own composite types via structs. In the
+    next chapter, you’re going to take a look at Go’s control structures: `for`, `if/else`,
+    and `switch`. You will also learn how Go organizes code into blocks and how the
+    different block levels can lead to surprising behavior.'
+  prefs: []
+  type: TYPE_NORMAL

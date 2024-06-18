@@ -1,0 +1,750 @@
+- en: 'Chapter 10\. keep it to yourself: Encapsulation and Embedding'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0289-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Mistakes happen.** Sometimes, your program will receive invalid data from
+    user input, a file you’re reading in, or elsewhere. In this chapter, you’ll learn
+    about **encapsulation**: a way to protect your struct type’s fields from that
+    invalid data. That way, you’ll know your field data is safe to work with!'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We’ll also show you how to **embed** other types within your struct type. If
+    your struct type needs methods that already exist on another type, you don’t have
+    to copy and paste the method code. You can embed the other type within your struct
+    type, and then use the embedded type’s methods just as if they were defined on
+    your own type!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating a Date struct type
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: A local startup called Remind Me is developing a calendar application to help
+    users remember birthdays, anniversaries, and more.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0290-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The year, month, and day sound like they all need to be grouped together; none
+    of those values would be useful by itself. A struct type would probably be useful
+    for keeping those separate values together in a single bundle.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As we’ve seen, defined types can use any other type as their underlying type,
+    including structs. In fact, struct types served as our introduction to defined
+    types, back in [Chapter 8](ch08.html#building_storagecolon_structs).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s create a `Date` struct type to hold our year, month, and day values. We’ll
+    add `Year`, `Month`, and `Day` fields to the struct, each with a type of `int`.
+    In our `main` function, we’ll run a quick test of the new type, using a struct
+    literal to create a `Date` value with all its fields populated. We’ll just use
+    `Println` to print the `Date` out for now.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0290-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: If we run the finished program, we’ll see the `Year`, `Month`, and `Day` fields
+    of our `Date` struct. It looks like everything’s working!
+  prefs: []
+  type: TYPE_NORMAL
+- en: People are setting the Date struct field to invalid values!
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0291-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Ah, we can see how that might happen. Only year numbers `1` or greater are valid,
+    but we don’t have anything preventing users from accidentally setting the `Year`
+    field to `0` or `-999`. Only month numbers from `1` through `12` are valid, but
+    nothing prevents users from setting the `Month` field to `0` or `13`. Only the
+    numbers `1` through `31` are valid for the `Day` field, but users can enter days
+    like `-2` or `50`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0291-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: What we need is a way for our programs to ensure the user data is valid before
+    accepting it. In computer science, this is known as *data validation*. We need
+    to test that the `Year` is being set to a value of `1` or greater, the `Month`
+    is being set between `1` and `12`, and the `Day` is being set between `1` and
+    `31`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: (Yes, some months have fewer than 31 days, but to keep our code samples a reasonable
+    length, we’ll just check that it’s between 1 and 31.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Setter methods
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: A struct type is just another defined type, and that means you can define methods
+    on it just like any other. We should be able to create `SetYear`, `SetMonth`,
+    and `SetDay` methods on the `Date` type that take a value, check whether it’s
+    valid, and if so, set the appropriate struct field.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This kind of method is often called a **setter method**. By convention, Go setter
+    methods are usually named in the form `Set*X*`, where `*X*` is the thing that
+    you’re setting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Setter methods are methods used to set fields or other values within a defined
+    type’s underlying value.**'
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: Here’s our first attempt at a `SetYear` method. The receiver parameter is the
+    `Date` struct you’re calling the method on. `SetYear` accepts the year you want
+    to set as a parameter, and sets the `Year` field on the receiver `Date` struct.
+    It doesn’t validate the value at all currently, but we’ll add validation in a
+    little bit.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In our `main` method, we create a `Date` and call `SetYear` on it. Then we print
+    the struct’s `Year` field.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0292-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: When we run the program, though, we’ll see that it didn’t work quite right.
+    Even though we create a `Date` and call `SetYear` with a new value, the `Year`
+    field is still set to its zero value!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Setter methods need pointer receivers
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Remember the `Double` method on the `Number` type we showed you earlier? Originally,
+    we wrote it with a plain value receiver type, `Number`. But we learned that, like
+    any other parameter, receiver parameters receive a *copy* of the original value.
+    The `Double` method was updating the copy, which was lost when the function exited.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0293-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We needed to update `Double` to take a pointer receiver type, `*Number`. When
+    we updated the value at the pointer, the changes were preserved after `Double`
+    exited.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The same holds true for `SetYear`. The `Date` receiver gets a *copy* of the
+    original struct. Any updates to the fields of the copy are lost when `SetYear`
+    exits!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0293-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'We can fix `SetYear` by updating it to take a pointer receiver: `(d *Date)`.
+    That’s the only change that’s necessary. We don’t have to update the `SetYear`
+    method block, because `d.Year` automatically gets the value at the pointer for
+    us (as if we’d typed `(*d).Year`). The call to `date.SetYear` in `main` doesn’t
+    need to be changed either, because the `Date` value is automatically converted
+    to a `*Date` when it’s passed to the method.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0293-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Now that `SetYear` takes a pointer receiver, if we rerun the code, we’ll see
+    that the `Year` field has been updated.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Adding the remaining setter methods
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now it should be easy to follow the same pattern to define `SetMonth` and `SetDay`
+    methods on the `Date` type. We just need to be sure to use a pointer receiver
+    in the method definition. Go will convert the receiver to a pointer when we call
+    each method, and convert the pointer back to a struct value when updating its
+    fields.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0294-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: In `main`, we can create a `Date` struct value; set its `Year`, `Month`, and
+    `Day` fields via our new methods; and print the whole struct out to see the results.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now we have setter methods for each of our `Date` type’s fields. But even if
+    they use the methods, users can still accidentally set the fields to invalid values.
+    We’ll look at preventing that next.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0294-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Adding validation to the setter methods
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Adding validation to our setter methods will take a bit of work, but we learned
+    everything we need to do it in [Chapter 3](ch03.html#call_mecolon_functions).
+  prefs: []
+  type: TYPE_NORMAL
+- en: In each setter method, we’ll test whether the value is in a valid range. If
+    it’s invalid, we’ll return an `error` value. If it’s valid, we’ll set the `Date`
+    struct field as normal and return `nil` for the error value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s add validation to the `SetYear` method first. We add a declaration that
+    the method will return a value, of type `error`. At the start of the method block,
+    we test whether the `year` parameter provided by the caller is any number less
+    than `1`. If it is, we return an `error` with a message of `"invalid year"`. If
+    not, we set the struct’s `Year` field and return `nil`, indicating there was no
+    error.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In `main`, we call `SetYear` and store its return value in a variable named
+    `err`. If `err` is not `nil`, it means the assigned value was invalid, so we log
+    the error and exit. Otherwise, we proceed to print the `Date` struct’s `Year`
+    field.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0296-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Passing an invalid value to `SetYear` causes the program to report the error
+    and exit. But if we pass a valid value, the program will proceed to print it out.
+    Looks like our `SetYear` method is working!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Validation code in the `SetMonth` and `SetDay` methods will be similar to the
+    code in `SetYear`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In `SetMonth`, we test whether the provided month number is less than `1` or
+    greater than `12`, and return an error if so. Otherwise, we set the field and
+    return `nil`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: And in `SetDay`, we test whether the provided day of the month is less than
+    `1` or greater than `31`. Invalid values result in a returned error, but valid
+    values cause the field to be set and `nil` to be returned.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: You can test the setter methods by inserting the code snippets below into the
+    block for `main`...
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Passing `14` to `SetMonth` results in an error:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0297-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'But passing `5` to `SetMonth` works:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0297-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Passing `50` to `SetDay` results in an error:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0297-04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'But passing `27` to `SetDay` works:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0297-05.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The fields can still be set to invalid values!
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0298-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: It’s true; there’s nothing preventing anyone from setting the `Date` struct
+    fields directly. And if they do so, it bypasses the validation code in the setter
+    methods. They can set any value they want!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: We need a way to protect these fields, so that users of our `Date` type can
+    only update the fields using the setter methods.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Go provides a way of doing this: we can move the `Date` type to another package
+    and make its date fields unexported.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: So far, unexported variables, functions, and the like have mostly gotten in
+    our way. The most recent example of this was in [Chapter 8](ch08.html#building_storagecolon_structs),
+    when we discovered that even though our `Subscriber` struct type was exported
+    from the `magazine` package, its fields were *unexported*, making them inaccessible
+    outside the `magazine` package.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0298-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: But in this case, we don’t *want* the fields to be accessible. Unexported struct
+    fields are exactly what we need!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s try moving our `Date` type to another package and making its fields unexported,
+    and see if that fixes our problem.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Moving the Date type to another package
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the *headfirstgo* directory within your Go workspace, create a new directory
+    to hold a package named `calendar`. Within *calendar*, create a file named *date.go*.
+    (Remember, you can name the files within a package directory anything you want;
+    they’ll all become part of the same package.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0299-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Within *date.go*, add a `package calendar` declaration and import the `"errors"`
+    package. (That’s the only package that the code in this file will be using.) Then,
+    copy all your old code for the `Date` type and paste it into this file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0299-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Next, let’s create a program to try out the `calendar` package. Since this is
+    just for experimenting, we’ll do as we did in [Chapter 8](ch08.html#building_storagecolon_structs)
+    and save a file *outside* the Go workspace, so it doesn’t interfere with any other
+    packages. (We’ll just use the `go run` command to run it.) Name the file *main.go*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0300-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: At this point, code we add in *main.go* will still be able to create an invalid
+    `Date`, either by setting its fields directly or by using a struct literal.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0300-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: If we run *main.go* from the terminal, we’ll see that both ways of setting the
+    fields worked, and two invalid dates are printed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0300-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Making Date fields unexported
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now let’s try updating the `Date` struct so that its fields are unexported.
+    Simply change the field names to begin with lowercase letters in the type definition
+    and everywhere else they occur.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `Date` type itself needs to remain exported, as do all of the setter methods,
+    because we *will* need to access these from outside the `calendar` package.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0301-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: To test our changes, update the field names in *main.go* to match the field
+    names in *date.go*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0301-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Accessing unexported fields through exported methods
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As you might expect, now that we’ve converted the fields of `Date` to unexported,
+    trying to access them from the `main` package results in compile errors. This
+    is true both when we’re trying to set the field values directly, and when using
+    them in a struct literal.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0302-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: But we can still access the fields indirectly. *Unexported* variables, struct
+    fields, functions, methods, and the like can still be accessed by *exported* functions
+    and methods in the same package. So when code in the `main` package calls the
+    exported `SetYear` method on a `Date` value, `SetYear` can update the `Date`’s
+    `year` struct field, even though it’s unexported. The exported `SetMonth` method
+    can update the unexported `month` field. And so on.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If we modify *main.go* to use the setter methods, we’ll be able to update a
+    `Date` value’s fields:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0302-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Unexported variables, struct fields, functions, and methods can still be
+    accessed by exported functions and methods in the same package.**'
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: 'If we update *main.go* to call `SetYear` with an invalid value, we’ll get an
+    error when we run it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0303-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Now that a `Date` value’s fields can only be updated via its setter methods,
+    programs are protected against accidentally entering invalid data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0303-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Ah, that’s right. We provided setter methods that let us set `Date` fields,
+    even though those fields are unexported from the `calendar` package. But we haven’t
+    provided any methods to *get* the field values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can print an entire `Date` struct. But if we try to update *main.go* to print
+    an individual `Date` field, we won’t be able to access it!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0303-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Getter methods
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As we’ve seen, methods whose main purpose is to *set* the value of a struct
+    field or variable are called *setter methods*. And, as you might expect, methods
+    whose main purpose is to *get* the value of a struct field or variable are called
+    **getter methods**.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Compared to the setter methods, adding getter methods to the `Date` type will
+    be easy. They don’t need to do anything except return the field value when they’re
+    called.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0304-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: By convention, a getter method’s name should be the same as the name of the
+    field or variable it accesses. (Of course, if you want the method to be exported,
+    its name will need to start with a capital letter.) So `Date` will need a `Year`
+    method to access the `year` field, a `Month` method for the `month` field, and
+    a `Day` method for the `day` field.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getter methods don’t need to modify the receiver at all, so we *could* use a
+    direct `Date` value as a receiver. But if any method on a type takes a pointer
+    receiver, convention says that they *all* should, for consistency’s sake. Since
+    we have to use a pointer receiver for our setter methods, we use a pointer for
+    the getter methods as well.
+  prefs: []
+  type: TYPE_NORMAL
+- en: With the changes to *date.go* complete, we can update *main.go* to set all the
+    `Date` fields, then use the getter methods to print them all out.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0304-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Encapsulation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The practice of hiding data in one part of a program from code in another part
+    is known as **encapsulation**, and it’s not unique to Go. Encapsulation is valuable
+    because it can be used to protect against invalid data (as we’ve seen). Also,
+    you can change an encapsulated portion of a program without worrying about breaking
+    other code that accesses it, because direct access isn’t allowed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Many other programming languages encapsulate data within classes. (Classes are
+    a concept similar, but not identical, to a Go type.) In Go, data is encapsulated
+    within packages, using unexported variables, struct fields, functions, or methods.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Encapsulation is used far more frequently in other languages than it is in Go.
+    In some languages it’s conventional to define getters and setters for every field,
+    even when accessing those fields directly would work just as well. Go developers
+    generally only rely on encapsulation when it’s necessary, such as when field data
+    needs to be validated by setter methods. In Go, if you don’t see a need to encapsulate
+    a field, it’s generally okay to export it and allow direct access to it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: there are no Dumb Questions
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '**Q: Many other languages don’t allow access to encapsulated values outside
+    of the class where they’re defined. Is it safe for Go to allow other code in the
+    same package to access unexported fields?**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**A:** Generally, all the code in a package is the work of a single developer
+    (or group of developers). All the code in a package generally has a similar purpose,
+    as well. The authors of code within the same package are most likely to need access
+    to unexported data, and they’re also likely to only use that data in valid ways.
+    So, yes, sharing unexported data with the rest of the package is generally safe.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Code *outside* the package is likely to be written by *other* developers, but
+    that’s okay because the unexported fields are hidden from them, so they can’t
+    accidentally change their values to something invalid.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Q: I’ve seen other languages where the name of every getter method started
+    with “`Get”`, as in `GetName`, `GetCity`, and so on. Can I do that in Go?**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**A:** The Go language will allow you to do that, but you shouldn’t. The Go
+    community has decided on a convention of leaving the `Get` prefix off of getter
+    method names. Including it would only lead to confusion for your fellow developers!'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Go still uses a `Set` prefix for setter methods, just like many other languages,
+    because it’s needed to distinguish setter method names from getter method names
+    for the same field.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Embedding the Date type in an Event type
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0308-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: That shouldn’t take much work. Remember how we embedded an `Address` struct
+    type within two other struct types back in [Chapter 8](ch08.html#building_storagecolon_structs)?
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0308-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The `Address` type was considered “embedded” because we used an anonymous field
+    (a field with no name, just a type) in the outer struct to store it. This caused
+    the fields of `Address` to be promoted to the outer struct, allowing us to access
+    fields of the inner struct as if they belonged to the outer struct.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0308-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Since that strategy worked so well before, let’s define an `Event` type that
+    embeds a `Date` with an anonymous field.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Create another file within the `calendar` package folder, named *event.go*.
+    (We could put it within the existing *date.go* field, but this organizes things
+    a bit more neatly.) Within that file, define an `Event` type with two fields:
+    a `Title` field with a type of `string`, and an anonymous `Date` field.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unexported fields don’t get promoted
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Embedding a `Date` in the `Event` type will *not* cause the `Date` fields to
+    be promoted to the `Event`, though. The `Date` fields are unexported, and Go doesn’t
+    promote unexported fields to the enclosing type. That makes sense; we made sure
+    the fields were encapsulated so they can only be accessed through setter and getter
+    methods, and we don’t want that encapsulation to be circumvented through field
+    promotion.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0309-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'In our `main` package, if we try to set the `month` field of a `Date` through
+    its enclosing `Event`, we’ll get an error:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0309-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: And, of course, using dot operator chaining to retrieve the `Date` field and
+    then access fields on it directly won’t work, either. You can’t access a `Date`
+    value’s unexported fields when it’s by itself, and you can’t access its unexported
+    fields when it’s part of an `Event`, either.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0309-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: So does that mean we won’t be able to access the fields of the `Date` type,
+    if it’s embedded within the `Event` type? Don’t worry; there’s another way!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Exported methods get promoted just like fields
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: If you embed a type with exported methods within a struct type, its methods
+    will be promoted to the outer type, meaning you can call the methods as if they
+    were defined on the outer type. (Remember how embedding one struct type within
+    another causes the inner struct’s fields to be promoted to the outer struct? This
+    is the same idea, but with methods instead of fields.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Here’s a package that defines two types. `MyType` is a struct type and it embeds
+    a second type, `EmbeddedType`, as an anonymous field.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0310-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Because `EmbeddedType` defines an exported method (named `ExportedMethod`),
+    that method is promoted to `MyType`, and can be called on `MyType` values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0310-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: As with unexported fields, unexported methods are *not* promoted. You’ll get
+    an error if you try to call one.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0310-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Our `Date` fields weren’t promoted to the `Event` type, because they’re unexported.
+    But the getter and setter methods on `Date` *are* exported, and they *do* get
+    promoted to the `Event` type!
+  prefs: []
+  type: TYPE_NORMAL
+- en: That means we can create an `Event` value, and then call the getter and setter
+    methods for the `Date` directly on the `Event`. That’s just what we do in the
+    updated *main.go* code below. As always, the exported methods are able to access
+    the unexported `Date` fields for us.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0311-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'And if you prefer to use dot operator chaining to call methods on the `Date`
+    value directly, you can do that too:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0311-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Encapsulating the Event Title field
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Because the `Event` struct’s `Title` field is exported, we can still access
+    it directly:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0312-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'This exposes us to the same sort of issues that we had with the `Date` fields,
+    though. For example, there’s no limit on the length of the `Title` string:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0312-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: It seems like a good idea to encapsulate the title field as well, so we can
+    validate new values. Here’s an update to the `Event` type that does so. We change
+    the field’s name to `title` so it’s unexported, then add getter and setter methods.
+    The `RuneCountInString` function from the `unicode/utf8` package is used to ensure
+    there aren’t too many runes (characters) in the string.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0312-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Promoted methods live alongside the outer type’s methods
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Now that we’ve added setter and getter methods for the `title` field, our programs
+    can report an error if a title longer than 30 characters is used. An attempt to
+    set a 39-character title causes an error to be returned:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0313-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The `Event` type’s `Title` and `SetTitle` methods live alongside the methods
+    promoted from the embedded `Date` type. Importers of the `calendar` package can
+    treat all the methods as if they belong to the `Event` type, without worrying
+    about which type they’re actually defined on.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0313-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Our calendar package is complete!
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0314-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Method promotion allows you to easily use one type’s methods as if they belonged
+    to another. You can use this to compose types that combine the methods of several
+    other types. This can help you keep your code clean, without sacrificing convenience!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Your Go Toolbox
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0316-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**That’s it for [Chapter 10](#keep_it_to_yourselfcolon_encapsulation_a)! You’ve
+    added encapsulation and embedding to your toolbox.**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0316-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Embedding
+  prefs: []
+  type: TYPE_NORMAL
+- en: A type that is stored within a struct type using an anonymous field is said
+    to be embedded within the struct.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Methods of an embedded type get promoted to the outer type. They can be called
+    as if they were defined on the outer type.
+  prefs: []
+  type: TYPE_NORMAL

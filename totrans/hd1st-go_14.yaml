@@ -1,0 +1,774 @@
+- en: 'Chapter 13\. sharing work: Goroutines and Channels'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0379-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**Working on one thing at a time isn’t always the fastest way to finish a task.**
+    Some big problems can be broken into smaller tasks. **Goroutines** let your program
+    work on several different tasks at once. Your goroutines can coordinate their
+    work using **channels**, which let them send data to each other *and* synchronize
+    so that one goroutine doesn’t get ahead of another. Goroutines let you take full
+    advantage of computers with multiple processors, so that your programs run as
+    fast as possible!'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Retrieving web pages
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0163-01a.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: This chapter is going to be about finishing work faster by doing several tasks
+    simultaneously. But first, we need a big task that we can break into little parts.
+    So bear with us for a couple pages while we set the scene...
+  prefs: []
+  type: TYPE_NORMAL
+- en: The smaller a web page is, the faster it loads in visitors’ browsers. We need
+    a tool that can measure the sizes of pages, in bytes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This shouldn’t be too difficult, thanks to Go’s standard library. The program
+    below uses the `net/http` package to connect to a site and retrieve a web page
+    with just a few function calls.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We pass the URL of the site we want to the `http.Get` function. It will return
+    an `http.Response` object, plus any error it encountered.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `http.Response` object is a struct with a `Body` field that represents the
+    content of the page. `Body` satisfies the `io` package’s `ReadCloser` interface,
+    meaning it has a `Read` method (which lets us read the page data), and a `Close`
+    method that releases the network connection when we’re done.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We `defer` a call to `Close`, so the connection gets released after we’re done
+    reading from it. Then we pass the response body to the `ioutil` package’s `ReadAll`
+    function, which will read its entire contents and return it as a slice of `byte`
+    values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0380-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We haven’t covered the `byte` type yet; it’s one of Go’s basic types (like `float64`
+    or `bool`), and it’s used for holding raw data, such as you might read from a
+    file or network connection. A slice of `byte` values won’t show us anything meaningful
+    if we print it directly, but if you do a type conversion from a slice of `byte`
+    values to a `string`, you’ll get readable text back. (That is, assuming the data
+    represents readable text.) So we end by converting the response body to a `string`,
+    and printing it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0380-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: If we save this code to a file and run it with `go run`, it will retrieve the
+    HTML content of the *[https://example.com](https://example.com)* page, and display
+    it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0163-01a.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: If you want more info on the functions and types used in this program, you can
+    get it via the `go doc` command (which we learned about back in [Chapter 4](ch04.html#bundles_of_codecolon_packages))
+    in your terminal. Try the commands at the right to bring up the documentation.
+    (Or if you prefer, you can look them up in your browser using your favorite search
+    engine.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0381-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: From there, it’s not too difficult to convert the program to print the size
+    of multiple pages.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can move the code that retrieves the page to a separate `responseSize` function,
+    which takes the URL to retrieve as a parameter. We’ll print the URL we’re retrieving
+    just for debugging purposes. The code to call `http.Get`, read the response, and
+    release the connection will be mostly unchanged. Finally, instead of converting
+    the slice of bytes from the response to a `string`, we simply call `len` to get
+    the slice’s length. This gives us the length of the response in bytes, which we
+    print.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We update our `main` function to call `responseSize` with several different
+    URLs. When we run the program, it will print the URLs and page sizes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0381-02.png)![image](assets/f0165-06.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Multitasking
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'And now we get to the point of this chapter: finding a way to speed programs
+    up by performing multiple tasks at the same time.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Our program makes several calls to `responseSize`, one at a time. Each call
+    to `responseSize` establishes a network connection to the website, waits for the
+    site to respond, prints the response size, and returns. Only when one call to
+    `responseSize` returns can the next begin. If we had one big long function where
+    the all code was repeated three times, it would take the same amount of time to
+    run as our three calls to `responseSize`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0382-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: But what if there were a way to run all three calls to `responseSize` at once?
+    The program could complete in as little as a third of the time!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0382-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Concurrency using goroutines
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: When `responseSize` makes the call to `http.Get`, your program has to sit there
+    and wait for the remote website to respond. It’s not doing anything useful while
+    it waits.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A different program might have to wait for user input. And another might have
+    to wait while data is read in from a file. There are lots of situations where
+    programs are just sitting around waiting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Concurrency** allows a program to pause one task and work on other tasks.
+    A program waiting for user input might do other processing in the background.
+    A program might update a progress bar while reading from a file. Our `responseSize`
+    program might make other network requests while it waits for the first request
+    to complete.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If a program is written to support concurrency, then it may also support **parallelism**:
+    running tasks *simultaneously*. A computer with only one processor can only run
+    one task at a time. But most computers these days have multiple processors (or
+    one processor with multiple cores). Your computer may divide concurrent tasks
+    among different processors to run them at the same time. (It’s rare to manage
+    this directly; the operating system usually handles it for you.)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Breaking large tasks into smaller subtasks that can be run concurrently can
+    sometimes mean big speed increases for your programs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In Go, concurrent tasks are called **goroutines**. Other programming languages
+    have a similar concept called *threads*, but goroutines require less computer
+    memory than threads, and less time to start up and stop, meaning you can run more
+    goroutines at once.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'They’re also easier to use. To start another goroutine, you use a `go` statement,
+    which is just an ordinary function or method call with the `go` keyword in front
+    of it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '**Goroutines allow for concurrency: pausing one task to work on others. And
+    in some situations they allow parallelism: working on multiple tasks simultaneously!**'
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: '![image](assets/f0383-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Notice that we say *another* goroutine. The `main` function of every Go program
+    is started using a goroutine, so every Go program runs at least one goroutine.
+    You’ve been using goroutines all along, without knowing it!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using goroutines
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Here’s a program that makes function calls one at a time. The `a` function uses
+    a loop to print the string `"a"` 50 times, and the `b` function prints the string
+    `"b"` 50 times. The `main` function calls `a`, then `b`, and finally prints a
+    message when it exits.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0384-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'It’s as if the `main` function contained all the code from the `a` function,
+    followed by all the code from the `b` function, followed by its own code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0384-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'To launch the `a` and `b` functions in new goroutines, all you have to do is
+    add the `go` keyword in front of the function calls:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This makes the new goroutines run concurrently with the `main` function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0384-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: But if we run the program now, the only output we’ll see is from the `Println`
+    call at the end of the `main` function—we won’t see anything from the `a` or `b`
+    functions!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0385-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Here’s the problem: Go programs stop running as soon as the `main` goroutine
+    (the goroutine that calls the `main` function) ends, even if other goroutines
+    are still running. Our `main` function completes before the code in the `a` and
+    `b` functions has a chance to run.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0385-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We need to keep the `main` goroutine running until the goroutines for the `a`
+    and `b` functions can finish. To do this properly, we’re going to need another
+    feature of Go called *channels*, but we won’t be covering those until later in
+    the chapter. So for now, we’ll just pause the `main` goroutine for a set amount
+    of time so the other goroutines can run.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We’ll use a function from the `time` package, called `Sleep`, which pauses the
+    current goroutine for a given amount of time. Calling `time.Sleep(time.Second)`
+    within the `main` function will cause the `main` goroutine to pause for 1 second.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0385-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: If we rerun the program, we’ll see the output from the `a` and `b` functions
+    again as their goroutines finally get a chance to run. The output of the two will
+    be mixed as the program switches between the two goroutines. (The pattern you
+    get may be different than what’s shown here.) When the `main` goroutine wakes
+    back up, it makes its call to `fmt.Println` and exits.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The call to `time.Sleep` in the `main` goroutine gives more than enough time
+    for both the `a` and `b` goroutines to finish running.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0386-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Using goroutines with our responseSize function
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: It’s pretty easy to adapt our program that prints web page sizes to use goroutines.
+    All we have to do is add the `go` keyword before each of the calls to `responseSize`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To prevent the `main` goroutine from exiting before the `responseSize` goroutines
+    can finish, we’ll also need to add a call to `time.Sleep` in the `main` function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0386-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Sleeping for just 1 second may not be enough time for the network requests to
+    complete, though. Calling `time.Sleep(5 * time.Second)` will make the goroutine
+    sleep for 5 seconds. (If you’re trying this on a slow or unresponsive network,
+    you may need to increase that time.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: If we run the updated program, we’ll see it print the URLs it’s retrieving all
+    at once, as the three `responseSize` goroutines start up concurrently.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The three calls to `http.Get` are made concurrently as well; the program doesn’t
+    wait until one response comes back before sending out the next request. As a result
+    the three response sizes are printed much sooner using goroutines than they were
+    with the earlier, sequential version of the program. The program still takes 5
+    seconds to finish, however, as we wait for the call to `time.Sleep` in `main`
+    to complete.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0387-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We’re not exerting any control over the order that calls to `responseSize` are
+    executed in, so if we run the program again, we may see the requests happen in
+    a different order.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0387-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: The program takes 5 seconds to complete even if all the sites respond faster
+    than that, so we’re still not getting that great a speed gain from the switch
+    to goroutines. Even worse, 5 seconds may not be *enough* time if the sites take
+    a long time to respond. Sometimes, you may see the program end before all the
+    responses have arrived.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0387-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: It’s becoming clear that `time.Sleep` is not the ideal way to wait for other
+    goroutines to complete. Once we look at channels in a few pages, we’ll have a
+    better alternative.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We don’t directly control when goroutines run
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We may see the `responseSize` goroutines run in a different order each time
+    the program is run:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0388-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'We also had no way of knowing when the previous program would switch between
+    the `a` and `b` goroutines:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0388-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Under normal circumstances, Go makes no guarantees about when it will switch
+    between goroutines, or for how long. This allows goroutines to run in whatever
+    way is most efficient. But if the order your goroutines run in is important to
+    you, you’ll need to synchronize them using channels (which we’ll look at shortly).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Code Magnets
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0388-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: A program that uses goroutines is scrambled up on the fridge. Can you reconstruct
+    the code snippets to make a working program that will produce output *similar*
+    to the given sample? (It’s not possible to predict the order of execution of goroutines,
+    so don’t worry, your program’s output doesn’t need to exactly match the output
+    shown.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0388-04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '![image](assets/arrow.png) Answers in [“Code Magnets Solution”](#code_magnets_solution_8).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Go statements can’t be used with return values
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Switching to goroutines brings up another problem we’ll need to solve: we can’t
+    use function return values in a `go` statement. Suppose we wanted to change the
+    `responseSize` function to return the page size instead of printing it directly:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0389-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We’ll get compile errors. The compiler stops you from attempting to get a return
+    value from a function called with a `go` statement.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is actually a good thing. When you call `responseSize` as part of a `go`
+    statement, you’re saying, “Go run `responseSize` in a separate goroutine. I’m
+    going to keep running the instructions in this function.” The `responseSize` function
+    isn’t going to return a value immediately; it has to wait for the website to respond.
+    But the code in your `main` goroutine would expect a return value immediately,
+    and there wouldn’t be one yet!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0389-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: This is true of any function called in a `go` statement, not just long-running
+    functions like `responseSize`. You can’t rely on the return values being ready
+    in time, and so the Go compiler blocks any attempt to use them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Go won’t let you use the return value from a function called with a `go` statement,
+    because there’s no guarantee the return value will be ready before we attempt
+    to use it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0390-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'But there *is* a way to communicate between goroutines: **channels**. Not only
+    do channels allow you to send values from one goroutine to another, they ensure
+    the sending goroutine has sent the value before the receiving goroutine attempts
+    to use it.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The only practical way to use a channel is to communicate from one goroutine
+    to another goroutine. So to demonstrate channels, we’ll need to be able to do
+    a few things:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Create a channel.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Write a function that receives a channel as a parameter. We’ll run this function
+    in a separate goroutine, and use it to send values over the channel.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Receive the sent values in our original goroutine.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Each channel only carries values of a particular type, so you might have one
+    channel for `int` values, and another channel for values with a struct type. To
+    declare a variable that holds a channel, you use the `chan` keyword, followed
+    by the type of values that channel will carry.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0390-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: To actually create a channel, you need to call the built-in `make` function
+    (the same one you can use to create maps and slices). You pass `make` the type
+    of the channel you want to create (which should be the same as the type of the
+    variable you want to assign it to).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0390-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Rather than declare the channel variable separately, in most cases it’s easier
+    to just use a short variable declaration:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0390-04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Sending and receiving values with channels
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: To send a value on a channel, you use the `<-` operator (that’s a less-than
+    symbol followed by a dash). It looks like an arrow pointing from the value you’re
+    sending to the channel you’re sending it on.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0391-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'You also use the `<-` operator to *receive* values from a channel, but the
+    positioning is different: you place the arrow to the *left* of the channel you’re
+    receiving from. (It kind of looks like you’re pulling a value out of the channel.)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0391-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Here’s the `greeting` function from the previous page, rewritten to use channels.
+    We’ve added a `myChannel` parameter to `greeting`, which takes a channel that
+    carries `string` values. Instead of returning a string value, `greeting` now sends
+    a string via `myChannel`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the `main` function, we create the channel that we’re going to pass to `greeting`
+    using the built-in `make` function. Then we call `greeting` as a new goroutine.
+    Using a separate goroutine is important, because channels should only be used
+    to communicate *between* goroutines. (We’ll talk about why in a little bit.) Finally,
+    we receive a value from the channel we passed to `greeting`, and print the string
+    it returns.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0391-03.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'We didn’t have to pass the value received from the channel straight to `Println`.
+    You can receive from a channel in any context where you need a value. (That is,
+    anywhere you might use a variable or the return value of a function.) So, for
+    example, we could have assigned the received value to a variable first instead:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0391-04.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Synchronizing goroutines with channels
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We mentioned that channels also ensure the sending goroutine has sent the value
+    before the receiving channel attempts to use it. Channels do this by **blocking**—by
+    pausing all further operations in the current goroutine. A send operation blocks
+    the sending goroutine until another goroutine executes a receive operation on
+    the same channel. And vice versa: a receive operation blocks the receiving goroutine
+    until another goroutine executes a send operation on the same channel. This behavior
+    allows goroutines to **synchronize** their actions—that is, to coordinate their
+    timing.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0392-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Here’s a program that creates two channels and passes them to functions in
+    two new goroutines. The `main` goroutine then receives values from those channels
+    and prints them. Unlike our program with the goroutines that printed `"a"` or
+    `"b"` repeatedly, we can predict the output for this program: it will always print
+    `"a"`, then `"d"`, `"b"`, `"e"`, `"c"`, and `"f"` in that order.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0392-01a.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We know what the order will be because the `abc` goroutine blocks each time
+    it sends a value to a channel until the `main` goroutine receives from it. The
+    `def` goroutine does the same. The `main` goroutine becomes the orchestrator of
+    the `abc` and `def` goroutines, allowing them to proceed only when it’s ready
+    to read the values they’re sending.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0392-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Observing goroutine synchronization
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The `abc` and `def` goroutines send their values over their channels so quickly
+    that it’s hard to see what’s going on. Here’s another program that slows things
+    down so you can see the blocking happen.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We start with a `reportNap` function that causes the current goroutine to sleep
+    for a specified number of seconds. Every second the goroutine is asleep, it will
+    print an announcement that it’s still sleeping.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We add a `send` function that will run in a goroutine and send two values to
+    a channel. Before it sends anything, though, it first calls `reportNap` so its
+    goroutine sleeps for 2 seconds.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0393-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: In the `main` goroutine, we create a channel and pass it to `send`. Then we
+    call `reportNap` again so that *this* goroutine sleeps for *5* seconds (3 seconds
+    longer than the `send` goroutine). Finally, we do two receive operations on the
+    channel.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When we run this, we’ll see both goroutines sleep for the first 2 seconds. Then
+    the `send` goroutine wakes up and sends its value. But it doesn’t do anything
+    further; the send operation blocks the `send` goroutine until the `main` goroutine
+    receives the value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: That doesn’t happen right away, because the `main` goroutine still needs to
+    sleep for 3 more seconds. When it wakes up, it receives the value from the channel.
+    Only then is the `send` goroutine unblocked so it can send its second value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0393-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Breaking Stuff is Educational!
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0394-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: 'Here’s the code again for our earliest, simplest demonstration of channels:
+    the `greeting` function, which runs in a goroutine and sends a string value to
+    the `main` goroutine.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Make one of the changes below and try to run the code. Then undo your change
+    and try the next one. See what happens!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: '| If you do this... | ...the code will break because... |'
+  prefs: []
+  type: TYPE_TB
+- en: '| --- | --- |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Send a value to the channel from within the `main` function: `myChannel <-
+    "hi from main"` | You’ll get an “`all goroutines are asleep - deadlock`!” error.
+    This happens because the `main` goroutine blocks, waiting for another goroutine
+    to receive from the channel. But the other goroutine doesn’t do any receive operations,
+    so the `main` goroutine stays blocked. |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Remove the `go` keyword from before the call to `greeting`: ``~~`go`~~ greeting(myChannel)``
+    | This will cause the `greeting` function to run within the `main` goroutine.
+    This also fails with a deadlock error, for the same reason as above: the send
+    operation in `greeting` causes the `main` goroutine to block, but there’s no other
+    goroutine to do a receive operation, so it stays blocked. |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Delete the line that sends a value to the channel: `~~myChannel <- "hi"~~`
+    | This also causes a deadlock, but for a different reason: the `main` goroutine
+    tries to *receive* a value, but now there’s nothing to *send* a value. |'
+  prefs: []
+  type: TYPE_TB
+- en: '| Delete the line that receives a value from the channel: `~~fmt.Println(<-myChannel)~~`
+    | The send operation in `greeting` causes that goroutine to block. But since there’s
+    no receive operation to make the `main` goroutine block as well, `main` completes
+    immediately, and the program ends without producing any output. |'
+  prefs: []
+  type: TYPE_TB
+- en: Fixing our web page size program with channels
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'We still have two problems with our program that reports the size of web pages:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can’t use a return value from the `responseSize` function in a `go` statement.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Our `main` goroutine was completing before the response sizes were received,
+    so we added a call to `time.Sleep` for 5 seconds. But 5 seconds is too long some
+    times, and too short other times.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '![image](assets/f0396-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: We can use channels to fix both problems at the same time!
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, we remove the `time` package from the `import` statement; we won’t be
+    needing `time.Sleep` anymore. Then we update `responseSize` to accept a channel
+    of `int` values. Instead of returning the page size, we’ll have `responseSize`
+    send the size via the channel.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0396-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: In the `main` function, we call `make` to create the channel of `int` values.
+    We update each of the calls to `responseSize` to add the channel as an argument.
+    And finally, we do three receive operations on the channel, one for each value
+    `responseSize` sends.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0397-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: If we run this, we’ll see that the program completes as rapidly as the websites
+    respond. That time can vary, but in our testing we saw completion times as short
+    as 1 second!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another improvement we can make is to store the list of URLs we want to retrieve
+    in a slice, and then use loops to call `responseSize`, and to receive values from
+    the channel. This will make our code less repetitive, and will be important if
+    we want to add more URLs later.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We don’t need to change `responseSize` at all, just the `main` function. We
+    create a slice of `string` values with the URLs we want. Then we loop over the
+    slice, and call `responseSize` with the current URL and the channel. Finally,
+    we do a second, separate loop that runs once for each URL in the slice, and receives
+    and prints a value from the channel. (It’s important to do this in a separate
+    loop. If we received values in the same loop that starts the `responseSize` goroutines,
+    the `main` goroutine would block until the receive completes, and we’d be back
+    to requesting pages one at a time.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0397-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Using loops is much cleaner, but still gets us the same result!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Updating our channel to carry a struct
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: There’s still one issue we need to fix with the `responseSize` function. We
+    have no idea which order the websites will respond in. And because we’re not keeping
+    the page URL together with the response size, we have no idea which size belongs
+    to which page!
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0398-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: This won’t be difficult to fix, though. Channels can carry composite types like
+    slices, maps, and structs just as easily as they can carry basic types. We can
+    just create a struct type that will store a page URL together with its size, so
+    we can send both over the channel together.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We’ll declare a new `Page` type with an underlying `struct` type. `Page` will
+    have a `URL` field that records the page’s URL, and a `Size` field for the page’s
+    size.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We’ll update the channel parameter on `responseSize` to hold the new `Page`
+    type rather than just the `int` page size. We’ll have `responseSize` create a
+    new `Page` value with the current URL and the page size, and send that to the
+    channel.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In `main`, we’ll update the type the channel holds in the call to `make` as
+    well. When we receive a value from the channel, it will be a `Page` value, so
+    we’ll print both its `URL` and `Size` fields.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0398-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Now the output will pair the page sizes with their URLs. It’ll finally be clear
+    again which size belongs to which page.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Before, our program had to request pages one at a time. Goroutines let us start
+    processing the next request while we’re waiting for a website to respond. The
+    program completes in as little as one-third of the time!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Your Go Toolbox
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0399-01.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '**That’s it for [Chapter 13](#sharing_workcolon_goroutines_and_channel)! You’ve
+    added goroutines and channels to your toolbox.**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![image](assets/f0399-02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Code Magnets Solution
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: '![image](assets/f0400-01.png)'
+  prefs: []
+  type: TYPE_IMG

@@ -1,0 +1,2797 @@
+- en: Chapter 11\. Observability
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Data is not information, information is not knowledge, knowledge is not understanding,
+    understanding is not wisdom.^([1](ch11.xhtml#idm45983615999816))
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: ''
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: 'Clifford Stoll, High-Tech Heretic: Reflections of a Computer Contrarian'
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: “Cloud native” is still a pretty new concept, even for computing. As far as
+    [I can tell](https://oreil.ly/sPxg7), the term “cloud native” only started entering
+    our vocabulary just after the founding of the Cloud Native Computing Foundation
+    in the middle of 2015.^([2](ch11.xhtml#idm45983615994840))
+  prefs: []
+  type: TYPE_NORMAL
+- en: As an industry, we’re largely still trying to figure out exactly what “cloud
+    native” means, and with each of the major public cloud providers regularly launching
+    new services—each seeming to offer more abstraction than the last—even what little
+    agreement we have is shifting over time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'One thing is clear, though: the functions (and failures) of the network and
+    hardware layers are being increasingly abstracted and replaced with API calls
+    and events. Every day we move closer to a world of software-defined *everything*.
+    All of our problems are becoming software problems.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: While we certainly sacrifice a fair share of control over the platforms our
+    software runs on, we win *big* in overall manageability and reliability,^([3](ch11.xhtml#idm45983615991304))
+    allowing us to focus our limited time and attention on our software. However,
+    this also means that most of our failures now originate from within our own services
+    and the interactions between them. No amount of fancy frameworks or protocols
+    can solve the problem of bad software. As I said way back in [Chapter 1](ch01.xhtml#chapter_1),
+    a kludgy application in Kubernetes is still kludgy.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Things are complicated in this brave new software-defined, highly distributed
+    world. The software is complicated, the platforms are complicated, together they’re
+    *really* complicated, and more often than not we have no idea what’s going on.
+    Gaining visibility into our services has become more important than ever, and
+    about the only thing that we *do* know is that the existing monitoring tools and
+    techniques simply aren’t up to the task. Clearly, we need something new. Not just
+    a new technology, or even a new set of techniques, but an entirely new way of
+    thinking about how we understand our systems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: What Is Observability?
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Observability is the subject of an awful lot of buzz right now. It’s kind of
+    a big deal. But what is observability, actually? How is it different from (and
+    how is it like) traditional monitoring and alerting with logs and metrics and
+    tracing? Most importantly, how do we “do observability”?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Observability isn’t just marketing hype, although it’s easy to think that based
+    on all the attention it’s getting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It’s actually pretty simple. Observability is a system property, no different
+    than resilience or manageability, that reflects how well a system’s internal states
+    can be inferred from knowledge of its external outputs. A system can be considered
+    *observable* when it’s possible to quickly and consistently ask novel questions
+    about it with minimal prior knowledge and without having to reinstrument or build
+    new code. An observable system lets you ask it questions that you haven’t thought
+    of yet.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Ultimately, observability is more than tooling, despite what some vendors may
+    try to tell you (and sell you). You can’t “buy observability” any more than you
+    can “buy reliability.” No tooling will make your system observable just because
+    you’re using it any more than a hammer will by itself make a bridge structurally
+    sound. The tools can get you partway there, but it’s up to you to apply them correctly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is much easier said than done, of course. Building observability into a
+    complex system demands moving past searching for “known unknowns,” and embracing
+    the fact that we often can’t even fully understand its state at a given snapshot
+    in time. Understanding *all possible* failure (or non-failure) states in a complex
+    system is pretty much impossible. The first step to achieving observability is
+    to stop looking for specific, expected failure modes—the “known unknowns”—as if
+    this isn’t the case.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Why Do We Need Observability?
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Observability is the natural evolution of traditional monitoring, driven by
+    the new challenges introduced by cloud native architectures.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The first of these is simply the pure scale of many modern cloud native systems,
+    which increasingly have too much *stuff* for our limited human brains with their
+    limited human attention spans to handle. All of the data generated by multiple
+    concurrently operating interconnected systems provides more things than we can
+    reasonably watch, more data than we can reasonably process, and more correlations
+    than we can reasonably make.
+  prefs: []
+  type: TYPE_NORMAL
+- en: More importantly, however, is that the nature of cloud native systems is fundamentally
+    different from the more traditional architectures of not-so-long-ago. Their environmental
+    and functional requirements are different, the way they function—and the way they
+    fail—is different, and the guarantees they need to provide are different.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How do you monitor distributed systems given the ephemerality of modern applications
+    and the environments in which they reside? How can you pinpoint a defect in a
+    single component within the complex web of a highly distributed system? These
+    are the problems that “observability” seeks to address.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How Is Observability Different from “Traditional” Monitoring?
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: On its face, the line between monitoring and observability seems fuzzy. After
+    all, both are about being able to ask questions of a system. The difference is
+    in the types of questions that are and can be asked.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Traditionally, monitoring focuses on asking questions in the hope of identifying
+    or predicting some expected or previously observed failure modes. In other words,
+    it centers on “known unknowns.” The assumption is that the system is expected
+    to behave—and therefore fail—in a specific, predictable way. When a new failure
+    mode is discovered—usually the hard way—its symptoms are added to the monitoring
+    suite, and the process begins again.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This approach works well enough when a system is fairly simple, but it has some
+    problems. First, asking a new question of a system often means writing and shipping
+    new code. This isn’t flexible, it definitely isn’t scalable, and it’s super annoying.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Second, at a certain level of complexity the number of “unknown unknowns” in
+    a system starts to overwhelm the number of “known unknowns.” Failures are more
+    often unpredicted, less often predictable, and are nearly always the outcome of
+    many things going wrong. Monitoring for every possible failure mode becomes effectively
+    impossible.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Monitoring is something you *do to a system* to find out it isn’t working. Observability
+    techniques, on the other hand, emphasize understanding a system by allowing you
+    to correlate events and behaviors. Observability is a *property a system has*
+    that lets you ask why it isn’t working.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The “Three Pillars of Observability”
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'The *Three Pillars of Observability* is the collective name by which the three
+    most common (and foundational) tools in the observability kit—logging, metrics,
+    and tracing—are sometimes referred. These three parts are, in the order that we’ll
+    be discussing them:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tracing
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tracing (or *distributed tracing*) follows a request as it propagates through
+    a (typically distributed) system, allowing the entire end-to-end request flow
+    to be reconstructed as a [directed acyclic graph](https://oreil.ly/exjvV) (DAG)
+    called a *trace*. Analysis of these traces can provide insight into how a system’s
+    components interact, making it possible to pinpoint failures and performance issues.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tracing will be discussed in more detail in [“Tracing”](#section_ch11_tracing).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Metrics
+  prefs: []
+  type: TYPE_NORMAL
+- en: Metrics involves the collection of numerical data points representing the state
+    of various aspects of a system at specific points in time. Collections of data
+    points, representing observations of the same subject at various times, are particularly
+    useful for visualization and mathematical analysis, and can be used to highlight
+    trends, identify anomalies, and predict future behavior.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We’ll discuss more about metrics in [“Metrics”](#section_ch11_metrics).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Logging
+  prefs: []
+  type: TYPE_NORMAL
+- en: Logging is the process of appending records of noteworthy events to an immutable
+    record—the log—for later review or analysis. A log can take a variety of forms,
+    from a continuously appended file on disk to a full-text search engine like [Elasticsearch](https://oreil.ly/Hf4Pn).
+    Logs provides valuable, context-rich insight into application-specific events
+    emitted by processes. However, it’s important that log entries are properly structured;
+    not doing so can sharply limit their utility.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We’ll dive into logging in more detail in [“Logging”](#section_ch11_logging).
+  prefs: []
+  type: TYPE_NORMAL
+- en: While each of these methods is useful on its own, a truly observable system
+    will interweave them so that each can reference the others. For example, metrics
+    might be used to track down a subset of misbehaving traces, and those traces might
+    highlight logs that could help to find the underlying cause of the behavior.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you take nothing else away from this chapter, remember that observability
+    is *just a system property*, like resilience or manageability, and that no tooling,
+    framework, or vendor can “give you” observability. The so-called “Three Pillars”
+    are just techniques that can be used to build in that property.
+  prefs: []
+  type: TYPE_NORMAL
+- en: OpenTelemetry
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As of the time of writing, OpenTelemetry (or “OTel,” as the cool kids are calling
+    it^([4](ch11.xhtml#idm45983615927544))) is one of about four dozen “Sandbox” member
+    projects of the Cloud Native Computing Foundation, and arguably one of the most
+    interesting projects in the entire CNCF project catalog.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unlike most CNCF projects, OpenTelemetry isn’t a service, *per se*. Rather,
+    it’s an effort to standardize how telemetry data—traces, metrics, and (eventually)
+    logs—are expressed, collected, and transferred. Its [multiple repositories](https://oreil.ly/GpGD5)
+    include a collection of specifications, along with APIs and reference implementations
+    in various languages, [including Go](https://oreil.ly/vSO7k).^([5](ch11.xhtml#idm45983615924216))
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The instrumentation space is a crowded one, with perhaps dozens of vendors
+    and tools that have come and gone over the years, each with their own unique implementations.
+    OpenTelemetry seeks to unify this space—and all of the vendors and tools within
+    it—around a single vendor-neutral specification that standardizes how telemetry
+    data is collected and sent to backend platforms. There have been other attempts
+    to standardize before. In fact, OpenTelemetry is the merger of two such earlier
+    projects: OpenTracing and OpenCensus, which it unifies and extends into a single
+    set of vendor-neutral standards.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, we’ll review each of the “three pillars,” their core concepts,
+    and how to use OpenTelemetry to instrument your code and forward the resulting
+    telemetry to a backend of your choice. However, it’s important to note that OpenTelemetry
+    is a *big* subject that deserves a book of its own to truly do it justice, but
+    I’ll do my best to provide sufficient coverage to at least make it a practical
+    introduction. At the time of this writing, there weren’t any comprehensive resources
+    available about OpenTelemetry, but I’ve gathered what I can from examples and
+    a handful of articles (and a fair amount of digging through the source code).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: As I was writing this chapter, I learned that Charity Majors^([6](ch11.xhtml#idm45983615919256))
+    and Liz Fong-Jones were hard at work on [*Observability Engineering*](https://oreil.ly/FZw86),
+    planned for release by O’Reilly Media in January 2022.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The OpenTelemetry Components
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: OpenTelemetry extends and unifies earlier attempts at creating telemetry standards,
+    in part by including abstractions and extension points in the SDK where you can
+    insert your own implementations. This makes it possible to, for example, implement
+    custom exporters that can interface with a vendor of your choice.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To accomplish this level of modularity, OpenTelemetry was designed with the
+    following core components:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Specifications
+  prefs: []
+  type: TYPE_NORMAL
+- en: The OpenTelemetry specifications describe the requirements and expectations
+    for all OpenTelemetry APIs, SDKs, and data protocols.
+  prefs: []
+  type: TYPE_NORMAL
+- en: API
+  prefs: []
+  type: TYPE_NORMAL
+- en: Language-specific interfaces and implementations based on the specifications
+    that can be used to add OpenTelemetry to an application.
+  prefs: []
+  type: TYPE_NORMAL
+- en: SDK
+  prefs: []
+  type: TYPE_NORMAL
+- en: The concrete OpenTelemetry implementations that sit between the APIs and the
+    Exporters, providing functionality like (for example) state tracking and batching
+    data for transmission. An SDK also offers a number of configuration options for
+    behaviors like request filtering and transaction sampling.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Exporters
+  prefs: []
+  type: TYPE_NORMAL
+- en: In-process SDK plug-ins that are capable of sending data to a specific destination,
+    which may be local (such as a log file or `stdout`), or remote (such as [Jaeger](https://oreil.ly/uMAfg),
+    or a commercial solution like [Honeycomb](https://oreil.ly/cBlnX) or [Lightstep](https://oreil.ly/KScdI)).
+    Exporters decouple the instrumentation from the backend, making it possible to
+    change destinations without having to reinstrument your code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Collector
+  prefs: []
+  type: TYPE_NORMAL
+- en: An optional, but very useful, vendor-agnostic service that can receive and process
+    telemetry data before forwarding it to one or more destinations. It can be run
+    either as a sidecar process alongside your application or as a standalone proxy
+    elsewhere, providing greater flexibility for sending the application telemetry.
+    This can be particularly useful in the kind of tightly controlled environments
+    that are common in the enterprise.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You may have noticed the absence of an OpenTelemetry backend. Well, there isn’t
+    one. OpenTelemetry is only concerned with the collection, processing, and sending
+    of telemetry data, and relies on you to provide a telemetry backend to receive
+    and store the data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are other components as well, but the above can be considered to be OpenTelemetry’s
+    core components. The relationships between them are illustrated in [Figure 11-1](#img_ch11_otel_components).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![cngo 1101](Images/cngo_1101.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 11-1\. A high-level view of OpenTelemetry’s core components for data
+    instrumentation (API), processing (SDK), and exporting (exporter and collectors);
+    you have to bring your own backend
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Finally, broad language support is a central aim of the project. As of the time
+    of this writing, OpenTelemetry provides APIs and SDKs for Go, Python, Java, Ruby,
+    Erlang, PHP, JavaScript, .NET, Rust, C++, and Swift.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tracing
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Throughout this book, we’ve spent a lot of time talking about the benefits of
+    microservices architectures and distributed systems. But the unfortunate reality—as
+    I’m sure has already become clear—is that such architectures also introduce a
+    variety of new and “interesting” problems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It’s been said that fixing an outage in a distributed system can feel like solving
+    a murder mystery, which is a glib way of saying that when *something* isn’t working,
+    *somewhere* in the system, it’s often a challenge just knowing where to start
+    looking for the source of the problem before you can find and fix it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is exactly the kind of problem that *tracing* was invented to solve. By
+    tracking requests as they propagate through the system—even across process, network,
+    and security boundaries—tracing can help you to (for example) pinpoint component
+    failures, identify performance bottlenecks, and analyze service dependencies.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Tracing is usually discussed in the context of distributed systems, but a complex
+    monolithic application can also benefit from tracing, especially if it contends
+    for resources like network, disk, or mutexes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this section, we’ll go into more depth on tracing, its core concepts, and
+    how to use OpenTelemetry to instrument your code and forward the resulting telemetry
+    to a backend of your choice.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unfortunately, the constraints of time and space permit us to only dig so far
+    into this topic. But if you’d like to learn more about tracing, you might be interested
+    in [*Distributed Tracing in Practice*](https://oreil.ly/vzJMP) by Austin Parker,
+    Daniel Spoonhower, Jonathan Mace, Ben Sigelman, and Rebecca Isaacs (O’Reilly).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tracing Concepts
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'When discussing tracing, there are two fundamental concepts you need to know
+    about, *spans* and *traces*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Spans
+  prefs: []
+  type: TYPE_NORMAL
+- en: A span describes a unit of work performed by a request, such as a fork in the
+    execution flow or hop across the network, as it propagates through a system. Each
+    span has an associated name, a start time, and a duration. They can be (and typically
+    are) nested and ordered to model causal relationships.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Traces
+  prefs: []
+  type: TYPE_NORMAL
+- en: A trace represents all of the events—individually represented as spans—that
+    make up a request as it flows through a system. A trace may be thought of as a
+    directed acyclic graph (DAG) of spans, or more concretely as a “stack trace” in
+    which each span represents the work done by one component.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This relationship between a request trace and spans is illustrated in [Figure 11-2](#img_ch11_spans_traces),
+    in which we see two different representations of the same request as it flows
+    through five different services to generate five spans.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![cngo 1102](Images/cngo_1102.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 11-2\. Two representations of a trace of a request as it traverses five
+    services, resulting in five spans; the full traces are visualized as a DAG (left),
+    and as a bar diagram (right) with a time axis illustrating start times and durations
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: When a request begins in the first (edge) service, it creates the first span—the
+    *root span*—which will form the first node in the span trace. The root span is
+    automatically assigned a globally unique trace ID, which is passed along with
+    each subsequent hop in the request lifecycle. The next point of instrumentation
+    creates a new span with the provided trace ID, perhaps choosing to insert or otherwise
+    enrich the metadata associated with the request, before sending the trace ID along
+    again with the next request.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Each hop along the flow is represented as one span. When the execution flow
+    reaches the instrumented point at one of these services, a record is emitted with
+    any metadata. These records are usually asynchronously logged to disk before being
+    submitted out of band to a collector, which can then reconstruct the flow of execution
+    based on different records emitted by different parts of the system.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[Figure 11-2](#img_ch11_spans_traces) demonstrates the two most common ways
+    of illustrating a trace containing five spans, lettered A through E in the order
+    that they were created. On the left side, the trace is represented in DAG form;
+    the root span A starts at time 0 and lasts for 350ms, until the response is returned
+    for the last service E. On the right, the same data is illustrated as a bar diagram
+    with a time axis, in which the position and length of the bars reflect the start
+    times and durations, respectively.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tracing with OpenTelemetry
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Using OpenTelemetry to instrument your code includes two phases: configuration
+    and instrumentation. This is true whether you’re instrumenting for tracing or
+    metrics (or both), although the specifics change slightly between the two. For
+    both tracing and metric instrumentation, the configuration phase is executed exactly
+    once in a program, usually in the `main` function, and includes the following
+    steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The first step is to retrieve and configure the appropriate exporters for your
+    target backends. Tracing exporters implement the `SpanExporter` interface (which
+    in OpenTelemetry v0.17.0 is located in the `go.opentelemetry.io/otel/sdk/export/trace`
+    package, often aliased to `export`). As we’ll discuss in [“Creating the tracing
+    exporters”](#section_ch11_tracing_creating_the_exporters), several stock exporters
+    are included with OpenTelemetry, but custom implementations exist for many telemetry
+    backends.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Before instrumenting your code for tracing, the exporters—and any other appropriate
+    configuration options—are passed to the SDK to create the “tracer provider,” which,
+    as we’ll show in [“Creating a tracer provider”](#section_ch11_tracing_create_provider),
+    will serve as the main entry point for the OpenTelemetry tracing API for the lifetime
+    of your program.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Once you’ve created your tracer provider, it’s a good practice to set it as
+    your “global” tracer provider. As we’ll see in [“Setting the global tracer provider”](#section_ch11_tracing_set_global_tracerprovider),
+    this makes it discoverable via the `otel.GetTracerProvider` function, which allows
+    libraries and other dependencies that also use the OpenTelemetry API to more easily
+    discover the SDK and emit telemetry data.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Once the configuration is complete, instrumenting your code requires only a
+    few small steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Before you can instrument an operation, you first have to obtain a `Tracer`,
+    which has the central role of keeping track of trace and span information, from
+    the (usually global) tracer provider. We’ll discuss this in more detail in [“Obtaining
+    a tracer”](#section_ch11_tracing_obtain_tracer).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Once you have a handle to your `Tracer` you can use it to create and start the
+    `Span` value that is the actual value that you’ll use to instrument your code.
+    We’ll cover this in some detail in [“Starting and ending spans”](#section_ch11_tracing_starting_and_ending_spans).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, you can also choose to add metadata to your spans, including human-readable,
+    timestamped messages called *events*, and key/value pairs called *attributes*.
+    We’ll cover span metadata in [“Setting span metadata”](#section_ch11_tracing_span_metadata).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Creating the tracing exporters
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The first thing you have to do when using OpenTelemetry is create and configure
+    your exporters. Tracing exporters implement the `SpanExporter` interface, which
+    in OpenTelemetry v0.17.0 lives in the `go.opentelemetry.io/otel/sdk/export/trace`
+    package, which is often aliased to `export` to reduce package naming collisions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You may recall from [“The OpenTelemetry Components”](#section_ch11_otel_components)
+    that OpenTelemetry exporters are in-process plug-ins that know how to convert
+    metric or trace data and send it to a particular destination. This destination
+    may be local (`stdout` or a log file) or remote (such as Jaeger, or a commercial
+    solution like Honeycomb or Lightstep).
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you want to do anything worthwhile with the instrumentation data you collect,
+    you’ll need at least one exporter. One is usually enough, but you can define as
+    many as you like, should you have the need. Exporters are instantiated and configured
+    once at program startup, before being passed to the OpenTelemetry SDK. This will
+    be covered in more detail in [“Creating a tracer provider”](#section_ch11_tracing_create_provider).
+  prefs: []
+  type: TYPE_NORMAL
+- en: OpenTelemetry comes with a number of included exporters for both tracing and
+    metrics. Two of these are demonstrated in the following.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Console Exporter
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: OpenTelemetry’s Console Exporter allows you to write telemetry data as JSON
+    to standard output. This is very handy for debugging or writing to log files.
+    The Console Exporter is noteworthy in that it can also be used to export metric
+    telemetry, as we’ll see in [“Metrics”](#section_ch11_metrics).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating an instance of the Console Exporter is just a matter of calling `stdout.NewExporter`,
+    which in OpenTelemetry v0.17.0 lives in the `go.opentelemetry.io/otel/exporters/stdout`
+    package.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Like most exporters’ creation functions, `stdout.NewExporter`, is a variadic
+    function that can accept zero or more configuration options. We demonstrate with
+    one of these—the option to “pretty-print” its JSON output—here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the preceding snippet, we use the `stdout.NewExporter` function, which returns
+    both our exporter and an `error` value. We’ll see what its output looks like when
+    we run our example in [“Putting It All Together: Tracing”](#section_ch11_tracing_all_together).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: For more information about the Console Exporter, please refer to its page in
+    the [relevant OpenTelemetry documentation](https://oreil.ly/PEfAI).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Jaeger Exporter
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: The Console Exporter may be useful for logging and debugging, but OpenTelemetry
+    also includes a number of exporters designed to forward data to specialized backends,
+    such as the Jaeger Exporter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The Jaeger Exporter (as its name suggests) knows how to encode tracing telemetry
+    data to the [Jaeger](https://oreil.ly/uMAfg) distributed tracing system. You can
+    retrieve an exporter value using the `jaeger.NewRawExporter` function, as shown
+    here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: In OpenTelemetry v0.17.0, the Jaeger Exporter can be found in the `go.opentelemetry.io/otel/exporter/trace/jaeger`
+    package.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You may have noticed that `jaeger.NewRawExporter` works a lot like `stdout.NewExporter`
+    in that it’s a variadic function that accepts zero or more configuration options,
+    returning an `export.SpanExporter` (the Jaeger Exporter) and an `error` value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The options passed to `jaeger.NewRawExporter` are:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`jaeger.WithCollectorEndpoint`, which is used to define the URL that points
+    to the target Jaeger process’s HTTP collector endpoint'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`jaeger.WithProcess`, which allows you to set information about the exporting
+    process, in this case the service’s name'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: There are quite a few other configuration options available, but only two are
+    used for the sake of brevity. If you’re interested in more detail, please refer
+    to its page in the [relevant OpenTelemetry documentation](https://oreil.ly/dOpd5).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating a tracer provider
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: In order to generate traces, you first have to create and initialize a *tracer
+    provider*, represented in OpenTelemetry by the `TracerProvider` type. In OpenTelemetry
+    v0.17.0, it lives in the `go.opentelemetry.io/otel/sdk/trace` package, which is
+    usually aliased to `sdktrace` to avoid naming collisions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A `TracerProvider` is a stateful value that serves as the main entry point for
+    the OpenTelemetry tracing API, including, as we’ll see in the next section, providing
+    access to the `Tracer` that in turn serves as the provider for new `Span` values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To create a tracer provider, we use the `sdktrace.NewTracerProvider` function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: In this example, the two exporters that we created in [“Creating the tracing
+    exporters”](#section_ch11_tracing_creating_the_exporters)—`stdExporter` and `jaegerExporter`—are
+    provided to `sdktrace.NewTracerProvider`, instructing the SDK to use them for
+    exporting telemetry data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are several other options that can be provided to `sdktrace.NewTracerProvider`,
+    including defining a `Batcher` or a `SpanProcessor`. These are (reluctantly) beyond
+    the scope of this book, but more information on these can be found in the [OpenTelemetry
+    SDK Specification](https://oreil.ly/BaL9M).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Setting the global tracer provider
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Once you’ve created your tracer provider, it’s generally a good practice to
+    set it as your global tracer provider via the `SetTracerProvider` function. In
+    OpenTelemetry v0.17.0, this and all of OpenTelemetry’s global options live in
+    the `go.opentelemetry.io/otel` package.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here we set the global tracer provider to be the value of `tp`, which we created
+    in the previous section:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Setting the global tracer provider makes it discoverable via the `otel.GetTracerProvider`
+    function. This allows libraries and other dependencies that use the OpenTelemetry
+    API to more easily discover the SDK and emit telemetry data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: Warning
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: If you don’t explicitly set a global tracer provider, `otel.GetTracerProvider`
+    will return a no-op `TracerProvider` implementation that returns a no-op `Tracer`
+    that provides no-op `Span` values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Obtaining a tracer
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'In OpenTelemetry, a `Tracer` is a specialized type that keeps track of trace
+    and span information, including what span is currently active. Before you can
+    instrument an operation you first have to use a (usually global) tracer provider’s
+    `Tracer` method to obtain a `trace.Tracer` value:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: TracerProvider’s `Tracer` method accepts a string parameter to set its name.
+    By convention, Tracers are named after the component they are instrumenting, usually
+    a library or a package.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now that you have your tracer, your next step will be to use it to create and
+    start a new `Span` instance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Starting and ending spans
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Once you have a handle to a `Tracer`, you can use it to create and start new
+    `Span` values representing named and timed operations within a traced workflow.
+    In other words, a `Span` value represents the equivalent of one step in a stack
+    trace.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In OpenTelemetry v0.17.0, both the `Span` and `Tracer` interfaces can be found
+    in the `go.opentelemetry.io/otel/trace`. Their relationship can be deduced by
+    a quick review of Tracer’s definition code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Yes, that’s really all there is. Tracer’s only method, `Start`, accepts three
+    parameters: a `context.Context` value, which is the mechanism that `Tracer` uses
+    to keep track of spans; the name of the new span, which by convention is usually
+    the name of the function or component being evaluated; and zero or more span configuration
+    options.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Unfortunately, a discussion of the available span configurations is beyond the
+    scope of this book, but if you’re interested, more detail is available in the
+    [relevant Go Documentation](https://oreil.ly/ksmfV).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Importantly, `Start` returns not just the new `Span`, but also a `context.Context`.
+    This is a new `Context` instance derived from the one that was passed in. As we’ll
+    see shortly, this is important when we want to create child `Span` values.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now that you have all of the pieces in place, you can begin instrumenting our
+    code. To do this, you request a `Span` value from your `Tracer` via its `Start`
+    method, as shown in the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: In this snippet we use Tracer’s `Start` method to create and start a new `Span`,
+    which returns a derived context and our `Span` value. It’s important to note that
+    we ensure that the `Span` is ended by calling it in a `defer`, so that `SomeFunction`
+    is entirely captured in the root `Span`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Of course, we’ll also want to instrument `SomeFunction`. Since it receives
+    the derived context we got from the original `Start`, it can now use that `Context`
+    to create its own subspan:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: The only differences between `main` and `SomeFunction` are the names of the
+    spans and the `Context` values. It’s significant that `SomeFunction` uses the
+    `Context` value derived from the original `Start` call in `main`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Setting span metadata
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Now that you have a `Span`, what do you do with it?
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you do nothing at all, that’s okay. As long as you’ve remembered to `End`
+    your `Span` (preferably in a `defer` statement) a minimal timeline for your function
+    will be collected.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'However, the value of your span can be enhanced with the addition of two types
+    of metadata: *attributes* and *events*.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Attributes
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: Attributes are key/value pairs that are associated with spans. They can be used
+    later for aggregating, filtering, and grouping traces.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If known ahead of time, attributes can be added when a span is created by passing
+    them as option parameters to the `tr.Start` method using the `WithAttributes`
+    function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Here we call `tr.Start` to start a new span, passing it our active `context.Context`
+    value and a name. But `Start` is also a variadic function that can accept zero
+    or more options, so we opt to use the `WithAttributes` function to pass two string
+    attributes: `hello=world` and `foo=far`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `WithAttributes` function accepts a `label.KeyValue` type, from OpenTelemetry’s
+    `go.opentelemetry.io/otel/label` package. Values of this type can be created using
+    the various type methods, such as `label.String` as above. Methods exist for all
+    Go types (and more). See [the label package’s documentation](https://oreil.ly/AVkTG)
+    for more information.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Attributes don’t have to be added at span creation time. They can be added
+    later in a span’s lifecycle as well, as long as the span hasn’t yet been completed:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: Events
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: An *event* is a timestamped, human-readable message on a span that represents
+    *something* happening during the span’s lifetime.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For example, if your function requires exclusive access to a resource that’s
+    under a mutex, you might find it useful to add events when you acquire and release
+    the lock:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If you like, you can even add attributes to your events:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: Autoinstrumentation
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Autoinstrumentation, broadly, refers to instrumentation code that you didn’t
+    write. This is a useful feature that can spare you from a fair amount of unnecessary
+    bookkeeping.
+  prefs: []
+  type: TYPE_NORMAL
+- en: OpenTelemetry supports autoinstrumentation through various wrappers and helper
+    functions around many popular frameworks and libraries, including ones that we
+    cover in this book, like `net/http`, `gorilla/mux`, and `grpc`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: While using these functionalities doesn’t free you from having to configure
+    OpenTelemetry at startup, they do remove some of the effort associated with having
+    to manage your traces.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Autoinstrumenting net/http and gorilla/mux
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: In OpenTelemetry 0.17.0, autoinstrumentation support for both the standard `net/http`
+    library and `gorilla/mux`, both of which we first covered in [Chapter 5](ch05.xhtml#chapter_5)
+    in the context of building a RESTful web service, is provided by the `go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp`
+    package.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Its use is refreshingly minimalist. Take, for example, this standard idiom
+    in `net/http` for registering a handler function to the default mux^([8](ch11.xhtml#idm45983615038696))
+    and starting the HTTP server:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In OpenTelemetry, a handler function can be autoinstrumented by passing it
+    to the `otelhttp.NewHandler` function, the signature for which is shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `otelhttp.NewHandler` function accepts and returns a handler function. It
+    works by wrapping the passed handler function in a second handler function that
+    creates a span with the provided name and options, so that the original handler
+    acts like middleware within the returned span-handling function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'A typical application of the `otelhttp.NewHandler` function is shown in the
+    following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: You’ll notice that we have to cast the handler function to a `http.HandlerFunc`
+    before passing it to `otelhttp.NewHandler`. This wasn’t necessary before because
+    `http.HandleFunc` performs this operation automatically before itself calling
+    `http.Handle`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If you’re using `gorilla/mux`, the change is almost the same, except that you’re
+    using the `gorilla` mux instead of the default mux:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: You’ll need to repeat this for each handler function you want to instrument,
+    but either way the total amount of code necessary to instrument your entire service
+    is pretty minimal.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Autoinstrumenting gRPC
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: In OpenTelemetry 0.17.0, autoinstrumentation support for gRPC, which we introduced
+    in [Chapter 8](ch08.xhtml#chapter_8) in the context of loosely coupled data interchange,
+    is provided by the `go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc`
+    package.^([9](ch11.xhtml#idm45983614810104))
+  prefs: []
+  type: TYPE_NORMAL
+- en: Just like autoinstrumentation for `net/http`, autoinstrumentation for gRPC is
+    very minimalist, leveraging *gRPC interceptors*. We haven’t talked about gRPC
+    interceptors at all yet, and unfortunately a full treatment of gRPC interceptors
+    is beyond the scope of this book. They can be described as the gRPC equivalent
+    to middleware in `gorilla/mux`, which we leveraged in [“Load shedding”](ch09.xhtml#section_ch09_load_shedding)
+    to implement automatic load shedding.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As their name implies, gRPC interceptors can intercept gRPC requests and responses
+    to, for example, inject information into the request, update the response before
+    it’s returned to the client, or to implement a cross-cutting functionality like
+    authorization, logging, or caching.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'If you’d like to learn a little more about gRPC interceptors, the article [“Interceptors
+    in gRPC-Web” on the gRPC blog](https://oreil.ly/R0MGm) offers a good introduction
+    to the subject. For a more in-depth coverage, you might want to invest in a copy
+    of [*gRPC: Up and Running*](https://oreil.ly/N50q7) by Kasun Indrasiri and Danesh
+    Kuruppu (O’Reilly).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Taking a look at a slice of the original service code from [“Implementing the
+    gRPC service”](ch08.xhtml#section_ch08_implementing_grpc_service), you can see
+    two of the operative functions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the above snippet, we create a new gRPC server, and pass that along to our
+    autogenerated code package to register it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Interceptors can be added to a gRPC server using the `grpc.UnaryInterceptor`
+    and/or `grpc.StreamInterceptor`, the former of which is used to intercept unary
+    (standard request–response) service methods, and the latter of which is used for
+    intercepting streaming methods.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To autoinstrument your gRPC server, you use one or both of these functions
+    to add one or more off-the-shelf OpenTelemetry interceptors, depending on the
+    types of requests your service handles:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: While the service we built in [Chapter 8](ch08.xhtml#chapter_8) uses exclusively
+    unary methods, the preceding snippet adds interceptors for both unary and stream
+    methods for the sake of demonstration.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Getting the current span from context
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: If you’re taking advantage of autoinstrumentation, a trace will automatically
+    be created for each request. While convenient, this also means that you don’t
+    have your current `Span` immediately on hand for you to enhance with application-specific
+    attribute and event metadata. So, what do you do?
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Fear not! Since your application framework has conveniently placed the span
+    data inside the current context, the data is easily retrievable:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Putting It All Together: Tracing'
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Using all the parts that we’ve discussed in this section, let’s now build a
+    small web service. Because we’re going to instrument this service with tracing,
+    the ideal service would make a whole lot of function calls, but would still be
+    pretty small.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We’re going to build a Fibonacci service. Its requirements are very minimal:
+    it will be able to accept an HTTP GET request, in which the *n*th Fibonacci number
+    can be requested using parameter `n` on the GET query string. For example, to
+    request the sixth Fibonacci number, you should be able to `curl` the service as:
+    `http://localhost:3000?n=6`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To do this, we’ll use a total of three functions. Starting from the inside
+    and working our way out, these are:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The service API
+  prefs: []
+  type: TYPE_NORMAL
+- en: This will do the Fibonacci computation proper—at the request of the service
+    handler—by recursively calling itself, with each call generating its own span.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The service handler
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is an HTTP handler function as defined by the `net/http` package, which
+    will be used just like in [“Building an HTTP Server with net/http”](ch05.xhtml#section_ch05_server_with_nethttp)
+    to receive the client request, call the service API, and return the result in
+    the response.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The main function
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the `main` function, the OpenTelemetry exporters are created and registered,
+    the service handler function is provided to the HTTP framework, and the HTTP server
+    is started.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Fibonacci service API
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The service API at the very core of the service is where the actual computation
+    is performed. In this case, it’s a concurrent implementation of the Fibonacci
+    method to calculate the *n*th Fibonacci number.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Just like any good service API, this function doesn’t know (or care) how it’s
+    being used, so it has no knowledge of HTTP requests or responses:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: In this example, the `Fibonacci` function doesn’t know how it’s being used,
+    but it *does* know about the OpenTelemetry package. Autoinstrumentation can only
+    trace what it wraps. Anything within the API will need to instrument itself.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This function’s use of `otel.GetTracerProvider` ensures that it’ll get the global
+    `TracerProvider`, assuming that it was configured by the consumer. If no global
+    tracer provider has been set, these calls will be no-ops.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: For extra credit, take a minute to add support for `Context` cancellation to
+    the `Fibonacci` function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Fibonacci service handler
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: This is an HTTP handler function as defined by the `net/http` package.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'It’ll be used in our service just like in [“Building an HTTP Server with net/http”](ch05.xhtml#section_ch05_server_with_nethttp):
+    to receive the client request, call the service API, and return the result in
+    the response:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note that it doesn’t have to create or end a `Span`; autoinstrumentation will
+    do that for us.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It *does*, however, set some attributes on the current span. To do this, it
+    uses `trace.SpanFromContext` to retrieve the current span from the request context.
+    Once it has the span, it’s free to add whatever metadata it likes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Warning
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The `trace.SpanFromContext` function will return `nil` if it can’t find a `Span`
+    associated with the `Context` passed to it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The service Main function
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'At this point, all of the hard work has been done. All we have left to do is
+    configure OpenTelemetry, register the handler function with the default HTTP mux,
+    and start the service:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: As you can see, the majority of the main method is dedicated to creating our
+    (console and Jaeger) exporters and configuring the tracer provider as we did in
+    [“Creating the tracing exporters”](#section_ch11_tracing_creating_the_exporters).
+    Note the value of `jaegerEndpoint`, which assumes that you’ll have a local Jaeger
+    service running. We’ll do that in the next step.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The last two lines are spent autoinstrumenting and registering the handler function
+    and starting the HTTP service, just as we did in [“Autoinstrumentation”](#section_ch11_tracing_autoinstrumentation).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Starting your services
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Before we continue, we’ll want to start a Jaeger service to receive the telemetry
+    data provided by the Jaeger exporter that we included. For a little more background
+    on Jaeger, see [“What Is Jaeger?”](#sidebar_ch11_what_is_jaeger).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If you have Docker installed, you can start a Jaeger service with the following
+    command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: Once the service is up and running, you’ll be able to access its web interface
+    by browsing to `http://localhost:16686`. Obviously, there won’t be any data there
+    yet, though.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now for the fun part: start your service by running its main function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: Your terminal should pause. As usual, you can stop the service with a Ctrl-C.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Finally, in another terminal, you can now send a request to the service:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: After a short pause, you should be rewarded with a result. In this case, 13.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Be careful with the value of `n`. If you make it `n` too large, it might take
+    the service a long time to respond, or even crash.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Console exporter output
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Now that you’ve issued a request to your service, take a look at the terminal
+    you used to start your service. You should see several JSON blocks that resemble
+    the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: These JSON objects are the output of the Console Exporter (which, remember,
+    we’ve configured to pretty-print). There should be one per span, which is quite
+    a few.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The preceding example (which has been pruned slightly) is from the root span.
+    As you can see, it includes quite a few interesting bits of data, including its
+    start and end times, and its trace and span IDs. It even includes the two attributes
+    that we explicitly set: the input value `n`, and the result of our query.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Viewing your results in Jaeger
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Now that you’ve generated your trace and sent it to Jaeger, it’s time to visualize
+    it. Jaeger just happens to provide a slick web UI for exactly that purpose!
+  prefs: []
+  type: TYPE_NORMAL
+- en: To check it out, browse to `http://localhost:16686` with your favorite web browser.
+    Select Fibonacci in the Service dropdown, and click the Find traces button. You
+    should be presented with output similar to that shown in [Figure 11-3](#img_ch11_jaeger_screenshot1).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Each bar in the visualization represents a single span. You can even view a
+    specific span’s data by clicking on it, which reveals the same data that was contained
+    in the (quite verbose) console output that you saw in [“Console exporter output”](#section_ch11_tracing_console_exporter_output).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![cngo 1103](Images/cngo_1103.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 11-3\. Screenshot of the Jaeger interface, displaying the results of
+    a concurrent Fibonacci call
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Metrics
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Metrics is the collection of numerical data about a component, process, or activity
+    over time. The number of potential metric sources is vast, and includes (but isn’t
+    limited to) things like computing resources (CPU, memory used, disk and network
+    I/O), infrastructure (instance replica count, autoscaling events), applications
+    (request count, error count), and business metrics (revenue, customer sign-ups,
+    bounce rate, cart abandonment). Of course, these are just a handful of trivial
+    examples. For a complex system, the *cardinality* can range into the many thousands,
+    or even millions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A metric data point, representing one observation of a particular aspect of
+    the target (such as the number of hits an endpoint has received), is called a
+    *sample*. Each sample has a name, a value, and a millisecond-precision timestamp.
+    Also—at least in modern systems like [Prometheus](https://prometheus.io)—a set
+    of key-value pairs called *labels*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: By itself, a single sample is of limited use, but a sequence of successive samples
+    with the same name and labels—a *time series*—can be incredibly useful. As illustrated
+    in [Figure 11-4](#img_ch11_time_series), collecting samples as a time series allows
+    metrics to be easily visualized by plotting the data points on a graph, in turn
+    making it easier to see trends or to observe anomalies or outliers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![cngo 1104](Images/cngo_1104.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 11-4\. Arranging samples as a time series allows them to be graphically
+    visualized
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: In the above figure, we show a time series of the metric `aws.ec2.network_in`
+    for one AWS EC2 instance. Time is on the x-axis (specifically, one month spanning
+    November–December 2020). The y-axis represents the instantaneous rate at which
+    the instance is receiving network data at that moment. Visualizing the time series
+    this way, it becomes obvious that traffic to the instance spikes each weekday.
+    Interestingly, November 25–27—the days spanning the day before to the day after
+    Thanksgiving in the United States—are the exceptions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The true power of metrics, however, isn’t its ability to be visually represented
+    for human eyes: it’s that its numerical nature makes it particularly amenable
+    to mathematical modeling. For example, you might use trend analysis to detect
+    anomalies or predict future states, which in turn can inform decisions or trigger
+    alerts.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Push Versus Pull Metric Collection
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'There are two primary architectures in the universe of metrics: push-based
+    and pull-based (so called because of the relationship between the components being
+    monitored and the collector backend).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In push-based metrics, monitored components “push” their data to a central
+    collector backend. In pull-based metrics, the inverse is true: the collector actively
+    retrieves metrics by “pulling” them from HTTP endpoints exposed by the monitored
+    components (or by sidecar services deployed for this purpose, also confusingly
+    called “exporters”; see [“Prometheus Exporters”](#sidebar_ch11_prometheus_exporters)).
+    Both approaches are illustrated in [Figure 11-5](#img_ch11_push_vs_pull).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![cngo 1105](Images/cngo_1105.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 11-5\. Push-based metrics (left) send telemetry directly to a central
+    collector backend; pull-based metrics (right) are actively scraped by the collector
+    from exposed metric endpoints
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: What follows is a short description of each of these approaches, along with
+    a very limited list of some arguments for and against each approach. Unfortunately,
+    there are bounteous arguments, many quite nuanced—far too nuanced to delve into
+    here—so we’ll have to be content with some of the common ones.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Push-based metric collection
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: In push-based metric collection, an application, either directly or via a parallel
+    agent process, periodically sends data to a central collector backend. Push implementations,
+    like Ganglia, Graphite, and StatsD, tend to be the most common (even default)
+    approach, perhaps in part because the push model tends to be quite a bit easier
+    to reason about.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Push messages are typically unidirectional, being emitted by the monitored components
+    or monitoring agent and sent to a central collector. This places a bit less burden
+    on the network relative to the (bidirectional) pull model, and can reduce the
+    complexity of the network security model, since components don’t have to make
+    a metrics endpoint accessible to the collector. It’s also easier to use the push
+    model to monitor highly ephemeral components such as short-lived containers or
+    serverless functions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are some downsides to the push model, though. First, you need to know
+    where to send your request. While there are lots of ways of doing this, each has
+    its downside, ranging from hardcoded addresses (which are hard to change) to DNS
+    lookups or service discovery (which may add unacceptable latency). Scaling can
+    also sometimes be an issue, in that it’s entirely possible for a large number
+    of components to effectively DDoS your collector backend.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Pull-based metric collection
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: In the pull-based collection model, the collector backend periodically (on some
+    configurable cadence) scrapes a metric endpoint exposed by a component, or by
+    a proxy deployed for this purpose. Perhaps the best-known example of a pull-based
+    system is [Prometheus](https://prometheus.io).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The pull approach offers some notable advantages. Exposing a metric endpoint
+    decouples the components being observed from the collector itself, which provides
+    all of the benefits of loose coupling. For example, it becomes easier to monitor
+    a service during development, or even manually inspect a component’s health with
+    a web browser. It’s also much easier for a pull model to tell if a target is down.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, the pull approach has a discovery issue of its own, in that the collector
+    has to somehow know where to find the services it’s supposed to monitor. This
+    can be a bit of a challenge, particularly if your system isn’t using dynamic service
+    discovery. Load balancers are of little help here, either, since each request
+    will be forwarded to a random instance, greatly reducing the effective collection
+    rate (since each of N instance receives 1/N of the pulls) and severely muddying
+    what data is collected (since all of the instances tend to look like a single
+    target). Finally, pull-based collection can make it somewhat harder to monitor
+    very short-lived ephemeral things like serverless functions, necessitating a solution
+    like the push gateway.
+  prefs: []
+  type: TYPE_NORMAL
+- en: But which is better?
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Since the push and pull approaches are, it would seem, polar opposites of one
+    another, it’s common for people to wonder which is better.^([11](ch11.xhtml#idm45983613739800))
+    That’s a hard question, and as is often the case when comparing technical methodologies,
+    the answer is a resounding “it depends.”
+  prefs: []
+  type: TYPE_NORMAL
+- en: Of course, that’s never stopped a sufficiently motivated programmer from stridently
+    arguing one side or another, but at the end of the day, the “better” approach
+    is the one that satisfies the requirements of your system. Of course (and quite
+    unsatisfyingly) that could be both. We technical types abhor ambiguity, yet it
+    stubbornly insists on existing anyway.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'So, I will close this section with the words of Brian Brazil, a core developer
+    of Prometheus:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: From an engineering standpoint, in reality, the question of push versus pull
+    largely doesn’t matter. In either case, there’s advantages and disadvantages,
+    and with engineering effort, you can work around both cases.^([12](ch11.xhtml#idm45983613735976))
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: Metrics with OpenTelemetry
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: As of the time of writing, the OpenTelemetry metrics API is still in alpha,
+    so it still has a few rough spots to be ironed out and a few inconsistencies with
+    the tracing API that are yet to be resolved.
+  prefs: []
+  type: TYPE_NORMAL
+- en: That being said, the considerable private and community support behind OpenTelemetry,
+    coupled with its quite impressive rate of development, make it appropriate not
+    just for inclusion in this book, but as the most likely candidate to become the
+    gold standard for metric telemetry for the next several years at least.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For the most part, OpenTelemetry metrics work a lot like traces, but are different
+    enough to possibly cause some confusion. For both tracing and metric instrumentation,
+    the configuration phase is executed exactly once in a program, usually in the
+    `main` function, and includes the following steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The first step is to create and configure the appropriate exporter for the target
+    backend. Metric exporters implement the `metric.Exporter` interface, which in
+    OpenTelemetry v0.17.0 is located in the `go.opentelemetry.io/otel/sdk/export/metric`
+    package. As we’ll discuss in [“Creating the metric exporters”](#section_ch11_metrics_creating_the_exporters),
+    several stock exporters are included with OpenTelemetry, but unlike trace exporters,
+    you can currently only use one metric exporter at a time.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Before instrumenting your code for metrics, the exporter is used to define the
+    global “meter provider,” which will serve as your program’s main entry point into
+    the OpenTelemetry metric API throughout its lifetime. As we’ll see in [“Setting
+    the global meter provider”](#section_ch11_metrics_set_global_provider), this makes
+    the meter exporter discoverable via the `otel.GetMeterProvider` function, which
+    allows libraries and other dependencies that use the OpenTelemetry API to more
+    easily access the SDK and emit telemetry data.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: If your metric backend uses a pull-based design like Prometheus, you’ll have
+    to expose a metric endpoint that it can pull from. You’ll see how the Prometheus
+    exporter leverages Go’s standard `http` package to do this in [“Exposing the metrics
+    endpoint”](#section_ch11_metrics_expose_endpoint).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'Once the configuration is complete, instrumenting your code requires only a
+    few small steps:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Before you can instrument an operation, you first have to obtain a `Meter`,
+    the structure through which all metric collection is configured and reported,
+    from the meter provider. We’ll discuss this in more detail in [“Obtaining a meter”](#section_ch11_metrics_obtain_meter).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Finally, once you have a `Meter`, you can use it to instrument your code. There
+    are two ways this can be done, either by explicitly recording measurements, or
+    by creating *observers* that can autonomously and asynchronously collect data.
+    Both of these approaches are covered in [“Metric instruments”](#section_ch11_metrics_instruments).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Creating the metric exporters
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Just like with tracing, the first thing you have to do when using OpenTelemetry
+    for metrics is create and configure your exporters. Metric exporters implement
+    the `metric.Exporter` interface, which in OpenTelemetry v0.17.0 lives in the `go.opentelemetry.io/otel/sdk/export/metric`
+    package.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The way that you create metric exporters varies a little between implementations,
+    but it’s typical for an exporter to have a `NewExportPipeline` builder function,
+    at least in the standard OpenTelemetry packages.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To get an instance of the Prometheus exporter, for example, you would use the
+    `NewExportPipeline` function from the `go.opentelemetry.io/otel/exporters/metric/prometheus`
+    package:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: The above snippet creates the exporter and configures it according the directions
+    specified by the passed `prometheus.Config` value. Any behaviors not overridden
+    by the `Config` will use the recommended options.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `prometheus.Config` parameter also allows you to specify a variety of custom
+    behaviors. Unfortunately, the specifics are beyond the scope of this book, but
+    if you’re interested the [exporter Config code](https://oreil.ly/fKIzt) and the
+    code for [the Prometheus Go client](https://oreil.ly/biCJn) are fairly straightforward.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Setting the global meter provider
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Where OpenTelemetry tracing has the “tracer provider” that provides `Tracer`
+    values, OpenTelemetry metrics has the *meter provider*, which provides the `Meter`
+    values through which all metric collection is configured and reported.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You may recall that when working with tracing exporters, defining the global
+    tracer provider requires two steps: creating and configuring a tracer provider
+    instance, and then setting that instance as the global tracer provider.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The meter provider works a little differently: rather than using one or more
+    exporters to create and define a provider (as is the case with the `TracerProvider`),
+    a meter provider is typically retrieved *from* the metric exporter, and then passed
+    directly to the `otel.SetMeterProvider` function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: An unfortunate consequence of this design is that you’re limited to using only
+    one metric exporter at a time, since the meter provider is provided by the exporter
+    instead of the other way around. Obviously, this is a significant deviation from
+    how the tracing API works, and I expect it to change as the OpenTracing metrics
+    API moves into beta.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: There’s also a `prometheus.InstallNewPipeline` convenience function that can
+    be used instead of explicitly calling the `prometheus.NewExportPipeline` and `otel.SetMeterProvider`
+    functions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Exposing the metrics endpoint
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Because Prometheus is pull-based, any telemetry data we want to send it must
+    be exposed through an HTTP endpoint that the collector can scrape.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To do this, we can make use of Go’s standard `http` package, which, as we’ve
+    shown several times in this book, requires minimal configuration, and is rather
+    straightforward to use.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To review what we first introduced in [“Building an HTTP Server with net/http”](ch05.xhtml#section_ch05_server_with_nethttp),
+    starting a minimal HTTP server in Go requires at least two calls:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`http.Handle` to register a handler function that implements the `http.Handler`
+    interface'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '`http.ListenAndServe` to start the server listening'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'But the OpenTelemetry Prometheus exporter has a pretty nifty trick up its sleeve:
+    it implements the `http.Handler` interface, which allows it to be passed directly
+    to `http.Handle` to act as a handler function for the metric endpoint! See the
+    following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: In this example, we pass the Prometheus exporter directly into `http.Handle`
+    to register it as the handler for the pattern “/metrics.” It’s hard to get more
+    convenient than that.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Ultimately, the name of your metrics endpoint is up to you, but
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`metrics` is the most common choice. It’s also where Prometheus looks by default.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Obtaining a meter
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Before you can instrument an operation, you first have to obtain a `Meter` value
+    from a `MeterProvider`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As you’ll see in [“Metric instruments”](#section_ch11_metrics_instruments),
+    the `metric.Meter` type, which lives in the `go.opentelemetry.io/otel/metric`
+    package, is the means by which all metric collection is configured and reported,
+    either as record batches of synchronous measurements or asynchronous observations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You can retrieve a `Meter` value as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: You may have noticed that snippet looks almost exactly like the expression used
+    to get a `Tracer` back in [“Obtaining a tracer”](#section_ch11_tracing_obtain_tracer).
+    In fact, `otel.GetMeterProvider` is exactly equivalent to `otel.GetTracerProvider`,
+    and works pretty much the same way.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `otel.GetMeterProvider` function returns the registered global meter provider.
+    If none is registered then a default meter provider is returned that forwards
+    the `Meter` interface to the first registered `Meter` value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The provider’s `Meter` method returns an instance of the `metric.Meter` type.
+    It accepts a string parameter representing the instrumentation name, which by
+    convention is named after the library or package it’s instrumenting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Metric instruments
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Once you have a `Meter`, you can create *instruments*, which you can use to
+    make measurements and to instrument your code. However, just as there are several
+    different types of metrics, there are several types of instruments. The type of
+    instrument you use will depend on the type of measurement you’re making.
+  prefs: []
+  type: TYPE_NORMAL
+- en: All told, there are 12 *kinds* of instruments available, each with some combination
+    of *synchronicity*, *accumulation* behavior, and data type.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The first of these properties, *synchronicity*, determines how an instrument
+    collects and transmits data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Synchronous instruments* are explicitly called by the user to record a metric,
+    as we’ll see in [“Synchronous instruments”](#section_ch11_metrics_instruments_synchronous).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Asynchronous instruments*, also called *observers*, can monitor a specific
+    property and are asynchronously called by the SDK during collection. We’ll demonstrate
+    in [“Asynchronous instruments”](#section_ch11_metrics_instruments_asynchronous).'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Second, each instrument has an *accumulation* behavior that describes how it
+    tracks the acquisition of new data:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*Additive* instruments are used to track a sum that can go arbitrarily up or
+    down, like a gauge. They’re typically used for measured values like temperatures
+    or current memory usage, but also “counts” that can go up and down, like the number
+    of concurrent requests.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Additive monotonic* instruments track [monotonically increasing](https://oreil.ly/RESQ1)
+    values that can only increase (or be reset to zero on restart), like a counter.
+    Additive monotonic values are often used for metrics like the number of requests
+    served, tasks completed, or errors.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '*Grouping* instruments are intended for capturing a distribution, like a histogram.
+    A grouping instrument samples observations (usually things like request durations
+    or response sizes) and counts them in configurable buckets. It also provides a
+    sum of all observed values.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Finally, each of the previous six kinds of instruments has types that support
+    either `float64` or `int64` input values, for a total of 12 kinds of instruments.
+    Each has an associated type in the `go.opentelemetry.io/otel/metric` package,
+    summarized in [Table 11-1](#table_ch11_metrics_instruments).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Table 11-1\. The 12 kinds of OpenTelemetry metric instruments, by synchronicity
+    and accumulation behavior.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '|  | Synchronous | Asynchronous |'
+  prefs: []
+  type: TYPE_TB
+- en: '| --- | --- | --- |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **Additive** | `Float64UpDownCounter, Int64UpDownCounter` | `Float64UpDownSumObserver,
+    Int64UpDownSumObserver` |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **Additive, Monotonic** | `Float64Counter, Int64Counter` | `Float64SumObserver,
+    Int64SumObserver` |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **Grouping** | `Float64ValueRecorder, Int64ValueRecorder` | `Float64ValueObserver,
+    Int64ValueObserver` |'
+  prefs: []
+  type: TYPE_TB
+- en: 'Each of the 12 types has an associated constructor function on the `metric.Meter`
+    type, all with a similar signature. For example, the `NewInt64Counter` method
+    looks like the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: All 12 constructor methods accept the name of the metric as a `string`, and
+    zero or more `metric.InstrumentOption` values, just like the `NewInt64Counter`
+    method. Similarly, each returns an instrument value of the appropriate type with
+    the given name and options, and can return an error if the name is empty or otherwise
+    invalid, or if the instrument is duplicate registered.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For example, a function that uses the `NewInt64Counter` method to get a new
+    `metric.Int64Counter` from a `metric.Meter` value looks something like the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note how we retain a reference to the instrument in the form of the `requests`
+    global variable. For reasons I’ll discuss shortly, this is generally specific
+    to synchronous instruments.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'But while the `metric.Int64Counter` happens to be a synchronous instrument,
+    the takeaway here is that synchronous and asynchronous instruments are both obtained
+    in the same way: via the corresponding `Metric` constructor method. How they’re
+    used, however, differs significantly, as we’ll see in the subsequent sections.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Synchronous instruments
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: The initial steps to using a synchronous instrument—retrieving a meter from
+    the meter provider and creating an instrument—are largely the same for both synchronous
+    and asynchronous instruments. We saw these in the previous section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, using synchronous instruments differs from using asynchronous instruments
+    in that they’re explicitly exercised in your code logic when recording a metric,
+    which means you have to be able to refer to your instrument after it’s been created.
+    That’s why the above example uses a global `requests` variable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Perhaps the most common application is to record individual events by incrementing
+    a counter when an event occurs. The additive instruments even have an `Add` method
+    for this. The following example uses the `requests` value that we created in the
+    previous example by adding a call to `requests.Add` to the API’s `Fibonacci` function
+    that was originally defined in [“The Fibonacci service API”](#section_ch11_tracing_service_api):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'As you can see, the `requests.Add` method—which is safe for concurrent use—accepts
+    three parameters:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The first parameter is the current context in the form of a `context.Context`
+    value. This is common for all of the synchronous instrument methods.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The second parameter is the number to increment by. In this case, each call
+    to `Fibonacci` increases the call counter by one.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The third parameter is zero or more `label.KeyValue` values that represent the
+    labels to associate with the data points. This increases the cardinality of the
+    metrics, which, as discussed in [“Cardinality”](#sidebar_ch11_cardinality), is
+    incredibly useful.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Tip
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Data labels are a powerful tool that allow you to describe data beyond which
+    service or instance emitted it. They can allow you to ask questions of your data
+    that you hadn’t thought of before.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'It’s also possible to group multiple metrics and report them as a batch. This
+    works slightly differently than the `Add` method you saw in the previous example,
+    though. Specifically, for each metric in the batch, you need to:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Collect the value or values you want to record.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Pass each value to its appropriate instrument’s `Measurement` method, which
+    returns a `metric.Measurement` value that wraps your metric and provides some
+    supporting metadata.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Pass all of the `metric.Measurement` values to the `meter.RecordBatch`, which
+    atomically records the entire batch of measurements.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'These steps are demonstrated in the following example, in which we use the
+    `runtime` package to retrieve two values—the amount of memory and the number of
+    goroutines used by the process—and emit them to the metrics collector:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'When run as a goroutine, the `updateMetrics` function executes in two parts:
+    an initial setup, and an infinite loop in which it generates and records measurements.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the set-up phase, it retrieves the `Meter`, defines some metric labels, and
+    creates the instruments. All of these values are created exactly once and are
+    reused in the loop. Note that in addition to types, the instruments are created
+    with names and descriptions indicating the metrics they’re instrumenting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Inside the loop, we first use the `runtime.ReadMemStats` and `runtime.NumGoroutine`
+    functions to retrieve the metrics we want to record (the amount of memory used
+    and the number of running goroutines, respectively). With those values, we use
+    the instruments’ `Measurement` methods to generate `metrics.Measurement` values
+    for each metric.
+  prefs: []
+  type: TYPE_NORMAL
+- en: With our `Measurement` values in hand, we pass them into the `meter.RecordBatch`
+    method—which also accepts the current `context.Context` and any labels that we
+    want to attach to the metrics—to officially record them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Asynchronous instruments
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: Asynchronous instruments, or *observers*, are created and configured during
+    setup to measure a particular property, and are subsequently called by the SDK
+    during collection. This is especially useful when you have a value you want to
+    monitor without managing your own background recording process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Just like synchronous instruments, asynchronous instruments are created from
+    a constructor method attached to a `metric.Meter` instance. In total, there are
+    six such functions: a `float64` and `int64` version for each of the three accumulation
+    behaviors. All six have a very similar signature, of which the following is representative:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: As you can see, the `NewInt64UpDownSumObserver` accepts the name of the metric
+    as a `string`, something called a `Int64ObserverFunc`, and zero or more instrument
+    options (such as the metric description). Although it returns the observer value,
+    this isn’t actually used all that often, though it can return a non-`nil` error
+    if the name is empty, duplicate registered, or otherwise invalid.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The second parameter—the *callback function*—is the heart of any asynchronous
+    instrument. Callback functions are asynchronously called by the SDK upon data
+    collection. There are two kinds, one each for `int64` and `float64`, but they
+    look, feel, and work essentially the same:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: When called by the SDK, the callback functions receive the current `context.Context`,
+    and either a `metric.Float64ObserverResult` (for `float64` observers) or `metric.Int64ObserverResult`
+    (for `int64` observers). Both result types have an `Observe` method, which you
+    use to report your results.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This is a lot of little details, but they come together fairly seamlessly.
+    The following function does exactly that, defining two observers:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: When called by `main`, the `buildRuntimeObservers` function defines two asynchronous
+    instruments—`memory_usage_bytes` and `num_goroutines`—each with a callback function
+    that works exactly like the data collection in the `updateMetrics` function that
+    we defined in [“Synchronous instruments”](#section_ch11_metrics_instruments_synchronous).
+  prefs: []
+  type: TYPE_NORMAL
+- en: In `updateMetrics`, however, we used an infinite loop to synchronously report
+    data. As you can see, using an asynchronous approach for non-event data is not
+    only less work to set up and manage, but has fewer moving parts to worry about
+    later, since there isn’t anything else to do once the observers (and their callback
+    functions) are defined and the SDK takes over.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Putting It All Together: Metrics'
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Now that we have an idea what metrics we’re going to collect and how, we can
+    use them to extend the Fibonacci web service that we put together in [“Putting
+    It All Together: Tracing”](#section_ch11_tracing_all_together).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The functionality of the service will remain unchanged. As before, it will
+    be able to accept an `HTTP GET` request, in which the *n*th Fibonacci number can
+    be requested using parameter `n` on the `GET` query string. For example, to request
+    the sixth Fibonacci number, you should be able to `curl` the service as: `http://localhost:3000?n=6`.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The specific changes we’ll be making, and the metrics that we’ll be collecting,
+    are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Synchronously recording the API request count by adding the `buildRequestsCounter`
+    function to `main` and instrumenting the `Fibonacci` function in the service API
+    as we described in [“Synchronous instruments”](#section_ch11_metrics_instruments_synchronous)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Asynchronously recording the processes’ memory used, and number of active goroutines,
+    by adding the `buildRuntimeObservers` described in [“Asynchronous instruments”](#section_ch11_metrics_instruments_asynchronous)
+    to the `main` function
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Starting your services
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Once again, start your service by running its main function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs: []
+  type: TYPE_PRE
+- en: As before, your terminal should pause. You can stop the service with a Ctrl-C.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Next, you’ll start the Prometheus server. But before you do, you’ll need to
+    create a minimal configuration file for it. Prometheus has a [ton of available
+    configuration options](https://oreil.ly/h8A7f), but the following should be perfectly
+    sufficient. Copy and paste it into a file named `prometheus.yml`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs: []
+  type: TYPE_PRE
+- en: This configuration defines a single target named `fibonacci` that lives at `host.docker.internal:3000`
+    and will be scraped every five seconds (down from the default of every minute).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Once you’ve created the file `prometheus.yml`, you can start Prometheus. The
+    easiest way to do this is a container using Docker:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs: []
+  type: TYPE_PRE
+- en: Warning
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: If you’re using Linux for development, you’ll need to add the parameter `--add-host=host.docker.internal:host-gateway`
+    to the above command. *But do not use this in production*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now that your services are both running, you can send a request to the service:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE41]'
+  prefs: []
+  type: TYPE_PRE
+- en: Behind the scenes, OpenTelemetry has just recorded a value for the number of
+    requests (recursive and otherwise) made to its `Fibonacci` function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Metric endpoint output
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Now that your service is running, you can always examine its exposed metrics
+    directly with a standard curl to its `/metrics` endpoint:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'As you can see, all three of the metrics you’re recording—as well as their
+    types, descriptions, labels, and values—are listed here. Don’t be confused if
+    the value of `container_id` is empty: that just means you’re not running in a
+    container.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Viewing your results in Prometheus
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Now that you’ve started your service, started Prometheus, and run a query or
+    two to the service to seed some data, it’s time to visualize your work in Prometheus.
+    Again, Prometheus isn’t a full-fledged graphing solution (you’ll want to use something
+    like [Grafana](https://grafana.com) for that), but it does offer a simple interface
+    for executing arbitrary queries.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can access this interface by browsing to `localhost:9090`. You should be
+    presented with a minimalist interface with a search field. To see the value of
+    your metric over time, enter its name in the search field, hit enter, and click
+    the “graph” tab. You should be presented with something like the screenshot in
+    [Figure 11-6](#img_ch11_prom_screenshot).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![cngo 1106](Images/cngo_1106.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 11-6\. Screenshot of the Prometheus interface, displaying the value of
+    the `fibonacci_requests_total` metric after three calls to the Fibonacci service
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Now that you’re collecting data, take a moment to run a few more queries and
+    see how the graph changes. Maybe even look at some other metrics. Enjoy!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Logging
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: A *log* is an immutable record of *events*—discrete occurrences that are worth
+    recording—emitted by an application over time. Traditionally, logs were stored
+    as append-only files, but these days, a log is just as likely to take the form
+    of some kind of searchable data store.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So, what’s there to say about logging, other than that it’s a really good idea
+    that’s been around as long as electronic computing has? It’s the OG of observability
+    methods.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There’s actually quite a bit to say, largely because it’s really, really easy
+    to do logging in a way that makes your life harder than it needs to be.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Of the Three Pillars of Observability, logs are by far the easiest to generate.
+    Since there’s no initial processing involved in outputting a log event, in its
+    simplest form it’s as easy as adding a `print` statement to your code. This makes
+    logs really good at providing lots and lots of context-rich data about what a
+    component is doing or experiencing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: But this free-form aspect to logging cuts both ways. While it’s possible (and
+    often tempting) to output whatever you think might be useful, the verbose, unstructured
+    logs are difficult to extract usable information from, especially at scale. To
+    get the most out of logging, events should be structured, and that structure doesn’t
+    come for free. It has to be intentionally considered and implemented.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Another, particularly underappreciated, pitfall of logging is that generating
+    lots of events puts significant pressure on disk and/or network I/O. It’s not
+    unusual for half or more of available bandwidth to be consumed this way. What’s
+    more, this pressure tends to scale linearly with load: `N` users each doing `M`
+    things translates to `N*M` log events being emitted, with potentially disastrous
+    consequences for scalability.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, for logs to be meaningfully useful, they have to be processed and stored
+    in a way that makes them accessible. Anybody who’s ever had to manage logs at
+    scale can tell you that it’s notoriously operationally burdensome to self-manage
+    and self-host, and absurdly expensive to have somebody else manage and host.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the remainder of this section, we’ll first discuss some high-level practices
+    for logging at scale, followed by how to implement them in Go.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Better Logging Practices
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: As simple as the act of logging may seem on the face of it, it’s also really
+    easy to log in a way that makes life harder for you and anybody who has to use
+    your logs after you. Awkward logging issues, like having to navigate unstructured
+    logs or higher-than-expected resource consumption, which are annoying in small
+    deployments, become major roadblocks at scale.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As you’ll see, for this reason and others, the best practices around logging
+    tend to focus on maximizing the quality, and minimizing the quantity, of logging
+    data generated and retained.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Warning
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: It goes without saying that you shouldn’t log sensitive business data or personally
+    identifiable information.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Treat logs as streams of events
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: How many times have you looked at log output and been confronted with an inscrutable
+    stream of consciousness? How useful was it? Better than nothing, maybe, but probably
+    not by much.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Logs shouldn’t be treated as data sinks to be written to and forgotten until
+    something is literally on fire, and they definitely shouldn’t be a garbage dump
+    where you send random thoughts and observations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Instead, as we saw back in [Chapter 6](ch06.xhtml#chapter_6), logs should be
+    treated as a *stream of events*, and should be written, unbuffered, directly to
+    `stdout` and `stderr`. Though seemingly simple (and perhaps somewhat counterintuitive),
+    this small change in perspective provides a great deal of freedom.
+  prefs: []
+  type: TYPE_NORMAL
+- en: By moving the responsibility for log management out of the application code,
+    it’s freed from concerns about implementation trivialities like routing or storage
+    of its log events, allowing the executor to decide what happens to them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This approach provides quite a lot of freedom for how you manage and consume
+    your logs. In development, you can keep an eye on your service’s behavior by sending
+    them directly to a local terminal. In production, the execution environment can
+    capture and redirect log events to a log indexing system like ELK or Splunk for
+    review and analysis, or perhaps a data warehouse for long-term storage.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Treat logs as streams of events, and write each event, unbuffered, directly
+    to `stdout` and `stderr`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Structure events for parsing
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Logging, in its simplest and most primitive form, is technically possible using
+    nothing more than `fmt.Println` statements. The result, however, would be a set
+    of unformatted strings of questionable utility.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Fortunately, it’s more common for programmers to use Go’s standard `log` library,
+    which is conveniently located and easy to use, and generates helpful timestamps.
+    But how useful would a terabyte or so of log events formatted like the following
+    be?
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE43]'
+  prefs: []
+  type: TYPE_PRE
+- en: Certainly, it’s better than nothing, but you’re still confronted with a mostly
+    unstructured string, albeit an unstructured string with a timestamp. You still
+    have to parse the arbitrary text to extract the meaningful bits.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Compare that to the equivalent messages outputted by a structured logger:^([13](ch11.xhtml#idm45983612468360))
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE44]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The above log structure places all of the key elements into properties of a
+    JavaScript object, each with:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`time`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A timestamp, which is a piece of contextual information that’s critical for
+    tracking and correlating issues. Note that the JSON example is also in an easily-parsable
+    format that’s far less computationally expensive to extract meaning from than
+    the first, barely structured example. When you’re processing billions of log events,
+    little things add up.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`level`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A log level, which is a label that indicates the level of importance for the
+    log event. Frequently used levels include `INFO`, `WARN`, and `ERROR`. These are
+    also key for filtering out low-priority messages that might not be relevant in
+    production.
+  prefs: []
+  type: TYPE_NORMAL
+- en: One or more contextual elements
+  prefs: []
+  type: TYPE_NORMAL
+- en: These contain background information that provides insight into the state of
+    the application at the time of the message. The *entire point* of a log event
+    is to express this context information.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In short, the structured log form is easier, faster, and cheaper to extract
+    meaning from, and the results are far easier to search, filter, and aggregate.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Structure your logs for parsing by computers, not for reading by humans.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Less is (way) more
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Logging isn’t free. In fact, it’s very expensive.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Imagine you have a service deployed to a server running in AWS. Nothing fancy,
+    just a standard server with a standard, general-purpose disk capable of a sustained
+    throughput of 16 MiB/second.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s say that your service likes to be thorough, so it fastidiously logs events
+    acknowledging each request, response, database call, calculation status, and various
+    other bits of information, totaling sixteen 1024-byte events for each request
+    the service handles. It’s a little verbose, but nothing too unusual so far.
+  prefs: []
+  type: TYPE_NORMAL
+- en: But this adds up. In a scenario in which the service handles 512 requests per
+    second—a perfectly reasonable number for a highly concurrent service—your service
+    would produce 8192 events/second. At 16 KiB per event, that’s a total of 8 MiB/second
+    of log events, or *half of your disk’s I/O capacity*. That’s quite a burden.
+  prefs: []
+  type: TYPE_NORMAL
+- en: What if we skip writing to disk and forward events straight to a log-hosting
+    service? Well, the bad news is that we then have to transfer and store our logs,
+    and that gets expensive. If you’re sending the data across the internet to a log
+    provider like Splunk or Datadog, you’ll have to pay your cloud provider a data
+    transfer fee. For AWS, this amounts to US$0.08/GB, which at an average rate of
+    8 MiB/s—about 1 TiB every day and a half—comes to almost $250,000/year for a single
+    instance. Fifty such instances would run more than $12 million dollars in data
+    transfer costs alone.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Obviously, this example doesn’t take into account fluctuations in load due to
+    hour of day or day of week. But it clearly illustrates that logging can get very
+    expensive very quickly, so log only what’s useful, and be sure to limit log generation
+    in production by using severity thresholds. A “warning” threshold is common.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Dynamic sampling
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Because the kind of events that are produced by debug events tend to be both
+    high-volume and low-fidelity, it’s pretty standard practice to eliminate them
+    from production output by setting the log level to `WARNING`. But debug logs aren’t
+    *worthless*, are they?^([14](ch11.xhtml#idm45983612398728)) As it turns out, they
+    become really useful really fast when you’re trying to chase down the root cause
+    of an outage, which means you have to waste precious incident time turning debug
+    logs on just long enough for you find the problem. Oh, and don’t forget to turn
+    them off afterwards.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, by *dynamically sampling* your logs—recording some proportion of events
+    and dropping the rest—you can still have your debug logs—but not too many—available
+    in production, which can help drive down the time to recovery during an incident.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Having some debug logs in production can be *really* useful when things are
+    on fire.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Logging with Go’s Standard log Package
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Go includes a standard logging package, appropriately named `log`, that provides
+    some basic logging features. While it’s very bare bones, it still has just about
+    everything you need to put together a basic logging strategy.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Besides importing the `log` package, using it doesn’t require any kind of setup.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Its most basic functions can be leveraged with a selection of functions very
+    similar to the various `fmt` print functions you may be familiar with:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE45]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You may have noticed what is perhaps the most glaring omission from the `log`
+    package: that it doesn’t support logging levels. However, what it lacks in functionality,
+    it makes up for in simplicity and ease of use.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Here’s the most basic logging example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE46]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'When run, it provides the following output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE47]'
+  prefs: []
+  type: TYPE_PRE
+- en: As you can see, the `log.Print` function—like all of the `log` logging functions—adds
+    a timestamp to its messages without any additional configuration.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The special logging functions
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Although `log` sadly doesn’t support log levels, it does offer some other interesting
+    features. Namely, a class of convenience functions that couple outputting log
+    events with another useful action.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The first of these is the `log.Fatal` functions. There are three of these,
+    each corresponding to a different `log.PrintX` function, and each equivalent to
+    calling its corresponding print function followed by a call to `os.Exit(1)`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE48]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Similarly, `log` offers a series of `log.Panic` functions, which are equivalent
+    to calling its corresponding `log.PrintX` followed by a call to `panic`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE49]'
+  prefs: []
+  type: TYPE_PRE
+- en: Both of these sets of functions are useful, but they’re not used nearly as often
+    as the `log.Print` functions, typically in error handling where it makes sense
+    to report the error and halt.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Logging to a custom writer
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: By default, the `log` package prints to `stderr`, but what if you want to redirect
+    that output elsewhere? The `log.SetOutput` function allows you to do exactly that
+    by letting you specify a custom `io.Writer` to write to.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This allows you to, for example, send your logs to a file if you want to. As
+    we mention in [“Less is (way) more”](#section_ch11_less_is_way_more), writing
+    logs to files generally isn’t advisable, but it can be useful under certain circumstances.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This is demonstrated in the following using `os.OpenFile` to open the target
+    file, and using `log.SetOutput` to define it as the log writer:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE50]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'When run, the following is written to the file `log.txt`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE51]'
+  prefs: []
+  type: TYPE_PRE
+- en: The fact that `log.SetOutput` accepts an interface means that a wide variety
+    of destinations can be supported just by satisfying the `io.Writer` contract.
+    You could even, if you so desired, create an `io.Writer` implementation that forwards
+    to a log processor like Logstash or a message broker like Kafka. The possibilities
+    are unlimited.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Log flags
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The `log` package also allows you to use constants to enrich log messages with
+    additional context information, such as the filename, line number, date, and time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For example, adding the following line to our above “Hello, World”:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE52]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Will result in a log output like the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE53]'
+  prefs: []
+  type: TYPE_PRE
+- en: As you can see, it includes the date in the local time zone (`log.Ldate`), the
+    time in the local time zone (`log.Ltime`), and the final file name element and
+    line number of the `log` call (`log.Lshortfile`).
+  prefs: []
+  type: TYPE_NORMAL
+- en: We don’t get any say over the order in which the log parts appear or the format
+    in which they are presented, but if you want that kind of flexibility, you probably
+    want to use another logging framework, such as Zap.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Zap Logging Package
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Of the Three Pillars of Observability, logging is the one that’s least supported
+    by OpenTelemetry. Which is to say that it isn’t supported at all, at least at
+    the time of this writing (though it will be incorporated in time).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'So, for now, rather than discuss the OpenTelemetry Logging API, we’ll cover
+    another excellent library: [Zap](https://oreil.ly/fjMls), a JSON-formatted logger
+    designed to allocate memory as infrequently as possible, and to use reflection
+    and string formatting as little as possible.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Zap is currently one of the two most popular Go logging packages, alongside
+    [Logrus](https://oreil.ly/UZt5n). Logrus is actually a little more popular, but
+    three main factors drove me to choose Zap for this book instead. First, Zap is
+    known for its speed and low memory impact (which is useful at scale). Second,
+    it has a “structured first” philosophy which, as I asserted in [“Structure events
+    for parsing”](#section_ch11_logging_structure_events), is incredibly desirable.
+    Finally, Logrus is now in maintenance mode, and isn’t introducing any new features.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How fast is Zap, exactly? It’s really fast. For a minimalist example, [Table 11-2](#table_ch11_zap_benchmarks_no_context)
+    shows comparisons of benchmarks between several common structured logging packages,
+    without including any context or `printf`-style templating.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Table 11-2\. Relative benchmarks of structured logging packages for a message
+    with no context or `printf`-style templating.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| Package | Time | Time % to Zap | Objects Allocated |'
+  prefs: []
+  type: TYPE_TB
+- en: '| --- | --- | --- | --- |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **Zap** | 118 ns/op | +0% | 0 allocs/op |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **Zap (sugared)** | 191 ns/op | +62% | 2 allocs/op |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **Zerolog** | 93 ns/op | -21% | 0 allocs/op |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **Go-kit** | 280 ns/op | +137% | 11 allocs/op |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **Standard library** | 499 ns/op | +323% | 2 allocs/op |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **Logrus** | 3129 ns/op | +2552% | 24 allocs/op |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **Log15** | 3887 ns/op | +3194% | 23 allocs/op |'
+  prefs: []
+  type: TYPE_TB
+- en: These numbers were developed using [Zap’s own benchmarking suite](https://oreil.ly/uGbA7),
+    but I did examine, update, and execute the benchmarks myself. Of course, as with
+    any benchmarking, take these numbers with a grain of salt. The two standouts here
+    are Go’s own standard `log` library, which had a runtime about triple Zap’s standard
+    logger, and Logrus, which took a very significant 25 times Zap’s time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: But we’re supposed to use context fields, aren’t we? What does Zap look like
+    then? Well, those results are even more striking.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Table 11-3\. Relative benchmarks of structured logging packages for a message
+    with 10 context fields.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '| Package | Time | Time % to Zap | Objects Allocated |'
+  prefs: []
+  type: TYPE_TB
+- en: '| --- | --- | --- | --- |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **Zap** | 862 ns/op | +0% | 5 allocs/op |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **Zap (sugared)** | 1250 ns/op | +45% | 11 allocs/op |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **Zerolog** | 4021 ns/op | +366% | 76 allocs/op |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **Go-kit** | 4542 ns/op | +427% | 105 allocs/op |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **Logrus** | 29501 ns/op | +3322% | 125 allocs/op |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **Log15** | 29906 ns/op | +3369% | 122 allocs/op |'
+  prefs: []
+  type: TYPE_TB
+- en: Zap’s lead over Logrus has extended to a (very impressive) factor of 33X; the
+    standard `log` library isn’t included in this table because it doesn’t even support
+    context fields.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Alright then, so how do we use it?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating a Zap logger
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The first step to logging with Zap is to create a `zap.Logger` value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Of course, before you do that, you first need to import the Zap package, as
+    follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE54]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once you’ve imported Zap, you can build your `zap.Logger` instance. Zap allows
+    you to configure several aspects of your logging behavior, but the most straightforward
+    way to build a `zap.Logger` is to use Zap’s opinionated preset constructor functions—`zap.NewExample`,
+    `zap.NewProduction`, and `zap.NewDevelopment`—each of which build a logger via
+    a single function call:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE55]'
+  prefs: []
+  type: TYPE_PRE
+- en: Typically, this will be done in an `init` function and the `zap.Logger` value
+    maintained globally. Zap loggers are safe for concurrent use.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The three available presets are usually perfectly fine for small projects, but
+    larger projects and organizations may want a bit more customization. Zap provides
+    the `zap.Config` struct for exactly this purpose, and while the specifics are
+    beyond the scope of this book, the [Zap documentation](https://oreil.ly/q1mHb)
+    describes its use in some detail.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Writing logs with Zap
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: One of the more unique aspects of Zap is that every logger actually has two
+    easily interchangeable forms—standard and “sugared”—that vary somewhat in efficiency
+    and usability.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The standard `zap.Logger` implementation emphasizes performance and type safety.
+    It’s slightly faster than the `SugaredLogger` and allocates far less, but it only
+    supports structured logging which does make it a little more awkward to use:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE56]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The output of which will look something like the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE57]'
+  prefs: []
+  type: TYPE_PRE
+- en: In contexts where performance is good but not absolutely critical (which is
+    most of the time, probably) you can use the `SugaredLogger`, which is easily obtainable
+    from a standard logger via its `Sugar` method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `SugaredLogger` still provides structured logging, but its functions for
+    doing so are loosely typed, as opposed to the standard logger’s strong context
+    typing. Despite using runtime reflection behind the scenes, its performance is
+    still very good.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `SugaredLogger` even includes `printf`-style logging methods, for convenience.
+    (Remember, though, that when it comes to logging, context is king.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'All of these features are demonstrated in the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE58]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The output of which will look something like the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE59]'
+  prefs: []
+  type: TYPE_PRE
+- en: Tip
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Don’t create a new `Logger` for every function. Instead, create a global instance,
+    or use the `zap.L` or `zap.S` functions to get Zap’s global standard or sugared
+    loggers, respectively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using dynamic sampling in Zap
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: You may recall from [“Dynamic sampling”](#section_ch11_logging_dynamic_sampling)
+    that dynamic sampling is a technique in which incoming log entries are sampled
+    by capping recorded events to some maximum number per unit of time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If done broadly, this technique can be used to manage the CPU and I/O load of
+    your logging while preserving a representative subset of events. If targeted to
+    a particular class of otherwise high-volume and low-fidelity events, such as debug
+    logs, dynamic sampling can ensure their availability for production troubleshooting
+    without consuming too much storage.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Zap supports dynamic sampling, which is configurable using the `zap.SamplingConfig`
+    structure, shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE60]'
+  prefs: []
+  type: TYPE_PRE
+- en: Using `zap.SamplingConfig` allows you to define the number of initial events
+    with the same level and message permitted each second (`Initial`), after which
+    only every *n*th message (`Thereafter`) is logged. The rest are dropped.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The following example demonstrates how to build a new `zap.Logger` using a
+    preconfigured `zap.Config` instance:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE61]'
+  prefs: []
+  type: TYPE_PRE
+- en: The above example creates a new `zap.Logger` and sets it as Zap’s global logger.
+    It does this in several steps.
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, the example creates a new `zap.Config` struct. For convenience, this
+    example uses the predefined `zap.NewDevelopmentConfig` function, which provides
+    a `zap.Config` value that produces human-readable output and a threshold of `DebugLevel`
+    and above.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you like, the `zap.NewProductionConfig` function, which returns a preconfigured
+    `zap.Config` value with a threshold of `InfoLevel` and encodes events in JSON.
+    If you really want to, you can even create your own `zap.Config` from scratch.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Next, the example creates a new `zap.SamplingConfig` on the `zap.Config`, which
+    instructs the Zap sampler to keep the first three of any similar events in a given
+    second, and to drop all but every third message thereafter (each second).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The `Hook` function is invoked after each sampling decision. The example will
+    write a message if it sees that an event has been dropped.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, the example uses the Config’s `Build` method to construct a `zap.Logger`
+    from the `Config`, and uses `zap.ReplaceGlobals` to replace Zap’s global Logger.
+    Zap’s global logger and sugared logger can be accessed by using the `zap.L` and
+    `zap.S` functions, respectively.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'But does it work as we expect? Well, let’s see:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE62]'
+  prefs: []
+  type: TYPE_PRE
+- en: The above function logs 10 events, but with our sampling configuration we should
+    see only the first 3 events, and then every third after that (6 and 9). Is that
+    what we see?
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE63]'
+  prefs: []
+  type: TYPE_PRE
+- en: The output is exactly as we expected. Clearly, log sampling is a very powerful
+    technique, and, when used properly, can provide significant value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: There’s a lot of hype around observability, and with its promises to dramatically
+    shorten development feedback loops and generally make complexity manageable again,
+    it’s easy to see why.
+  prefs: []
+  type: TYPE_NORMAL
+- en: I wrote a little at the start of this chapter about observability and its promises,
+    and a little more about how observability *isn’t* done. Unfortunately, *how to
+    do* observability is a really, really big subject, and the limitations of time
+    and space meant that I wasn’t able to say as much about that as I certainly would
+    have liked.^([15](ch11.xhtml#idm45983611271368)) Fortunately, with some pretty
+    great books on the horizon (most notably [*Observability Engineering*](https://oreil.ly/Cd1gs)
+    by Charity Majors and Liz Fong-Jones (O’Reilly)), that void won’t go unfilled
+    for long.
+  prefs: []
+  type: TYPE_NORMAL
+- en: By far, however, most of this chapter was spent talking about the Three Pillars
+    of Observability in turn, specifically how to implement them using [OpenTelemetry](https://oreil.ly/zEgIp),
+    where possible.
+  prefs: []
+  type: TYPE_NORMAL
+- en: All told, this was a challenging chapter. Observability is a vast subject about
+    which not that much is written yet, and, as a result of its newness, the same
+    is true of OpenTelemetry. Even its own documentation is limited and spotty in
+    parts. On the plus side, I got to spend a lot of time in the source code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![cngo 11in02](Images/cngo_11in02.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: '^([1](ch11.xhtml#idm45983615999816-marker)) Stoll, Clifford. *High-Tech Heretic:
+    Reflections of a Computer Contrarian*. Random House, September 2000.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([2](ch11.xhtml#idm45983615994840-marker)) Interestingly, this was also just
+    after the AWS launched its Lambda functions as a service (FaaS) offering. Coincidence?
+    Maybe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([3](ch11.xhtml#idm45983615991304-marker)) Assuming of course that all of our
+    network and platform configurations are correct!
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([4](ch11.xhtml#idm45983615927544-marker)) I’m not one of the cool kids.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([5](ch11.xhtml#idm45983615924216-marker)) In addition to Go, implementations
+    exist for Python, Java, JavaScript, .NET, C++, Rust, PHP, Erlang/Elixir, Ruby,
+    and Swift.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([6](ch11.xhtml#idm45983615919256-marker)) If you’ve never seen [Charity Majors’
+    blog](https://charity.wtf), I recommend that you check it out immediately. It’s
+    one part genius plus one part experience, tied together with rainbows, cartoon
+    unicorns, and a generous helping of rude language.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([7](ch11.xhtml#idm45983615677880-marker)) Sigelman, Benjamin H., et al. “Dapper,
+    a Large-Scale Distributed Systems Tracing Infrastructure.” *Google Technical Report*,
+    Apr. 2010\. [*https://oreil.ly/Vh7Ig*](https://oreil.ly/Vh7Ig).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([8](ch11.xhtml#idm45983615038696-marker)) Recall that the name “mux” is short
+    for “HTTP request multiplexer.”
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([9](ch11.xhtml#idm45983614810104-marker)) That wins the record for longest
+    package name, at least in this book.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([10](ch11.xhtml#idm45983613782808-marker)) It can *also* refer to the numerical
+    relationship between two database tables (i.e., *one-to-one*, *one-to-many*, or
+    *many-to-many*), but that definition is arguably less relevant here.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([11](ch11.xhtml#idm45983613739800-marker)) Whatever “better” means.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([12](ch11.xhtml#idm45983613735976-marker)) Kiran, Oliver. “Exploring Prometheus
+    Use Cases with Brian Brazil.” *The New Stack Makers*, 30 Oct. 2016\. [*https://oreil.ly/YDIek*](https://oreil.ly/YDIek).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([13](ch11.xhtml#idm45983612468360-marker)) Any wrapping in the example is
+    for the benefit of formatting for presentation only. Don’t use line breaks in
+    your log events if you can help it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([14](ch11.xhtml#idm45983612398728-marker)) If they are, why are you producing
+    them at all?
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([15](ch11.xhtml#idm45983611271368-marker)) This is a Go book, after all. At
+    least that’s what I keep telling my incredibly patient editors.
+  prefs: []
+  type: TYPE_NORMAL

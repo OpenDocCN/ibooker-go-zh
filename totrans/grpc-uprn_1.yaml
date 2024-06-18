@@ -1,0 +1,905 @@
+- en: Chapter 1\. Introduction to gRPC
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Modern software applications rarely operate in isolation. Rather, they are connected
+    with each other through computer networks and communicate and coordinate their
+    actions by passing messages to one another. Therefore, a modern software system
+    is a collection of distributed software applications that are running at different
+    network locations and communicate with each other with message passing using different
+    communication protocols. For example, an online retail software system comprises
+    multiple distributed applications such as an order management application, catalog
+    application, databases, and so on. To implement the business functionalities of
+    an online retail system, it is required to have interconnectivity between those
+    distributed applications.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: '**Microservices Architecture**'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Microservices architecture is about building a software application as a collection
+    of independent, autonomous (developed, deployed, and scaled independently), business
+    capability–oriented, and loosely coupled services.^([1](ch01.html#idm46536655629784))
+  prefs: []
+  type: TYPE_NORMAL
+- en: With the advent of [microservices architecture](https://oreil.ly/q6N1P) and
+    [cloud native architecture](https://oreil.ly/8Ow2T), conventional software applications
+    that are built for multiple business capabilities are further segregated into
+    a collection of fine-grained, autonomous, and business capability–oriented entities
+    known as microservices. Therefore, a microservices-based software system also
+    requires the microservices to be connected through the network using inter-process
+    (or inter-service or inter-application) communication techniques. As an example,
+    if we consider the same online retail system implemented using microservices architecture,
+    you will find multiple interconnected microservices such as order management,
+    search, checkout, shipping, and so on. Unlike conventional applications, the number
+    of network communication links proliferates because of the fine-grained nature
+    of microservices. Therefore, no matter the architectural style (conventional or
+    microservices architecture) you use, inter-process communication techniques are
+    one of the most important aspects of modern distributed software applications.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Inter-process communications are usually implemented using message passing with
+    a synchronous request-response style or asynchronous event-driven styles. In the
+    synchronous communication style, the client process sends a request message to
+    the server process over the network and waits for a response message. In asynchronous
+    event-driven messaging, processes communicate with asynchronous message passing
+    by using an intermediary known as an *event broker*. Depending on your business
+    use case, you can select the communication pattern that you want to implement.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When it comes to building synchronous request-response style communication for
+    modern cloud native applications and microservices, the most common and conventional
+    approach is to build them as RESTful services, where you model your application
+    or service as a collection of resources that can be accessed and have their state
+    changed via network calls that take place over the HTTP protocol. However, for
+    most use cases RESTful services are quite bulky, inefficient, and error-prone
+    for building inter-process communication. It is often required to have a highly
+    scalable, loosely coupled inter-process communication technology that is more
+    efficient than RESTful services. This is where gRPC, a modern inter-process communication
+    style for building distributed applications and microservices, comes into the
+    picture (we’ll compare and contrast gRPC with RESTful communication later in this
+    chapter). gRPC primarily uses a synchronous request-response style for communication
+    but can operate in fully asynchronous or streaming mode once the initial communication
+    is established.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, we’ll explore what gRPC is and the key motivations behind inventing
+    such an inter-process communication protocol. We dive into the key building blocks
+    of the gRPC protocol with the help of some real-world use cases. Also, it’s important
+    to have a solid understanding of inter-process communication techniques and how
+    they have evolved over time so that you can understand the key problems that gRPC
+    is trying to solve. So, we’ll walk through those techniques and compare and contrast
+    each of them. Let’s begin our discussion on gRPC by looking at what gRPC is.
+  prefs: []
+  type: TYPE_NORMAL
+- en: What Is gRPC?
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: gRPC (the “g” stands for something different in [every gRPC release](https://oreil.ly/IKCi3))
+    is an inter-process communication technology that allows you to connect, invoke,
+    operate, and debug distributed heterogeneous applications as easily as making
+    a local function call.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When you develop a gRPC application the first thing that you do is define a
+    service interface. The service interface definition contains information on how
+    your service can be consumed by consumers, what methods you allow the consumers
+    to call remotely, what method parameters and message formats to use when invoking
+    those methods, and so on. The language that we specify in the service definition
+    is known as an *interface definition language* (IDL).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using that service definition, you can generate the server-side code known as
+    a *server skeleton*, which simplifies the server-side logic by providing low-level
+    communication abstractions. Also, you can generate the client-side code, known
+    as a *client stub*, which simplifies the client-side communication with abstractions
+    to hide low-level communication for different programming languages. The methods
+    that you specify in the service interface definition can be remotely invoked by
+    the client side as easily as making a local function invocation. The underlying
+    gRPC framework handles all the complexities that are normally associated with
+    enforcing strict service contracts, data serialization, network communication,
+    authentication, access control, observability, and so on.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To understand the fundamental concepts of gRPC, let’s take a look at a real-world
+    use case of a microservice implemented with gRPC. Suppose we are building an online
+    retail application comprised of multiple microservices. As illustrated in [Figure 1-1](#a_microservice_and_a_consumer_based_on_grpc),
+    suppose that we want to build a microservice that gives the details of the products
+    that are available in our online retail application (we will implement this use
+    case from the ground up in [Chapter 2](ch02.html#ch_02)). The `ProductInfo` service
+    is modeled in such a way that it is exposed over the network as a gRPC service.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![A microservice and a consumer based on gRPC](assets/grpc_0101.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 1-1\. A microservice and a consumer based on gRPC
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The service definition is specified in the *ProductInfo.proto* file, which is
+    used by both the server and client sides to generate the code. In this example,
+    we have assumed that the service is implemented using the Go language and that
+    the consumer is implemented using Java. The network communication between the
+    service and consumer takes place over HTTP/2.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now let’s delve into the details of this gRPC communication. The first step
+    of building a gRPC service is to create the service interface definition with
+    the methods that are exposed by that service along with input parameters and return
+    types. Let’s move on to the details of the service definition.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Service Definition
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: gRPC uses [protocol buffers](https://oreil.ly/iFi-b) as the IDL to define the
+    service interface. Protocol buffers are a language-agnostic, platform-neutral,
+    extensible mechanism to serializing structured data (we’ll cover some of the fundamentals
+    of protocol buffers in detail in [Chapter 4](ch04.html#ch_04), but for now you
+    can think of it as a data serialization mechanism). The service interface definition
+    is specified in a proto file—an ordinary text file with a *.proto* extension.
+    You define gRPC services in ordinary protocol buffer format, with RPC method parameters
+    and return types specified as protocol buffer messages. Since the service definition
+    is an extension to the protocol buffer specification, a special gRPC plug-in is
+    used to generate code from your proto file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In our example use case, the `ProductInfo` service’s interface can be defined
+    using protocol buffers as shown in [Example 1-1](#EX1-1). The service definition
+    of `ProductInfo` is comprised of a service interface definition where we specify
+    the remote methods, their input and output parameters, and the type definition
+    (or message formats) of those parameters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 1-1\. gRPC service definition of ProductInfo service using protocol
+    buffers
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_introduction_to_grpc_CO1-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The service definition begins with specifying the protocol buffer version (proto3)
+    that we use.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_introduction_to_grpc_CO1-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Package names are used to prevent name clashes between protocol message types
+    and also will be used to generate code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_introduction_to_grpc_CO1-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Defining the service interface of a gRPC service.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_introduction_to_grpc_CO1-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Remote method to add a product that returns the product ID as the response.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_introduction_to_grpc_CO1-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Remote method to get a product based on the product ID.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![6](assets/6.png)](#co_introduction_to_grpc_CO1-6)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Definition of the message format/type of `Product`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![7](assets/7.png)](#co_introduction_to_grpc_CO1-7)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Field (name-value pair) that holds the product ID with unique field numbers
+    that are used to identify your fields in the message binary format.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![8](assets/8.png)](#co_introduction_to_grpc_CO1-8)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: User-defined type for product identification number.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A service is thus a collection of methods (e.g., `addProduct` and `getProduct`)
+    that can be remotely invoked. Each method has input parameters and return types
+    that we define as either part of the service or that can be imported into the
+    protocol buffer definition.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The input and return parameters can be a user-defined type (e.g., `Product`
+    and `ProductID` types) or a protocol buffer [well-known type](https://oreil.ly/0Uc3A)
+    defined in the service definition. Those types are structured as messages, where
+    each message is a small logical record of information containing a series of name-value
+    pairs called fields. These fields are name-value pairs with unique field numbers
+    (e.g., `string id = 1`) that are used to identify your fields in the message binary
+    format.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This service definition is used to build the server and client side of your
+    gRPC application. In the next section, we’ll go into the details of gRPC server
+    implementation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: gRPC Server
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Once you have a service definition in place, you can use it to generate the
+    server- or client-side code using the protocol buffer compiler *protoc*. With
+    the gRPC plug-in for protocol buffers, you can generate gRPC server-side and client-side
+    code, as well as the regular protocol buffer code for populating, serializing,
+    and retrieving your message types.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'On the server side, the server implements that service definition and runs
+    a gRPC server to handle client calls. Therefore, on the server side, to make the
+    `ProductInfo` service do its job you need to do the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implement the service logic of the generated service skeleton by overriding
+    the service base class.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Run a gRPC server to listen for requests from clients and return the service
+    responses.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: When implementing service logic, the first thing to do is generate the service
+    skeleton from the service definition. For example, in the code snippet in [Example 1-2](#EX1-2),
+    you can find the generated remote functions for the `ProductInfo` service built
+    with Go. Inside the body of these remote functions you can implement the logic
+    of each function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 1-2\. gRPC server-side implementation of ProductInfo service with Go
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: Once you have the service implementation ready, you need to run a gRPC server
+    to listen for requests from clients, dispatch those requests to the service implementation,
+    and return the service responses back to the client. The code snippet in [Example 1-3](#EX1-3)
+    shows a gRPC server implementation with Go for the `ProductInfo` service use case.
+    Here we open up a TCP port, start the gRPC server, and register the `ProductInfo`
+    service with that server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 1-3\. Running a gRPC server for ProductInfo service with Go
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: That’s all you have to do on the server side. Let’s move on to the gRPC client-side
+    implementation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: gRPC Client
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Similar to the server side, we can generate the client-side stub using the service
+    definition. The client stub provides the same methods as the server, which your
+    client code can invoke; the client stub translates them to remote function invocation
+    network calls that go to the server side. Since gRPC service definitions are language-agnostic,
+    you can generate clients and servers for any supported language (via the [third-party
+    implementations](https://oreil.ly/psi72)) of your choice. So for the `ProductInfo`
+    service use case, we can generate the client stub for Java while our server side
+    is implemented with Go. In the code snippet in [Example 1-4](#EX1-4), you find
+    the code for Java. Despite the programming language we use, the simple steps involved
+    in a client-side implementation involve setting up a connection with the remote
+    server, attaching the client stub with that connection, and invoking the remote
+    method using the client stub.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 1-4\. gRPC client to invoke a remote method of service
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: As you now have a good sense of the key concepts of gRPC, let’s try to understand
+    the gRPC client–server message flow in detail.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Client–Server Message Flow
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: When a gRPC client invokes a gRPC service, the client-side gRPC library uses
+    the protocol buffer and marshals the remote procedure call protocol buffer format,
+    which is then sent over HTTP/2\. On the server side, the request is unmarshaled
+    and the respective procedure invocation is executed using protocol buffers. The
+    response follows a similar execution flow from the server to the client. As the
+    wire transport protocol, gRPC uses HTTP/2, which is a high-performance binary
+    message protocol with support for bidirectional messaging. We will further discuss
+    the low-level details of the message flow between gRPC clients and servers along
+    with protocol buffers and how gRPC uses HTTP/2 in [Chapter 4](ch04.html#ch_04).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: '*Marshaling* is the process of packing parameters and a remote function into
+    a message packet that is sent over the network, while unmarshaling unpacks the
+    message packet into the respective method invocation.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Before we go further into the gRPC protocol, it’s important to have a broad
+    understanding of different inter-process communication technologies and how they
+    have evolved with time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Evolution of Inter-Process Communication
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Inter-process communication techniques have been drastically evolving over time.
+    There are various such techniques emerging to address modern needs and to provide
+    a better and more efficient development experience. So, it’s important to have
+    a good understanding of how inter-process communication techniques have evolved
+    and how they made their way to gRPC. Let’s look at some of the most commonly used
+    inter-process communication techniques and try to compare and contrast them with
+    gRPC.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Conventional RPC
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: RPC was a popular inter-process communication technique for building client-service
+    applications. With RPC a client can remotely invoke a function of a method just
+    like calling a local method. There were popular RPC implementations in the early
+    days such as the Common Object Request Broker Architecture (CORBA) and Java Remote
+    Method Invocation (RMI), which were used for building and connecting services
+    or applications. However, most such conventional RPC implementations are overwhelmingly
+    complex, as they are built on top of communication protocols such as TCP, which
+    hinders interoperability, and are based on bloated specifications.
+  prefs: []
+  type: TYPE_NORMAL
+- en: SOAP
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Owing to the limitations of conventional RPC implementations such as CORBA,
+    Simple Object Access Protocol (SOAP) was designed and heavily promoted by large-scale
+    enterprises such as Microsoft, IBM, etc. SOAP is the standard communication technique
+    in a service-oriented architecture (SOA) to exchange XML-based structured data
+    between services (usually called web services in the context of SOA) and communicates
+    over any underlying communication protocol such as HTTP (most commonly used).
+  prefs: []
+  type: TYPE_NORMAL
+- en: With SOAP you can define the service interface, operations of that service,
+    and an associated XML message format to be used to invoke those operations. SOAP
+    was quite a popular technology but the complexity of message format, as well as
+    the complexities of specifications built around SOAP, hinders the agility of building
+    distributed applications. Therefore, in the context of modern distributed application
+    development, SOAP web services are considered a legacy technology. Rather than
+    using SOAP, most of the existing distributed applications are now being developed
+    using the REST architecture style.
+  prefs: []
+  type: TYPE_NORMAL
+- en: REST
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Representational State Transfer (REST) is an architectural style that originated
+    from Roy Fielding’s PhD [dissertation](https://oreil.ly/6tRrt). Fielding is one
+    of the principal authors of the HTTP specification and the originator of the REST
+    architectural style. REST is the foundation of the resource-oriented architecture
+    (ROA), where you model distributed applications as a collection of resources and
+    the clients that access those resources can change the state (create, read, update,
+    or delete) of those resources.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The de facto implementation of REST is HTTP, and in HTTP you can model a RESTful
+    web application as a collection of resources accessible using a unique identifier
+    (URL). The state-changing operations are applied on top of those resources in
+    the form of the HTTP verbs (GET, POST, PUT, DELETE, PATCH, and so on). The resource
+    state is represented in textual formats such as JSON, XML, HTML, YAML, and so
+    on.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building applications using the REST architectural style with HTTP and JSON
+    has become the de facto method of building microservices. However, with the proliferation
+    of the number of microservices and their network interactions RESTful services
+    have not been able to meet the expected modern requirements. There are a couple
+    of key limitations of RESTful services that hinder the ability to use them as
+    the messaging protocol for modern microservices-based applications.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Inefficient text-based message protocols
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Inherently, RESTful services are built on top of text-based transport protocols
+    such as HTTP 1.x and leverage human-readable textual formats such as JSON. When
+    it comes to service-to-service communication, it is quite inefficient to use a
+    textual format such as JSON because both parties to that communication do not
+    need to use such human-readable textual formats.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The client application (source) produces binary content to be sent to the server,
+    then it converts the binary structure into text (because with HTTP 1.x you have
+    to send textual messages) and sends it over the network in text (over HTTP) to
+    a machine that parses and turns it back into a binary structure on the service
+    (target) side. Rather, we could have easily sent a binary format that can be mapped
+    to a service’s and consumer’s business logic. One popular argument for using JSON
+    is that it is easier to use because it’s “human-readable.” This is more a tooling
+    problem than a problem with the binary protocols.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Lacks strongly typed interfaces between apps
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: With the increasing number of services interacting over the network that are
+    built with disparate polyglot technologies, the lack of well-defined and strongly
+    typed service definitions was a major setback. Most of the existing service definition
+    technologies that we have in RESTful services, such as OpenAPI/Swagger, are afterthoughts
+    and not tightly integrated with the underlying architectural style or messaging
+    protocols.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This leads to many incompatibilities, runtime errors, and interoperability issues
+    in building such decentralized applications. For instance, when you develop RESTful
+    services, it is not required to have a service definition and type definition
+    of the information that is shared between the applications. Rather, you develop
+    your RESTful applications either looking at the textual format on the wire or
+    third-party API definition technologies such as OpenAPI. Therefore, having a modern
+    strongly typed service definition technology and a framework that generates the
+    core of the server- and client-side code for polyglot technologies is a key necessity.
+  prefs: []
+  type: TYPE_NORMAL
+- en: REST architectural style is hard to enforce
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: As an architectural style, REST has a lot of “good practices” that you need
+    to follow to make a real RESTful service. But they are not enforced as part of
+    the implementation protocols (such as HTTP), which makes it hard to enforce them
+    at the implementation phase. Therefore, in practice, most of the services that
+    claim to be RESTful are not properly following the foundations of the REST style.
+    So, most of the so-called RESTful services are merely HTTP services exposed over
+    the network. Therefore, development teams have to spend a lot of time maintaining
+    the consistency and purity of a RESTful service.
+  prefs: []
+  type: TYPE_NORMAL
+- en: With all these limitations of inter-process communication techniques in building
+    modern cloud native applications, the quest for inventing a better message protocol
+    began.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Inception of gRPC
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Google had been using a general-purpose RPC framework called [*Stubby*](https://oreil.ly/vat5r)
+    to connect thousands of microservices that are running across multiple data centers
+    and built with disparate technologies. Its core RPC layer was designed to handle
+    an internet scale of tens of billions of requests per second. Stubby has many
+    great features, but it is not standardized to be used as a generic framework as
+    it is too tightly coupled to Google’s internal infrastructure.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In 2015, Google [released](https://oreil.ly/cUZSG) gRPC as an open source RPC
+    framework; it is a standardized, general-purpose, and cross-platform RPC infrastructure.
+    gRPC was intended to provide the same scalability, performance, and functionality
+    that Stubby offered, but to the community at large.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Since then, the popularity of gRPC has grown dramatically over the past few
+    years with large-scale adoption from major companies such as Netflix, Square,
+    Lyft, Docker, Cisco, and CoreOS. Later, gRPC [joined](https://oreil.ly/GFffo)
+    the Cloud Native Computing Foundation (CNCF), one of the most popular open source
+    software foundations dedicated to making cloud native computing universal and
+    sustainable; gRPC gained a lot of traction from CNCF ecosystem projects.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now let’s look at some of the key reasons for using gRPC over the conventional
+    inter-process communication protocols.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Why gRPC?
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: gRPC is designed to be an internet-scale, inter-process communication technology
+    that can overcome most of the shortcomings of conventional inter-process communication
+    technologies. Owing to the benefits of gRPC, most modern applications and servers
+    are increasingly converting their inter-process communication protocol to gRPC.
+    So, why would somebody select gRPC as a communication protocol when there are
+    so many other options available? Let’s look more closely at some of the key advantages
+    that gRPC brings to the table.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Advantages of gRPC
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'The advantages that gRPC brings are key to the increasing adoption of gRPC.
+    These advantages include the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: It’s efficient for inter-process communication
+  prefs: []
+  type: TYPE_NORMAL
+- en: Rather than using a textual format such as JSON or XML, gRPC uses a protocol
+    buffer–based binary protocol to communicate with gRPC services and clients. Also,
+    gRPC implements protocol buffers on top of HTTP/2, which makes it even faster
+    for inter-process communication. This makes gRPC one of the most efficient inter-process
+    communication technologies out there.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It has simple, well-defined service interfaces and schema
+  prefs: []
+  type: TYPE_NORMAL
+- en: gRPC fosters a contract-first approach for developing applications. You first
+    define the service interfaces and then work on the implementation details afterward.
+    So, unlike OpenAPI/Swagger for RESTful service definition and WSDL for SOAP web
+    services, gRPC offers a simple but consistent, reliable, and scalable application
+    development experience.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It’s strongly typed
+  prefs: []
+  type: TYPE_NORMAL
+- en: Since we use protocol buffers to define gRPC services, gRPC service contracts
+    clearly define the types that you will be using for communication between the
+    applications. This makes distributed application development much more stable,
+    as static typing helps to overcome most of the runtime and interoperability errors
+    that you would encounter when you build cloud native applications that span across
+    multiple teams and technologies.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It’s polyglot
+  prefs: []
+  type: TYPE_NORMAL
+- en: gRPC is designed to work with multiple programming languages. A gRPC service
+    definition with protocol buffers is language-agnostic. Hence, you can pick the
+    language of your choice but can interoperate with any existing gRPC service or
+    client.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It has duplex streaming
+  prefs: []
+  type: TYPE_NORMAL
+- en: gRPC has native support for client- or server-side streaming, which is baked
+    into the service definition itself. This makes it much easier to develop streaming
+    services or streaming clients. And the ability to build conventional request–response
+    style messaging and client- and server-side streaming is a key advantage over
+    the conventional RESTful messaging style.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It has built-in commodity features
+  prefs: []
+  type: TYPE_NORMAL
+- en: gRPC offers built-in support for commodity features such as authentication,
+    encryption, resiliency (deadlines and timeouts), metadata exchange, compression,
+    load balancing, service discovery, and so on (we’ll explore these in [Chapter 5](ch05.html#ch_05)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: It’s integrated with cloud native ecosystems
+  prefs: []
+  type: TYPE_NORMAL
+- en: gRPC is part of the CNCF and most of the modern frameworks and technologies
+    offer native support for gRPC out of the box. For instance, many projects under
+    CNCF such as [Envoy](https://oreil.ly/vGQsj) support gRPC as a communication protocol;
+    for cross-cutting features such as metrics and monitoring, gRPC is supported by
+    most such tools (e.g., using [Prometheus](https://oreil.ly/AU3-7) to monitor gRPC
+    applications).
+  prefs: []
+  type: TYPE_NORMAL
+- en: It’s mature and has been widely adopted
+  prefs: []
+  type: TYPE_NORMAL
+- en: gRPC has been matured by its heavy battle-testing at Google, and many other
+    major tech companies such as Square, Lyft, Netflix, Docker, Cisco, and CoreOS
+    have adopted it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As with any technology, gRPC comes with a certain set of drawbacks as well.
+    Knowing those drawbacks during application development is quite useful. So, let’s
+    take a look at some of the limitations of gRPC.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Disadvantages of gRPC
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Here are some of the disadvantages of gRPC that you need to be mindful of when
+    you select it for building applications. These include the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: It may not be suitable for external-facing services
+  prefs: []
+  type: TYPE_NORMAL
+- en: When you want to expose the application or services to an external client over
+    the internet, gRPC may not be the most suitable protocol as most of the external
+    consumers are quite newly about gRPC and REST/HTTP. The contract-driven, strongly
+    typed nature of gRPC services may hinder the flexibility of the services that
+    you expose to the external parties, and consumers get far less control (unlike
+    protocols such as GraphQL, which is explained in the next section). The gRPC gateway
+    is designed as a workaround to overcome this issue. We’ll discuss it in detail
+    in [Chapter 8](ch08.html#ch_08).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Drastic service definition changes are a complicated development process
+  prefs: []
+  type: TYPE_NORMAL
+- en: Schema modifications are quite common in modern inter-service communication
+    use cases. When there are drastic gRPC service definition changes, usually we
+    need to regenerate code for both client and server. This needs to be incorporated
+    into the existing continuous integration process and may complicate the overall
+    development life cycle. However, most gRPC service definition changes can be accommodated
+    without breaking the service contract, and gRPC will happily interoperate with
+    clients and servers using different versions of a proto, as long as no breaking
+    changes are introduced. So code regeneration is not required in most cases.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The ecosystem is relatively small
+  prefs: []
+  type: TYPE_NORMAL
+- en: The gRPC ecosystem is still relatively small compared to the conventional REST/HTTP
+    protocol. The support for gRPC in browser and mobile applications is still in
+    the primitive stages.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You must be mindful about these limitations when it comes to the development
+    of applications. So, obviously, gRPC is not a technique that you should use for
+    all your inter-process communication requirements. Rather, you need to evaluate
+    the business use case and requirements and pick the appropriate messaging protocol.
+    We’ll explore some of these guidelines in [Chapter 8](ch08.html#ch_08).
+  prefs: []
+  type: TYPE_NORMAL
+- en: As we discussed in previous sections, there are many existing and emerging inter-process
+    communication techniques out there. It’s important to have a good understanding
+    of how we can compare gRPC with other similar technologies that have gained popularity
+    in the modern application development landscape, as this will help you in finding
+    the most appropriate protocol for your services.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'gRPC Versus Other Protocols: GraphQL and Thrift'
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: We have discussed in detail some of the key limitations of REST, which laid
+    the foundation to the inception of gRPC. Similarly, there are quite a few inter-process
+    communication technologies emerging to fulfill the same needs. So, let’s look
+    at some of the popular technologies and compare them with gRPC.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Apache Thrift
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: '[Apache Thrift](https://thrift.apache.org) is an RPC framework (initially developed
+    at Facebook and later donated to Apache) similar to gRPC. It uses its own interface
+    definition language and offers support for a wide range of programming languages.
+    Thrift allows you to define data types and service interfaces in a definition
+    file. By taking the service definition as the input, the Thrift compiler generates
+    code for the client and server sides. The Thrift transport layer provides abstractions
+    for network I/O and decouples Thrift from the rest of the system, which means
+    it can run on any transport implementation such as TCP, HTTP, and so on.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If you compare Thrift with gRPC, you will find both pretty much follow the
+    same design and usage goals. However, there are several important differentiators
+    between the two:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Transport
+  prefs: []
+  type: TYPE_NORMAL
+- en: gRPC is more opinionated than Thrift and offers first-class support for HTTP/2\.
+    Its implementations on HTTP/2 leverage the protocol’s capabilities to achieve
+    efficiency and support for messaging patterns such as streaming.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Streaming
+  prefs: []
+  type: TYPE_NORMAL
+- en: gRPC service definitions natively support bidirectional streaming (client and
+    server) as part of the service definition itself.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Adoption and community
+  prefs: []
+  type: TYPE_NORMAL
+- en: When it comes to adoption gRPC seems to have a pretty good momentum and has
+    managed to build a good ecosystem around CNCF projects. Also, community resources
+    such as good documentation, external presentations, and sample use cases are quite
+    common for gRPC, which makes the adoption process smooth compared to Thrift.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Performance
+  prefs: []
+  type: TYPE_NORMAL
+- en: While there are no official results comparing gRPC versus Thrift, there are
+    a few online resources with performance comparisons between the two that show
+    better numbers for Thrift. However, gRPC is also being heavily benchmarked for
+    performance in almost all [releases](https://oreil.ly/Hy3mJ). So performance is
+    unlikely to be a deciding factor when it comes to selecting Thrift over gRPC.
+    Also, there are other RPC frameworks that offer similar capabilities but gRPC
+    is currently leading the way as the most standardized, interoperable, and widely
+    adopted RPC technology.
+  prefs: []
+  type: TYPE_NORMAL
+- en: GraphQL
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: '[GraphQL](https://graphql.org) is another technology (invented by Facebook
+    and standardized as an open technology) that is becoming quite popular for building
+    inter-process communication. It is a query language for APIs and a runtime for
+    fulfilling those queries with your existing data. GraphQL offers a fundamentally
+    different approach for conventional client–server communication by allowing clients
+    to determine what data they want, how they want it, and in what format they want
+    it. gRPC, on the other hand, has a fixed contract for the remote methods that
+    enable communication between the client and the server.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: GraphQL is more suitable for external-facing services or APIs that are exposed
+    to consumers directly where the clients need more control over the data that consume
+    from the server. For example, in our online retail application scenario, suppose
+    that the consumers of the `ProductInfo` service need only specific information
+    about the products but not the entire set of attributes of a product, and the
+    consumers also need a way to specify the information they want. With GraphQL you
+    can model a service so that it allows consumers to query the service using the
+    GraphQL query language and obtain the required information.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In most of the pragmatic use cases of GraphQL and gRPC, GraphQL is being used
+    for external-facing services/APIs while internal services that are backing the
+    APIs are implemented using gRPC.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now let’s have a look at some of the real-world adopters of gRPC and their use
+    cases.
+  prefs: []
+  type: TYPE_NORMAL
+- en: gRPC in the Real World
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The success of any inter-process communication protocol is largely dependent
+    on industry-wide adoption and the user and developer community behind that project.
+    gRPC has been widely adopted for building microservices and cloud native applications.
+    Let’s look at some of the key success stories of gRPC.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Netflix
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '[Netflix](https://oreil.ly/xK3Ds), a subscription-based video streaming company,
+    is one of the pioneers in practicing microservices architecture at scale. All
+    of its video streaming capabilities are offered to consumers through an external-facing
+    managed service (or APIs) and there are hundreds of backend services that are
+    backing its APIs. Therefore, inter-process (or inter-service) communication is
+    one of the most important aspects of its use case. During the initial stage of
+    microservices implementation, Netflix developed its own technology stack for inter-service
+    communication using RESTful services on HTTP/1.1, which backs almost 98% of the
+    business use cases of the Netflix product.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, Netflix has observed several limitations of the RESTful services–based
+    approach when they operate at internet scale. The consumers of RESTful microservices
+    were often written from scratch by inspecting the resources and required message
+    formats of the RESTful services. This was very time-consuming, hindered developer
+    productivity, and also increased the risk for more error-prone code. Service implementation
+    and consumption was also challenging because of the lack of technologies for a
+    comprehensive definition of a service interface. So, it initially tried to overcome
+    most of these limitations by building an internal RPC framework, but after evaluating
+    available technology stacks, it chose gRPC as its inter-service communication
+    technology. During its evaluation, Netflix found that gRPC was comfortably at
+    the top in terms of encapsulating all the required responsibilities together in
+    one easy-to-consume package.
+  prefs: []
+  type: TYPE_NORMAL
+- en: With the adoption of gRPC, Netflix has seen a massive boost in developer productivity.
+    For example, for each client, hundreds of lines of custom code are replaced by
+    just two to three lines of configuration in the proto. Creating a client, which
+    could take up to two to three weeks, takes a matter of minutes with gRPC. The
+    overall stability of the platform has also improved a lot because handwritten
+    code for most of the commodity features is no longer needed and there is a comprehensive
+    and safe way of defining service interfaces. Owing to the performance boost that
+    gRPC provides, the overall latency of Netflix’s entire platform has reduced. Since
+    it has adopted gRPC for most of its inter-process communication use cases, it
+    seems that Netflix has put some of its homegrown projects (for example, [Ribbon](https://oreil.ly/qKgv4))
+    that are built for inter-process communication using REST and HTTP protocols into
+    maintenance mode (not in active development) and are using gRPC instead.
+  prefs: []
+  type: TYPE_NORMAL
+- en: etcd
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: '[etcd](https://oreil.ly/wo4gM) is a distributed reliable key-value store for
+    the most critical data of a distributed system. It’s one of the most popular open
+    source projects in CNCF and heavily adopted by many other open source projects
+    such as Kubernetes. One key factor in gRPC’s success is that it has a simple,
+    well-defined, easy-to-consume, user-facing API. etcd uses a gRPC [user-facing
+    API](https://oreil.ly/v-H-K) to leverage the full power of gRPC.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Dropbox
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Dropbox is a file-hosting service that offers cloud storage, file synchronization,
+    personal cloud, and client software. Dropbox runs hundreds of polyglot microservices,
+    which exchange millions of requests per second. It was using multiple RPC frameworks
+    initially, including a homegrown RPC framework with a custom protocol for manual
+    serialization and deserialization, Apache Thrift, and a legacy RPC framework that
+    was an HTTP/1.1-based protocol with protobuf-encoded messages.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Rather than using any of those, Dropbox has switched to gRPC (which also allows
+    it to reuse some of the existing protocol buffer definitions of its message formats).
+    It has created [Courier](https://oreil.ly/msjcZ), a gRPC-based RPC framework.
+    Courier is not a new RPC protocol but a project that integrates gRPC with Dropbox’s
+    existing infrastructure. Dropbox has augmented gRPC to cater to its specific requirements
+    related to authentication, authorization, service discovery, service statistics,
+    event logging, and tracing tools.
+  prefs: []
+  type: TYPE_NORMAL
+- en: These success stories of gRPC tell us that it’s an inter-process messaging protocol
+    that is simple, boosts productivity and reliability, and scales and operates at
+    the internet scale. These are some of the well-known early adopters of gRPC, but
+    the use cases and adoption of gRPC are increasingly growing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Modern software applications or services rarely live in isolation and the inter-process
+    communication techniques that connect them are one of the most important aspects
+    of modern distributed software applications. gRPC is a scalable, loosely coupled,
+    and type-safe solution that allows for more efficient inter-process communication
+    than conventional REST/HTTP-based communication. It allows you to connect, invoke,
+    operate, and debug distributed heterogeneous applications as easy as making a
+    local method call via network transport protocols such as HTTP/2.
+  prefs: []
+  type: TYPE_NORMAL
+- en: gRPC can also be considered as an evolution of conventional RPCs and has managed
+    to overcome their limitations. gRPC is being widely adopted by various internet-scale
+    companies for their inter-process communication requirements and is most commonly
+    used for building internal service-to-service communications.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The knowledge you gain from this chapter will be a good entry point for the
+    rest of the chapters, where you will dive deep into different aspects of gRPC
+    communication. This knowledge will be put into practice in the next chapter where
+    we build a real-world gRPC application from the ground up.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([1](ch01.html#idm46536655629784-marker)) K. Indrasiri and P. Siriwardena,
+    *Microservices for the Enterprise* (Apress, 2018).
+  prefs: []
+  type: TYPE_NORMAL

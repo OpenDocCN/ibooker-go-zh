@@ -1,0 +1,1931 @@
+- en: Chapter 7\. Data-Driven Efficiency Assessment
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: You learned how to observe our Go program using different observability signals
+    in the previous chapter. We discussed how to transform those signals to numeric
+    values, or metrics, to effectively observe and assess the latency and resource
+    consumption of the program.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Unfortunately, knowing how to measure the current or maximum consumption or
+    latency for running a program does not guarantee the correct assessment of the
+    overall program efficiency for our application. What we are missing here is the
+    experiment part, which might be the most challenging part of optimization generally:
+    how to trigger situations that are worth measuring with the observability tools
+    mentioned in [Chapter 6](ch06.html#ch-observability)!'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Definition of Measuring
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'I find the verb “to measure” very imprecise. I have seen this word overused
+    to describe two things: the process of performing an experiment and gathering
+    numeric data from it.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this book, every time you read about the “measuring” process, I follow the
+    definition used in [metrology (the science of measurement)](https://oreil.ly/5PRMp).
+    I precisely mean the process of using the instruments to quantify what is happening
+    now (e.g., the latency of the event, or how much memory it required) or what happened
+    in a given time window. Everything that leads to this event that we measure (simulated
+    by us in a benchmark or occurring naturally) is a separate topic, discussed in
+    this chapter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, I will introduce you to the art of experimentation and measurement
+    for efficiency purposes. I will mainly focus on data-driven assessment, more commonly
+    known as benchmarking. This chapter will help you understand the best practices
+    before we jump to writing benchmarking code in [Chapter 8](ch08.html#ch-benchmarking).
+    These practices will also be invaluable in [Chapter 9](ch09.html#ch-observability3),
+    which focuses on profiling.
+  prefs: []
+  type: TYPE_NORMAL
+- en: I start with complexity analysis as a less empirical way of assessing the efficiency
+    of our solutions. Then, I will explain benchmarking in [“The Art of Benchmarking”](#ch-obs-bench-intro).
+    We will compare it to functional testing and clarify the common stereotype that
+    claims “benchmarks always lie.”
+  prefs: []
+  type: TYPE_NORMAL
+- en: Later in [“Reliability of Experiments”](#ch-obs-rel), we will move to the reliability
+    aspect of our experiments for both benchmarking and profiling purposes. I will
+    provide the ground rules to avoid wasting time (or money) by gathering bad data
+    and making wrong conclusions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, in [“Benchmarking Levels”](#ch-obs-benchmarking), I will introduce
+    you to the full landscape of benchmark strategies. In the previous chapters, I
+    already used benchmarks to provide data that explained the behavior of CPU or
+    memory resources. For example, in [“Consistent Tooling”](ch02.html#ch-go-tooling),
+    I mentioned that the Go tooling provides a standard benchmarking framework. But
+    the benchmarking skill I want to teach you in this chapter goes beyond that, and
+    it is just one tool of many discussed in [“Microbenchmarks”](ch08.html#ch-obs-micro).
+    There are many different ways of assessing the efficiency of our Go code. Knowing
+    when to use what is key.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s start by introducing the benchmarking tests and what the critical aspects
+    of those are.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Complexity Analysis
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We don’t always have the luxury of having empirical data that guides us through
+    the efficiency of a certain solution. Your idea of a better system or algorithm
+    might not be implemented yet and would require a lot of effort to do so before
+    we could benchmark it. Additionally, I mentioned the need for complexity estimation
+    in [“Example of Defining RAER”](ch03.html#example-defining-raer).
+  prefs: []
+  type: TYPE_NORMAL
+- en: This might feel contradictory to what we learned in [“Optimization Challenges”](ch03.html#ch-conq-challenges)
+    (“programmers are notoriously bad at estimating exact resource consumption”),
+    but sometimes engineers rely on theoretical analysis to assess the program. One
+    example is when we assess optimizations on the algorithm level (from [“Optimization
+    Design Levels”](ch03.html#ch-conq-opt-levels)). Developers and scientists often
+    use complexity analysis to compare and decide what algorithm might fit better
+    to solve certain problems with certain constraints. More specifically, they use
+    asymptotic notations (commonly known as “Big O” complexities). Most likely, you
+    have heard about them, as they are commonly asked about during any software engineering
+    interview.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, to fully understand asymptotic notations, you must know what “estimated”
+    efficiency complexity means and what it looks like!
+  prefs: []
+  type: TYPE_NORMAL
+- en: “Estimated” Efficiency Complexity
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: I mentioned in [“Resource-Aware Efficiency Requirements”](ch03.html#ch-conq-req)
+    that we can represent the CPU time or consumption of any resources as a mathematical
+    function related to specific input parameters. Typically, we talk about *runtime*
+    complexity, which tells us about the CPU time required to perform a certain operation
+    using a particular piece of code and environment. However, we also have *space*
+    complexity, which can describe the required memory, disk space, or other space
+    requirements for that operation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For example, let’s take our `Sum` function from [Example 4-1](ch04.html#code-sum).
+    I can prove that such code has estimated space complexity (representing heap allocations)
+    of the following function, where *N* is a number of integers in the input file:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: <math><mrow><mi>s</mi> <mi>p</mi> <mi>a</mi> <mi>c</mi> <mi>e</mi> <mo>(</mo>
+    <mi>N</mi> <mo>)</mo> <mo>=</mo> <mo>(</mo> <mn>848</mn> <mo>+</mo> <mn>3</mn>
+    <mo>.</mo> <mn>6</mn> <mo>*</mo> <mi>N</mi> <mo>)</mo> <mo>+</mo> <mo>(</mo> <mn>24</mn>
+    <mo>+</mo> <mn>24</mn> <mo>*</mo> <mi>N</mi> <mo>)</mo> <mo>+</mo> <mo>(</mo>
+    <mn>2</mn> <mo>.</mo> <mn>8</mn> <mo>*</mo> <mi>N</mi> <mo>)</mo> <mi>b</mi> <mi>y</mi>
+    <mi>t</mi> <mi>e</mi> <mi>s</mi> <mo>=</mo> <mn>872</mn> <mo>+</mo> <mn>30</mn>
+    <mo>.</mo> <mn>4</mn> <mo>*</mo> <mi>N</mi> <mi>b</mi> <mi>y</mi> <mi>t</mi> <mi>e</mi>
+    <mi>s</mi></mrow></math>
+  prefs: []
+  type: TYPE_NORMAL
+- en: Knowing detailed complexity is great, but typically it’s impossible or hard
+    to find the true complexity function because there are too many variables. We
+    can, however, try to estimate those, especially for more deterministic resources
+    like memory allocation, by simplifying the variables. For example, the preceding
+    equation is only an estimation with a simplified function that takes only one
+    parameter—the number of integers. Of course, this code also depends on the size
+    of integers, but I assumed the integer is ~3.6 bytes long (statistic from my test
+    input).
+  prefs: []
+  type: TYPE_NORMAL
+- en: “Estimated” Complexity
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As I try to teach you in this book—be precise with the wording.
+  prefs: []
+  type: TYPE_NORMAL
+- en: I was so wrong for all those years, thinking that complexity always means Big
+    O asymptotic complexity. Turns out [the complexity exists too](https://oreil.ly/LG5qb)
+    and can be very useful in some cases. At least we should be aware it exists!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unfortunately, it’s easy to confuse it with asymptotic complexity, so I would
+    propose calling the one that cares about constants—the “estimated” complexity.
+  prefs: []
+  type: TYPE_NORMAL
+- en: How did I find this complexity equation? It wasn’t trivial. I had to analyze
+    the source code, do some stack escape analysis, run multiple benchmarks, and use
+    profiling (so all the things you will learn in this and the next two chapters)
+    to discover those complexities.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This Is Just an Example!
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Don’t worry. To assess or optimize your code, you don’t need to perform such
+    detailed complexity analysis, especially in such detail. I did this to show it’s
+    possible and what it gives, but there are more pragmatic ways to assess efficiency
+    quickly and find out the next optimizations. You will see example flows in [Chapter 10](ch10.html#ch-opt).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Funny enough, at the end of the TFBO flow, when you optimized one part of your
+    program a lot, you might have a detailed awareness of the problem space so that
+    you could find such complexity quickly. However, doing this for every version
+    of your code would be wasteful.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It might be useful to explain the process of gathering the complexity and mapping
+    it to the source code, as shown in [Example 7-1](#code-sum-compl).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 7-1\. Complexity analysis of [Example 4-1](ch04.html#code-sum)
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_data_driven_efficiency_assessment_CO1-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can attach the 848 + 3.6 * *N* part of the complexity equation to the operation
+    of reading the file content into memory. The test input I used is very stable—the
+    integers have a different number of digits, but on average they have 2.6 digits.
+    Adding a new line (`\n`) character means every line has approximately 3.6 bytes.
+    Since `ReadFile` returns a byte array with the content of the input file, we can
+    say that our program requires exactly 3.6 * *N* bytes for the byte array pointed
+    to by the `b` slice. The constant amount of 848 bytes comes from various objects
+    allocated on the heap in the `os.ReadFile` function—for example, the slice value
+    for `b` (24 bytes), which escaped the stack. To discover that constant, it was
+    enough to benchmark with an empty file and profile it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_data_driven_efficiency_assessment_CO1-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: As you will learn in [Chapter 10](ch10.html#ch-opt), the `bytes.Split` is quite
+    expensive when it comes to both allocations and runtime latency. However, we can
+    attribute most of the allocations to this part, so to the 24 + 24 * *N* complexity
+    part. It’s the “majority” because it’s the largest constant (24) multiplied by
+    the input size. The reason is the allocation needed to return the [`[][]byte`](https://oreil.ly/Be0OF)
+    data structure. While we don’t copy the underlying byte arrays (we share it with
+    the buffer from `os.ReadFile)`, the *N* allocated empty `[]byte` slices require
+    24 * *N* of the heap in total, plus the 24 for the `[][]byte` slice header. This
+    is a huge allocation if *N* is on the order of billions (22 GB for a billion integers).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_data_driven_efficiency_assessment_CO1-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, as we learned in [“Values, Pointers, and Memory Blocks”](ch05.html#ch-hw-allocations)
+    and as we will uncover in [“Optimizing runtime.slicebytetostring”](ch10.html#ch-opt-latency-example-strcopy),
+    we allocate on this line a lot too. It’s not visible at first, but the memory
+    required for `string(line)` (which is always a copy) is escaping to heap.^([1](ch07.html#idm45606830136704))
+    This attributes to the 2.8 * *N* part of the complexity because we do this conversion
+    N times for 2.6 digits on average. The source of the remaining 0.2 * *N* is unknown.^([2](ch07.html#idm45606830134048))
+  prefs: []
+  type: TYPE_NORMAL
+- en: I hope that with this analysis, you see what complexity means. Perhaps you already
+    see how useful it is to know. Maybe you already see many optimization opportunities,
+    which we will try in [Chapter 10](ch10.html#ch-opt)!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Asymptotic Complexity with Big O Notation
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The asymptotic complexity ignores the overheads of the implementation, particularly
+    hardware or environment. Instead, it focuses on [asymptotic mathematical analysis](https://oreil.ly/MR0Jz):
+    how fast runtime or space demands grow in relation to the input size. This allows
+    algorithm classifications based on their scalability, which usually matters for
+    the researchers who search for algorithms solving complex problems (which usually
+    require enormous inputs). For example, in [Figure 7-1](#img-opt-bigo), we see
+    a small overview of typical functions and an opinionated assessment of what’s
+    typically bad and what’s good complexity for the algorithm. Note that “bad” complexity
+    here doesn’t mean there are algorithms that do better—there are some problems
+    that can’t be done in a faster way.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![efgo 0701](assets/efgo_0701.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 7-1\. Big O complexity chart from [*https://www.bigocheatsheet.com*](https://www.bigocheatsheet.com).
+    Shading indicates the opinionated rates of efficiency for usual problems.
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: We usually use Big O notation to represent asymptotic complexity. To my knowledge,
+    it was Donald Knuth who attempted to clearly define three notations (O, Ω, Θ)^([3](ch07.html#idm45606830118784))
+    in [his article from 1976](https://oreil.ly/yeFpW).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Verbally, O(f(n)) can be read as “order at most f(n)”; Ω(f(n)) as “order at
+    least f(n)”; Θ(f(n)) as “order exactly f(n)”.
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: ''
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: Donald Knuth, [“Big Omicron and Big Omega and Big Theta”](https://oreil.ly/yeFpW)
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: 'The phrase “in order of f(*N*)” means that we are not interested in the exact
+    complexity numbers but rather the approximation:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The upper bound (O)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Big Oh means the function can’t be asymptotically worse than `f(n)`. It is also
+    sometimes used to reflect the worst-case scenario if other input characteristics
+    matter (e.g., in a sorting problem, we usually talk about a number of elements,
+    but sometimes it matters if the input is already sorted).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The tight bound (Θ)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Big Theta represents the exact asymptotic function or, sometimes, the average,
+    typical case.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The lower bound (Ω)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Big Omega means the function can’t be asymptotically better than `f(n)`. It
+    also sometimes represents the best case.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For example, the [quicksort](https://oreil.ly/a2jhF) sorting algorithm has the
+    best and average runtime complexity (depending on how input is sorted and where
+    we choose the pivot point) of the *N* * log*N*, so *Ω*(*N* * log*N*) and *Θ*(*N*
+    * log*N*), even though the worst case is *O*(*N*²).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Industry Is Not Always Using Big O Notation Properly
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Generally, during interviews, discussions, and tutorials, you would see people
+    using Big Oh (*O*) where Big Theta (*Θ*) should be used to describe a typical
+    case. For example, we often say quicksort is *O*(*N* * log*N*), which is not true,
+    but in many instances we would accept that answer. Perhaps people try to make
+    this space more accessible by simplifying this topic. I will try to be more precise
+    here, but you can always swap *Θ* with *O* (but not in the opposite direction).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For our algorithm in [Example 4-1](ch04.html#code-sum), the asymptotic space
+    complexity is linear:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: <math><mrow><mi>s</mi> <mi>p</mi> <mi>a</mi> <mi>c</mi> <mi>e</mi> <mo>(</mo>
+    <mi>N</mi> <mo>)</mo> <mo>=</mo> <mn>872</mn> <mo>+</mo> <mn>30</mn> <mo>.</mo>
+    <mn>4</mn> <mo>*</mo> <mi>N</mi> <mi>b</mi> <mi>y</mi> <mi>t</mi> <mi>e</mi> <mi>s</mi>
+    <mo>=</mo> <mi>Θ</mi> <mo>(</mo> <mn>1</mn> <mo>)</mo> <mo>+</mo> <mi>Θ</mi> <mo>(</mo>
+    <mi>N</mi> <mo>)</mo> <mi>b</mi> <mi>y</mi> <mi>t</mi> <mi>e</mi> <mi>s</mi> <mo>=</mo>
+    <mi>Θ</mi> <mo>(</mo> <mi>N</mi> <mo>)</mo> <mi>b</mi> <mi>y</mi> <mi>t</mi> <mi>e</mi>
+    <mi>s</mi></mrow></math>
+  prefs: []
+  type: TYPE_NORMAL
+- en: In asymptotic analysis, constants like 1, 872, and 30.2 do not matter, even
+    though in practice, it might matter if our code allocates 1 MB (*Θ*(*N*)) or 30.4
+    MB.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Note that we don’t need precise complexity to figure out the asymptotic one.
+    That’s the point: precise complexity depends on too many variables, especially
+    when it comes to runtime complexity. Generally, we can learn to find the theoretical
+    asymptotic complexity based on algorithm pseudocode or description. It takes some
+    practice, but imagine we don’t have [Example 7-1](#code-sum-compl) implemented;
+    instead, we design an algorithm. For example, the naive algorithm for the sum
+    of all integers in the file can be described as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We read the file’s content into memory, which has *Θ*(*N*) of asymptotic space
+    complexity, where *N* is the number of integers or lines. As we read N lines,
+    this also has *Θ*(*N*) runtime complexity.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: We split the content into subslices. If we do it in place, this means *Θ*(*N*).
+    Otherwise, in theory, it is *Θ*(1). This is an interesting one, as we saw in precise
+    complexity that despite doing this in place, the overhead is 24 * *N*, which suggests
+    *Θ*(*N*). In both cases, the runtime complexity is *Θ*(*N*), as we have to go
+    through all lines.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'For every subslice (space complexity *Θ*(1) and runtime *Θ*(*N*)):'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: We parse the integer. Technically this needs no extra space on the heap, assuming
+    the integers can be kept on the stack. The runtime of this should also be *Θ*(1)
+    if we relate to the number of lines and the number of digits is limited.
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'We add the parsed value into a temporary variable containing a partial sum:
+    *Θ*(1) runtime and *Θ*(1) space.'
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: With such analysis, we can tell that the space complexity is *Θ*(*N*) + *Θ*(1)
+    + *Θ*(*N*) * *Θ*(1), so *Θ*(*N*). I also mentioned runtime complexity in step
+    2, which combines into *Θ*(*N*) + *Θ*(*N*) + *Θ*(*N*) * *Θ*(1), so also linear
+    *Θ*(*N*).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Generally, such a `Sum` algorithm is fairly easy to assess asymptotically, but
+    this is not trivial in many cases. It takes some practice and experience. I would
+    love it if some automatic tools detected such complexity. There were interesting
+    [attempts](https://oreil.ly/0h9ff) in the past, but in practice, they are too
+    expensive.^([4](ch07.html#idm45606830040464)) Perhaps there is a way to implement
+    some algorithm that assesses pseudocode for its complexity, but it’s our job now!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Practical Applications
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Frankly speaking, I was always skeptical about the “complexity” topic. Perhaps
+    I missed the lectures about it at my university,^([5](ch07.html#idm45606830034224))
+    but I was always disappointed when somebody asked me to determine the complexity
+    of some algorithm. I was convinced that it is only used to trick candidates during
+    technical interviews and has almost no use in practical software development.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The first problem was imprecision—when people asked me to determine complexity,
+    they meant asymptotic complexity in Big O notation. Furthermore, what’s the point
+    of Big O if, during paid work, I could usually search an element in the array
+    with the linear algorithm instead of a hashmap, and still the code would be fast
+    enough in most cases? Moreover, more experienced developers were rejecting my
+    merge requests because my fancy linked list with better insertion complexity could
+    be just a simpler array with `appends`. Finally, I was learning about all those
+    fast algorithms with incredible asymptotic complexity that are not used in practice
+    because of hidden constant costs or other caveats.^([6](ch07.html#idm45606830032352))
+  prefs: []
+  type: TYPE_NORMAL
+- en: I think most of my frustration came from misunderstandings and misuses stemming
+    from the industry’s stereotypes and simplifications. I am especially surprised
+    that [not a few engineers](https://oreil.ly/1yxqH) are willing to perform such
+    “estimated” complexity. Perhaps we often feel demotivated or overwhelmed by how
+    hard it is to estimate beyond asymptotic complexity. For me, reading old programming
+    books was eye-opening—some of them use both complexities in most of their optimization
+    examples!
+  prefs: []
+  type: TYPE_NORMAL
+- en: The main `for` loop of the program is executed `N-1` times, and contains an
+    inner loop that is itself executed `N` times; the total time required by the program
+    will therefore be dominated by a term proportional to `N^2`. The Pascal running
+    time of Fragment A1 was observed to by approximately 47.0N^2 microseconds.
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: ''
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: Jon Louis Bentley, *Writing Efficient Programs*
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: When you try to assess or optimize algorithm and code that requires better efficiency,
+    being aware of its estimated complexity and asymptotic complexity has a real value.
+    Let’s go through some use cases.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you know precise complexity, you don’t need to measure to know expected resource
+    requirements
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: In practice, we rarely have precise complexity from the start, but imagine someone
+    giving us such complexity. This gives an enormous win for tasks like capacity
+    planning, where you need to find out the cost of running your system under various
+    loads (e.g., different inputs).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For example, how much memory does the naive implementation of `Sum` use in
+    [Example 7-1](#code-sum-compl)? It turns out that without any benchmark, I could
+    use the space complexity of 872 + 30.4 * *N* bytes to tell that for various input
+    sizes, for example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: For 1 million integers, my code would need 30,400,872 bytes, so 30.4 MB if we
+    use the [1,000 multiplier, not the 1,024](https://oreil.ly/SYcm8).^([7](ch07.html#idm45606830017600))
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: For 2 million integers, it would need 60.8 MB.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: This can be confirmed if we would perform a quick microbenchmark (don’t worry,
+    I will explain how to perform benchmarks here and in [Chapter 8](ch08.html#ch-benchmarking)).
+    Results are presented in [Example 7-2](#code-sum-bench2).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 7-2\. Benchmark allocation result for [Example 4-1](ch04.html#code-sum)
+    with one million elements and two million elements input, respectively
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: Based on just those two results, our space complexity is fairly accurate.^([8](ch07.html#idm45606829986592))
+  prefs: []
+  type: TYPE_NORMAL
+- en: It’s unlikely you can always find the full, accurate, real complexity. However,
+    usually it’s enough to have a very high-level estimation of this complexity, e.g.,
+    30 * *N* bytes would be detailed enough space complexity for our `Sum` function
+    in [Example 7-1](#code-sum-compl).
+  prefs: []
+  type: TYPE_NORMAL
+- en: It tells us if there is any easy optimization to our code
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Sometimes we don’t need detailed empirical data to know we have efficiency problems.^([9](ch07.html#idm45606830003600))
+    This is great because such techniques can tell us how easy it is to optimize our
+    program further. Such a quick efficiency assessment is something I would love
+    you to know before we move into heavy benchmarking.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For example, when I wrote the naive implementation of the `Sum` in [Example 4-1](ch04.html#code-sum),
+    I expected to write an algorithm with *Θ*(*N*) space (asymptotic) complexity.
+    However, I expected it to have around 3.5 * *N* of the real complexity because
+    I read the whole file content to memory. Only when I ran benchmarks that gave
+    me output like [Example 7-2](#code-sum-bench2) did I realize how poor my naive
+    implementation was, with almost 10 times more memory usage than expected (30.5
+    MB). This expected estimation of the real complexity versus the resulting one
+    is typically a good indication that there might be some trivial optimization if
+    we have to improve the efficiency.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Secondly, if my algorithm space Big O complexity is linear, it is already a
+    bad sign for such simple functionality. My algorithm will use an extreme amount
+    of memory for huge inputs. Depending on requirements, that might be fine or it
+    might mean real issues if we want to scale this application.^([10](ch07.html#idm45606829995728))
+    If not a problem right now, the maximum expected input size should be acknowledged
+    and documented as it might be a surprise to somebody who will be using this function
+    in the future!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, suppose the measurements are totally off the expected complexity of
+    the algorithm. In that case, it might signal a [memory leak](https://oreil.ly/ZNB5s),
+    which is often easy to fix if you have the right tools (as we will discuss in
+    [“Don’t Leak Resources”](ch11.html#ch-basic-leaks)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Three Clear Indications We Are Wasting Memory Space
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The difference between the theoretical space complexity (asymptotic and estimated)
+    and the reality measured with a benchmark can immediately tell you if something
+    is not as expected.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Significant space complexity depending on the user (or caller) input is a bad
+    sign that might mean future scalability problems.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: If, with time, the total memory used by the program constantly grows and never
+    goes down, it most likely indicates a memory leak.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: It helps us assess ideas for a better algorithm as an optimization
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Another amazing use case for complexities is quickly assessing algorithmic
+    optimizations without implementing them. For our `Sum` example, we don’t need
+    extreme algorithmic skills to know that we don’t need to buffer the whole file
+    in memory. If we want to save memory, we should be able to have a small buffer
+    for parsing purposes. Let’s describe an improved algorithm:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We open the input file without reading anything.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: We create a 4 KB buffer, so we need at least 4 KB of memory, which is still
+    a constant amount (*Θ*(1)).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: 'We read the file in 4 KB chunks. For every chunk:'
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: We parse the number.
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: We add it to a temporary partial sum.
+  prefs:
+  - PREF_IND
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Such an improved algorithm, in theory, should give us the space complexity of
+    ~4 KB, so *O*(1). As a result, our [Example 4-1](ch04.html#code-sum) could use
+    7,800 times less space for 1 million integers! So we can tell without implementation
+    that such optimization on an algorithmic level would be very beneficial, and you
+    will see it in action in [“Optimizing Memory Usage”](ch10.html#ch-opt-mem-example).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Doing such complexity analysis can quickly assess your ideas for improvement
+    without needing the full TFBO loop!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Worse Is Sometimes Better!
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: If we decide to implement the algorithm with better asymptotic or theoretical
+    complexity, don’t forget to assess it at the code level using benchmarks! When
+    designing an algorithm, we often optimize for asymptotic complexity, but when
+    we write code, we optimize the constants of that asymptotic complexity.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Without good measurements, you might implement a good algorithm in terms of
+    Big O complexity, but with the inefficient code, make efficiency optimizations
+    instead of improvement!
+  prefs: []
+  type: TYPE_NORMAL
+- en: It tells us where the bottleneck is and what part of the algorithm is critical
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Finally, a quick look at the detailed space complexity, especially when mapped
+    to the source code as in [Example 7-1](#code-sum-compl), is a great way to determine
+    the efficiency bottleneck. We can see that the constant 24 is the biggest one,
+    and it comes from the `bytes.Split` function that we will optimize first in [Chapter 10](ch10.html#ch-opt).
+    In practice, however, profiling can yield data-driven results much faster, so
+    we will focus on this method in [Chapter 9](ch09.html#ch-observability3).
+  prefs: []
+  type: TYPE_NORMAL
+- en: To sum up, the wider knowledge about the complexity and ability to mix basic
+    measurements with theoretical asymptotic taught me that complexities could be
+    useful. It can be an excellent tool for more theoretical efficiency assessment
+    if used correctly. However, as you can see, the real value is when we mix empirical
+    measurements with theory. With this in mind, let’s learn more about benchmarking!
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Art of Benchmarking
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Assessing efficiency is essential in the TFBO flow, represented by step 4 in
+    [Figure 3-5](ch03.html#img-opt-flow). Such evaluation of our code, algorithm,
+    or system is generally a complex problem, achievable in many ways. For example,
+    we discussed assessing efficiency on the algorithm level through research, static
+    analysis, and Big O notations for runtime complexity.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can assess a lot by performing a theoretical analysis and estimating code
+    efficiency. Still, in many cases, the most reliable way is to get our hands dirty,
+    run some code, and see things in action. As we learned in [“Optimization Challenges”](ch03.html#ch-conq-challenges),
+    we are bad at estimating the resource consumption of our code, so empirical assessments
+    allow us to reduce the number of guesses in our evaluations.^([11](ch07.html#idm45606829937408))
+    Ideally, we assume nothing and verify the efficiency using special testing processes
+    that test efficiency instead of correctness. We call those tests *benchmarks*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Benchmarking Versus Stress and Load Tests
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: There are many alternative names for benchmarking, such as stress tests, performance
+    tests, and load tests. However, since they generally mean the same, for consistency,
+    I will use benchmarking in this book.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Generally, benchmarking is an effective efficiency assessment method for our
+    software or systems. In abstract, the process of benchmarking is composed of four
+    core parts, which we describe logically as a simple function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: <math><mrow><mi>B</mi> <mi>e</mi> <mi>n</mi> <mi>c</mi> <mi>h</mi> <mi>m</mi>
+    <mi>a</mi> <mi>r</mi> <mi>k</mi> <mo>=</mo> <mi>N</mi> <mo>*</mo> <mo>(</mo> <mi>E</mi>
+    <mi>x</mi> <mi>p</mi> <mi>e</mi> <mi>r</mi> <mi>i</mi> <mi>m</mi> <mi>e</mi> <mi>n</mi>
+    <mi>t</mi> <mo>+</mo> <mi>M</mi> <mi>e</mi> <mi>a</mi> <mi>s</mi> <mi>u</mi> <mi>r</mi>
+    <mi>e</mi> <mi>m</mi> <mi>e</mi> <mi>n</mi> <mi>t</mi> <mi>s</mi> <mo>)</mo> <mo>+</mo>
+    <mi>C</mi> <mi>o</mi> <mi>m</mi> <mi>p</mi> <mi>a</mi> <mi>r</mi> <mi>i</mi> <mi>s</mi>
+    <mi>o</mi> <mi>n</mi></mrow></math>
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'At the core of any benchmarking, we have the experimentations and measurements
+    cycle:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Experiment
+  prefs: []
+  type: TYPE_NORMAL
+- en: The act of simulating a specific functionality of our software to learn about
+    its efficiency behavior. We can scope that experiment to a single Go function
+    or Go structure or even complex, distributed systems. For example, if your team
+    develops the web server, it might mean starting a web server and performing a
+    single HTTP request with realistic data that the user would use.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Measurement
+  prefs: []
+  type: TYPE_NORMAL
+- en: In [Chapter 6](ch06.html#ch-observability), we discussed getting accurate measurements
+    for latency and the consumption of various resources. It’s vital to reliably observe
+    our software during the entire experiment to make meaningful conclusions when
+    it ends. For our web server example, this might mean measuring the latency of
+    the operations on various levels (e.g., client and server latencies), as well
+    as the memory consumption of our web server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now the unique part of our benchmarking process is that the experiment and
+    measurements cycle has to be performed *N* times with the comparison phase at
+    the end:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The number of test iterations (N)
+  prefs: []
+  type: TYPE_NORMAL
+- en: '*N* is the number of test iterations we must perform to build enough confidence
+    in the results. The exact number of runs depends on many factors, which we will
+    discuss in [“Reliability of Experiments”](#ch-obs-rel). Generally, the more iterations
+    we do, the better. In many cases, we have to balance between higher confidence
+    and cost or wait time of a too large number of iterations.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Comparison
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, in the benchmarking definition, we have [the comparison aspect](https://oreil.ly/kzNR3),
+    which allows us to learn what’s improving the efficiency of our software, what’s
+    hindering it, and how far we are from the expectations (RAER).
+  prefs: []
+  type: TYPE_NORMAL
+- en: In many ways, you might notice that benchmarking is similar to the testing we
+    do to verify correctness (referred to later as functional testing). As a result,
+    many testing practices apply to benchmarking. Let’s look at that next.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Comparison to Functional Testing
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Comparison to something we are familiar with is one of the best ways to learn.
+    So, let’s compare benchmarking to functional testing. Is there anything we can
+    reuse in terms of methodology or practices? You will learn in this chapter that
+    we can share many things between functional tests and benchmarking. For example,
+    there are a few similar aspects:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Best practices for forming test cases (e.g., [edge cases](https://oreil.ly/Sw9qB)),
+    [table-driven testing](https://oreil.ly/Q3bXD), and regression testing
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Splitting tests into [unit, integration, e2e](https://oreil.ly/tvaMk), and testing
+    in production (more on that in [“Benchmarking Levels”](#ch-obs-benchmarking))
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Automation for continuous testing
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Unfortunately, we have to also be aware of significant differences. With benchmarks:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We have to have different [test cases and test data](https://oreil.ly/me3cM).
+  prefs: []
+  type: TYPE_NORMAL
+- en: It might be tempting, but we cannot reuse the same test data (input parameters,
+    potential fake, test data in a database, etc.) as we used for our unit or integrations
+    tests meant for correctness tests. This is because the goals are different. In
+    correctness tests, we tend to focus on different [edge cases](https://oreil.ly/Sw9qB)
+    from a functional perspective (e.g., failure modes). Whereas in efficiency tests,
+    the edge cases are usually focused on triggering different efficiency issues (e.g.,
+    big requests versus many small requests). We will discuss these in [“Reproducing
+    Production”](#ch-obs-rel-repro).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For most systems, though, the programmer should monitor the program on input
+    data that is typical of the data the program will encounter in production. Note
+    that usual test data often does not meet this requirement: while test data is
+    chosen to exercise all parts of the code, profiling [and benchmarking] data should
+    be chosen for its “typicality.”'
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: ''
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: Jon Louis Bentley, *Writing Efficient Programs*
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: Embrace the performance nondeterminism
+  prefs: []
+  type: TYPE_NORMAL
+- en: Modern software and hardware consist of layers of complex optimizations. This
+    can cause nondeterministic conditions to change while performing our benchmarks,
+    which might mean that the results will also be nondeterministic. We will expand
+    on this in [“Reliability of Experiments”](#ch-obs-rel), but this is why we usually
+    repeat test iteration cycles hundreds if not thousands of times (our *N* component)
+    to increase confidence in our observations. The main goal here is to figure out
+    how repeatable our benchmark is. If the variance is too high, we know we cannot
+    trust the results and must mitigate the variance. This is why we rely on statistics
+    in our benchmarks, which helps a lot, but also makes it easy to mislead others
+    and ourselves.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Repeatability: Ensuring that the same operations are benchmarked on all configurations
+    and that metrics are repeatable over many test runs. Rule of thumb is a variation
+    of up to 5% is generally acceptable.'
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: ''
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: 'Bob Cramblitt, [“Lies, Damned Lies, and Benchmarks: What Makes a Good Performance
+    Metric”](https://oreil.ly/ghvJ7)'
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: It is more expensive to write and run
+  prefs: []
+  type: TYPE_NORMAL
+- en: As you can imagine, the number of iterations we have to perform increases the
+    running cost and complexity of performing the benchmark, both the compute cost
+    and developer time spent on creating those and waiting. But that is not the only
+    additional cost compared to correctness tests. To trigger efficiency problems,
+    especially for large systems load tests, we have to exhaust different systems
+    capacities, which means buying a lot of computing power just for the sake of tests.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is why we have to focus on a pragmatic optimization process where we only
+    care about efficiency where necessary. There are also ways to be smart and avoid
+    full-scale macrobenchmarks by using tactical microbenchmarks of isolated functions,
+    as discussed in [“Benchmarking Levels”](#ch-obs-benchmarking).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Expectations are less specific
+  prefs: []
+  type: TYPE_NORMAL
+- en: Correctness tests always end up with some assertions. For example, in Go tests,
+    we check if the result of the functions has the expected value. If not, we use
+    `t.Error` or `t.Fail` to indicate the test should fail (or one-liners like [`testutil.Ok`](https://oreil.ly/ncVhq)
+    or [`testutil.Equals`](https://oreil.ly/uH1F5)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: It would be amazing if we could do the same when benchmarking—asserting if the
+    latency and resource consumption are not exceeding the RAER. Unfortunately, we
+    cannot just do `if maxMemoryConsumption < 200 * 1024 * 1024` at the end of a microbenchmark.
+    The typical high variance of the results, challenges in isolating the latency
+    and resource consumption to just one functionality we test, and other problems
+    mentioned in [“Reliability of Experiments”](#ch-obs-rel) make it hard to automate
+    the assertion process. Typically, there has to be human or very complex anomaly
+    detection or assertion software to understand whether the results are acceptable.
+    Hopefully, we will see more tools that make it easier in the future.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To make things harder, we might have a RAER for bigger APIs and functionalities.
+    But if the RAER says the latency of the whole HTTP request should be lower than
+    the 20s, what does that mean for the single Go function involved in this request
+    (out of thousands)? How much latency should we expect in microbenchmarks used
+    by this function? There is no good answer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We Focus More on Relative Results than Absolute Numbers!
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In benchmarks, we usually don’t assert absolute values. Instead, we focus on
+    comparing results to some baseline (e.g., the previous benchmark before our code
+    change). This way, we know if we improved or negatively affected the efficiency
+    of a single component without looking at the big picture. This is usually enough
+    on the unit microbenchmarks level.
+  prefs: []
+  type: TYPE_NORMAL
+- en: With the basic concept of benchmarking explained, let’s address the elephant
+    in the room in the next section—the stereotype that associates benchmarks with
+    lies. Unfortunately, there are [solid reasons for this relation](https://oreil.ly/yotxL).
+    Let’s unpack this and see how we can tell if we can trust the benchmarks that
+    we or others do.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Benchmarks Lie
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'There is an extension to a [famous phrase](https://oreil.ly/xULP5) that states
+    that we can order the following words from the best to worst: “lies, damn lies,
+    and benchmarks.”'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This interest in performance has not gone unnoticed by the computer vendors.
+    Just about every vendor promotes their product as being faster or having better
+    “bang for the buck.” All of this performance marketing begs the question: “How
+    can these competitors all be the fastest?” The truth is that computer performance
+    is a complex phenomenon, and who is fastest all depends upon the particular simplifications
+    being employed to present a particular simplistic conclusion.'
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: ''
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: Alexander Carlton, [“Lies, Damn Lies, and Benchmarks”](https://oreil.ly/WClsq)
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: Cheating in benchmarks is indeed widespread. The efficiency results through
+    benchmarks have significant importance in a competitive market. Users have too
+    many choices to make, so simplifying the comparison to a simple question, “which
+    is the fastest solution?” or “which one is the most scalable?” is common among
+    decision-makers. As a result, benchmarking became [a gamification system that
+    is cheated on](https://oreil.ly/4NAVh). The fact that efficiency assessment is
+    very complex to get right and expensive to reproduce makes it easy to get away
+    with a misleading conclusion. There are many examples of companies, vendors, and
+    individuals lying in benchmarks.^([12](ch07.html#idm45606829843312)) However,
+    it is essential to highlight that not all cases are done intentionally or with
+    malicious intent. For better or worse, in most cases, the author did not purposely
+    report misleading results. It’s only natural to get tricked by [statistical fallacies](https://oreil.ly/jPxnA)
+    and paradoxes that are counterintuitive to the human brain.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Benchmarks Don’t Lie; We Just Misinterpret the Results!
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: There are many ways we can make wrong conclusions from benchmarks. If done accidentally,
+    it can have severe consequences—usually a big waste of time and money. If done
+    intentionally…​well, lies have short legs. :)
+  prefs: []
+  type: TYPE_NORMAL
+- en: We can be misled by benchmarks due to human mistakes, benchmarks performed under
+    conditions irrelevant to us and our problem, or simply statistical error. The
+    benchmark results themselves don’t lie; we might have just measured the wrong
+    thing!
+  prefs: []
+  type: TYPE_NORMAL
+- en: The solution is to be a mindful consumer or developer of those benchmarks, plus
+    learn the basics of data science. We will discuss common mistakes and solutions
+    in [“Reliability of Experiments”](#ch-obs-rel).
+  prefs: []
+  type: TYPE_NORMAL
+- en: To overcome some biases that are naturally happening in the benchmarks, industries
+    often come up with some standards and certifications. For example, to ensure fair
+    fuel economy efficiency assessments, [all light-duty vehicles in the US are required
+    to have their economy results tested by the US Environmental Protection Agency
+    (EPA)](https://oreil.ly/gKOc2). Similarly, in Europe, in response to the 40% gap
+    between the fuel economy carmakers’ tests and reality, [the EU adopted the Worldwide
+    Harmonized Light-Duty Vehicle Test Cycle and Procedure](https://oreil.ly/LPUXj).
+    For hardware and software, many independent organizations design consistent benchmarks
+    for specific requirements. [SPEC](https://oreil.ly/tkV6O) and [Percona HammerDB](https://oreil.ly/ngRKu)
+    are two examples out of many.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To overcome both lies and honest mistakes, we must focus on understanding what
+    factors make benchmarks unreliable and what we can do to improve that quality.
+    It’s foundational knowledge explaining many benchmark practices we will discuss
+    in [Chapter 8](ch08.html#ch-benchmarking). Let’s do that in the next section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Reliability of Experiments
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The TFBO cycle takes time. No matter on what level we assess and optimize efficiency,
+    in all cases, it is necessary to spend a nontrivial amount of time on implementing
+    benchmarks, executing them, interpreting results, finding bottlenecks, and trying
+    new optimizations. It is frustrating if all or part of our efforts are wasted
+    due to unreliable assessments.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As mentioned when explaining benchmarking lies, there are many reasons why benchmarks
+    are prone to misleading us. There are a set of common challenges it’s useful to
+    be aware of.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Same Applies to Bottleneck Analysis!
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, we might be discussing benchmarks, so experiments mainly allow
+    us to measure our efficiency (latency or resource consumption), but similar reliability
+    concerns can be applied to other experiments or measurements around efficiency.
+    For example, profiling our Go programs to find bottlenecks, discussed in [Chapter 9](ch09.html#ch-observability3).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'We can outline three common challenges to the reliability of benchmarks: human
+    errors, the relevance of our experiments to the production environment, and the
+    nondeterministic efficiency of modern computers. Let’s go through these in the
+    next sections.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Human Errors
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Optimizations and benchmarking routines, as it stands today, involve a lot of
+    manual work from developers. We need to run experiments with different algorithms
+    and code, while caring about reproducing production and performance nondeterminism.
+    Due to the manual nature, this is prone to human error.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It’s easy to get lost in what optimizations we already tried, what code you
+    added for debugging purposes, and what is meant to be saved. It is also easy to
+    get confused about what version of code the benchmarking results belong to and
+    what assumptions you already proved wrong.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Many problems with our benchmarks tend to be caused by our sloppiness and lack
+    of organization. Unfortunately, I am guilty of many of those mistakes too! For
+    example, when I thought I was benchmarking optimization X, I discarded it after
+    seeing no significant difference in benchmarking results. Only some hours later
+    did I notice I tested the wrong code, and optimization X was helpful!
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Fortunately, there are some ways to reduce those risks:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Keep it simple.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Try to iterate with code changes related to efficiency in the smallest iterations
+    possible. If you try to optimize multiple elements of your code simultaneously,
+    it most likely will obfuscate your benchmark results. You might miss that one
+    of those optimizations limits the efficiency of the aspect you are interested
+    in.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Similarly, try to isolate complex parts into smaller separate parts you can
+    optimize and assess separately (divide and conquer).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Know what version of software you are benchmarking.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It might be trivial, but it’s worth repeating—use [software versioning](https://oreil.ly/P0eoP)!
+    If you try different optimizations, commit them in separate commits and distribute
+    them across separate branches so you can get back to previous versions if needed.
+    Don’t lose your optimization effort by forgetting to commit your work at the end
+    of the day.^([13](ch07.html#idm45606829807072))
+  prefs: []
+  type: TYPE_NORMAL
+- en: This also means you have to be strict about what version of code you just benchmarked.
+    Even a small reorder of seemingly unrelated statements might impact your code’s
+    efficiency, so always benchmark your programs in atomic iterations. This also
+    includes all dependencies your code needs, for example, those outlined in your
+    *go.mod* file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Know what version of benchmark you are using.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Furthermore, remember to version the code of the benchmark test itself! Avoid
+    comparing results between different benchmark implementations, even if the change
+    was minor (adding an extra check).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Scripting scripts to execute those benchmarks with the same configuration and
+    versioning those is also a great way not to get lost. In [Chapter 8](ch08.html#ch-benchmarking),
+    I mention some best practices around declarative ways to share benchmark options
+    for your future self and others on your team.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Keep your work well organized and structured.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Make notes, design your own consistent workflow, and be explicit in what version
+    of code you experimented with. Track the dependency versions, and track all benchmarking
+    results explicitly in a consistent way. Finally, be clear in communicating your
+    findings with others.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Your code should also be clean during different code attempts. Keep all best
+    practices like [DRY](https://oreil.ly/S887r), don’t keep commented out code, isolate
+    state between tests, etc.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Be skeptical about “too good to be true” benchmarking results.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you can’t explain why your code is suddenly quicker or uses fewer resources,
+    you most certainly did something wrong while benchmarking. It is tempting to celebrate,
+    accept it, and move on without double-checking.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Check common issues like if your benchmark test cases trigger errors instead
+    of successful runs (mentioned in [“Test Your Benchmark for Correctness!”](ch08.html#ch-obs-micro-corr)),
+    or perhaps the compiler optimized your microbenchmark away (discussed in [“Compiler
+    Optimizations Versus Benchmark”](ch08.html#ch-obs-micro-comp)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: A little bit of laziness in our work is healthy.^([14](ch07.html#idm45606829792768))
+    However, laziness at the wrong moment might significantly increase the number
+    of unknowns and risks to the already difficult subject of program efficiency optimizations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now let’s look at the second key element of reliable benchmarks, relevance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Reproducing Production
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: It might be obvious, but we don’t optimize software so it can run faster or
+    consume fewer resources on our development machine.^([15](ch07.html#idm45606829782464))
+    We optimize to ensure the software has efficient enough execution for the target
+    destinations that matter for our business, so-called *production*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Production might mean a production server environment you deploy if you build
+    a backend application, or a customer device like a PC, laptop, or smartphone if
+    you build an end-user application. Therefore, we can significantly improve the
+    quality of our efficiency assessment for all benchmarks by enhancing their relevance.
+    We can do that by trying our best to simulate (reproduce) situations and environmental
+    conditions of production. Particularly:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Production conditions
+  prefs: []
+  type: TYPE_NORMAL
+- en: The characteristics of a production environment. For example, how much RAM and
+    what kind of CPU the production machines will have dedicated for our program.
+    What OS version does it have? What versions and kinds of dependencies will our
+    program use?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Production workload
+  prefs: []
+  type: TYPE_NORMAL
+- en: The data our program will work with and the behavior of the user traffic it
+    has to handle.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Perhaps the first thing we should do is to gather requirements around the software
+    target destination, ideally in written form in our RAER. Without it, we can’t
+    correctly assess the efficiency of our software. Similarly, if you see benchmarks
+    done by a vendor or independent entity, you should check if the benchmark conditions
+    match your production and requirements. Typically, they don’t, and to fully trust
+    it, we should try to reproduce such a benchmark on our side.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Assuming we roughly know what the target production for our software looks
+    like, we might start designing our benchmark flow, test data, and cases. The bad
+    news is that it’s impossible to fully reproduce every aspect of production in
+    our development or testing environment. There will always be differences and unknowns.
+    There are many reasons why production will be different:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Even if we run the same kind and version of the OS as production, it is impossible
+    to reproduce the dynamic state of the OS, which impacts efficiency. In fact, we
+    cannot fully reproduce this state between two runs on the same local machine!
+    This challenge is often called nondeterministic performance, and we will discuss
+    it in [“Performance Nondeterminism”](#ch-obs-rel-unkn).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: It’s often too expensive to reproduce all kinds of production workloads that
+    can happen (e.g., forking all production traffic and putting it through testing
+    clusters).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: When developing an end-user application, there are too many permutations of
+    different hardware, dependency software versions, and situations. For example,
+    imagine you create an Android app—tons of smartphone models could potentially
+    run your software, even if we would limit ourselves to smartphones made in the
+    last two years.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The good news is that we don’t need to reproduce all aspects of production.
+    Instead, it’s often enough to represent key characteristics of the products that
+    might limit our workloads. We might know about it from the start of development—but
+    with time, experiments, and macrobenchmarks (see [“Macrobenchmarks”](ch08.html#ch-obs-macro)),
+    or even production—you will learn what matters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For example, imagine you develop Go code responsible for uploading local files
+    to a remote server, and the users notice unacceptable latency when uploading a
+    large file. Based on that, our benchmark to reproduce this should:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Focus on test cases that involve big files. Don’t try to optimize a large number
+    of small files, all different error cases, and potential encryption layers if
+    that doesn’t represent what production users are using the most. Instead, be pragmatic
+    and focus with benchmarks on what your goal is now.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Be mindful that your local benchmarks are not reproducing potential network
+    latencies and behavior you will see in production. A bug in your code might cause
+    resource leaks only in case of a slow network, which might be hard to reproduce
+    on your machine. For these optimizations, it’s worth moving with benchmarks to
+    different levels, as explained in [“Benchmarking Levels”](#ch-obs-benchmarking).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Simulating the “characteristics” of production does not necessarily mean the
+    same dataset and workload that will exist on production! For our earlier example,
+    you don’t need to create 200 GB test files and benchmark your program with them.
+    In many cases, you can start with relatively large files like 5 MB, then 10 MB,
+    and together with complexity analysis, deduce what will happen at the 200 GB level.
+    This will allow you to optimize those cases much faster and cheaper.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Typically it would be too difficult and inefficient to attempt to exactly reproduce
+    a specific workload. A benchmark is usually an abstraction of a workload. It is
+    necessary, in this process of abstracting a workload into a benchmark, to capture
+    the essential aspects of the workload and represent them in a way that maps accurately.
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: ''
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: Alexander Carlton, “Lies, Damn Lies, and Benchmarks”
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: To sum up, when trying to assess the efficiency or reproduce efficiency regressions,
+    be mindful of the differences between your testing setup and production. Not all
+    of them are worth reproducing, but the first step is to know about those differences
+    and how they can impact the reliability of our benchmarks! Let’s now look at what
+    else we can do to improve the confidence of our benchmarking experiments.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Performance Nondeterminism
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Perhaps the biggest challenge with efficiency optimizations is the “nondeterministic
+    performance” of modern computers. It means so-called noise, so the variance in
+    our experiment results is because of the high complexity of all layers that impacts
+    the efficiency we learned about in Chapters [4](ch04.html#ch-hardware) and [5](ch05.html#ch-hardware2).
+    As a result, efficiency characteristics are often unpredictable and highly fragile
+    to environmental side effects.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For example, let’s consider a single statement in the Go code, an `a += 4`.
+    No matter what conditions this code is executed in, assuming we are the only user
+    of memory used by the `a` variable, the result of `a += 4` is always deterministic—a
+    value of `a` plus `4`. This is because, in almost all cases, it is hard to impact
+    correctness. You can put the computer in extreme heat or cold, you can shake it,
+    you can schedule millions of simultaneous processes in the OS, and you can use
+    any version of CPU that exists with any supported type of operating system that
+    supports that hardware. Unless you do something extreme like influencing the electric
+    signal in the memory, or you put the computer out of power, that `a += 4` operation
+    will always give us the same result.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now let’s imagine we are interested to learn how our `a += 4` operation contributes
+    to the latency in the bigger program. At first glance, the latency assessment
+    should be simple—this requires a single CPU instruction (e.g., [`ADDQ`](https://oreil.ly/Vv83D))
+    and a single CPU register, so the amortized cost should be as fast as your CPU
+    frequency, so, for example, an average of 0.3 ns for 3 GHz CPU.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In practice, however, overheads are never amortized and never static within
+    a single run, making that statement latency highly nondeterministic. As we learned
+    in [Chapter 4](ch04.html#ch-hardware), if we don’t have the data in the registers,
+    the CPU has to fetch it from L-caches, which might take one nanosecond. If L-caches
+    contain data the CPU needs, our single statement might take 50 ns. Suppose the
+    OS is busy running millions of other processes; our single statement might take
+    milliseconds. Notice that we are talking about a single instruction! On a larger
+    scale, if this noise builds, we can accumulate variance measurable in seconds.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Be mindful. Almost everything can impact the latency of our operations. Busy
+    OS, different versions of hardware elements, and even differences in manufactured
+    CPUs from the same company might mean different latency measurements. Ambient
+    temperature near a laptop’s CPU or battery modes can trigger thermal scaling of
+    our CPU frequency up and down. In extreme cases, even screaming at your computer
+    can impact the efficiency!^([16](ch07.html#idm45606829739808)) The more complexity
+    and layers we have when running our programs, the more fragile our efficiency
+    measurements. Similar problems apply to remote devices, personal computers, and
+    public cloud providers (e.g., AWS or Google) that use shared infrastructure with
+    virtualization like containers or virtual machines.^([17](ch07.html#idm45606829737312))
+  prefs: []
+  type: TYPE_NORMAL
+- en: The fragility of efficiency assessment is so common that we have to expect it
+    in every benchmarking attempt. Therefore, we have to embrace it and embed mitigations
+    to those risks into our tools.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The first thing you might want to do before mitigating nondeterministic performance
+    is to check if this problem impacts your benchmarks. Verify the repeatability
+    of your test by calculating the variance of your results (e.g., using standard
+    deviation). I will explain a good tool for that in [“Understanding the Results”](ch08.html#ch-obs-micro-res),
+    but often you can see it in plain sight.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For example, if you run the experiment once and see it finish in 4.05 seconds,
+    and other runs vary from 3.01 to 6.5 seconds, your efficiency assessment might
+    not be accurate. On the other hand, if the variance is low, you can be more confident
+    about the relevance of your benchmarks. Thus, check the repeatability of your
+    benchmark first.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Don’t Overuse the Statistics
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: It is tempting to accept high variance and either remove the extreme results
+    (outliers) or take the mean (average) of all your results. You can apply very
+    complex statistics to find some efficiency numbers with [some probability](https://oreil.ly/594nD).
+    Increasing benchmark runs can also make your average numbers more stable, thus
+    giving you a bit more confidence.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In practice, there are better ways to try first to mitigate stability. Statistics
+    are great where we can’t perform a stable measurement, or we can’t verify all
+    samples (e.g., we cannot poll all humans on Earth to find out how many smartphones
+    are used). While benchmarking, we have more control over stability than we might
+    initially think.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are many best practices we can follow to ensure our efficiency measurements
+    will be more reliable by reducing the potential nondeterministic performance effects:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Ensure the stable state of the machine you benchmark on.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'For most benchmarks that rely on comparisons, it matters less what conditions
+    we benchmark in as long as they are stable (the state of the machine does not
+    change during or between benchmarks). Unfortunately, three mechanics typically
+    get in the way of machine stability:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Background threads
+  prefs: []
+  type: TYPE_NORMAL
+- en: As you learned in [Chapter 4](ch04.html#ch-hardware), it’s hard to isolate processes
+    on machines. Even a single, seemingly small process can make your OS and hardware
+    busy enough to change your efficiency measurements. For example, you might be
+    surprised how much memory and CPU time one browser tab or Slack application might
+    use. On public clouds, it’s even more hidden as we might see processes impacting
+    us from different virtual OSes we don’t own.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Thermal scaling
+  prefs: []
+  type: TYPE_NORMAL
+- en: The temperature of high-end CPUs increases significantly under load. The CPUs
+    are designed to sustain relatively hot temperatures like 80–110°C, but there are
+    limits. If the fans cannot cool the hardware fast enough, the OS or the firmware
+    will limit the CPU cycles to avoid component meltdown. Especially with remote
+    devices like laptops or smartphones, it’s easy to trigger thermal scaling when
+    the ambient temperature is high, your device is in the sunlight, or something
+    is obstructing the cooling fans.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Power management
+  prefs: []
+  type: TYPE_NORMAL
+- en: Similarly, devices can limit the hardware speed to reduce power consumption.
+    This is typically seen on laptops and smartphones with battery-saving modes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Be extra vigilant on shared infrastructure.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Buying a dedicated virtual machine on a stable cloud provider for benchmarking
+    is not a bad idea. We mentioned noisy neighbor problems, but if done right, the
+    cloud can be sometimes more durable than your desktop machine running various
+    interactive software during benchmarks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When using cloud resources, ensure you choose the best possible, strict Quality
+    of Service (QoS) contract with the provider. For example, avoid cheaper [burstable](https://oreil.ly/Nu5C6)
+    or preemptible virtual machines, which by design are prone to infrastructure instabilities
+    and noisy neighbors.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Avoid Continuous Integration (CI) pipelines, especially those from free tiers
+    like [GitHub Action](https://oreil.ly/RcKXR) or other providers. While they remain
+    a convenient and cheap option, they are designed for correctness testing that
+    has to eventually finish (not as fast as physically possible) and scale dynamically
+    to the user demands to minimize costs. This doesn’t provide strict and stable
+    resource allocations required for benchmarks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Be mindful of benchmark machine limits.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Be aware of your machine spec. For example, if your laptop has only 6 CPU cores
+    (12 virtual cores with Hyper-Threading), don’t implement benchmark cases that
+    require the `GOMAXPROCS` to be larger than the CPUs you have available for test.
+    Furthermore, it might make sense to benchmark with only four CPUs for six physical
+    core CPUs on your general-purpose machine to ensure spare room for OS and background
+    processes.^([19](ch07.html#idm45606829694064))
+  prefs: []
+  type: TYPE_NORMAL
+- en: Similarly, be mindful of the limits of other resources, like memory. For example,
+    don’t run benchmarks that use close to a maximum capacity of RAM, as memory pressure,
+    faster garbage collection, and memory trashing might slow down all threads on
+    the machine, including the OS!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Run the experiment longer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: One of the easiest ways to reduce variance between benchmark runs is to run
+    the benchmark a bit longer. This allows us to minimize the benchmarking overhead
+    that we might see at the beginning of our benchmarks (e.g., CPU cache warm-up
+    phase). This also statistically gives us more confidence that the average latency
+    or resource consumption metric shows the authentic pattern of the current efficiency
+    level. This method takes time and depends on nontrivial statistics, prone to statistical
+    fallacies, so use it with care and ideally try the suggestions mentioned before.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To sum up, be mindful of potential human errors that can lead to confusion.
+    Do care about the relevance of your experiments to the production end goal you
+    and your development team have. Finally, measure the repeatability of your experiments
+    to assess if you can rely on their results. Of course, there will always be some
+    discrepancy between benchmark runs or between benchmark runs and production setup.
+    Still, with these recommendations, you should be able to reduce them to a safe
+    2–5% variance level.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Perhaps you came to this chapter to learn how to perform Go benchmarks. I can’t
+    wait to explain to you step-by-step how to perform those in the next chapter!
+    However, the Go benchmarks are not all we have in our empirical assessment arsenal.
+    Therefore, it’s essential to learn when to choose the Go benchmarks and when to
+    fall back on different benchmarking methods. I will outline that in the next section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Benchmarking Levels
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In [Chapter 6](ch06.html#ch-observability), we discussed finding latency and
+    resource usage metrics that will allow us reliable measurements. But in the previous
+    section, we learned that this might be only half of the success. By definition,
+    benchmarking requires an experimentation stage that will trigger a certain situation
+    or state of the application, which is valuable to measure.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There is something simpler worth mentioning before we start with experiments.
+    The naive and probably simplest solution to assess the efficiency of, e.g., a
+    new release of our software, is to give it to our customers and collect our metrics
+    during the “production” use. This is great because we don’t need to simulate or
+    reproduce anything. Essentially the customer is performing the “experiment” part
+    on our software, and we just measure their experience. We could call it “monitoring”
+    at the source or “production monitoring.” Unfortunately, there are some challenges:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Computer systems are complex. As we learned in [“Reproducing Production”](#ch-obs-rel-repro),
+    the efficiency depends on many environmental factors. To truly assess whether
+    our new software versions have better or worse efficiency, we must know about
+    all those “measurement” conditions. However, it is not economical to gather all
+    this information when it runs on client machines.^([21](ch07.html#idm45606829669440))
+    Without it, we cannot derive any meaningful conclusions. On top of that, many
+    users would opt out of any reporting capabilities, meaning we are even more unaware
+    of what happened.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Even if we gather that observability information, it isn’t guaranteed that a
+    situation causing problems will ever occur again. There is no guarantee that the
+    customer will perform all the steps to reproduce the old problem. Statistically,
+    all meaningful situations will happen at some point, but that eventual timing
+    is too long in practice. For example, imagine that one HTTP request to a particular
+    `/compute` path was causing efficiency problems. We fixed it and deployed it to
+    production. What if no one used this particular path for the next two weeks? The
+    feedback loop can be very long here.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Feedback Loop
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The feedback loop is a cycle that starts from the moment of making changes to
+    our code and ends with observations around these changes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The longer this loop is, the more expensive development is. The frustration
+    of developers is also often underestimated. In extreme cases, it will inevitably
+    result in developers taking shortcuts by ignoring important testing or benchmarking
+    practices.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To overcome this, we must invest in practices that will give us as much reliable
+    feedback as possible in the shortest time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, it is often too late if we rely on our users to “benchmark” our software.
+    If it’s too slow, we might have already lost their trust. This can be mitigated
+    by [canary rollouts](https://oreil.ly/seUXz) and feature flags,^([22](ch07.html#idm45606829659856))
+    but still, ideally, we catch efficiency issues before releasing our software to
+    production.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Production monitoring is critical, especially when your software runs 24 hours,
+    7 days a week. Even more, manual monitoring, like observing efficiency trends
+    and user feedback in your bug tracker, is also useful for the last step of efficiency
+    assessment. Things do slip through the testing strategies we are discussing here,
+    so it makes sense to keep production monitoring as a last verification resort.
+    But as a standalone efficiency assessment, production monitoring is quite limited.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Fortunately, we have more testing options that help to verify efficiency. Without
+    further ado, let’s go through the different levels of efficiency testing. If we
+    would put all of them on a single graph that compares them based on the required
+    effort to implement and maintain and the effectiveness of the individual test,
+    it could look like [Figure 7-2](#img-obs-meas).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![efgo 0702](assets/efgo_0702.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 7-2\. Types of efficiency and correctness test methods with respect to
+    difficulty to set up and maintain them (horizontal axis) versus how effective
+    a singular test of a given type is in practice (vertical axis)
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Which of the methods presented in [Figure 7-2](#img-obs-meas) are used by mature
+    software projects and companies? The answer is all of them. Let me explain.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Benchmarking in Production
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Following [testing in production practice](https://oreil.ly/5NUiw), we could
+    use a live production system to assess efficiency. It might mean hiring “test
+    drivers” (beta users) who will run our software on their devices and create real
+    usage and report issues. Benchmarking in production is also very useful when your
+    company sells the software you develop as a SaaS. For these cases, it is as easy
+    as creating automation (e.g., a batch job or microservice) that periodically or
+    after every rollout benchmarks the cluster using a predefined set of test cases
+    that mimic real user functionalities (e.g., HTTP requests that simulate user traffic).
+    Especially since you control the production environment, you can mitigate the
+    downsides of production monitoring. You can be aware of environmental conditions,
+    revert quickly, use feature flags, perform canary deployments, and so on.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Benchmarking in Production Has Limited Use
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Unfortunately, there are many challenges to this testing practice:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: It’s easier when you run your software as a SaaS. Otherwise, it’s much harder
+    as the developers can’t quickly revert or fix potential impacts.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: You have to ensure Quality of Service (QoS). This means you cannot do benchmarking
+    with extreme payloads, as you need to ensure you don’t impact—e.g., cause Denial
+    of Service (DoS)—your production environment.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The feedback loop is quite long for developers in such a model. For example,
+    you need to release your software fully to benchmark it.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: On the other hand, if you are fine with those limitations, as presented in [Figure 7-2](#img-obs-meas),
+    benchmarking in production might be the most effective and reliable testing strategy.
+    It is ultimately the closest we can get to real production usage, which reduces
+    the risk of inaccurate results. The effort of creating and maintaining such tests
+    is relatively small, assuming we already have production monitoring. We don’t
+    need to simulate data, environment, dependencies, etc. We can reuse the existing
+    monitoring tools you need to keep the cluster up.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Macrobenchmarks
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Testing or benchmarking in production is reliable, but spotting problems at
+    that point is expensive. That’s why the industry introduced testing in earlier
+    stages of development. The benefit is that we can assess the efficiency with just
+    prototypes, which can be produced much quicker. We call the tests on this level
+    “macrobenchmarks.”
+  prefs: []
+  type: TYPE_NORMAL
+- en: Macrobenchmarks provide a great balance between good reliability of such tests
+    and faster feedback loop compared to benchmarking in production. In practice,
+    it means building your Go program and benchmarking it in a simulated environment
+    with all required dependencies. For example, for client-side applications, it
+    might mean buying some example client devices (e.g., smartphones if we build the
+    mobile application). Then for some application releases, reinstall your Go program
+    on those devices and thoroughly benchmark it (ideally with some automated suite).
+  prefs: []
+  type: TYPE_NORMAL
+- en: For SaaS-like use cases, it might mean creating copies of production clusters,
+    commonly called “testing” or “staging” environments. Then, to assess efficiency,
+    build your Go program, deploy how you would in production, and benchmark it. We
+    will also discuss more straightforward methods like using an [`e2e` framework](https://oreil.ly/f0IJo)
+    that you can run on a single development machine without complex orchestration
+    systems like Kubernetes. I will explain those two methods briefly in [“Macrobenchmarks”](ch08.html#ch-obs-macro).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are many benefits of macrobenchmarking:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: They are highly reliable and effective (yet not as much as benchmarking in production).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: You can delegate such macrobenchmarking to independent QA engineers because
+    you can treat your Go program as a “closed box” (previously known as a “black
+    box”—no need to understand how it is implemented).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: You don’t impact production with anything you do.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The downside of this approach, as shown in [Figure 7-2](#img-obs-meas), is the
+    effort of building and maintaining such a benchmark suite. Typically, it means
+    complex configuration or code to automate all of it. Additionally, in many cases,
+    any functional changes to our Go program mean we must rebuild parts of the complex
+    macrobenchmarking system. As a result, such macrobenchmarks are viable for more
+    mature projects with stable APIs. On top of that, the feedback loop is still quite
+    long. We also must limit how many benchmarks we can do at once. Naturally, we
+    have a limited number of those testing clusters that we share with other team
+    members for cost efficiency. This means we have to coordinate those benchmarks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Microbenchmarks
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Fortunately, there is a way to have more agile benchmarks! We can follow the
+    pattern of [divide and conquer](https://oreil.ly/ZFxiG) for optimizations. Instead
+    of looking at the efficiency of the whole system or the Go program, we treat our
+    program in an open box (previously known as a “white box”) manner and divide program
+    functionality into smaller parts. We can then use the profiling we will learn
+    in [Chapter 9](ch09.html#ch-observability3) to identify parts that contribute
+    the most to the efficiency of the whole solution (e.g., use the most CPU or memory
+    resource or add the most to the latency). We can then assess the efficiency of
+    the program’s most “expensive” part by writing small unit tests like microbenchmarks
+    just for this small part in isolation. The Go language provides a native benchmarking
+    framework that you can run with the same tool as unit tests: `go test`. We will
+    discuss using this practice in [“Microbenchmarks”](ch08.html#ch-obs-micro).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Microbenchmarks are probably the most fun to write because they are very agile
+    and provide rapid feedback about the efficiency of our Go function, algorithm,
+    or structure. You can quickly run those benchmarks on your (even small!) developer
+    machine, often without going out of your favorite IDE. You can implement such
+    a benchmark test in 10 minutes, execute it in the next 20 minutes, and then tear
+    it down or change it entirely. It is cheap to make, cheap to iterate, like a unit
+    test. You can also treat it as a more reusable development tool—write more complex
+    microbenchmarks that will work as acceptance benchmarks for a small part of the
+    code the whole team can use.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unfortunately, with agility comes many trade-offs. For example, suppose you
+    wrongly identify the efficiency bottleneck of your program. In that case, you
+    might be celebrating that your local microbenchmarks for some parts of the program
+    take only 200 ms. However, when your program is deployed, it might still cause
+    efficiency problems (and violate the RAER). On top of that, some problems are
+    only visible when you run all the code components together (similar to integration
+    tests). The choice of test data is also nontrivial. In many cases, it is impossible
+    to mimic dependencies in a way that makes sense to reproduce certain efficiency
+    problems, so we have to make some assumptions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When Microbenchmarking, Don’t Forget About the Big Picture
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: It is not uncommon to perform easy, deliberate optimizations on the part of
+    code that is a bottleneck and see a major improvement. For example, after optimization,
+    our microbenchmarks might indicate that instead of 400 MB, our function now allocates
+    only 2 MB per operation. After thinking about that part of the code, you might
+    have plenty of other ideas about optimizations for that 2 MB of allocations! So
+    you might be tempted to learn and optimize that.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is a risk. It’s easy to fixate on raw numbers from a single microbenchmark
+    and go into the optimization rabbit hole, introducing more complexity and spending
+    valuable engineering time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this case, we should most likely be happy with the massive, 200x improvement,
+    and do all it takes to get it deployed. If we want to further improve the performance
+    of the path we were looking at, it’s not unlikely that the bottleneck of the code
+    path we were testing has now moved somewhere else!
+  prefs: []
+  type: TYPE_NORMAL
+- en: What Level Should You Use?
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'As you might have already noticed, there is no “best” benchmark type. Each
+    stage has its purpose and is needed. Every solid software project should eventually
+    have some microbenchmarks, have some macro ones, and potentially benchmark some
+    portion of functionalities in production. This can be confirmed by just looking
+    at some open source projects. There are many examples, but just to pick two:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The [Prometheus project](https://oreil.ly/FwnBN) has dozens of microbenchmarks
+    and a semiautomated, dedicated [macrobenchmark suite](https://oreil.ly/QqwrL)
+    that deploys instances of the Prometheus program in Google Cloud and benchmarks
+    them. Many Prometheus users also test and gather efficiency data directly from
+    production clusters.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The [Vitess project](https://oreil.ly/tcGNV) uses [microbenchmarks written in
+    Go](https://oreil.ly/cLr6f) as well. On top of that, the Vitess project maintains
+    [macrobenchmarks](https://oreil.ly/pxtPO). Amazingly, it builds automation that
+    runs both types of benchmarks nightly, with results reported on [the dedicated
+    website](https://oreil.ly/8RMw6). This is an exceptional best-practice example.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: What benchmarks to add to the software projects you work on, and when, depends
+    on needs and maturity. Be pragmatic with adding benchmarks. No software needs
+    numerous benchmarks in the early development cycle. When APIs are unstable and
+    detailed requirements are changing, the benchmark will need to change as well.
+    In fact, it can be harmful to the project if we spend time on writing (and later
+    maintaining) benchmarks for a project that hasn’t yet functionally proven its
+    usefulness.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Follow this (intelligently) lazy approach instead:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: If the stakeholder is unhappy with visible efficiency problems, perform the
+    bottleneck analysis explained in [Chapter 9](ch09.html#ch-observability3) on production
+    and add microbenchmarks (see [“Microbenchmarks”](ch08.html#ch-obs-micro)) to the
+    part that is a bottleneck. When optimized, another part will likely be a bottleneck,
+    so new tests must be added. Do this until you are happy with the efficiency, or
+    it’s too difficult or expensive to optimize the program further. It will grow
+    organically.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: When a formal RAER is established, it might be useful to ensure that you test
+    efficiency more end to end. Then you might want to invest in the manual, then
+    automatic, macrobenchmarks (see [“Macrobenchmarks”](ch08.html#ch-obs-macro)).
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: If you truly care about accurate and pragmatic tests, and you control your “production”
+    environment (applicable for SaaS software), consider benchmarking in production.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Don’t Worry About “Benchmark” Code Coverage!
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: For functional testing, it’s popular to measure the quality of the project by
+    ensuring the [test code coverage](https://oreil.ly/Sfde9) is high.^([23](ch07.html#idm45606829590720))
+  prefs: []
+  type: TYPE_NORMAL
+- en: Never try to measure how many parts of your program have benchmarks! Ideally,
+    you should only implement benchmarks for the critical places you want to optimize
+    because the data indicates they are (or were) the bottleneck.
+  prefs: []
+  type: TYPE_NORMAL
+- en: With this theory, you should know what benchmarking levels are available to
+    you and why there is no silver bullet. Still, benchmarks are in the code of our
+    software efficiency story, and the Go language is no different here. We can’t
+    optimize without experimenting and measuring. However, be mindful of the time
+    spent in this phase. Writing, maintaining, and performing benchmarks takes time,
+    so follow the lazy approach and add benchmarks on an appropriate level on demand
+    and only if needed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The reliability issues of these tests are perhaps one of the biggest reasons
+    developers, product managers, and stakeholders de-scope efficiency efforts. Where
+    do you think I found all those little best practices to improve reliability? At
+    the beginning of my engineering career, I spent numerous hours on careful load
+    testing and benchmarks with my team, only to realize it meant nothing as we missed
+    a critical element of the environment. For example, our synthetic workloads were
+    not providing a realistic load.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Such cases can discourage even professional developers and product managers.
+    Unfortunately, this is where we typically prefer to pay more for waste computing
+    rather than invest in optimization efforts. That’s why it’s critically important
+    to ensure the experiment, load tests, and scale tests we do are as reliable as
+    possible to achieve our efficiency goals faster!
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this chapter, you learned the foundations behind reliable efficiency assessment
+    through empirical experiments we call benchmarks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We discussed the basic complexity analysis that can help optimize our journey.
+    I mentioned the difference between benchmark testing and functional testing and
+    why benchmarks lie if we misinterpret them. You learned common reliability problems
+    that I found truly important during experimentation cycles and the levels of benchmarks
+    commonly spotted in the industry.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We are finally ready to learn how to implement those benchmarks on all levels
+    mentioned above, so let’s jump right into it!
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([1](ch07.html#idm45606830136704-marker)) This is fixed for this particular
+    `ParseInt` function in Go 1.20 thanks to an amazing [improvement](https://oreil.ly/KLIVM),
+    but you might be surprised by it in any other function!
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([2](ch07.html#idm45606830134048-marker)) It only shows up when we do lots
+    of string copies in our programs. Perhaps it comes from some internal byte pools?
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([3](ch07.html#idm45606830118784-marker)) Those “O-notations” are respectively
+    called Big O or Oh, Omega, and Theta. He also defines “o-notations” (o, ω), which
+    [means strict upper or lower bound](https://oreil.ly/S44PO), so “this function
+    grows slower than `f(N)`, but not exactly `f(N)`.” In practice, we don’t use o-notations
+    very often.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([4](ch07.html#idm45606830040464-marker)) I would categorize them as “brute
+    force”—they do many benchmarks with different inputs and try to approximate the
+    growth function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([5](ch07.html#idm45606830034224-marker)) I wouldn’t be surprised—I had a full-time
+    job in IT from the second year of my computer science studies.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([6](ch07.html#idm45606830032352-marker)) For example, quicksort has worse
+    complexity than other algorithms, yet on average it is the fastest. Or the matrix
+    multiplication algorithm like [Coppersmith-Winograd](https://oreil.ly/q9jhn) has
+    a big constant coefficient hidden by the Big O notation, which makes it only worth
+    doing for matrices that are too big for our modern computers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '^([7](ch07.html#idm45606830017600-marker)) Be careful: different tools use
+    different conversions; e.g., `pprof` uses the 1,024 multiplier, and the `benchstat`
+    uses the 1,000 multiplier.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([8](ch07.html#idm45606829986592-marker)) I was very surprised that we can
+    construct such accurate space complexity and have such accurate memory benchmarking
+    and profiling up to every byte on the heap. Kudos to the Go community and `pprof`
+    community for that hard work!
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([9](ch07.html#idm45606830003600-marker)) This does not mean we should immediately
+    fix those! Instead, always optimize if you know the problem will affect your goals,
+    e.g., user satisfaction or RAER requirements.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([10](ch07.html#idm45606829995728-marker)) Sometimes, there are relatively
+    easy ways to change our code to stream and use [external memory](https://oreil.ly/p6YDD)
+    algorithms that ensure stable memory usage.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([11](ch07.html#idm45606829937408-marker)) Unfortunately, we still have to
+    guess a little bit—more on that in [“Reliability of Experiments”](#ch-obs-rel).
+    Nothing will get us 100% assurance. Yet benchmarking is probably the best we have
+    as developers for ensuring the software we develop is efficient enough.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([12](ch07.html#idm45606829843312-marker)) For example, [car makers cheating
+    on emission benchmarks](https://oreil.ly/WNF1z) and [phone vendors cheating on
+    hardware benchmarks](https://oreil.ly/sf80C) (which sometimes results with a ban
+    from the popular [Geekbench](https://oreil.ly/8M4ey) listing). In the software
+    world, we have a constant battle between various vendors through [unfair benchmarks](https://oreil.ly/RmytC).
+    Whoever creates them is often one of the fastest on the results list.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([13](ch07.html#idm45606829807072-marker)) Some good IDEs also have additional
+    [local history](https://oreil.ly/Ytdi0) if you forgot to commit your changes in
+    your `git` repository.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([14](ch07.html#idm45606829792768-marker)) [Laziness is actually good](https://oreil.ly/u8IDm)
+    for engineers! But it has to be pragmatic, productive, and reasonable laziness
+    toward the efficiency of our work, not purely based on our emotions in the given
+    moment.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([15](ch07.html#idm45606829782464-marker)) Unless we write software for fellow
+    developers that runs on similar hardware.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([16](ch07.html#idm45606829739808-marker)) The engineer Brendan Gregg [demonstrated](https://oreil.ly/vI8Rl)
+    how screaming at server hard drive disks severely impacts their I/O latency due
+    to vibrations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([17](ch07.html#idm45606829737312-marker)) The situation where one workload
+    from a totally different virtual machine impacts our workload is commonly called
+    [a noisy neighbor situation](https://oreil.ly/cLRrD). It is a serious issue that
+    cloud providers continuously fight, with better or worse results depending on
+    the offering and provider.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([18](ch07.html#idm45606829707312-marker)) This is why you won’t see me explaining
+    the microbenchmark options like [RunParallel](https://oreil.ly/S74VY). In general,
+    running multiple benchmark functions in parallel can distort the results. Therefore,
+    I recommend avoiding this option.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([19](ch07.html#idm45606829694064-marker)) You can also fully dedicate CPU
+    cores to your benchmark; consider the [`cpuset` tool](https://oreil.ly/dCLzw).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([20](ch07.html#idm45606829685792-marker)) I had this problem when writing
+    [Chapter 10](ch10.html#ch-opt). I ran some benchmarks in one go on a relatively
+    cold day. Next week there was a heat wave in the UK. I could not continue my optimization
+    effort while reusing the past benchmarking results on such a hot day, as all my
+    code was running 10% slower! I had to redo all the experiments to compare the
+    implementations fairly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([21](ch07.html#idm45606829669440-marker)) In some way, this is why selling
+    your product as a SaaS is so appealing in software. Your “production” is on your
+    premises, making it easier to control the experience of the users and validate
+    some efficiency optimizations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([22](ch07.html#idm45606829659856-marker)) Feature flags are configuration
+    options that can be changed dynamically without restarting the service—typically
+    through an HTTP call. This allows reverting new functionality quicker, which helps
+    with testing or benchmarking in production. For feature flags I rely on the excellent
+    [`go-flagz`](https://oreil.ly/rfuh2) library. I would also pay close attention
+    to the new CNCF project [OpenFeature](https://oreil.ly/7Bsiw), which is meant
+    to provide more standard interface in this space.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([23](ch07.html#idm45606829590720-marker)) I am personally not a big fan of
+    this approach. Not every part of the code is equally important to test, and not
+    everything is worth testing. On top of that, [engineers tend to gamify this system](https://oreil.ly/NnjCD)
+    by writing tests only to improve the coverage, instead on focusing on finding
+    potential problems with the code in the fastest possible way (reducing cost of
+    development).
+  prefs: []
+  type: TYPE_NORMAL

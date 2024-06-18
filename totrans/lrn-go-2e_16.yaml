@@ -1,0 +1,1328 @@
+- en: 'Chapter 16\. Here Be Dragons: Reflect, Unsafe, and Cgo'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The edges of the known world are scary. Ancient maps would fill in the unexplored
+    areas with pictures of dragons and lions. In the previous sections, I have emphasized
+    that Go is a safe language, with typed variables to make clear what sort of data
+    you are using and garbage collection to manage memory. Even the pointers are tame;
+    you can’t abuse them in the way that C and C++ do.
+  prefs: []
+  type: TYPE_NORMAL
+- en: All those things are true, and for the vast majority of the Go code that you’ll
+    write, you can be assured that the Go runtime will protect you. But there are
+    escape hatches. Sometimes your Go programs need to venture out into less defined
+    areas. In this chapter, you’re going to look at how to handle situations that
+    can’t be solved with normal Go code. For example, when the type of the data can’t
+    be determined at compile time, you can use the reflection support in the `reflect`
+    package to interact with and even construct data. When you need to take advantage
+    of the memory layout of data types in Go, you can use the `unsafe` package. And
+    if there is functionality that can be provided only by libraries written in C,
+    you can call into C code with `cgo`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You might be wondering why these advanced concepts appear in a book targeted
+    at those new to Go. There are two reasons. First, developers searching for a solution
+    to a problem sometimes discover (and copy and paste) techniques they don’t fully
+    understand. It’s best to know a bit about advanced techniques that can cause problems
+    before you add them to your codebase. Second, these tools are fun. Because they
+    allow you to do things that aren’t normally possible with Go, it feels a bit exciting
+    to play with them and see what you can do.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Reflection Lets You Work with Types at Runtime
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'One of the things that people who use Go like about it is that it is a statically
+    typed language. Most of the time, declaring variables, types, and functions in
+    Go is pretty straightforward. When you need a type, a variable, or a function,
+    you define it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: You use types to represent the data structures you know you need when you write
+    your programs. Since types are a core part of Go, the compiler uses them to make
+    sure that your code is correct. But sometimes, relying on only compilation-time
+    information is a limitation. You might need to work with variables at runtime
+    using information that didn’t exist when the program was written. Maybe you’re
+    trying to map data from a file or network request into a variable. In those situations,
+    you need to use *reflection*. Reflection allows you to examine types at runtime.
+    It also provides the ability to examine, modify, and create variables, functions,
+    and structs at runtime.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This leads to the question of when this functionality is needed. If you look
+    at the Go standard library, you can get an idea. Its uses fall into one of a few
+    general categories:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Reading and writing from a database. The `database/sql` package uses reflection
+    to send records to databases and read data back.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Go’s built-in templating libraries, `text/template` and `html/template`, use
+    reflection to process the values that are passed to the templates.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The `fmt` package uses reflection heavily, as all those calls to `fmt.Println`
+    and friends rely on reflection to detect the type of the provided parameters.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The `errors` package uses reflection to implement `errors.Is` and `errors.As`.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'The `sort` package uses reflection to implement functions that sort and evaluate
+    slices of any type: `sort.Slice`, `sort.SliceStable`, and `sort.SliceIsSorted`.'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The last main usage of reflection in the Go standard library is for marshaling
+    and unmarshaling data into JSON and XML, along with the other data formats defined
+    in the various `encoding` packages. Struct tags (which I will talk about soon)
+    are accessed via reflection, and the fields in structs are read and written using
+    reflection as well.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Most of these examples have one thing in common: they involve accessing and
+    formatting data that is being imported into or exported out of a Go program. You’ll
+    often see reflection used at the boundaries between your program and the outside
+    world.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: As you take a look at the techniques you can implement with reflection, keep
+    in mind that this power has a price. Using reflection is quite a bit slower than
+    performing the identical operation without it. I’ll talk more about this in [“Use
+    Reflection Only if It’s Worthwhile”](#slow_reflection). Even more importantly,
+    code that uses reflection is both more fragile and more verbose. Many functions
+    and methods in the `reflect` package panic when passed the wrong type of data.
+    Be sure to leave comments in your code to explain what you are doing so that it’s
+    clear to future reviewers (including yourself).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Another use of the `reflect` package in the Go standard library is testing.
+    In [“Slices”](ch03.html#slice_info), I mentioned a function that you can find
+    in the `reflect` package called `DeepEqual`. It’s in the `reflect` package because
+    it takes advantage of reflection to do its work. The `reflect.DeepEqual` function
+    checks whether two values are “deeply equal” to each other. This is a more thorough
+    comparison than what you get if you use `==` to compare two things, and it’s used
+    in the standard library as a way to validate test results. It can also compare
+    things that can’t be compared using `==`, like slices and maps. Most of the time,
+    you don’t need `DeepEqual`. Since the release of Go 1.21, it’s faster to use `slices.Equal`
+    and `maps.Equal` to check for equality in slices and maps.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Types, Kinds, and Values
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Now that you know what reflection is and when you might need it, let’s see
+    how it works. The `reflect` package in the standard library is the home for the
+    types and functions that implement reflection in Go. Reflection is built around
+    three core concepts: types, kinds, and values.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Types and kinds
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: A *type* is exactly what it sounds like. It defines the properties of a variable,
+    what it can hold, and how you can interact with it. With reflection, you are able
+    to query a type to find out about these properties using code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You get the reflection representation of the type of a variable with the `TypeOf`
+    function in the `reflect` package:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `reflect.TypeOf` function returns a value of type `reflect.Type`, which
+    represents the type of the variable passed into the `TypeOf` function. The `reflect.Type`
+    type defines methods with information about a variable’s type. I can’t cover all
+    the methods, but here are a few.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `Name` method returns, not surprisingly, the name of the type. Here is
+    a quick example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: You start with a variable `x` of type `int`. You pass it to `reflect.TypeOf`
+    and get back a `reflect.Type` instance. For primitive types like `int`, `Name`
+    returns the name of the type, in this case the string “int” for your `int`. For
+    a struct, the name of the struct is returned. Some types, like a slice or a pointer,
+    don’t have names; in those cases, `Name` returns an empty string.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `Kind` method on `reflect.Type` returns a value of type `reflect.Kind`,
+    which is a constant that says what the type is made of—a slice, a map, a pointer,
+    a struct, an interface, a string, an array, a function, an int, or some other
+    primitive type. The difference between the kind and the type can be tricky to
+    understand. Remember this rule: if you define a struct named Foo, the kind is
+    `reflect.Struct` and the type is “Foo.”'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The kind is very important. One thing to be aware of when using reflection is
+    that almost everything in the `reflect` package assumes that you know what you
+    are doing. Some of the methods defined on `reflect.Type` and other types in the
+    `reflect` package make sense for only certain kinds. For example, there’s a method
+    on `reflect.Type` called `NumIn`. If your `reflect.Type` instance represents a
+    function, it returns the number of input parameters for the function. If your
+    `reflect.Type` instance isn’t a function, calling `NumIn` will panic your program.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Warning
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: In general, if you call a method that doesn’t make sense for the kind of the
+    type, the method call panics. Always remember to use the kind of the reflected
+    type to know which methods will work and which ones will panic.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Another important method on `reflect.Type` is `Elem`. Some types in Go have
+    references to other types and `Elem` is how to find out the contained type. For
+    example, let’s use `reflect.TypeOf` on a pointer to an `int`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: That gives you a `reflect.Type` instance with a blank name and a kind of `reflect.Pointer`.
+    When the `reflect.Type` represents a pointer, `Elem` returns the `reflect.Type`
+    for the type the pointer points to. In this case, the `Name` method returns “int,”
+    and `Kind` returns `reflect.Int`. The `Elem` method also works for slices, maps,
+    channels, and arrays.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'There are methods on `reflect.Type` for reflecting on structs. Use the `NumField`
+    method to get the number of fields in the struct, and get the fields in a struct
+    by index with the `Field` method. That returns each field’s structure described
+    in a `reflect.StructField`, which has the name, order, type, and struct tags on
+    a field. Let’s look at a quick example, which you can run on [The Go Playground](https://oreil.ly/Ynv_4)
+    or in the *sample_code/struct_tag* directory in the [Chapter 16 repository](https://oreil.ly/jAIdQ):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You create an instance of type `Foo` and use `reflect.TypeOf` to get the `reflect.Type`
+    for `f`. Next you use the `NumField` method to set up a `for` loop to get the
+    index of each field in `f`. Then you use the `Field` method to get the `reflect.StructField`
+    struct that represents the field, and then you can use the fields on `reflect.StructField`
+    to get more information about the field. This code prints out the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: There are many more methods in `reflect.Type`, but they all follow the same
+    pattern, allowing you to access the information that describes the type of a variable.
+    You can look at the [`reflect.Type` documentation](https://oreil.ly/p4AZ6) in
+    the standard library for more information.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Values
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: In addition to examining the types of variables, you can also use reflection
+    to read a variable’s value, set its value, or create a new value from scratch.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You use the `reflect.ValueOf` function to create a `reflect.Value` instance
+    that represents the value of a variable:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: Since every variable in Go has a type, `reflect.Value` has a method called `Type`
+    that returns the `reflect.Type` of the `reflect.Value`. There’s also a `Kind`
+    method, just as there is on `reflect.Type`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Just as `reflect.Type` has methods for finding out information about the type
+    of a variable, `reflect.Value` has methods for finding out information about the
+    value of a variable. I’m not going to cover all of them, but let’s take a look
+    at how to use a `reflect.Value` to get the value of the variable.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'I’ll start by demonstrating how to read your values back out of a `reflect.Value`.
+    The `Interface` method returns the value of the variable as `any`. When you put
+    the value returned by `Interface` into a variable, you have to use a type assertion
+    to get back to a usable type:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'While `Interface` can be called for `reflect.Value` instances that contain
+    values of any kind, you can use special case methods if the kind of the variable
+    is one of the built-in, primitive types: `Bool`, `Complex`, `Int`, `Uint`, `Float`,
+    and `String`. There’s also a `Bytes` method that works if the type of the variable
+    is a slice of bytes. If you use a method that doesn’t match the type of the `reflect.Value`,
+    your code will panic. If you are unsure about the type of the `Value`, methods
+    can preemptively check: the `CanComplex`, `CanFloat`, `CanInt`, and `CanUint`
+    methods validate that the `Value` is of one of the numeric types, and `CanConvert`
+    checks for other types.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can use reflection to set the value of a variable as well, but it’s a three-step
+    process.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, you pass a pointer to the variable into `reflect.ValueOf`. This returns
+    a `reflect.Value` that represents the pointer:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Next, you need to get to the actual value to set it. You use the `Elem` method
+    on `reflect.Value` to get to the value pointed to by the pointer that was passed
+    into `reflect.ValueOf`. Just as `Elem` on `reflect.Type` returns the type that’s
+    pointed to by a containing type, `Elem` on `reflect.Value` returns the value that’s
+    pointed to by a pointer or the value that’s stored in an interface:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Finally, you get to the actual method that’s used to set the value. Just as
+    there are special-case methods for reading primitive types, there are special-case
+    methods for setting primitive types: `SetBool`, `SetInt`, `SetFloat`, `SetString`,
+    and `SetUint`. In the example, calling `ivv.SetInt(20)` changes the value of `i`.
+    If you print out `i` now, you will get 20:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: For all other types, you need to use the `Set` method, which takes a variable
+    of type `reflect.Value`. The value that you are setting it to doesn’t need to
+    be a pointer, because you are just reading this value, not changing it. And just
+    as you can use `Interface()` to read primitive types, you can use `Set` to write
+    primitive types.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The reason you need to pass a pointer to `reflect.ValueOf` to change the value
+    of the input parameter is that it is just like any other function in Go. As I
+    discussed in [“Pointers Indicate Mutable Parameters”](ch06.html#pointer_mutable),
+    you use a parameter of a pointer type to indicate that you want to modify the
+    value of the parameter. When you modify the value, you dereference the pointer
+    and then set the value. The following two functions follow the same process:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: Attempting to set a `reflect.Value` to a value of the wrong type will produce
+    a panic.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: If you don’t pass a pointer to a variable to `reflect.ValueOf`, you can still
+    read the value of the variable using reflection. But if you try to use any of
+    the methods that can change the value of a variable, the method calls will (not
+    surprisingly) panic. The `CanSet` method on `reflect.Value` will tell you if calling
+    `Set` will produce a panic.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Make New Values
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Before you learn how to best use reflection, there’s one more thing to cover:
+    how to create a value. The `reflect.New` function is the reflection analogue of
+    the `new` function. It takes in a `reflect.Type` and returns a `reflect.Value`
+    that’s a pointer to a `reflect.Value` of the specified type. Since it’s a pointer,
+    you can modify it and then assign the modified value to a variable by using the
+    `Interface` method.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Just as `reflect.New` creates a pointer to a scalar type, you can also use
+    reflection to do the same thing as the `make` keyword with the following functions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: Each of these functions takes in a `reflect.Type` that represents the compound
+    type, not the contained type.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You must always start from a value when constructing a `reflect.Type`. However,
+    a trick lets you create a variable to represent a `reflect.Type` if you don’t
+    have a value handy:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: The variable `stringType` contains a `reflect.Type` that represents a `string`,
+    and the variable `stringSliceType` contains a `reflect.Type` that represents a
+    `[]string`. That first line can take a bit of effort to decode. What you are doing
+    is converting `nil` to a pointer to `string`, using `reflect.TypeOf` to make a
+    `reflect.Type` of that pointer type, and then calling `Elem` on that pointer’s
+    `reflect.Type` to get the underlying type. You have to put `*string` in parentheses
+    because of the Go order of operations; without the parentheses, the compiler thinks
+    that you are converting `nil` to `string`, which is illegal.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For the `stringSliceType`, it’s a bit simpler since `nil` is a valid value for
+    a slice. All you have to do is type conversion of `nil` to a `[]string` and pass
+    that to `reflect.Type`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now that you have these types, you can see how to use `reflect.New` and `reflect.MakeSlice`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: You can try out this code for yourself on [The Go Playground](https://oreil.ly/ak2PG)
+    or in the *sample_code/reflect_string_slice* directory in the [Chapter 16 repository](https://oreil.ly/jAIdQ).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Use Reflection to Check If an Interface’s Value Is nil
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'As I talked about in [“Interfaces and nil”](ch07.html#interface_nil), if a
+    `nil` variable of a concrete type is assigned to a variable of an interface type,
+    the variable of the interface type is not `nil`. This is because a type is associated
+    with the interface variable. If you want to check whether the value associated
+    with an interface is `nil`, you can do so with reflection by using two methods—`IsValid`
+    and `IsNil`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `IsValid` method returns `true` if `reflect.Value` holds anything other
+    than a `nil` interface. You need to check this first because calling any other
+    method on `reflect.Value` will (unsurprisingly) panic if `IsValid` is `false`.
+    The `IsNil` method returns `true` if the value of the `reflect.Value` is `nil`,
+    but it can be called only if the `reflect.Kind` is something that *can* be `nil`.
+    If you call it on a type whose zero value isn’t `nil`, it (you guessed it) panics.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can see this function in use on [The Go Playground](https://oreil.ly/D-HR9)
+    or in the *sample_code/no_value* directory in the [Chapter 16 repository](https://oreil.ly/jAIdQ).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Even though it is possible to detect an interface with a `nil` value, strive
+    to write your code so that it performs correctly even when the value associated
+    with an interface is `nil`. Reserve this code for situations where you have no
+    other options.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Use Reflection to Write a Data Marshaler
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: As mentioned earlier, reflection is what the standard library uses to implement
+    marshaling and unmarshaling. Let’s see how it’s done by building a data marshaler
+    for ourselves. Go provides the `csv.NewReader` and `csv.NewWriter` functions to
+    read a CSV file into a slice of slice of strings and to write a slice of slice
+    of strings out to a CSV file, but nothing in the standard library can automatically
+    map that data to the fields in a struct. The following code is going to add that
+    missing functionality.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The examples here have been cut down a bit to fit, reducing the number of supported
+    types. You can find the complete code on [The Go Playground](https://oreil.ly/VDytK)
+    or in the *sample_code/csv* directory in the [Chapter 16 repository](https://oreil.ly/jAIdQ).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You’ll start by defining your API. As with other marshalers, you’ll define
+    a struct tag that specifies the name of a field in the data to map it to a field
+    in a struct:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The public API consists of two functions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You’ll start with `Marshal`, writing the function and then looking at the two
+    helper functions it uses:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: Since you can marshal a struct of any type, you need to use a parameter of type
+    `any`. This isn’t a pointer to a slice of structs, because you are only reading
+    from your slice, not modifying it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The first row of your CSV is going to be the header with the column names, so
+    you get those column names from the struct tags on fields in the struct’s type.
+    You use the `Type` method to get the `reflect.Type` of the slice from the `reflect.Value`,
+    and then call the `Elem` method to get the `reflect.Type` of the elements of the
+    slice. You then pass this to `marshalHeader` and append the response to your output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Next, you iterate through each element in the struct slice using reflection,
+    passing the `reflect.Value` of each element to `marshalOne`, appending the result
+    to your output. When you finish iterating, you return your slice of slice of `string`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Look at the implementation of your first helper function, `marshalHeader`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: This function simply loops over the fields of the `reflect.Type`, reads the
+    `csv` tag on each field, appends it into a `string` slice, and returns the slice.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The second helper function is `marshalOne`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: This function takes in a `reflect.Value` and returns a `string` slice. You create
+    the `string` slice, and for each field in the struct, you switch on its `reflect.Kind`
+    to determine how to convert it to a `string`, and append it to the output.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Your simple marshaler is now complete. Let’s see what you have to do to unmarshal:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: Since you are copying data into a slice of any kind of struct, you need to use
+    a parameter of type `any`. Furthermore, because you are modifying the value stored
+    in this parameter, you *must* pass in a pointer to a slice of structs. The `Unmarshal`
+    function converts that slice of structs pointer to a `reflect.Value`, then gets
+    the underlying slice, and then gets the type of the structs in the underlying
+    slice.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As I said earlier, the code assumes that the first row of data is a header with
+    the names of the columns. You use this information to build up a map, so you can
+    associate the `csv` struct tag value with the correct data element.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You then loop through all the remaining `string` slices, creating a new `reflect.Value`
+    using the `reflect.Type` of the struct, call `unmarshalOne` to copy the data in
+    the current `string` slice into the struct, and then add the struct to your slice.
+    After iterating through all the rows of data, you return.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'All that remains is looking at the implementation of `unmarshalOne`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: This function iterates over each field in the newly created `reflect.Value`,
+    uses the `csv` struct tag on the current field to find its name, looks up the
+    element in the `data` slice by using the `namePos` map, converts the value from
+    a `string` to the correct type, and sets the value on the current field. After
+    all fields have been populated, the function returns.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now that you have written your marshaler and unmarshaler, you can integrate
+    with the existing CSV support in the Go standard library:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: Build Functions with Reflection to Automate Repetitive Tasks
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Another thing that Go lets you do with reflection is create a function. You
+    can use this technique to wrap existing functions with common functionality without
+    writing repetitive code. For example, here’s a factory function that adds timing
+    to any function that’s passed into it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This function takes in any function, so the parameter is of type `any`. It
+    then passes the `reflect.Type` that represents the function into `reflect.MakeFunc`,
+    along with a closure that captures the start time, calls the original function
+    using reflection, captures the end time, prints out the difference, and returns
+    the value calculated by the original function. The value returned from `reflect.MakeFunc`
+    is a `reflect.Value`, and you call its `Interface` method to get the value to
+    return. Here’s how you use it:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: You can run a more complete version of this program on [The Go Playground](https://oreil.ly/NDfp1)
+    or in the *sample_code/timed_function* directory in the [Chapter 16 repository](https://oreil.ly/jAIdQ).
+  prefs: []
+  type: TYPE_NORMAL
+- en: While generating functions is clever, be careful when using this feature. Make
+    sure that it’s clear when you are using a generated function and what functionality
+    it is adding. Otherwise, you will be making it harder to understand the flow of
+    data through your program. Furthermore, as I’ll discuss in [“Use Reflection Only
+    if It’s Worthwhile”](#slow_reflection), reflection makes your programs slower,
+    so using it to generate and invoke functions seriously impacts performance unless
+    the code you are generating is already performing a slow operation, like a network
+    call. Remember, reflection works best when it’s used to map data in and out of
+    the edge of your programs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'One project that follows these rules for generated functions is my SQL mapping
+    library Proteus. It creates a type-safe database API by generating a function
+    from a SQL query and a function field or variable. You can learn more about Proteus
+    in my GopherCon 2017 talk, [“Runtime Generated, Typesafe, and Declarative: Pick
+    Any Three,”](https://oreil.ly/ZUE47) and you can find the source code on [GitHub](https://oreil.ly/KtFyj).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: You Can Build Structs with Reflection, but Don’t
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You can make one more thing with reflection, and it’s weird. The `reflect.StructOf`
+    function takes in a slice of `reflect.StructField` and returns a `reflect.Type`
+    that represents a new struct type. These structs can be assigned only to variables
+    of type `any`, and their fields can only be read and written using reflection.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For the most part, this is a feature of academic interest only. To see a demo
+    of how `reflect.StructOf` works, look at the memoizer function on [The Go Playground](https://oreil.ly/iJwqv)
+    or in the *sample_code/memoizer* directory in the [Chapter 16 repository](https://oreil.ly/jAIdQ).
+    It uses dynamically generated structs as the keys to a map that caches the output
+    of a function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Reflection Can’t Make Methods
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You’ve seen all the things that you can do with reflection, but there’s one
+    thing you can’t make. While you can use reflection to create new functions and
+    new struct types, there’s no way to use reflection to add methods to a type. This
+    means you cannot use reflection to create a new type that implements an interface.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Use Reflection Only if It’s Worthwhile
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Although reflection is essential when converting data at the boundaries of
+    Go, be careful using it in other situations. Reflection isn’t free. To demonstrate,
+    let’s implement `Filter` by using reflection. You looked at a generic implementation
+    in [“Generic Functions Abstract Algorithms”](ch08.html#generic_functions), but
+    let’s see what a reflection-based version looks like:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You use it like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'This prints out the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Your reflection-using filter function isn’t difficult to understand, but it’s
+    certainly longer than a custom-written or generic function. Let’s see how it performs
+    on an Apple Silicon M1 with 16 GB of RAM on Go 1.20 when filtering 1,000 element
+    slices of strings and `int`s, compared to custom-written functions:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: You can find this code in the *sample_code/reflection_filter* directory in the
+    [Chapter 16 repository](https://oreil.ly/jAIdQ) so you can run it yourself.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This benchmark demonstrates the value of using generics when you can. Reflection
+    is over 50 times slower than a custom or generic function for string filtering
+    and roughly 75 times slower for `int`s. It uses significantly more memory and
+    performs thousands of allocations, which creates additional work for the garbage
+    collector. The generic version provides the same performance as the custom-written
+    functions without having to write multiple versions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A more serious downside to the reflection implementation is that the compiler
+    can’t stop you from passing in a wrong type for either the `slice` or the `filter`
+    parameter. You might not mind a few thousand nanoseconds of CPU time, but if someone
+    passes in a function or slice of the wrong type to `Filter`, your program will
+    crash in production. The maintenance cost might be too high to accept.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Some things can’t be written using generics, and you’ll need to fall back to
+    reflection. CSV marshaling and unmarshaling requires reflection, as does the memoizing
+    program. In both cases, you need to work with an unknown number of values of different
+    (and unknown) types. But do make sure that reflection is essential before employing
+    it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: unsafe Is Unsafe
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Just as the `reflect` package allows you to manipulate types and values, the
+    `unsafe` package allows you to manipulate memory. The `unsafe` package is very
+    small and very odd. It defines several functions and one type, none of which act
+    like the types and functions found in other packages.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Given Go’s focus on memory safety, you might wonder why `unsafe` even exists.
+    Just as you used `reflect` to translate text data between the outside world and
+    Go code, you use `unsafe` to translate binary data. There are two main reasons
+    for using `unsafe`. A 2020 paper by Diego Elias Costa et al. called [“Breaking
+    Type-Safety in Go: An Empirical Study on the Usage of the unsafe Package”](https://oreil.ly/N_6JX)
+    surveyed 2,438 popular Go open source projects and found the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 24% of the studied Go projects use `unsafe` at least once in their codebase.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The majority of `unsafe` usages were motivated by integration with operating
+    systems and C code.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Developers frequently use `unsafe` to write more efficient Go code.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: The plurality of the uses of `unsafe` are for system interoperability. The Go
+    standard library uses `unsafe` to read data from and write data to the operating
+    system. You can see examples in the `syscall` package in the standard library
+    or in the higher-level [`sys` package](https://oreil.ly/ueHY3). You can learn
+    more about how to use `unsafe` to communicate with the operating system in [a
+    great blog post](https://oreil.ly/VtE1t) written by Matt Layher.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `unsafe.Pointer` type is a special type that exists for a single purpose:
+    a pointer of any type can be converted to or from `unsafe.Pointer`. In addition
+    to pointers, `unsafe.Pointer` can also be converted to or from a special integer
+    type, called `uintptr`. As with any other integer type, you can do math with it.
+    This allows you to walk into an instance of a type, extracting individual bytes.
+    You can also perform pointer arithmetic, just as you can with pointers in C and
+    C++. This byte manipulation changes the value of the variable.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are two common patterns in `unsafe` code. The first is a conversion between
+    two types of variables that are normally not convertible. This is performed using
+    a series of type conversions with `unsafe.Pointer` in the middle. The second is
+    reading or modifying the bytes in a variable by converting a variable to an `unsafe.Pointer`,
+    converting the `unsafe.Pointer` to a pointer, and then copying or manipulating
+    the underlying bytes. Both of these techniques require you to know the size (and
+    possibly the location) of the data being manipulated. The `Sizeof` and `Offsetof`
+    functions in the `unsafe` package provide this information.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using Sizeof and Offsetof
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Some of the functions in `unsafe` reveal how the bytes in various types are
+    laid out in memory. The first one you’ll look at is `Sizeof`. As the name implies,
+    it returns the size in bytes of whatever is passed into it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: While the sizes for numeric types are fairly obvious (an `int16` is 16 bits
+    or 2 bytes, a `byte` is 1 byte, and so on), other types are a bit more complicated.
+    For a pointer, you get the size of the memory to store the pointer (usually 8
+    bytes on a 64-bit system), not the size of the data that the pointer points to.
+    This is why `Sizeof` considers any slice to be 24 bytes long on a 64-bit system;
+    it’s implemented as two `int` fields (for length and capacity) and a pointer to
+    the data for the slice. Any `string` is 16 bytes long on a 64-bit system (an `int`
+    for length and a pointer to the contents of the string). Any `map` on a 64-bit
+    system is 8 bytes, since within the Go runtime, a `map` is implemented as a pointer
+    to a rather complicated data structure.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Arrays are value types, so their size is calculated by multiplying the length
+    of the array by the size of each element in the array.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For a struct, the size is the sum of the sizes of the fields, plus some adjustments
+    for *alignment*. Computers like to read and write data in regular-sized chunks
+    and they really don’t want a value to start in one chunk and end in another. To
+    make this happen, the compiler adds padding between fields so they line up properly.
+    The compiler also wants the entire struct to be properly aligned. On a 64-bit
+    system, it will add padding at the end of the struct to bring its size up to a
+    multiple of 8 bytes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Another function in `unsafe`, `Offsetof`, tells you the position of a field
+    within a struct. Let’s use `Sizeof` and `Offsetof` to look at the effects of field
+    order on the size of a struct. Say you have two structs:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: Running this code
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'produces the following output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: The size of both types is 16 bytes. When the `bool` comes first, the compiler
+    puts 7 bytes of padding between `b` and `i`. When the `int64` comes first, the
+    compiler puts 7 bytes of padding after `b` to make the struct’s size a multiple
+    of 8 bytes.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You can see the effect of field order when there are more fields:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Printing out the sizes and offsets for these types produces the following output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE34]'
+  prefs: []
+  type: TYPE_PRE
+- en: Putting the `int64` field between the two `bool` fields produces a struct that’s
+    24 bytes long, since both `bool` fields need to be padded to 8 bytes. Meanwhile,
+    grouping the `bool` fields together produces a struct that’s 16 bytes long, the
+    same as the structs with only two fields. You can validate this on [The Go Playground](https://oreil.ly/1X9--)
+    or in the *sample_code/sizeof_offsetof* directory in the [Chapter 16 repository](https://oreil.ly/jAIdQ).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Although only of academic interest most of the time, this information is useful
+    in two situations. The first is in programs that manage large amounts of data.
+    You can sometimes achieve significant savings in memory usage simply by reordering
+    the fields in heavily used structs in order to minimize the amount of padding
+    needed for alignment.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The second situation occurs when you want to map a sequence of bytes directly
+    into a struct. You’ll look at that next.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using unsafe to Convert External Binary Data
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'As was mentioned earlier, one of the main reasons people use `unsafe` is for
+    performance, especially when reading data from a network. If you want to map the
+    data into or out of a Go data structure, `unsafe.Pointer` gives you a very fast
+    way to do so. You can explore this with a contrived example. Imagine a *wire protocol*
+    (a specification indicating which bytes are written in which order when communicating
+    over a network) with the following structure:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Value: 4 bytes, representing an unsigned, big-endian 32-bit int'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Label: 10 bytes, ASCII name for the value'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Active: 1 byte, boolean flag to indicate whether the field is active'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'Padding: 1 byte, because you want everything to fit into 16 bytes'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Data sent over a network is usually sent in big-endian format (most significant
+    bytes first), often called *network byte order*. Since most CPUs in use today
+    are little-endian (or bi-endian running in little-endian mode), you need to be
+    careful when reading or writing data to a network.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The code for this example is in the *sample_code/unsafe_data* directory in the
+    [Chapter 16 repository](https://oreil.ly/jAIdQ).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You define a data structure whose in-memory layout matches the wire protocol:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE35]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'You use `unsafe.Sizeof` to define a constant that represents its size:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE36]'
+  prefs: []
+  type: TYPE_PRE
+- en: (One of the weird things about `unsafe.Sizeof` and `Offsetof` is that you can
+    use them in `const` expressions. The size and layout of a data structure in memory
+    is known at compile time, so the results of these functions are calculated at
+    compile time, just like a constant expression.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Say you just read the following bytes off the network:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE37]'
+  prefs: []
+  type: TYPE_PRE
+- en: You’re going to read these bytes into an array of length 16 and then convert
+    that array into the `struct` described previously.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'With safe Go code, you could map it like this:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE38]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Or, you could use `unsafe.Pointer` instead:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE39]'
+  prefs: []
+  type: TYPE_PRE
+- en: The first line is a little confusing, but you can take it apart and understand
+    what’s going on. First, you take the address of the byte array and convert it
+    to an `unsafe.Pointer`. Then you convert the `unsafe.Pointer` to a `(*Data)` (you
+    have to put `(*Data)` in parentheses because of Go’s order of operations). You
+    want to return the struct, not a pointer to it, so you dereference the pointer.
+    Next, you check your flag to see if you are on a little-endian platform. If so,
+    you reverse the bytes in the `Value` field. Finally, you return the value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'Why did you use an array instead of a slice for the parameter? Remember, arrays,
+    like structs, are value types; the bytes are allocated directly. That means you
+    can map the values in `b` directly into the `data` struct. A slice is composed
+    of three parts: a length, a capacity, and a pointer to the actual values. You’ll
+    see how to map a slice into a struct using `unsafe` in a bit.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'How do you know if you are on a little-endian platform? Here’s the code you’re
+    using:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE40]'
+  prefs: []
+  type: TYPE_PRE
+- en: As I discussed in [“Avoiding the init Function if Possible”](ch10.html#pkg_init),
+    you should avoid using `init` functions, except when initializing a package-level
+    value whose value is effectively immutable. Since the endianness of your processor
+    isn’t going to change while your program is running, this is a good use case.
+  prefs: []
+  type: TYPE_NORMAL
+- en: On a little-endian platform, the bytes that represent `x` will be stored as
+    [00 FF]. On a big-endian platform, `x` is stored in memory as [FF 00]. You use
+    `unsafe.Pointer` to convert a number to an array of bytes, and you check what
+    the first byte is to determine the value of `isLE`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Likewise, if you wanted to write your `Data` back to the network, you could
+    use safe Go:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE41]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Or you could use `unsafe`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE42]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'If the bytes are stored in a slice, you can use the `unsafe.Slice` function
+    to create a slice from the contents of `Data`. The `unsafe.SliceData` function
+    is used to create a `Data` instance from the data stored in a slice:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE43]'
+  prefs: []
+  type: TYPE_PRE
+- en: The first parameter to `unsafe.Slice` requires two casts. The first cast converts
+    a pointer of the `Data` instance to an `unsafe.Pointer`. Then you need to cast
+    again to a pointer of the type of data that you want the slice to hold. For a
+    slice of bytes, you use `*byte`. The second parameter is the length of the data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `unsafe.SliceData` function takes in a slice and returns a pointer to the
+    type of the data contained in the slice. In this case, you passed in a `[]byte`,
+    so it returned a `*byte`. You then use `unsafe.Pointer` as a bridge between `*byte`
+    and `*Data` to convert the contents of the slice into a `Data` instance.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Is this worth it? Here are the timings on an Apple Silicon M1 (which is little-endian):'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE44]'
+  prefs: []
+  type: TYPE_PRE
+- en: Two things stand out in this chart. First, the conversion from a struct to a
+    slice is by far the slowest operation, and it’s the only one that allocates memory.
+    This isn’t surprising, since the slice’s data needs to escape to the heap when
+    it is returned from the function. Allocating memory on the heap is almost always
+    slower than using memory on the stack. Converting from a slice to a struct is
+    very fast, though.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you are working with arrays, using `unsafe` is about 2–2.5 times faster than
+    the standard approach. If you have a program with many of these kinds of conversions,
+    or if you are trying to map a very large and complicated data structure, using
+    these low-level techniques is worthwhile. But for the vast majority of programs,
+    stick with the safe code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Accessing Unexported Fields
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Here’s another bit of magic you can do with `unsafe`, but it’s something to
+    use only as a last resort. You can combine reflection and `unsafe` to read and
+    modify unexported fields in structs. Let’s see how.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First, define a struct in one package:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE45]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Normally, code outside this package is unable to access `b`. However, let’s
+    see what you can do from another package by using `unsafe`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE46]'
+  prefs: []
+  type: TYPE_PRE
+- en: You use reflection to access type information about field `b`. The `FieldByName`
+    method returns a `reflect.StructField` instance for any field on a struct, even
+    unexported ones. The instance includes the offset of its associated field. You
+    then convert `huf` into an `unsafe.Pointer` and use the `unsafe.Add` method to
+    add the offset to the pointer in order to find the location of `b` within the
+    struct. All that remains is casting the `unsafe.Pointer` returned by `Add` to
+    a `*bool`. Now you can read the value of `b` or set its value. You can try out
+    this code in the *sample_code/unexported_field_access* directory in the [Chapter
+    16 repository](https://oreil.ly/jAIdQ).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Using unsafe Tools
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Go is a language that values tooling, and a compiler flag can help you find
+    misuse of `Pointer` and `unsafe.Pointer`. Run your code with the flag `-gcflags=-d=checkptr`
+    to add additional checks at runtime. Like the race checker, it’s not guaranteed
+    to find every `unsafe` problem and it does slow your program. However, it’s a
+    good practice while testing your code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you want to learn more about `unsafe`, read through the package [documentation](https://oreil.ly/xmihF).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Warning
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The `unsafe` package is powerful and low-level! Avoid using it unless you know
+    what you are doing and you need the performance improvements that it provides.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Cgo Is for Integration, Not Performance
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Just like reflection and `unsafe`, `cgo` is most useful at the border between
+    Go programs and the outside world. Reflection helps integrate with external textual
+    data, `unsafe` is best used with operating system and network data, and `cgo`
+    is best for integrating with C libraries.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Despite being nearly 50 years old, C is still the *lingua franca* of programming
+    languages. All the major operating systems are primarily written in either C or
+    C++, which means that they are bundled with libraries written in C. It also means
+    that nearly every programming language provides a way to integrate with C libraries.
+    Go calls its foreign function interface (FFI) to C `cgo`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As you have seen many times, Go is a language that favors explicit specification.
+    Go developers sometimes deride automatic behaviors in other languages as “magic.”
+    However, using `cgo` feels a bit like spending time with Merlin. Let’s take a
+    look at this magical glue code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You’ll start with a very simple program that calls C code to do some math.
+    The source code is in GitHub in the *sample_code/call_c_from_go* directory in
+    the [Chapter 16 repository](https://oreil.ly/jAIdQ). First, here’s the code in
+    *main.go*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE47]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The *mylib.h* header is in the same directory as your *main.go*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE48]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'There is also *mylib.c*:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE49]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Assuming you have a C compiler installed on your computer, all you need to
+    do is compile your program with `go build`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE50]'
+  prefs: []
+  type: TYPE_PRE
+- en: What’s going on here? The standard library doesn’t have a real package named
+    `C`. Instead, `C` is an automatically generated package whose identifiers mostly
+    come from the C code embedded in the comments that immediately precede it. In
+    this example, you declare a C function called `add`, and `cgo` makes it available
+    to your Go program as the name `C.add`. You can also invoke functions or global
+    variables that are imported into the comment block from libraries via header files,
+    as you can see when you call `C.sqrt` from `main` (imported from *math.h*) or
+    `C.multiply` (imported from *mylib.h*).
+  prefs: []
+  type: TYPE_NORMAL
+- en: In addition to the identifier names that appear in the comment block (or are
+    imported into the comment block), the `C` pseudopackage also defines types like
+    `C.int` and `C.char` to represent the built-in C types and functions, such as
+    `C.CString` to convert a Go string to a C string.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You can use more magic to call Go functions from C functions. Go functions
+    can be exposed to C code by putting an `//export` comment before the function.
+    You can see this in use in the *sample_code/call_go_from_c* directory in the [Chapter
+    16 repository](https://oreil.ly/jAIdQ). In *main.go*, you export the doubler function:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE51]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'When you export a Go function, you can no longer write C code directly in the
+    comment before the `import "C"` statement. You can only list function headers:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE52]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Put your C code into a *.c* file in the same directory as your Go code and
+    include the magic header `"cgo_export.h"`. You can see this in the *example.c*
+    file:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE53]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Running this program with `go build` give the following output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE54]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'So far, this seems pretty simple, but one major stumbling block arises when
+    using `cgo`: Go is a garbage-collected language, and C is not. This makes it difficult
+    to integrate nontrivial Go code with C. While you can pass a pointer into C code,
+    you cannot directly pass something that contains a pointer. This is very limiting,
+    as things like strings, slices, and functions are implemented with pointers and
+    therefore cannot be contained in a struct passed into a C function.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'That’s not all: a C function cannot store a copy of a Go pointer that lasts
+    after the function returns. If you break these rules, your program will compile
+    and run, but it may crash or behave incorrectly at runtime when the memory pointed
+    to by the pointer is garbage collected.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you find yourself needing to pass an instance of a type that contains a pointer
+    from Go to C and then back into Go, you can use a `cgo.Handle` to wrap the instance.
+    Here’s a short example. You can find the source code in the *sample_code/handle*
+    directory in the [Chapter 16 repository](https://oreil.ly/jAIdQ).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First you have your Go code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE55]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'And this is the C code:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE56]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the Go code, you’re passing a `Person` instance into the C function `in_c`.
+    This function in turn calls the Go function `processor`. You can’t safely pass
+    a `Person` into C via `cgo`, because one of its fields is a `string`, and every
+    `string` contains a pointer. To make this work, use the `cgo.NewHandle` function
+    to convert `p` to a `cgo.Handle`. You then cast the `Handle` to a `C.uintptr_t`
+    so you can pass it to the C function `in_c`. The function takes in a single parameter
+    of type `uintptr_t`, which is a C type that is analogous to Go’s `uintptr` type.
+    The `in_c` function calls the Go function `process`, which also takes in a single
+    parameter of type `C.uintptr_t`. It casts this parameter to a `cgo.Handle`, and
+    then uses a type assertion to convert the `Handle` to a `Person` instance. You
+    print out the fields in `p`. Now that you are done using the `Handle`, you call
+    the `Delete` method to delete it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In addition to working with pointers, other `cgo` limitations exist. For example,
+    you cannot use `cgo` to call a variadic C function (such as `printf`). Union types
+    in C are converted into byte arrays. And you cannot invoke a C function pointer
+    (but you can assign it to a Go variable and pass it back into a C function).
+  prefs: []
+  type: TYPE_NORMAL
+- en: These rules make using `cgo` nontrivial. If you have a background in Python
+    or Ruby, you might think that using `cgo` is worth it for performance reasons.
+    Those developers write the performance-critical parts of their programs in C.
+    The speed of NumPy is due to the C libraries that are wrapped by Python code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In most cases, Go code is many times faster than Python or Ruby, so the need
+    to rewrite algorithms in a lower-level language is greatly reduced. You might
+    think that you could save `cgo` for those situations when you do need additional
+    performance gains, but unfortunately, using `cgo` to make your code faster is
+    difficult. Because of the mismatches in the processing and memory models, calling
+    a C function from Go is roughly 29 times slower than a C function calling another
+    C function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: At CapitalGo 2018, Filippo Valsorda gave a talk, called “Why cgo is slow.” Unfortunately,
+    the talk wasn’t recorded, but [slides are available](https://oreil.ly/MLRFY).
+    They explain why `cgo` is slow and why it will not be made appreciably faster
+    in the future. In his blog post [“CGO Performance in Go 1.21,”](https://oreil.ly/AoCDG)
+    Shane Hansen measured the overhead of a `cgo` call in Go 1.21 at roughly 40ns
+    on an Intel Core i7-12700H.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Tip
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Since `cgo` isn’t fast, and it isn’t easy to use for nontrivial programs, the
+    only reason to use `cgo` is if you must use a C library and there is no suitable
+    Go replacement. Rather than writing `cgo` yourself, see if a third-party module
+    already provides the wrapper. For example, if you want to embed SQLite in a Go
+    application, look at [GitHub](https://oreil.ly/IEskN). For ImageMagick, check
+    out [this repository](https://oreil.ly/l58-1).
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you find yourself needing to use an internal C library or third-party library
+    that doesn’t have a wrapper, you can find [additional details](https://oreil.ly/9JvNI)
+    on how to write your integration in the Go documentation. For information on the
+    sorts of performance and design trade-offs that you are likely to encounter when
+    using `cgo`, read Tobias Grieger’s blog post called [“The Cost and Complexity
+    of Cgo.”](https://oreil.ly/Oj9Tw)
+  prefs: []
+  type: TYPE_NORMAL
+- en: Exercises
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Now it’s time to test yourself to see if you can write small programs using
+    reflection, `unsafe`, and `cgo`. Answers for the exercises are found in the *exercise_solutions*
+    directory in the [Chapter 16 repository](https://oreil.ly/jAIdQ).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Use reflection to create a simple minimal string-length validator for struct
+    fields. Write a `ValidateStringLength` function that takes in a struct and returns
+    an error if one or more of the fields is a string, has a struct tag called `minStrlen`,
+    and the length of the value in the field is less than the value specified in the
+    struct tag. Nonstring fields and string fields that don’t have the `minStrlen`
+    struct tag are ignored. Use `errors.Join` to report all invalid fields. Be sure
+    to validate that a struct was passed in. Return `nil` if all fields are of the
+    proper length.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Use `unsafe.Sizeof` and `unsafe.Offsetof` to print out the size and offsets
+    for the `OrderInfo` struct defined in [*ch16/tree/main/sample_code/orders*](https://oreil.ly/SrSpa).
+    Create a new type, `SmallOrderInfo`, that has the same fields, but reordered to
+    use as little memory as possible.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Copy the C code at [*ch16/tree/main/sample_code/mini_calc*](https://oreil.ly/E-PfQ)
+    into your own module and use `cgo` to call it from a Go program.
+  prefs:
+  - PREF_OL
+  type: TYPE_NORMAL
+- en: Wrapping Up
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In this chapter, you’ve learned about reflection, `unsafe`, and `cgo`. These
+    features are probably the most exciting parts of Go because they allow you to
+    break the rules that make Go a boring, type-safe, memory-safe language. More importantly,
+    you’ve learned *why* you would want to break the rules and why you should avoid
+    doing so most of the time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You’ve completed your journey through Go and how to use it idiomatically. As
+    with any graduation ceremony, it’s time for a few closing words. Let’s look back
+    at what was said in the preface. “[P]roperly written, Go is boring…​.Well-written
+    Go programs tend to be straightforward and sometimes a bit repetitive.” I hope
+    you can now see why this leads to better software engineering.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Idiomatic Go is a set of tools, practices, and patterns that makes it easier
+    to maintain software across time and changing teams. That’s not to say the cultures
+    around other languages don’t value maintainability; it just may not be their highest
+    priority. Instead, they emphasize things like performance, new features, or concise
+    syntax. There is a place for these trade-offs, but in the long run, I suspect
+    Go’s focus on crafting software that lasts will win out. I wish you the best as
+    you create the software for the next 50 years of computing.
+  prefs: []
+  type: TYPE_NORMAL

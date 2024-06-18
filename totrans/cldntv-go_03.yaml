@@ -1,0 +1,631 @@
+- en: Chapter 2\. Why Go Rules the Cloud Native World
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Any intelligent fool can make things bigger, more complex, and more violent.
+    It takes a touch of genius—and a lot of courage—to move in the opposite direction.^([1](ch02.xhtml#idm45983645071000))
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: ''
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: E.F. Schumacher, Small Is Beautiful (August 1973)
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: The Motivation Behind Go
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The idea of Go emerged in September of 2007 at Google, the inevitable outcome
+    of putting a bunch of smart people in a room and frustrating the heck out of them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The people in question were Robert Griesemer, Rob Pike, and Ken Thompson; all
+    already highly regarded for their individual work in designing other languages.
+    The source of their collective ire was nothing less than the entire set of programming
+    languages that were available at the time, which they were finding just weren’t
+    well-suited to the task of describing the kinds of distributed, scalable, resilient
+    services that Google was building.^([2](ch02.xhtml#idm45983651866712))
+  prefs: []
+  type: TYPE_NORMAL
+- en: Essentially, the common languages of the day had been developed in a different
+    era, one before multiple processors were commonplace, and networks were quite
+    so ubiquitous. Their support for multicore processing and networking—essential
+    building blocks of modern “cloud native” services^([3](ch02.xhtml#idm45983651864088))—was
+    often limited or required extraordinary efforts to utilize. Simply put, programming
+    languages weren’t keeping up with the needs of modern software development.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Features for a Cloud Native World
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 'Their frustrations were many, but all of them amounted to one thing: the undue
+    complexity of the languages they were working with was making it harder to build
+    server software. These included, but weren’t limited to:^([4](ch02.xhtml#idm45983651860872))'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Low program comprehensibility
+  prefs: []
+  type: TYPE_NORMAL
+- en: Code had become too hard to read. Unnecessary bookkeeping and repetition was
+    compounded by functionally overlapping features that often encouraged cleverness
+    over clarity.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Slow builds
+  prefs: []
+  type: TYPE_NORMAL
+- en: Language construction and years of feature creep resulted in build times that
+    ran for minutes or hours, even on large build clusters.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Inefficiency
+  prefs: []
+  type: TYPE_NORMAL
+- en: Many programmers responded to the aforementioned problems by adopting more fluid,
+    dynamic languages, effectively trading efficiency and type safety for expressiveness.
+  prefs: []
+  type: TYPE_NORMAL
+- en: High cost of updates
+  prefs: []
+  type: TYPE_NORMAL
+- en: Incompatibilities between even minor versions of a language, as well as any
+    dependencies it may have (and its transitive dependencies!) often made updating
+    an exercise in frustration.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Over the years, multiple—often quite clever—solutions have been presented to
+    address some of these issues in various ways, usually introducing additional complexity
+    in the process. Clearly, they couldn’t be fixed with a new API or language feature.
+    So, Go’s designers envisioned a modern language, the first language built for
+    the cloud native era, supporting modern networked and multicore computing, expressive
+    yet comprehensible, and allowing its users to focus on solving their problems
+    instead of struggling with their language.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The result, the Go language, is notable as much for the features it explicitly
+    *doesn’t have* as it is for the ones it does. Some of those features (and nonfeatures)
+    and the motivation behind them are discussed in the following sections.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Composition and Structural Typing
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Object-oriented programming, which is based on the concept of “objects” of various
+    “types” possessing various attributes, has existed since the 1960s, but it truly
+    came into vogue in the early to mid-1990s with the release of Java and the addition
+    of object-oriented features to C++. Since then, it has emerged as the dominant
+    programming paradigm, and remains so even today.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The promise of object-oriented programming is seductive, and the theory behind
+    it even makes a certain kind of intuitive sense. Data and behaviors can be associated
+    with *types* of things, which can be inherited by *subtypes* of those things.
+    *Instances* of those types can be conceptualized as tangible objects with properties
+    and behaviors—components of a larger system modeling concrete, real-world concepts.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In practice however, objected-oriented programming using inheritance often requires
+    that relationships between types be carefully considered and painstakingly designed,
+    and that particular design patterns and practices be faithfully observed. As such,
+    as illustrated in [Figure 2-1](#img_ch02_inheritance), the tendency in object-oriented
+    programming is for the focus to shift away from developing algorithms, and towards
+    developing and maintaining taxonomies and ontologies.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![cngo 0201](Images/cngo_0201.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 2-1\. Over time, objected-oriented programming trends towards taxonomy
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'That’s not to say that Go doesn’t have object-oriented features that allow
+    polymorphic behavior and code reuse. It, too, has a type-like concept in the form
+    of *structs*, which can have properties and behaviors. What it rejects is inheritance
+    and the elaborate relationships that come with it, opting instead to assemble
+    more complex types by *embedding* simpler ones within them: an approach known
+    as *composition*.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Specifically, where inheritance revolves around extending “is a” relationships
+    between classes (i.e., a car “is a” motored vehicle), composition allows types
+    to be constructed using “has a” relationships to define what they can do (i.e.,
+    a car “has a” motor). In practice, this permits greater design flexibility while
+    allowing the creation of business domains that are less susceptible to disruption
+    by the quirks of “family members.”
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'By extension, while Go uses interfaces to describe behavioral contracts, it
+    has no “is a” concept, so equivalency is determined by inspecting a type’s definition,
+    not its lineage. For example, given a `Shape` interface that defines an `Area`
+    method, any type with an `Area` method will implicitly satisfy the `Shape` interface,
+    without having to explicitly declare itself as a `Shape`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: This *structural typing* mechanism, which has been described as *duck typing*^([5](ch02.xhtml#idm45983645616360))
+    at compile time, largely sheds the burdensome maintenance of tedious taxonomies
+    that saddle more traditional object-oriented languages like Java and C++, freeing
+    programmers to focus on data structures and algorithms.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Comprehensibility
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Service languages like C++ and Java are often criticized for being clumsy, awkward
+    to use, and unnecessarily verbose. They require lots of repetition and careful
+    bookkeeping, saddling projects with superfluous boilerplate that gets in the way
+    of programmers who have to divert their attention to things other than the problem
+    they’re trying to solve, and limiting projects’ scalability under the weight of
+    all the resulting complexity.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Go was designed with large projects with lots of contributors in mind. Its minimalist
+    design (just 25 keywords and 1 loop type), and the strong opinions of its compiler,
+    strongly favor clarity over cleverness.^([6](ch02.xhtml#idm45983651382280)) This
+    in turn encourages simplicity and productivity over clutter and complexity. The
+    resulting code is relatively easy to ingest, review, and maintain, and harbors
+    far fewer “gotchas.”
+  prefs: []
+  type: TYPE_NORMAL
+- en: CSP-Style Concurrency
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Most mainstream languages provide some means of running multiple processes concurrently,
+    allowing a program to be composed of independently executed processes. Used correctly,
+    concurrency can be incredibly useful, but it also introduces a number of challenges,
+    particularly around ordering events, communication between processes, and coordination
+    of access to shared resources.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Traditionally, a programmer will confront these challenges by allowing processes
+    to share some piece of memory, which is then wrapped in locks or mutexes to restrict
+    access to one process at a time. But even when well-implemented, this strategy
+    can generate a fair amount of bookkeeping overhead. It’s also easy to forget to
+    lock or unlock shared memory, potentially introducing race conditions, deadlocks,
+    or concurrent modifications. This class of errors can be fiendishly difficult
+    to debug.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Go, on the other hand, favors another strategy, based on a formal language called
+    Communicating Sequential Processes (CSP), first described in Tony Hoare’s influential
+    paper of the same name^([7](ch02.xhtml#idm45983647612392)) that describes patterns
+    of interaction in concurrent systems in terms of message passing via channels.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The resulting concurrency model, implemented in Go with language primitives
+    like `goroutines` and `channels`, makes Go uniquely^([8](ch02.xhtml#idm45983651600136))
+    capable of elegantly structuring concurrent software without depending entirely
+    on locking. It encourages developers to limit sharing memory, and to instead allow
+    processes to interact with one another *entirely* by passing messages. This idea
+    is often summarized by the Go proverb:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Do not communicate by sharing memory. Instead, share memory by communicating.
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: ''
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: Go Proverb
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: Fast Builds
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: One of the primary motivations for the Go language was the maddeningly long
+    build times for certain languages of the time,^([10](ch02.xhtml#idm45983647604888))
+    which even on Google’s large compilation clusters often require minutes, or even
+    hours, to complete. This eats away at development time and grinds down developer
+    productivity. Given Go’s primary purpose of enhancing rather than hindering developer
+    productivity, long build times had to go.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The specifics of the Go compiler are beyond the scope of this book (and beyond
+    my own expertise). Briefly, however, the Go language was designed to provide a
+    model of software construction free of complex relationships, greatly simplifying
+    dependency analysis and eliminating the need for C-style include files and libraries
+    and the overhead that comes with them. As a result, most Go builds complete in
+    seconds, or occasionally minutes, even on relatively humble hardware. For example,
+    building all 1.8 million lines^([11](ch02.xhtml#idm45983647603016)) of Go in Kubernetes
+    v1.20.2 on a MacBook Pro with a 2.4 GHz 8-Core Intel i9 processor and 32 GB of
+    RAM required about 45 seconds of real time:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: Not that this doesn’t come without compromises. Any proposed change to the Go
+    language is weighed in part against its likely effect on build times; some otherwise
+    promising proposals have been rejected on the grounds that they would increase
+    it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Linguistic Stability
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Go 1 was released in March of 2012, defining both the specification of the language
+    and the specification of a set of core APIs. The natural consequence of this is
+    an explicit promise, from the Go design team to the Go users, that programs written
+    in Go 1 will continue to compile and run correctly, unchanged, for the lifetime
+    of the Go 1 specification. That is, Go programs that work today can be expected
+    to continue to work even under future “point” releases of Go 1 (Go 1.1, Go 1.2,
+    etc.).^([12](ch02.xhtml#idm45983647594312))
+  prefs: []
+  type: TYPE_NORMAL
+- en: This stands in stark contrast to many other languages, which sometimes add new
+    features enthusiastically, gradually increasing the complexity of the language—and
+    anything written in it—in time, leading to a once elegant language becoming a
+    sprawling featurescape that’s often exceedingly difficult to master.^([13](ch02.xhtml#idm45983647591464))
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Go Team considers this exceptional level of linguistic stability to be a
+    vital feature of Go; it allows users to trust Go and to build on it. It allows
+    libraries to be consumed and built upon with minimal hassle, and dramatically
+    lowers the cost of updates, particularly for large projects and organizations.
+    Importantly, it also allows the Go community to use Go and to learn from it; to
+    spend time writing with the language rather than writing the language.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'This is not to say that Go won’t grow: both the APIs and the core language
+    certainly *can* acquire new packages and features,^([14](ch02.xhtml#idm45983647588664))
+    and there are many proposals for exactly that,^([15](ch02.xhtml#idm45983647587976))
+    but not in a way that breaks existing Go 1 code.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: That being said, it’s quite possible^([16](ch02.xhtml#idm45983647584664)) that
+    there will actually *never* be a Go 2\. More likely, Go 1 will continue to be
+    compatible indefinitely; and in the unlikely event that a breaking change is introduced,
+    Go will provide a conversion utility, like the `go fix` command that was used
+    during the move to Go 1.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Memory Safety
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The designers of Go have taken great pains to ensure that the language is free
+    of the various bugs and security vulnerabilities—not to mention tedious bookkeeping—associated
+    with direct memory access. Pointers are strictly typed and are always initialized
+    to some value (even if that value is `nil`), and pointer arithmetic is explicitly
+    disallowed. Built-in reference types like maps and channels, which are represented
+    internally as pointers to mutable structures, are initialized by the `make` function.
+    Simply put, Go neither needs nor allows the kind of manual memory management and
+    manipulation that lower-level languages like C and C++ allow and require, and
+    the subsequent gains with respect to complexity and memory safety can’t be overstated.
+  prefs: []
+  type: TYPE_NORMAL
+- en: For the programmer, the fact that Go is a garbage-collected language obviates
+    the need to carefully track and free up memory for every allocated byte, eliminating
+    a considerable bookkeeping burden from the programmer’s shoulders. Life without
+    `malloc` is liberating.
+  prefs: []
+  type: TYPE_NORMAL
+- en: What’s more, by eliminating manual memory management and manipulation—even pointer
+    arithmetic—Go’s designers have made it effectively immune to an entire class of
+    memory errors and the security holes they can introduce. No memory leaks, no buffer
+    overruns, no address space layout randomization. Nothing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Of course, this simplicity and ease of development comes with some tradeoffs,
+    and while Go’s garbage collector is incredibly sophisticated, it does introduce
+    some overhead. As such, Go can’t compete with languages like C++ and Rust in pure
+    raw execution speed. That said, as we see in the next section, Go still does pretty
+    well for itself in that arena.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Performance
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Confronted with the slow builds and tedious bookkeeping of the statically typed,
+    compiled languages like C++ and Java, many programmers moved towards more dynamic,
+    fluid languages like Python. While these languages are excellent for many things,
+    they’re also very inefficient relative to compiled languages like Go, C++, and
+    Java.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Some of this is made quite clear in the benchmarks of [Table 2-1](#table_ch02_benchmarks).
+    Of course, benchmarks in general should be taken with a grain of salt, but some
+    results are particularly striking.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Table 2-1\. Relative benchmarks for common service languages (seconds)^([a](ch02.xhtml#idm45983647562936))
+  prefs: []
+  type: TYPE_NORMAL
+- en: '|  | C++ | Go | Java | NodeJS | Python3 | Ruby | Rust |'
+  prefs: []
+  type: TYPE_TB
+- en: '| --- | --- | --- | --- | --- | --- | --- | --- |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **Fannkuch-Redux** | `8.08` | `8.28` | `11.00` | `11.89` | `367.49` | `1255.50`
+    | `7.28` |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **FASTA** | `0.78` | `1.20` | `1.20` | `2.02` | `39.10` | `31.29` | `0.74`
+    |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **K-Nucleotide** | `1.95` | `8.29` | `5.00` | `15.48` | `46.37` | `72.19`
+    | `2.76` |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **Mandlebrot** | `0.84` | `3.75` | `4.11` | `4.03` | `172.58` | `259.25`
+    | `0.93` |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **N-Body** | `4.09` | `6.38` | `6.75` | `8.36` | `586.17` | `253.50` | `3.31`
+    |'
+  prefs: []
+  type: TYPE_TB
+- en: '| **Spectral norm** | `0.72` | `1.43` | `4.09` | `1.84` | `118.40` | `113.92`
+    | `0.71` |'
+  prefs: []
+  type: TYPE_TB
+- en: '| ^([a](ch02.xhtml#idm45983647562936-marker)) Gouy, Isaac. The Computer Language
+    Benchmarks Game. 18 Jan. 2021\. [*https://oreil.ly/bQFjc*](https://oreil.ly/bQFjc).
+    |'
+  prefs: []
+  type: TYPE_TB
+- en: 'On inspection, it seems that the results can be clustered into three categories
+    corresponding with the types of languages used to generate them:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Compiled, strictly typed languages with manual memory management (C++, Rust)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Compiled, strictly typed languages with garbage collection (Go, Java)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Interpreted, dynamically typed languages (Python, Ruby)
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: These results suggest that, while the garbage-collected languages are generally
+    slightly less performant than the ones with manual memory management, the differences
+    don’t appear to be great enough to matter except under the most demanding requirements.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The differences between the interpreted and compiled languages, however, is
+    striking. At least in these examples, Python, the archetypical dynamic language,
+    benchmarks about *ten to one hundred times slower* than most compiled languages.
+    Of course, it can be argued that this is still perfectly adequate for many—if
+    not most—purposes, but this is less true for cloud native applications, which
+    often have to endure significant spikes in demand, ideally without having to rely
+    on potentially costly upscaling.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Static Linking
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: By default, Go programs are compiled directly into native, statically linked
+    executable binaries into which all necessary Go libraries and the Go runtime are
+    copied. This produces slightly larger files (on the order of about 2MB for a “hello
+    world”), but the resulting binary has no external language runtime to install,^([17](ch02.xhtml#idm45983647493096))
+    or external library dependencies to upgrade or conflict,^([18](ch02.xhtml#idm45983647492440))
+    and can be easily distributed to users or deployed to a host without fear of suffering
+    dependency or environmental conflicts.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This ability is particularly useful when you’re working with containers. Because
+    Go binaries don’t require an external language runtime or even a distribution,
+    they can be built into “scratch” images that don’t have parent images. The result
+    is a very small (single digit MB) image with minimal deployment latency and data
+    transfer overhead. These are very useful traits in an orchestration system like
+    Kubernetes that may need to pull the image with some regularity.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Static Typing
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Back in the early days of Go’s design, its authors had to make a choice: would
+    it be *statically typed*, like C++ or Java, requiring variables to be explicitly
+    defined before use, or *dynamically typed*, like Python, allowing programmers
+    to assign values to variables without defining them and therefore generally faster
+    to code? It wasn’t a particularly hard decision; it didn’t take very long. Static
+    typing was the obvious choice, but it wasn’t arbitrary, or based on personal preference.^([19](ch02.xhtml#idm45983647482936))'
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, type correctness for statically typed languages can be evaluated at compile
+    time, making them far more performant (see [Table 2-1](#table_ch02_benchmarks)).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The designers of Go understood that the time spent in development is only a
+    fraction of a project’s total lifecycle, and that any gains in coding velocity
+    with dynamically typed languages is more than made up for by the increased difficulty
+    in debugging and maintaining such code. After all, what Python programmer hasn’t
+    had their code crash because they tried to use a string as an integer?
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Take the following Python code snippet, for example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: See it yet? Keep trying if you don’t. It can take a second.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Any programmer can make this kind of subtle misspelling error, which just so
+    happens to also produce perfectly valid, executable Python. These are just two
+    trivial examples of an entire class of errors that Go will catch at compile time
+    rather than (heaven forbid) in production, and generally closer in the code to
+    the location where they are introduced. After all, it’s well-understood that the
+    earlier in the development cycle you catch a bug, the easier (read cheaper) it
+    is to fix it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Finally, I’ll even assert something somewhat controversial: typed languages
+    are more readable. Python is often lauded as especially readable with its forgiving
+    nature and somewhat English-like syntax,^([20](ch02.xhtml#idm45983647617624))
+    but what would you do if presented with the following Python function signature?'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: Is `message` a string? Is `recipient` an instance of some class described elsewhere?
+    Yes, this could be improved with some documentation and a couple of reasonable
+    defaults, but many of us have had to maintain enough code to know that that’s
+    a pretty distant star to wish on. Explicitly defined types can guide development
+    and ease the mental burden of writing code by automatically tracking information
+    the programmer would otherwise have to track mentally by serving as documentation
+    for both the programmer and everybody who has to maintain their code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: If [Chapter 1](ch01.xhtml#chapter_1) focused on what makes a *system* cloud
+    native, then this chapter can be said to have focused on what makes a *language*,
+    specifically Go, a good fit for building cloud native services.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, while a cloud native system needs to be scalable, loosely coupled,
+    resilient, manageable, and observable, a language for the cloud native era has
+    to be able to do more than just build systems with those attributes. After all,
+    with a bit of effort, pretty much any language can, technically, be used to build
+    such systems. So what makes Go so special?
+  prefs: []
+  type: TYPE_NORMAL
+- en: It can be argued that all of the features presented in this chapter directly
+    or indirectly contribute to the cloud native attributes from the previous chapter.
+    Concurrency and memory safety can be said to contribute to service scalability,
+    and structural typing to allow loose coupling, for example. But while Go is the
+    only mainstream language I know that puts all of these features in one place,
+    are they *really* so novel?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Perhaps most conspicuous of Go’s features are its baked-in—not bolted-on—concurrency
+    features, which allow a programmer to fully and more safely utilize modern networking
+    and multicore hardware. Goroutines and channels are wondrous, of course, and make
+    it far easier to build resilient, highly concurrent networked services, but they’re
+    technically not unique if you consider some less common languages like Clojure
+    or Crystal.
+  prefs: []
+  type: TYPE_NORMAL
+- en: I would assert that where Go really shines is in its faithful adherence to the
+    principle of clarity over cleverness, which extends from an understanding that
+    source code is written by humans for other humans.^([21](ch02.xhtml#idm45983647387240))
+    That it compiles into machine code is almost immaterial.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Go is designed to support the way people actually work together: in teams,
+    which sometimes change membership, whose members also work on other things. In
+    this environment, code clarity, the minimization of “tribal knowledge,” and the
+    ability to rapidly iterate are critical. Go’s simplicity is often misunderstood
+    and unappreciated, but it lets programmers focus on solving problems instead of
+    struggling with the language.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In [Chapter 3](ch03.xhtml#chapter_3), we’ll review many of the specific features
+    of the Go language, where we’ll get to see that simplicity up close.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([1](ch02.xhtml#idm45983645071000-marker)) Schumacher, E.F. “Small Is Beautiful.”
+    *The Radical Humanist*, August 1973, p. 22.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([2](ch02.xhtml#idm45983651866712-marker)) These were “cloud native” services
+    before the term “cloud native” was coined.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([3](ch02.xhtml#idm45983651864088-marker)) Of course, they weren’t called “cloud
+    native” at the time; to Google they were just “services.”
+  prefs: []
+  type: TYPE_NORMAL
+- en: '^([4](ch02.xhtml#idm45983651860872-marker)) Pike, Rob. “Go at Google: Language
+    Design in the Service of Software Engineering.” Google, Inc., 2012\. [*https://oreil.ly/6V9T1*](https://oreil.ly/6V9T1).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([5](ch02.xhtml#idm45983645616360-marker)) In languages that use duck typing,
+    the type of an object is less important than the methods it defines. In other
+    words, “if it walks like a duck and it quacks like a duck, then it must be a duck.”
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([6](ch02.xhtml#idm45983651382280-marker)) Cheney, Dave. “Clear Is Better than
+    Clever.” *The Acme of Foolishness*, 19 July 2019\. [*https://oreil.ly/vJs0X*](https://oreil.ly/vJs0X).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([7](ch02.xhtml#idm45983647612392-marker)) Hoare, C.A.R. “Communicating Sequential
+    Processes.” *Communications of the ACM*, vol. 21, no. 8, Aug. 1978, pp. 666–77\.
+    [*https://oreil.ly/CHiLt*](https://oreil.ly/CHiLt).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([8](ch02.xhtml#idm45983651600136-marker)) At least among the “mainstream”
+    languages, whatever that means.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([9](ch02.xhtml#idm45983651594184-marker)) Gerrand, Andrew. “Concurrency Is
+    Not Parallelism.” *The Go Blog*, 16 Jan. 2016\. [*https://oreil.ly/WXf4g*](https://oreil.ly/WXf4g).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([10](ch02.xhtml#idm45983647604888-marker)) C++. We’re talking about C++.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([11](ch02.xhtml#idm45983647603016-marker)) Not counting comments; Openhub.net.
+    “Kubernetes.” *Open Hub*, Black Duck Software, Inc., 18 Jan. 2021\. [*https://oreil.ly/y5Rty*](https://oreil.ly/y5Rty).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([12](ch02.xhtml#idm45983647594312-marker)) The Go Team. “Go 1 and the Future
+    of Go Programs.” *The Go Documentation*. [*https://oreil.ly/Mqn0I*](https://oreil.ly/Mqn0I).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([13](ch02.xhtml#idm45983647591464-marker)) Anybody remember Java 1.1? I remember
+    Java 1.1\. Sure, we didn’t have generics or autoboxing or enhanced `for` loops
+    back then, but we were happy. Happy, I tell you.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([14](ch02.xhtml#idm45983647588664-marker)) I’m on team generics. Go, fightin’
+    Parametric Polymorphics!
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([15](ch02.xhtml#idm45983647587976-marker)) The Go Team. “Proposing Changes
+    to Go.” *GitHub*, 7 Aug. 2019\. [*https://oreil.ly/folYF*](https://oreil.ly/folYF).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([16](ch02.xhtml#idm45983647584664-marker)) Pike, Rob. “Sydney Golang Meetup—Rob
+    Pike—Go 2 Draft Specifications” (video). *YouTube*, 13 Nov. 2018\. [*https://oreil.ly/YmMAd*](https://oreil.ly/YmMAd).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([17](ch02.xhtml#idm45983647493096-marker)) Take that, Java.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([18](ch02.xhtml#idm45983647492440-marker)) Take that, Python.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([19](ch02.xhtml#idm45983647482936-marker)) Few arguments in programming generate
+    as many snarky comments as Static versus Dynamic typing, except perhaps the Great
+    Tabs versus Spaces Debate, on which Go’s unofficial position is “shut up, who
+    cares?”
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([20](ch02.xhtml#idm45983647617624-marker)) I, too, have been lauded for my
+    forgiving nature and somewhat English-like syntax.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([21](ch02.xhtml#idm45983647387240-marker)) Or for the same human after a few
+    months of thinking about other things.
+  prefs: []
+  type: TYPE_NORMAL

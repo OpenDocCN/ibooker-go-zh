@@ -1,0 +1,1389 @@
+- en: Chapter 7\. Scalability
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Some of the best programming is done on paper, really. Putting it into the computer
+    is just a minor detail.^([1](ch07.xhtml#idm45983630129928))
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: ''
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: 'Max Kanat-Alexander, Code Simplicity: The Fundamentals of Software'
+  prefs:
+  - PREF_BQ
+  type: TYPE_NORMAL
+- en: In the summer of 2016, I joined a small company that digitized the kind of forms
+    and miscellaneous paperwork that state and local governments are known and loved
+    for. The state of their core application was pretty typical of early-stage startups,
+    so we got to work and, by that fall, had managed to containerize it, describe
+    its infrastructure in code, and fully automate its deployment.
+  prefs: []
+  type: TYPE_NORMAL
+- en: One of our clients was a small coastal city in southeastern Virginia, so when
+    Hurricane Matthew—the first Category 5 Atlantic hurricane in nearly a decade—was
+    forecast to make landfall not far from there, the local officials dutifully declared
+    a state of emergency and used our system to create the necessary paperwork for
+    citizens to fill out. Then they posted it to social media, and half a million
+    people all logged in at the same time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When the pager went off, the on-call checked the metrics and found that aggregated
+    CPU for the servers was pegged at 100%, and that hundreds of thousands of requests
+    were timing out.
+  prefs: []
+  type: TYPE_NORMAL
+- en: So, we added a zero to the desired server count, created a “to-do” task to implement
+    autoscaling, and went back to our day. Within 24 hours, the rush had passed, so
+    we scaled the servers in.
+  prefs: []
+  type: TYPE_NORMAL
+- en: What did we learn from this, other than the benefits of autoscaling?^([2](ch07.xhtml#idm45983630123800))
+  prefs: []
+  type: TYPE_NORMAL
+- en: First of all, it underscored the fact that without the ability to scale, our
+    system would have certainly suffered extended downtime. But being able to add
+    resources on demand meant that we could serve our users even under load far beyond
+    what we had ever anticipated. As an added benefit, if any one server failed, its
+    work could have been divided among the survivors.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Second, having far more resources than necessary isn’t just wasteful, it’s expensive.
+    The ability to scale our instances back in when demand ebbed meant that we were
+    only paying for the resources that we needed. A major plus for a startup on a
+    budget.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unfortunately, because unscalable services can seem to function perfectly well
+    under initial conditions, scalability isn’t always a consideration during service
+    design. While this might be perfectly adequate in the short term, services that
+    aren’t capable of growing much beyond their original expectations also have a
+    limited lifetime value. What’s more, it’s often fiendishly difficult to refactor
+    a service for scalability, so building with it in mind can save both time and
+    money in the long run.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'First and foremost, this is meant to be a Go book, or at least more of a Go
+    book than an infrastructure or architecture book. While we will discuss things
+    like scalable architecture and messaging patterns, much of this chapter will focus
+    on demonstrating how Go can be used to produce services that lean on the other
+    (non-infrastructure) part of the scalability equation: efficiency.^([3](ch07.xhtml#idm45983630119912))'
+  prefs: []
+  type: TYPE_NORMAL
+- en: What Is Scalability?
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: You may recall that concept of scalability was first introduced way back in
+    [Chapter 1](ch01.xhtml#chapter_1), where it was defined as the ability of a system
+    to continue to provide correct service in the face of significant changes in demand.
+    By this definition, a system can be considered to be scalable if it doesn’t need
+    to be redesigned to perform its intended function during steep increases in load.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note that this definition^([4](ch07.xhtml#idm45983630115000)) doesn’t actually
+    say anything at all about adding physical resources. Rather, it calls out a system’s
+    ability to handle large swings in demand. The thing being “scaled” here is the
+    magnitude of the demand. While adding resources is one perfectly acceptable means
+    of achieving scalability, it isn’t exactly the same as being scalable. To make
+    things just a little more confusing, the word “scaling” can also be applied to
+    a system, in which case it *does* mean a change in the amount of dedicated resources.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'So how do we handle high demand without adding resources? As we’ll discuss
+    in [“Scaling Postponed: Efficiency”](#section_ch07_efficiency), systems built
+    with *efficiency* in mind are inherently more scalable by virtue of their ability
+    to gracefully absorb high levels of demand, without immediately having to resort
+    to adding hardware in response to every dramatic swing in demand, and without
+    having to massively over-provision “just in case.”'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Different Forms of Scaling
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Unfortunately, even the most efficient of efficiency strategies has its limit,
+    and eventually you’ll find yourself needing to scale your service to provide additional
+    resources. There are two different ways that this can be done (see [Figure 7-1](#img_ch07_scaling)),
+    each with its own associated pros and cons:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Vertical scaling
+  prefs: []
+  type: TYPE_NORMAL
+- en: A system can be *vertically scaled* (or *scaled up*) by increasing its resource
+    allocations. In a public cloud, an existing server can be vertically scaled fairly
+    easily just by changing its instance size, but only until you run out of larger
+    instance types (or money).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Horizontal scaling
+  prefs: []
+  type: TYPE_NORMAL
+- en: A system can be *horizontally scaled* (or *scaled out*) by duplicating the system
+    or service to limit the burden on any individual server. Systems using this strategy
+    can typically scale to handle greater amounts of load, but as you’ll see in [“State
+    and Statelessness”](#section_ch07_state_and_statelessness), the presence of state
+    can make this strategy difficult or impossible for some systems.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![cngo 0701](Images/cngo_0701.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 7-1\. Vertical scaling can be an effective short-term solution; horizontal
+    scaling is more technically challenging but may be a better long-term strategy
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'These two terms are used to describe the most common way of thinking about
+    scaling: taking an entire system, and just making *more* of it. There are a variety
+    of other scaling strategies in use, however.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Perhaps the most common of these is *functional partitioning*, which you’re
+    no doubt already familiar with, if not by name. Functional partitioning involves
+    decomposing complex systems into smaller functional units that can be independently
+    optimized, managed, and scaled. You might recognize this as a generalization of
+    a number of best practices ranging from basic program design to advanced distributed
+    systems design.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another approach common in systems with large amounts of data—particularly databases—is
+    *sharding*. Systems that use this strategy distribute load by dividing their data
+    into partitions called *shards*, each of which holds a specific subset of the
+    larger dataset. A basic example of this is presented in [“Minimizing locking with
+    sharding”](#section_ch07_sharding).
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Four Common Bottlenecks
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As the demands on a system increase, there will inevitably come a point at which
+    one resource just isn’t able to keep pace, effectively stalling any further efforts
+    to scale. That resource has become a *bottleneck*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Returning the system to operable performance levels requires identifying and
+    addressing the bottleneck. This can be done in the short-term by increasing the
+    bottlenecked component—vertically scaling—by adding more memory or up-sizing the
+    CPU, for instance. As you might recall from the discussion in [“Different Forms
+    of Scaling”](#section_ch07_scalability), this approach isn’t always possible (or
+    cost-effective), and it can never be relied upon forever.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'However, it’s often possible to address a bottleneck by enhancing or reducing
+    the burden on the affected component by utilizing another resource that the system
+    still has in abundance. A database might avoid disk I/O bottlenecking by caching
+    data in RAM; conversely a memory-hungry service could page data to disk. Horizontally
+    scaling doesn’t make a system immune: adding more instances can mean more communication
+    overhead, which puts additional strain on the network. Even highly-concurrent
+    systems can become victims of their own inner workings as the demand on them increases,
+    and phenomena like lock contention come into play. Using resources effectively
+    often means making tradeoffs.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Of course, fixing a bottleneck requires that you first identify the constrained
+    component, and while there are many different resources that can emerge as targets
+    for scaling efforts—whether by actually scaling the resource or by using it more
+    efficiently—such efforts tend to focus on just four resources:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: CPU
+  prefs: []
+  type: TYPE_NORMAL
+- en: The number of operations per unit of time that can be performed by a system’s
+    central processor and a common bottleneck for many systems. Scaling strategies
+    for CPU include caching the results of expensive deterministic operations (at
+    the expense of memory), or simply increasing the size or number of processors
+    (at the expense of network I/O if scaling out).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Memory
+  prefs: []
+  type: TYPE_NORMAL
+- en: The amount of data that can be stored in main memory. While today’s systems
+    can store incredible amounts of data on the order of tens or hundreds of gigabytes,
+    even this can fall short, particularly for data-intensive systems that lean on
+    memory to circumvent disk I/O speed limits. Scaling strategies include offloading
+    data from memory to disk (at the expense of disk I/O) or an external dedicated
+    cache (at the expense of network I/O), or simply increasing the amount of available
+    memory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Disk I/O
+  prefs: []
+  type: TYPE_NORMAL
+- en: The speed at which data can be read from and written to a hard disk or other
+    persistent storage medium. Disk I/O is a common bottleneck on highly parallel
+    systems that read and write heavily to disk, such as databases. Scaling strategies
+    include caching data in RAM (at the expense of memory) or using an external dedicated
+    cache (at the expense of network I/O).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Network I/O
+  prefs: []
+  type: TYPE_NORMAL
+- en: The speed at which data can be sent across a network, either from a particular
+    point or in aggregate. Network I/O translates directly into *how much* data the
+    network can transmit per unit of time. Scaling strategies for network I/O are
+    often limited,^([5](ch07.xhtml#idm45983630066296)) but network I/O is particularly
+    amenable to various optimization strategies that we’ll discuss shortly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As the demand on a system increases, it’ll almost certainly find itself bottlenecked
+    by one of these, and while there are efficiency strategies that can be applied,
+    those tend to come at the expense of one or more other resources, so you’ll eventually
+    find your system being bottlenecked *again* by another resource.
+  prefs: []
+  type: TYPE_NORMAL
+- en: State and Statelessness
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: We briefly touched on statelessness in [“Application State Versus Resource State”](ch05.xhtml#sidebar_ch05_statelessness),
+    where we described application state—server-side data about the application or
+    how it’s being used by a client—as something to be avoided if at all possible.
+    But this time, let’s spend a little more time discussing what state is, why it
+    can be problematic, and what we can do about it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It turns out that “state” is strangely difficult to define, so I’ll do my best
+    on my own. For the purposes of this book I’ll define state as the set of an application’s
+    variables which, if changed, affect the behavior of the application.^([6](ch07.xhtml#idm45983630057256))
+  prefs: []
+  type: TYPE_NORMAL
+- en: Application State Versus Resource State
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Most applications have some form of state, but not all state is created equal.
+    It comes in two kinds, one of which is far less desirable than the other.
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, there’s *application state*, which exists any time an application needs
+    to remember an event locally. Whenever somebody talks about a *stateful* application,
+    they’re usually talking about an application that’s designed to use this kind
+    of local state. “Local” is an operative word here.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Second, there’s *resource state*, which is the same for every client and which
+    has nothing to do with the actions of clients, like data stored in external data
+    store or managed by configuration management. It’s misleading, but saying that
+    an application is *stateless* doesn’t mean that it doesn’t have any data, just
+    that it’s been designed in such a way that it’s free of any local persistent data.
+    Its only state is resource state, often because all of its state is stored in
+    some external data store.
+  prefs: []
+  type: TYPE_NORMAL
+- en: To illustrate the difference between the two, imagine an application that tracks
+    client sessions, associating them with some application context. If users’ session
+    data was maintained locally by the application, that would be considered “application
+    state.” But if the data was stored in an external database, then it could be treated
+    as a remote resource, and it would be “resource state.”
+  prefs: []
+  type: TYPE_NORMAL
+- en: Application state is something of the “anti-scalability.” Multiple instances
+    of a stateful service will quickly find their individual states diverging due
+    to different inputs being received by each replica. Server affinity provides a
+    workaround to this specific condition by ensuring that each of a client’s requests
+    are made to the same server, but this strategy poses a considerable data risk,
+    since the failure of any single server is likely to result in a loss of data.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Advantages of Statelessness
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'So far, we’ve discussed the differences between application state and resource
+    state, and we’ve even suggested—without much evidence (yet)—that application state
+    is bad. However, statelessness provides some very noticeable advantages:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Scalability
+  prefs: []
+  type: TYPE_NORMAL
+- en: The most visible and most often cited benefit is that stateless applications
+    can handle each request or interaction independent of previous requests. This
+    means that any service replica can handle any request, allowing applications to
+    grow, shrink, or be restarted without losing data required to handle any in-flight
+    sessions or requests. This is especially important when autoscaling your service,
+    because the instances, nodes, or pods hosting the service can (and usually will)
+    be created and destroyed unexpectedly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Durability
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Data that lives in exactly one place (such as a single service replica) can
+    (and, at some point, *will*) get lost when that replica goes away for any reason.
+    Remember: everything in “the cloud” evaporates eventually.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Simplicity
+  prefs: []
+  type: TYPE_NORMAL
+- en: Without any application state, stateless services are freed from the need to…
+    well… manage their state.^([7](ch07.xhtml#idm45983630037192)) Not being burdened
+    with having to maintain service-side state synchronization, consistency, and recovery
+    logic^([8](ch07.xhtml#idm45983630036376)) makes stateless APIs less complex, and
+    therefore easier to design, build, and maintain.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Cacheability
+  prefs: []
+  type: TYPE_NORMAL
+- en: APIs provided by stateless services are relatively easy to design for cacheability.
+    If a service knows that the result of a particular request will always be the
+    same, regardless of who’s making it or when, the result can be safely set aside
+    for easy retrieval later, increasing efficiency and reducing response time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: These might seem like four different things, but there’s overlap with respect
+    to what they provide. Specifically, statelessness makes services both simpler
+    and safer to build, deploy, and maintain.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Scaling Postponed: Efficiency'
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: In the context of cloud computing, we usually think of scalability in terms
+    of the ability of a system to add network and computing resources. Often neglected,
+    however, is the role of *efficiency* in scalability. Specifically, the ability
+    for a system to handle changes in demand *without* having to add (or greatly over-provision)
+    dedicated resources.
+  prefs: []
+  type: TYPE_NORMAL
+- en: While it can be argued that most people don’t care about program efficiency
+    most of the time, this starts to become less true as demand on a service increases.
+    If a language has a relatively high per-process concurrency overhead—often the
+    case with dynamically typed languages—it will consume all available memory or
+    compute resources much more quickly than a lighter-weight language, and consequently
+    require resources and more scaling events to support the same demand.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This was a major consideration in the design of Go’s concurrency model, whose
+    goroutines aren’t threads at all but lightweight routines multiplexed onto multiple
+    OS threads. Each costs little more than the allocation of stack space, allowing
+    potentially millions of concurrently executing routines to be created.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As such, in this section we’ll cover a selection of Go features and tooling
+    that allow us to avoid common scaling problems, such as memory leaks and lock
+    contention, and to identify and fix them when they do arise.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Efficient Caching Using an LRU Cache
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Caching to memory is a very flexible efficiency strategy that can be used to
+    relieve pressure on anything from CPU to disk I/O or network I/O, or even just
+    to reduce latency associated with remote or otherwise slow-running operations.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The concept of caching certainly *seems* straightforward. You have something
+    you want to remember the value of—like the result of an expensive (but deterministic)
+    calculation—and you put it in a map for later. Right?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Well, you could do that, but you’ll soon start running into problems. What happens
+    as the number of cores and goroutines increases? Since you didn’t consider concurrency,
+    you’ll soon find your modifications stepping on one another, leading to some unpleasant
+    results. Also, since we forgot to remove anything from our map, it’ll continue
+    growing indefinitely until it consumes all of our memory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'What we need is a cache that:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Supports concurrent read, write, and delete operations
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Scales well as the number of cores and goroutines increase
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Won’t grow without limit to consume all available memory
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'One common solution to this dilemma is an LRU (Least Recently Used) cache:
+    a particularly lovely data structure that tracks how recently each of its keys
+    have been “used” (read or written). When a value is added to the cache such that
+    it exceeds a predefined capacity, the cache is able to “evict” (delete) its least
+    recently used value.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A detailed discussion of how to implement an LRU cache is beyond the scope of
+    this book, but I will say that it’s quite clever. As illustrated on [Figure 7-2](#img_ch07_lru_cache),
+    an LRU cache contains a doubly linked list (which actually contains the values),
+    and a map that associates each key to a node in the linked list. Whenever a key
+    is read or written, the appropriate node is moved to the bottom of the list, such
+    that the least recently used node is always at the top.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are a couple of Go LRU cache implementations available, though none in
+    the core libraries (yet). Perhaps the most common can be found as part of the
+    [golang/groupcache](https://oreil.ly/Q5pzk) library. However, I prefer HashiCorp’s
+    open source extension to `groupcache`, [`hashicorp/golang-lru`](https://oreil.ly/25ESk),
+    which is better documented and includes `sync.RWMutexes` for concurrency safety.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![cngo 0702](Images/cngo_0702.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 7-2\. An LRU cache contains a map and a doubly linked list, which allows
+    it to discard stale items when it exceeds its capacity
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'HashiCorp’s library contains two construction functions, each of which returns
+    a pointer of type `*Cache` and an `error`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The `*Cache` struct has a number of attached methods, the most useful of which
+    are as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: There are several other methods as well. Take a look at [the GoDocs](https://oreil.ly/ODcff)
+    for a complete list.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In the following example, we create and use an LRU cache with a capacity of
+    two. To better highlight evictions, we include a callback function that prints
+    some output to `stdout` whenever an eviction occurs. Note that we’ve decided to
+    initialize the `cache` variable in an `init` function, a special function that’s
+    automatically called before the `main` function and after the variable declarations
+    have evaluated their initializers:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: In the preceding program, we create a `cache` with a capacity of two, which
+    means that the addition of a third value will force the eviction of the least
+    recently used value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: After adding the values `{1:"a"}` and `{2:"b"}` to the cache, we call `cache.Get(1)`,
+    which makes `{1:"a"}` more recently used than `{2:"b"}`. So, when we add `{3:"c"}`
+    in the next step, `{2:"b"}` is evicted, so the next `cache.Get(2)` shouldn’t return
+    a value.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'If we run this program we’ll be able to see this in action. We’ll expect the
+    following output:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'The LRU cache is an excellent data structure to use as a global cache for most
+    use cases, but it does have a limitation: at very high levels of concurrency—on
+    the order of several million operations per second—it will start to experience
+    some contention.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unfortunately, at the time of this writing, Go still doesn’t seem to have a
+    *very* high throughput cache implementation.^([9](ch07.xhtml#idm45983629703592))
+  prefs: []
+  type: TYPE_NORMAL
+- en: Efficient Synchronization
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: A commonly repeated Go proverb is “don’t communicate by sharing memory; share
+    memory by communicating.” In other words, channels are generally preferred over
+    shared data structures.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is a pretty powerful concept. After all, Go’s concurrency primitives—goroutines
+    and channels—provide a powerful and expressive synchronization mechanism, such
+    that a set of goroutines using channels to exchange references to data structures
+    can often allow locks to be dispensed with altogether.
+  prefs: []
+  type: TYPE_NORMAL
+- en: (If you’re a bit fuzzy on the details of channels and goroutines, don’t stress.
+    Take a moment to flip back to [“Goroutines”](ch03.xhtml#section_ch03_goroutines).
+    It’s okay. I’ll wait.)
+  prefs: []
+  type: TYPE_NORMAL
+- en: That being said, Go *does* provide more traditional locking mechanisms by way
+    of the `sync` package. But if channels are so great, why would we want to use
+    something like a `sync.Mutex`, and when would we use it?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Well, as it turns out, channels *are* spectacularly useful, but they’re not
+    the solution to every problem. Channels shine when you’re working with many discrete
+    values, and are the better choice for passing ownership of data, distributing
+    units of work, or communicating asynchronous results. Mutexes, on the other hand,
+    are ideal for synchronizing access to caches or other large stateful structures.
+  prefs: []
+  type: TYPE_NORMAL
+- en: At the end of the day, no tool solves every problem. Ultimately, the best option
+    is to use whichever is most expressive and/or most simple.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Share memory by communicating
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Threading is easy; locking is hard.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this section we’re going to use a classic example—originally presented in
+    Andrew Gerrand’s classic *Go Blog* article “Share Memory By Communicating”^([10](ch07.xhtml#idm45983629686280))—to
+    demonstrate this truism and show how Go channels can make concurrency safer and
+    easier to reason about.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Imagine, if you will, a hypothetical program that polls a list of URLs by sending
+    it a GET request and waiting for the response. The catch is that each request
+    can spend quite a bit of time waiting for the service to respond: anywhere from
+    milliseconds to seconds (or more), depending on the service. Exactly the kind
+    of operation that can benefit from a bit of concurrency, isn’t it?'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In a traditional threading environment that depends on locking for synchronization
+    you might structure its data something like the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: As you can see, instead of having a slice of URL strings, we have two structs—`Resource`
+    and `Resources`—each of which is already saddled with a number of synchronization
+    structures beyond the URL strings we really care about.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'To multithread the polling process in the traditional way, you might have a
+    `Poller` function like the following running in multiple threads:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: This does the job, but it has a lot of room for improvement. It’s about a page
+    long, hard to read, hard to reason about, and doesn’t even include the URL polling
+    logic or gracefully handle exhaustion of the `Resources` pool.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Now let’s take a look at the same functionality implemented using Go channels.
+    In this example, `Resource` has been reduced to its essential component (the URL
+    string), and `Poller` is a function that receives `Resource` values from an input
+    channel, and sends them to an output channel when they’re done:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: It’s so…simple. We’ve completely shed the clockwork locking logic in `Poller`,
+    and our `Resource` data structure no longer contains bookkeeping data. In fact,
+    all that’s left are the important parts.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'But what if we wanted more than one `Poller` process? Isn’t that what we were
+    trying to do in the first place? The answer is, once again, gloriously simple:
+    goroutines. Take a look at the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: By executing `numPollers` goroutines, we’re creating `numPollers` concurrent
+    processes, each reading from and writing to the same channels.
+  prefs: []
+  type: TYPE_NORMAL
+- en: A lot has been omitted from the previous examples to highlight the relevant
+    bits. For a walkthrough of a complete, idiomatic Go program that uses these ideas,
+    see the [“Share Memory By Communicating”](https://oreil.ly/HF1Ay) Codewalk.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Reduce blocking with buffered channels
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: At some point in this chapter you’ve probably thought to yourself, “sure, channels
+    are great, but writing to channels still blocks.” After all, every send operation
+    on a channel blocks until there’s a corresponding receive, right? Well, as it
+    turns out, this is only *mostly* true. At least, it’s true of default, unbuffered
+    channels.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, as we first describe in [“Channel buffering”](ch03.xhtml#section_ch03_channel_buffering),
+    it’s possible to create channels that have an internal message buffer. Send operations
+    on such buffered channels only block when the buffer is full and receives from
+    a channel only block when the buffer is empty.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'You may recall that buffered channels can be created by passing an additional
+    capacity parameter to the `make` function to specify the size of the buffer:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Buffered channels are especially useful for handling “bursty” loads. In fact,
+    we already used this strategy in [Chapter 5](ch05.xhtml#chapter_5) when we initialized
+    our `FileTransactionLogger`. Distilling some of the logic that’s spread through
+    that chapter produces something like the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: In this segment, we have a `WritePut` function that can be called to send a
+    message to an `events` channel, which is received in the `for` loop inside the
+    goroutine created in the `Run` function. If `events` was a standard channel, each
+    send would block until the anonymous goroutine completed a receive operation.
+    That might be fine most of the time, but if several writes came in faster than
+    the goroutine could process them, the upstream client would be blocked.
+  prefs: []
+  type: TYPE_NORMAL
+- en: By using a buffered channel we made it possible for this code to handle small
+    bursts of up to 16 closely clustered write requests. Importantly, however, the
+    17th write *would* block.
+  prefs: []
+  type: TYPE_NORMAL
+- en: It’s also important to consider that using buffered channels like this creates
+    a risk of data loss should the program terminate before any consuming goroutines
+    are able to clear the buffer.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Minimizing locking with sharding
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: As lovely as channels are, as we mentioned in [“Efficient Synchronization”](#section_ch07_efficient_synchronization)
+    they don’t solve *every* problem. A common example of this is a large, central
+    data structure, such as a cache, that can’t be easily decomposed into discrete
+    units of work.^([11](ch07.xhtml#idm45983629130744))
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'When shared data structures have to be concurrently accessed, it’s standard
+    to use a locking mechanism, such as the mutexes provided by the `sync` package,
+    as we do in [“Making Your Data Structure Concurrency-Safe”](ch05.xhtml#section_ch05_concurrency_safe).
+    For example, we might create a struct that contains a map and an embedded `sync.RWMutex`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'When a routine wants to write to the cache, it would carefully use `cache.Lock`
+    to establish the write lock, and `cache.Unlock` to release the lock when it’s
+    done. We might even want to wrap it in a convenience function as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'By design, this restricts write access to whichever routine happens to have
+    the lock. This pattern generally works just fine. However, as we discussed in
+    [Chapter 4](ch04.xhtml#chapter_4), as the number of concurrent processes acting
+    on the data increases, the average amount of time that processes spend waiting
+    for locks to be released also increases. You may remember the name for this unfortunate
+    condition: lock contention.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: While this might be resolved in some cases by scaling the number of instances,
+    this also increases complexity and latency, as distributed locks need to be established
+    and writes need to establish consistency. An alternative strategy for reducing
+    lock contention around shared data structures within an instance of a service
+    is *vertical sharding*, in which a large data structure is partitioned into two
+    or more structures, each representing a part of the whole. Using this strategy,
+    only a portion of the overall structure needs to be locked at a time, decreasing
+    overall lock contention.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You may recall that we discussed vertical sharding in some detail in [“Sharding”](ch04.xhtml#section_ch04_sharding).
+    If you’re unclear on vertical sharding theory or implementation, feel free to
+    take some time to go back and review that section.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Memory Leaks Can…fatal error: runtime: out of memory'
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Memory leaks are a class of bugs in which memory is not released even after
+    it’s no longer needed. These bugs can be quite subtle and often plague languages
+    like C++ in which memory is manually managed. But while garbage collection certainly
+    helps by attempting to reclaim memory occupied by objects that are no longer in
+    use by the program, garbage-collected languages like Go aren’t immune to memory
+    leaks. Data structures can still grow unbounded, unresolved goroutines can still
+    accumulate, and even unstopped `time.Ticker` values can get away from you.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this section we’ll review a few common causes of memory leaks particular
+    to Go, and how to resolve them.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Leaking goroutines
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: I’m not aware of any actual data on the subject,^([12](ch07.xhtml#idm45983629004872))
+    but based purely on my own personal experience, I strongly suspect that goroutines
+    are the single largest source of memory leaks in Go.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Whenever a goroutine is executed, it’s initially allocated a small memory stack—2048
+    bytes—that can be dynamically adjusted up or down as it runs to suit the needs
+    of the process. The precise maximum stack size depends on a lot of things,^([13](ch07.xhtml#idm45983629003416))
+    but it’s essentially reflective of the amount of available physical memory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Normally, when a goroutine returns, its stack is either deallocated or set
+    aside for recycling.^([14](ch07.xhtml#idm45983629000568)) Whether by design or
+    by accident, however, not every goroutine actually returns. For example:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'In the previous example, the `leaky` function creates a channel and executes
+    a goroutine that reads from that channel. The `leaky` function returns without
+    error, but if you look closely you’ll see that no values are ever sent to `ch`,
+    so the goroutine will never return and its stack will never be deallocated. There’s
+    even collateral damage: because the goroutine references `ch`, that value can’t
+    be cleaned up by the garbage collector.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: So we now have a bona fide memory leak. If such a function is called regularly
+    the total amount of memory consumed will slowly increase over time until it’s
+    completely exhausted.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is a contrived example, but there are good reasons why a programmer might
+    want to create long-running goroutines, so it’s usually quite hard to know whether
+    such a process was created intentionally.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'So what do we do about this? Dave Cheney offers some excellent advice here:
+    “You should never start a goroutine without knowing how it will stop….Every time
+    you use the `go` keyword in your program to launch a goroutine, you must know
+    how, and when, that goroutine will exit. If you don’t know the answer, that’s
+    a potential memory leak."^([15](ch07.xhtml#idm45983628941816))'
+  prefs: []
+  type: TYPE_NORMAL
+- en: This may seem like obvious, even trivial advice, but it’s incredibly important.
+    It’s all too easy to write functions that leak goroutines, and those leaks can
+    be a pain to identify and find.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Forever ticking tickers
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Very often you’ll want to add some kind of time dimension to your Go code, to
+    execute it at some point in the future or repeatedly at some interval, for example.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `time` package provides two useful tools to add such a time dimension to
+    Go code execution: `time.Timer`, which fires at some point in the future, and
+    `time.Ticker`, which fires repeatedly at some specified interval.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: However, where `time.Timer` has a finite useful life with a defined start and
+    end, `time.Ticker` has no such limitation. A `time.Ticker` can live forever. Maybe
+    you can see where this is going.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Both Timers and Tickers use a similar mechanism: each provides a channel that’s
+    sent a value whenever it fires. The following example uses both:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `timely` function executes a goroutine that loops at regular intervals by
+    listening for signals from `ticker`—which occur every second—or from a `done`
+    channel that returns the goroutine. The line `<-timer.C` blocks until the 5-second
+    timer fires, allowing `done` to be closed, triggering the `case <-done` condition
+    and ending the loop.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The `timely` function completes as expected, and the goroutine has a defined
+    return, so you could be forgiven for thinking that everything’s fine. There’s
+    a particularly sneaky bug here though: running `time.Ticker` values contain an
+    active goroutine that can’t be cleaned up. Because we never stopped the timer,
+    `timely` contains a memory leak.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The solution: always be sure to stop your timers. A `defer` works quite nicely
+    for this purpose:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: By calling `ticker.Stop()`, we shut down the underlying `Ticker`, allowing it
+    to be recovered by the garbage collector and preventing a leak.
+  prefs: []
+  type: TYPE_NORMAL
+- en: On Efficiency
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: In this section, we covered a number of common methods for improving the efficiency
+    of your programs, ranging from using an LRU cache rather than a map to constrain
+    your cache’s memory footprint, to approaches for effectively synchronizing your
+    processes, to preventing memory leaks. While these sections might not seem particularly
+    closely connected, they’re all important for building programs that scale.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Of course, there are countless other methods that I would have liked to include
+    as well, but wasn’t able to given the fundamental limits imposed by time and space.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the next section, we’ll change themes once again to cover some common service
+    architectures and their effects on scalability. These might be a little less focused
+    on Go specifically, but they’re critical for a study of scalability, especially
+    in a cloud native context.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Service Architectures
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: The concept of the *microservice* first appeared in the early 2010s as a refinement
+    and simplification of the earlier service-oriented architecture (SOA) and a response
+    to the *monoliths*—server-side applications contained within a single large executable—that
+    were then the most common architectural model of choice.^([16](ch07.xhtml#idm45983628664360))
+  prefs: []
+  type: TYPE_NORMAL
+- en: At the time, the idea of the microservice architecture—a single application
+    composed of multiple small services, each running in its own process and communicating
+    with lightweight mechanisms—was revolutionary. Unlike monoliths, which require
+    the entire application to be rebuilt and deployed for any change to the system,
+    microservices were independently deployable by fully automated deployment mechanisms.
+    This sounds small, even trivial, but its implications were (and are) vast.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you ask most programmers to compare monoliths to microservices, most of the
+    answers you get will probably be something about how monoliths are slow, sluggish,
+    and bloated, while microservices are small, agile, and the new hotness. Sweeping
+    generalizations are always wrong, though, so let’s take a moment to ask ourselves
+    whether this is true, and whether monoliths might sometimes be the right choice.
+  prefs: []
+  type: TYPE_NORMAL
+- en: We will begin by defining what we mean when we talk about monoliths and microservices.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Monolith System Architecture
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: In a *monolith architecture*, all of the functionally distinguishable aspects
+    of a service are coupled together in one place. A common example is a web application
+    whose user interface, data layer, and business logic are all intermingled, often
+    on a single server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Traditionally, enterprise applications have been built in three main parts,
+    as illustrated in [Figure 7-3](#img_ch07_arch_monolith): a client-side interface
+    running on the user’s machine, a relational database where all of the application’s
+    data lives, and a server-side application that handles all user input, executes
+    all business logic, and reads and writes data to the database.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![cngo 0703](Images/cngo_0703.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 7-3\. In a monolith architecture, all of the functionally distinguishable
+    aspects of a service are coupled together in one place
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: At the time, this pattern made sense. All the business logic ran in a single
+    process, making development easier, and you could even scale by running more monoliths
+    behind a load balancer, usually using sticky sessions to maintain server affinity.
+    Things were *perfectly fine*, and for many years this was by far the most common
+    way of building web applications.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Even today, for relatively small or simple applications (for some definition
+    of “small” and “simple”) this works perfectly well (though I still strongly recommend
+    statelessness over server affinity).
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'However, as the number of features and general complexity of a monolith increases,
+    difficulties start to arise:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Monoliths are usually deployed as a single artifact, so making even a small
+    change generally requires a new version of the entire monolith to be built, tested,
+    and deployed.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Despite even the best of intentions and efforts, monolith code tends to decrease
+    in modularity over time, making it harder to make changes in one part of the service
+    without affecting another part in unexpected ways.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Scaling the application means creating replicas of the entire application, not
+    just the parts that need it.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'The larger and more complex the monolith gets, the more pronounced these effects
+    tend to become. By the early- to mid-2000s, these issues were well known, leading
+    frustrated programmers to experiment with breaking their big, complex services
+    into smaller, independently deployable and scalable components. By 2012, this
+    pattern even had a name: microservices architecture.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The Microservices System Architecture
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The defining characteristic of a *microservices architecture* is a service whose
+    functional components have been divided into a set of discrete sub-services that
+    can be independently built, tested, deployed, and scaled.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is illustrated in [Figure 7-4](#img_ch07_arch_microservices), in which
+    a user interface service—perhaps an HTML-serving web application or a public API—interacts
+    with clients, but rather than handling the business logic locally, it makes secondary
+    requests of one or more component services to handle some specific functionality.
+    Those services might in turn even make further requests of yet more services.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![cngo 0704](Images/cngo_0704.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 7-4\. In a microservices architecture, functional components are divided
+    into discrete subservices
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'While the microservices architecture has a number of advantages over the monolith,
+    there are significant costs to consider. On one hand, microservices provide some
+    significant benefits:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A clearly-defined separation of concerns supports and reinforces modularity,
+    which can be very useful for larger or multiple teams.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Microservices should be independently deployable, making them easier to manage
+    and making it possible to isolate errors and failures.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: In a microservices system, it’s possible for different services to use the technology—language,
+    development framework, data storage, etc—that’s most appropriate to its function.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: 'These benefits shouldn’t be underestimated: the increased modularity and functional
+    isolation of microservices tends to produce components that are themselves generally
+    far more maintainable than a monolith with the same functionality. The resulting
+    system isn’t just easier to deploy and manage, but easier to understand, reason
+    about, and extend for a larger number of programmers and teams.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Warning
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Mixing different technologies may sound appealing in theory, but use restraint.
+    Each adds new requirements for tooling and expertise. The pros and cons of adopting
+    a new technology—any new technology^([17](ch07.xhtml#idm45983628631080))—should
+    always be carefully considered.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'The discrete nature of microservices makes them far easier to maintain, deploy,
+    and scale than monoliths. However, while these are real benefits that can pay
+    real dividends, there are some downsides as well:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The distributed nature of microservices makes them subject to the Fallacies
+    of Distributed Computing (see [Chapter 4](ch04.xhtml#chapter_4)), which makes
+    them significantly harder to program and debug.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Sharing any kind of state between your services can often be extremely difficult.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Deploying and managing multiple services can be quite complex and tends to demand
+    a high level of operational maturity.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: So given these, which do you choose? The relative simplicity of the monolith,
+    or the flexibility and scalability of microservices? You might have noticed that
+    most of the benefits of microservices pay off as the application gets larger or
+    the number of teams working on it increases. For this reason many authors advocate
+    starting with a monolith and decomposing it later.
+  prefs: []
+  type: TYPE_NORMAL
+- en: On a personal note, I’ll mention that I’ve never seen any organization successfully
+    break apart a large monolith, but I’ve seen many try. That’s not to say it’s impossible,
+    just that it’s hard. I can’t tell you whether you should start your system as
+    microservices, or with a monolith and break it up later. I’d certainly get a lot
+    of angry emails if I tried. But please, whatever you do, stay stateless.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Serverless Architectures
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Serverless computing is a pretty popular topic in web application architecture,
+    and a lot of (digital) ink has been spilled about it. Much of this hype has been
+    driven by the major cloud providers, which have invested heavily in serverlessness,
+    but not all of it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: But what is serverless computing, really?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Well, as is often the case, it depends on who you ask. For the purposes of this
+    book, however, we’re defining it as a form of utility computing in which some
+    server-side logic, written by a programmer, is transparently executed in a managed
+    ephemeral environment in response to some predefined trigger. This is also sometimes
+    referred to as “functions as a service,” or “FaaS.” All of the major cloud providers
+    offer FaaS implementations, such as AWS’s Lambda or GCP’s Cloud Functions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Such functions are quite flexible and can be usefully incorporated into many
+    architectures. In fact, as we’ll discuss shortly, entire *serverless architectures*
+    can even be built that don’t use traditional services at all, but are instead
+    built entirely from FaaS resources and third-party managed services.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The pros and cons of serverlessness
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: As with any other architectural decision, the choice to go with a partially
+    or entirely serverless architecture should be carefully weighed against all available
+    options. While serverlessness provides some clear benefits—some obvious (no servers
+    to manage!), others less so (cost and energy savings)—it’s very different from
+    traditional architectures, and carries its own set of downsides.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'That being said, let’s start weighing. Let’s start with the advantages:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Operational management
+  prefs: []
+  type: TYPE_NORMAL
+- en: Perhaps the most obvious benefit of serverless architectures is that there’s
+    considerably less operational overhead.^([19](ch07.xhtml#idm45983628559272)) There
+    are no servers to provision and maintain, no licenses to buy, and no software
+    to install.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Scalability
+  prefs: []
+  type: TYPE_NORMAL
+- en: When using serverless functions, it’s the provider—not the user—who’s responsible
+    for scaling capacity to meet demand. As such, the implementor can spend less time
+    and effort considering and implementing scaling rules.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Reduced costs
+  prefs: []
+  type: TYPE_NORMAL
+- en: FaaS providers typically use a “pay-as-you-go” model, charging only for the
+    time and memory allocated when the function is run. This can be considerably more
+    cost-effective than deploying traditional services to (likely underutilized) servers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Productivity
+  prefs: []
+  type: TYPE_NORMAL
+- en: In a FaaS model, the unit of work is an event-driven function. This model tends
+    to encourage a “function first” mindset, resulting in code that’s often simpler,
+    more readable, and easier to test.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'It’s not all roses, though. There are very some real downsides to serverless
+    architectures that need to be taken into consideration as well:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Startup latency
+  prefs: []
+  type: TYPE_NORMAL
+- en: When a function is first called, it has to be “spun up” by the cloud provider.
+    This typically takes less than a second, but in some cases can add 10 or more
+    seconds to the initial requests. This is known as the *cold start* delay. What’s
+    more, if the function isn’t called for several minutes—the exact time varies between
+    providers—it’s “spun down” by the provider so that it has to endure another cold
+    start when it’s called again. This usually isn’t a problem if your function doesn’t
+    have enough idle time to get spun down, but can be a significant issue if your
+    load is particularly “bursty.”
+  prefs: []
+  type: TYPE_NORMAL
+- en: Observability
+  prefs: []
+  type: TYPE_NORMAL
+- en: While most of the cloud vendors provide some basic monitoring for their FaaS
+    offerings, it’s usually quite rudimentary. While third-party providers have been
+    working to fill the void, the quality and quantity of data available from your
+    ephemeral functions is often less than desired.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Testing
+  prefs: []
+  type: TYPE_NORMAL
+- en: While unit testing tends to be pretty straightforward for serverless functions,
+    integration testing is quite hard. It’s often difficult or impossible to simulate
+    the serverless environment, and mocks are approximations at best.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Cost
+  prefs: []
+  type: TYPE_NORMAL
+- en: Although the “pay-as-you-go” model can be considerably cheaper when demand is
+    lower, there is a point at which this is no longer true. In fact, very high levels
+    of load can grow to be quite expensive.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Clearly, there’s quite a lot to consider—on both sides—and while there *is*
+    a great deal of hype around serverless at the moment, to some degree I think it’s
+    merited. However, while serverlessness promises (and largely delivers) scalability
+    and reduced costs, it does have quite a few gotchas, including, but not limited
+    to, testing and debugging challenges. Not to mention the increased burden on operations
+    around observability!^([20](ch07.xhtml#idm45983628542136))
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, as we’ll see in the next section, serverless architectures also require
+    quite a lot more up-front planning than traditional architectures. While some
+    people might call this a positive feature, it can add significant complexity.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Serverless services
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: As mentioned previously, functions as a service (FaaS) are flexible enough to
+    serve as the foundation of entire serverless architectures that don’t use traditional
+    services at all, but are instead built entirely from FaaS resources and third-party
+    managed services.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s take, as an example, the familiar three-tier system in which a client
+    issues a request to a service, which in turn interacts with a database. A good
+    example is the key-value store we started in [Chapter 5](ch05.xhtml#chapter_5),
+    whose (admittedly primitive) monolithic architecture might look something like
+    what’s shown in [Figure 7-5](#img_ch07_kv_monolith).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![cngo 0705](Images/cngo_0705.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 7-5\. The monolithic architecture of our primitive key/value store
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'To convert this monolith into a serverless architecture, we’ll need to use
+    an *API gateway*: a managed service that’s configured to expose specific HTTP
+    endpoints and to direct requests to each endpoint to a specific resource—typically
+    a FaaS functions—that handles requests and issue responses. Using this architecture,
+    our key/value store might look something like what’s shown in [Figure 7-6](#img_ch07_arch_serverless_api).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![cngo 0706](Images/cngo_0706.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 7-6\. An API gateway routes HTTP calls to serverless handler functions
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'In this example, we’ve replaced the monolith with an API gateway that supports
+    three endpoints: `GET /v1/{key}`, `PUT /v1/{key}`, and `DELETE /v1/{key}` (the
+    `{key}` component indicates that this path will match any string, and refer to
+    the value as `key`).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The API gateway is configured so that requests to each of its three endpoints
+    are directed to a different handler function—`getKey`, `putKey`, and `deleteKey`,
+    respectively—which performs all of the logic for handling that request and interacting
+    with the backing database.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Granted, this is an incredibly simple application and doesn’t account for things
+    like authentication (which can be provided by a number of excellent third-party
+    services like Auth0 or Okta), but some things are immediately evident.
+  prefs: []
+  type: TYPE_NORMAL
+- en: First, there are a greater number of moving parts that you have to get your
+    head around, which necessitates quite a bit more up-front planning and testing.
+    For example, what happens if there’s an error in a handler function? What happens
+    to the request? Does it get forwarded to some other destination, or is it perhaps
+    sent to a dead-letter queue for further processing?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Do not underestimate the significance of this increase in complexity! Replacing
+    in-process interactions with distributed, fully managed components tends to introduce
+    a variety of problems and failure cases that simply don’t exist in the former.
+    You may well have turned a relatively simple problem into an enormously complex
+    one. Complexity kills; simplicity scales.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Second, with all of these different components, there’s a need for more sophisticated
+    distributed monitoring than you’d need with a monolith or small microservices
+    system. Due to the fact that FaaS relies heavily on the cloud provider, this may
+    be challenging or, at least, awkward.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Finally, the ephemeral nature of FaaS means that ALL state, even short-lived
+    optimizations like caches, has to be externalized to a database, an external cache
+    (like Redis), or network file/object store (like S3). Again, this can be argued
+    to be a Good Thing, but it does add to up-front complexity.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: This was a very difficult chapter to write, not because there isn’t much to
+    say, but because scalability is such a huge topic with so many different things
+    I could have drilled down into. Every one of these battled in my brain for weeks.
+  prefs: []
+  type: TYPE_NORMAL
+- en: I even ended up throwing away some perfectly good architecture content that,
+    in retrospect, simply wasn’t appropriate for this book. Fortunately, I was able
+    to salvage a whole other chunk of work about messaging that ended up getting moved
+    into [Chapter 8](ch08.xhtml#chapter_8). I think it’s happier there anyway.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In those weeks, I spent a lot of time thinking about what scalability really
+    is, and about the role that efficiency plays in it. Ultimately, I think that the
+    decision to spend so much time on programmatic—rather than infrastructural—solutions
+    to scaling problems was the right one.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'All told, I think the end result is a good one. We certainly covered a lot
+    of ground:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: We reviewed the different axes of scaling, and how scaling out is often the
+    best long-term strategy.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We discussed state and statelessness, and why application state is essentially
+    “anti-scalability.”
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We learned a few strategies for efficient in-memory caching and for avoiding
+    memory leaks.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: We compared and contrasted monolithic, microservice, and serverless architectures.
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: That’s quite a lot, and although I wish I’d been able to drill down in some
+    more detail, I’m pleased to have been able to touch on the things I did.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '^([1](ch07.xhtml#idm45983630129928-marker)) Kanat-Alexander, Max. *Code Simplicity:
+    The Science of Software Design*. O’Reilly Media, 23 March 2012.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([2](ch07.xhtml#idm45983630123800-marker)) Honestly, if we had autoscaling
+    in place I probably wouldn’t even remember that this happened.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([3](ch07.xhtml#idm45983630119912-marker)) If you want to know more about cloud
+    native infrastructure and architecture, a bunch of excellent books on the subject
+    have already been written. I particularly recommend *Cloud Native Infrastructure*
+    by Justin Garrison and Kris Nova, and *Cloud Native Transformation* by Pini Reznik,
+    Jamie Dobson, and Michelle Gienow (both O’Reilly Media).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([4](ch07.xhtml#idm45983630115000-marker)) This is my definition. I acknowledge
+    that it diverges from other common definitions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([5](ch07.xhtml#idm45983630066296-marker)) Some cloud providers impose lower
+    network I/O limits on smaller instances. Increasing the size of the instance may
+    increase these limits in some cases.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([6](ch07.xhtml#idm45983630057256-marker)) If you have a better definition,
+    let me know. I’m already thinking about the second edition.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([7](ch07.xhtml#idm45983630037192-marker)) I know I said the word “state” a
+    bunch of times there. Writing is hard.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '^([8](ch07.xhtml#idm45983630036376-marker)) See also: idempotence.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([9](ch07.xhtml#idm45983629703592-marker)) However, if you’re interested in
+    learning more about high-performance caching in Go, take a look at Manish Rai
+    Jain’s excellent post on the subject, “The State of Caching in Go,” on the [*Dgraph
+    Blog*](https://oreil.ly/N6lrh).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([10](ch07.xhtml#idm45983629686280-marker)) Gerrand, Andrew. “Share Memory
+    By Communicating.” *The Go Blog*, 13 July 2010\. [*https://oreil.ly/GTURp*](https://oreil.ly/GTURp)
+    Portions of this section are modifications based on work created and [shared by
+    Google](https://oreil.ly/D8ntT) and used according to terms described in the [Creative
+    Commons 4.0 Attribution License](https://oreil.ly/la3YW).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([11](ch07.xhtml#idm45983629130744-marker)) You could probably shoehorn channels
+    into a solution for interacting with a cache, but you might find it difficult
+    to make it simpler than locking.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([12](ch07.xhtml#idm45983629004872-marker)) If you are, let me know!
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([13](ch07.xhtml#idm45983629003416-marker)) Dave Cheney wrote an excellent
+    article on this topic called [*Why is a Goroutine’s stack infinite?*](https://oreil.ly/PUCLF)
+    that I recommend you take a look at if you’re interested in the dynamics of goroutine
+    memory allocation.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([14](ch07.xhtml#idm45983629000568-marker)) There’s a very good article by
+    Vincent Blanchon on the subject of goroutine recycling entitled [*How Does Go
+    Recycle Goroutines?*](https://oreil.ly/GnoV2)
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([15](ch07.xhtml#idm45983628941816-marker)) Cheney, Dave. “Never Start a Goroutine
+    without Knowing How It Will Stop.” dave.cheney.net, 22 Dec. 2016\. [*https://oreil.ly/VUlrY*](https://oreil.ly/VUlrY).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([16](ch07.xhtml#idm45983628664360-marker)) Not that they’ve gone away.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([17](ch07.xhtml#idm45983628631080-marker)) Yes, even Go.
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([18](ch07.xhtml#idm45983628611016-marker)) Bowers, Daniel, et al. “Hype Cycle
+    for Compute Infrastructure, 2019.” *Gartner*, Gartner Research, 26 July 2019,
+    [*https://oreil.ly/3gkJh*](https://oreil.ly/3gkJh).
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([19](ch07.xhtml#idm45983628559272-marker)) It’s *right in the name!*
+  prefs: []
+  type: TYPE_NORMAL
+- en: ^([20](ch07.xhtml#idm45983628542136-marker)) Sorry, there’s no such thing as
+    NoOps.
+  prefs: []
+  type: TYPE_NORMAL

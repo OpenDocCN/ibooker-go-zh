@@ -1,0 +1,1167 @@
+- en: Chapter 2\. Getting Started with gRPC
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Enough with the theory on gRPC; let’s apply what you learned in [Chapter 1](ch01.html#grpc_ch_01)
+    to build a real-world gRPC application from the ground up. In this chapter, you
+    will use both Go and Java to build a simple gRPC service and a client application
+    that invokes the service you developed. In the process you’ll learn about specifying
+    a gRPC service definition using protocol buffers, generating a server skeleton
+    and client stub, implementing a service’s business logic, running a gRPC server
+    with the service you implemented, and invoking the service through the gRPC client
+    application.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s use the same online retail system from [Chapter 1](ch01.html#grpc_ch_01),
+    where we need to build a service that is responsible for managing the products
+    of a retail store. The service can be remotely accessed and the consumers of that
+    service can add new products to the system and also retrieve product details from
+    the system by providing the product ID. We’ll model this service and consumer
+    using gRPC. You may pick the programming language of your choice to implement
+    this, but in this chapter, we will use both the Go and Java languages to implement
+    this sample.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: You can try out both the Go and Java implementations of the sample in the source
+    code repository for this book.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'In [Figure 2-1](#client_server_interaction_of_product_info_service), we illustrate
+    the client–server communication patterns of the `ProductInfo` service for each
+    method invocation. The server hosts a gRPC service that offers two remote methods:
+    `addProduct(product)` and `getProduct(productId)`. The client can invoke either
+    of those remote methods.'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![client-server interaction of Product Info service](assets/grpc_0201.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 2-1\. Client–server interaction of ProductInfo service
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Let’s start building this sample by creating the service definition of the `ProductInfo`
+    gRPC service.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating the Service Definition
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: As you learned in [Chapter 1](ch01.html#grpc_ch_01), when you develop a gRPC
+    application, the first thing you do is define the service interface, which contains
+    the methods that allow consumers to call remotely, the method parameters and message
+    formats to use when invoking those methods, and so on. All these service definitions
+    are recorded as a [protocol buffer’s definition](https://oreil.ly/1X5Ws), which
+    is the interface definition language (IDL) used in gRPC.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: We will further dive into service definition techniques for different messaging
+    patterns in [Chapter 3](ch03.html#ch_03). We will also cover the details of protocol
+    buffers and gRPC implementation details in [Chapter 4](ch04.html#ch_04).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once you identify the business capabilities of the service, you can define the
+    service interface to fulfill the business need. In our sample, we can identify
+    two remote methods (`addProduct(product)` and `getProduct(productId)`) in the
+    `ProductInfo` service and two message types (`Product` and `ProductID`) that both
+    methods accept and return.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The next step is to specify these service definitions as a protocol buffer definition.
+    With protocol buffers, we can define services and message types. A service consists
+    of its methods and each method is defined by its type, input, and output parameters.
+    The message consists of its fields and each field is defined by its type and a
+    unique index value. Let’s dive into the details of defining message structures.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Defining Messages
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'The *message* is the data structure that is exchanged between client and service.
+    As you can see in [Figure 2-1](#client_server_interaction_of_product_info_service),
+    our `ProductInfo` use case has two message types. One is the product information
+    (`Product`), which is required when adding a new product to the system and is
+    returned when retrieving a particular product. The other is a unique identification
+    (`ProductID`) of the product, which is required when retrieving a particular product
+    from the system and is returned when adding a new product:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`ProductID`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`ProductID` is a unique identifier of the product that can be a string value.
+    We can either define our own message type that contains a string field or use
+    the well-known message type `google.protobuf.StringValue`, provided by the protocol
+    buffer library. In this example, we are going to define our own message type that
+    contains a string field. The `ProductID` message type definition is shown in [Example 2-1](#EX2-1a).'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 2-1\. Protocol Buffer definition of ProductID message type.
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: '`Product`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`Product` is a custom message type that represents the data that should exist
+    in a product in our online retail application. It can have a set of fields that
+    represent the data associated with each product. Suppose the `Product` message
+    type has the following fields:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`ID`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Unique identifier of the product
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`Name`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Product name
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`Description`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Product description
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`Price`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Product price
+  prefs: []
+  type: TYPE_NORMAL
+- en: Then we can define our custom message type using a protocol buffer as shown
+    in [Example 2-2](#EX2-1).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 2-2\. Protocol buffer definition of Product message type
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: Here the number assigned to each message field is used to uniquely identify
+    the field in the message. So, we can’t use the same number in two different fields
+    in the same message definition. We will further dive into the details of the message
+    definition techniques of protocol buffers and explain why we need to provide a
+    unique number for each field in [Chapter 4](ch04.html#ch_04). For now, you can
+    think of it as a rule when defining a protocol buffer message.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: The protobuf library provides a set of protobuf message types for well-known
+    types. So we can reuse them instead of defining such types again in our service
+    definition. You can get more details about these well-known types in the [protocol
+    buffers documentation](https://oreil.ly/D8Ysn).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Since we have completed defining message types for the `ProductInfo` service,
+    we can move on to the service interface definition.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Defining Services
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'A *service* is a collection of remote methods that are exposed to a client.
+    In our sample, the `ProductInfo` service has two remote methods: `addProduct(product)`
+    and `getProduct(productId)`. According to the protocol buffer rule, we can only
+    have one input parameter in a remote method and it can return only one value.
+    If we need to pass multiple values to the method like in the `addProduct` method,
+    we need to define a message type and group all the values as we have done in the
+    `Product` message type:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`addProduct`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creates a new `Product` in the system. It requires the details of the product
+    as input and returns the product identification number of the newly added product,
+    if the action completed successfully. [Example 2-3](#EX2-2) shows the definition
+    of the `addProduct` method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 2-3\. Protocol buffer definition of *addProduct* method
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: '`getProduct`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Retrieves product information. It requires the `ProductID` as input and returns
+    `Product` details if a particular product exists in the system. [Example 2-4](#EX2-3)
+    shows the definition of the `getProduct` method.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 2-4\. Protocol buffer definition of *getProduct* method
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: Combining all messages and services, we now have a complete protocol buffer
+    definition for our `ProductInfo` use case, as shown in [Example 2-5](#EX2-4).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 2-5\. gRPC service definition of ProductInfo service using protocol
+    buffers
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_getting_started_with_grpc_CO1-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The service definition begins with specifying the protocol buffer version (proto3)
+    that we use.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_getting_started_with_grpc_CO1-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Package names are used to prevent name clashes between protocol message types
+    and also will be used to generate code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_getting_started_with_grpc_CO1-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Definition of the service interface of the service.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_getting_started_with_grpc_CO1-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Remote method to add a product that returns the product ID as the response.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_getting_started_with_grpc_CO1-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Remote method to get a product based on the product ID.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![6](assets/6.png)](#co_getting_started_with_grpc_CO1-6)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Definition of the message format/type of `Product`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![7](assets/7.png)](#co_getting_started_with_grpc_CO1-7)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Field (name-value pair) that holds the product ID with unique field numbers
+    that are used to identify your fields in the message binary format.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![8](assets/8.png)](#co_getting_started_with_grpc_CO1-8)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Definition of the message format/type of ProductID.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the protocol buffer definition, we can specify a package name (e.g., `ecommerce`),
+    which helps to prevent naming conflicts between different projects. When we generate
+    code for our services or clients using this service definition with a package,
+    the same packages (unless we explicitly specify a different package for code generation)
+    are created in the respective programming language (of course only if the language
+    supports the notion of a *package*) with which our code is generated. We can also
+    define package names with version numbers like `ecommerce.v1` and `ecommerce.v2`.
+    So future major changes to the API can coexist in the same codebase.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Commonly used IDEs (integrated development environments) such as IntelliJ IDEA,
+    Eclipse, VSCode, etc., now have plug-ins to support protocol buffers. You can
+    install the plug-in to your IDE and easily create a protocol buffer definition
+    for your service.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'One other process that should be mentioned here is importing from another proto
+    file. If we need to use the message types defined in other proto files, we can
+    import them and our protocol buffer definition. For example, if we want to use
+    the `StringValue` type (`google.protobuf.StringValue`) defined in the *wrappers.proto*
+    file, we can import the *google/protobuf/wrappers.proto* file in our definition
+    as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: Once you complete the specification of the service definition, you can proceed
+    to the implementation of the gRPC service and the client.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementation
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Let’s implement a gRPC service with the set of remote methods that we specified
+    in the service definition. These remote methods are exposed by the server and
+    the gRPC client connects to the server and invokes those remote methods.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As illustrated in [Figure 2-2](#a_microservice_and_a_consumer_based_on_service_definition),
+    we first need to compile the `ProductInfo` service definition and generate source
+    code for the chosen language. Out of the box, gRPC is supported by all the popular
+    languages like Java, Go, Python, Ruby, C, C++, Node, etc. You can choose which
+    language to use when implementing the service or client. gRPC also works across
+    multiple languages and platforms, which means you can have your server written
+    in one language and your client written in another language in your application.
+    In our sample, we will develop our client and server in both the Go and Java languages,
+    so you can follow whichever implementation you prefer to use.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In order to generate source code from the service definition, we can either
+    manually compile the proto file using the [protocol buffer compiler](https://oreil.ly/CYEbY)
+    or we can use build automation tools like Bazel, Maven, or Gradle. Those automation
+    tools already have a set of rules defined to generate the code when building the
+    project. Often it is easier to integrate with an existing build tool to generate
+    the source code of the gRPC service and client.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '![client-server interaction of Product Info service](assets/grpc_0202.png)'
+  prefs: []
+  type: TYPE_IMG
+- en: Figure 2-2\. A microservice and a consumer based on a service definition
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: In this sample, we’ll use Gradle to build the Java application and use the Gradle
+    protocol buffer plug-in to generate the service and client code. For the Go application,
+    we’ll use the protocol buffer compiler and generate the code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s walk through implementing a gRPC server and client in Go and Java. Before
+    we do this, make sure you have installed Java 7 or higher and Go 1.11 or higher
+    on your local machine.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Developing a Service
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: When you generate the service skeleton code, you will get the low-level code
+    required to establish the gRPC communication, relevant message types, and interfaces.
+    The task of service implementation is all about implementing the interfaces that
+    are generated with the code generation step. Let’s start with implementing the
+    Go service and then we will look at how to implement the same service in the Java
+    language.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementing a gRPC service with Go
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: 'Implementing the Go service has three steps. First, we need to generate the
+    stubs for the service definition, then we implement the business logic of all
+    the remote methods of the service, and finally, we create a server listening on
+    a specified port and register the service to accept client requests. Let’s start
+    by creating a new Go module. Here we are going to create one module and a subdirectory
+    inside the module; the module `productinfo/service` is used to keep the service
+    code and the subdirectory (`ecommerce`) is used to keep the autogenerated stub
+    file. Create a directory inside the *productinfo* directory and call it *service*.
+    Navigate inside to the *service* directory and execute the following command to
+    create the module `productinfo/service`:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once you create the module and create a subdirectory inside the module, you
+    will get a module structure as follows:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We also need to update the *go.mod* file with the dependencies with the specific
+    version as shown in the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: 'From Go 1.11 onwards, a new concept called *modules* has been introduced that
+    allows developers to create and build Go projects outside GOPATH. To create a
+    Go module, we need to create a new directory anywhere outside `$GOPATH/src` and
+    inside the directory, we need to execute the command to initialize the module
+    with a module name like the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '`go mod init <module_name>`'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once you initialize the module, a *go.mod* file will be created inside the root
+    of the module. And then we can create our Go source file inside the module and
+    build it. Go resolves imports by using the specific dependency module versions
+    listed in *go.mod*.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Generating client/server stubs
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: 'Now we’ll generate client/server stubs manually, using the protocol buffer
+    compiler. To do that, we need to fulfill a set of prerequisites as listed here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Download and install the latest protocol buffer version 3 compiler from the
+    [GitHub release page](https://oreil.ly/Ez8qu).
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: When downloading the compiler, you need to choose the compiler that suits your
+    platform. For example, if you are using a 64-bit Linux machine and you need to
+    get a protocol buffer compiler version x.x.x, you need to download the *protoc-x.x.x-linux-x86_64.zip*
+    file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Install the gRPC library using the following command:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Install the protoc plug-in for Go using the following command:'
+  prefs:
+  - PREF_UL
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'Once we fulfill all the prerequisites, we can generate the code for the service
+    definition by executing the protoc command as shown here:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_getting_started_with_grpc_CO2-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Specifies the directory path where the source proto file and dependent proto
+    files exist (specified with the `--proto_path` or `-I` command-line flag). If
+    you do not specify a value, the current directory is used as the source directory.
+    Inside the directory, we need to arrange the dependent proto files in accordance
+    with the package name.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_getting_started_with_grpc_CO2-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Specifies the proto file path you want to compile. The compiler will read the
+    file and generate the output Go file.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_getting_started_with_grpc_CO2-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Specifies the destination directory where you want the generated code to go.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When we execute the command, a stub file (*product_info.pb.go*) will be generated
+    inside the given subdirectory (*ecommerce*) in the module. Now that we have generated
+    the stubs, we need to implement our business logic using the generated code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementing business logic
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: First, let’s create a new Go file named *productinfo_service.go* inside the
+    Go module (`productinfo/service`) and implement the remote methods as shown in
+    [Example 2-6](#EX2-5).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 2-6\. gRPC service implementation of *ProductInfo* service in Go
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_getting_started_with_grpc_CO3-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Import the package that contains the generated code we just created from the
+    protobuf compiler.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_getting_started_with_grpc_CO3-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `server` struct is an abstraction of the server. It allows attaching service
+    methods to the server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_getting_started_with_grpc_CO3-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `AddProduct` method takes `Product` as a parameter and returns a `ProductID`.
+    `Product` and `ProductID` structs are defined in the *product_info.pb.go* file,
+    which is autogenerated from the *product_info.proto* definition.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_getting_started_with_grpc_CO3-6)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `GetProduct` method takes `ProductID` as a parameter and returns a `Product`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_getting_started_with_grpc_CO3-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Both methods also have a `Context` parameter. A `Context` object contains metadata
+    such as the identity of the end user authorization tokens and the request’s deadline,
+    and it will exist during the lifetime of the request.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![6](assets/6.png)](#co_getting_started_with_grpc_CO3-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Both methods return an error in addition to the return value of the remote method
+    (methods have multiple return types). These errors are propagated to the consumers
+    and can be used for error handling at the consumer side.
+  prefs: []
+  type: TYPE_NORMAL
+- en: That’s all you have to do to implement the business logic of the `ProductInfo`
+    service. Then we can create a simple server that hosts the service and accepts
+    requests from the client.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating a Go server
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: To create the server in Go, let’s create a new Go file named *main.go* inside
+    the same Go package (`productinfo/service`) and implement the `main` method as
+    shown in [Example 2-7](#EX2-6).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 2-7\. gRPC server implementation to host ProductInfo service in Go
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_getting_started_with_grpc_CO4-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Import the package that contains the generated code we just created from the
+    protobuf compiler.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_getting_started_with_grpc_CO4-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: TCP listener that we want the gRPC server to bind to is created on the port
+    (50051).
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_getting_started_with_grpc_CO4-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: New gRPC server instance is created by calling gRPC Go APIs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_getting_started_with_grpc_CO4-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The service implemented earlier is registered to the newly created gRPC server
+    by calling generated APIs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_getting_started_with_grpc_CO4-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Start listening to the incoming messages on the port (50051).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now we have completed building a gRPC service for our business use case in the
+    Go language. And also we created a simple server that will expose service methods
+    and accept messages from gRPC clients.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you prefer using Java for building a service, we can implement the same service
+    using Java. The implementation procedure is quite similar to Go. So, let’s create
+    the same service using the Java language. However, if you are interested in building
+    a client application in Go instead, go directly to [“Developing a gRPC Client”](#dev_grpc_client).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementing a gRPC Service with Java
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: When creating a Java gRPC project, the best approach is to use an existing build
+    tool like Gradle, Maven, or Bazel because it manages all dependencies and code
+    generation, etc. In our sample, we will use Gradle to manage the project and we’ll
+    discuss how to create a Java project using Gradle and how to implement the business
+    logic of all remote methods of the service. Finally, we’ll create a server and
+    register the service to accept client requests.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: Gradle is a build automation tool that supports multiple languages, including
+    Java, Scala, Android, C/C++, and Groovy, and is closely integrated with development
+    tools like Eclipse and IntelliJ IDEA. You can install Gradle on your machine by
+    following the steps given on the [official page](https://gradle.org/install).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Setting up a Java project
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: 'Let’s first create a Gradle Java project (`product-info-service`). Once you
+    have then created the project, you will get a project structure like the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: Under the *src/main* directory, create a *proto* directory and add our `ProductInfo`
+    service definition file (*.proto* file) inside the *proto* directory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Next, you need to update the *build.gradle* file and add dependencies and the
+    protobuf plug-in for Gradle. Update the *build.gradle* file as shown in [Example 2-8](#EX2-8).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 2-8\. Gradle configuration for gRPC Java project
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_getting_started_with_grpc_CO5-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: gRPC Java library version used in the Gradle project.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_getting_started_with_grpc_CO5-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: External dependencies we need to use in this project.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_getting_started_with_grpc_CO5-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Gradle protobuf plug-in version we are using in the project. Use plug-in version
+    0.7.5 if your Gradle version is lower than 2.12.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_getting_started_with_grpc_CO5-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: In the protobuf plug-in, we need to specify the protobuf compiler version and
+    protobuf Java executable version.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_getting_started_with_grpc_CO5-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: This is to inform IDEs like IntelliJ IDEA, Eclipse, or NetBeans about the generated
+    code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![6](assets/6.png)](#co_getting_started_with_grpc_CO5-6)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Configure the main class to use when running the application.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 'Then run the following command to build the library and generate stub code
+    from the protobuf build plug-in:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now we have the Java project ready with autogenerated code. Let’s implement
+    the service interface and add business logic to the remote methods.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementing business logic
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: To start with, let’s create the Java package (`ecommerce`) inside the *src/main/java*
+    source directory and create a Java class (*ProductInfoImpl.java*) inside the package.
+    Then we’ll implement the remote methods as shown in [Example 2-9](#EX2-9).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 2-9\. gRPC service implementation of *ProductInfo* service in Java
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_getting_started_with_grpc_CO6-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Extend the abstract class (`ProductInfoGrpc.ProductInfoImplBase`) that is generated
+    from the plug-in. This will allow adding business logic to `AddProduct` and `GetProduct`
+    methods defined in the service definition.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_getting_started_with_grpc_CO6-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `AddProduct` method takes `Product(ProductInfoOuterClass.Product)` as a
+    parameter. The `Product` class is defined in the `ProductInfoOuterClass` class,
+    which is generated from the service definition.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_getting_started_with_grpc_CO6-6)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `GetProduct` method takes `ProductID(ProductInfoOuterClass.ProductID)` as
+    a parameter. The `ProductID` class is defined in the `ProductInfoOuterClass` class,
+    which is generated from the service definition.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_getting_started_with_grpc_CO6-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `responseObserver` object is used to send the response back to the client
+    and close the stream.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_getting_started_with_grpc_CO6-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Send a response back to the client.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![6](assets/6.png)](#co_getting_started_with_grpc_CO6-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: End the client call by closing the stream.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![7](assets/7.png)](#co_getting_started_with_grpc_CO6-10)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Send an error back to the client.
+  prefs: []
+  type: TYPE_NORMAL
+- en: That’s all you need to do to implement the business logic of the `ProductInfo`
+    service in Java. Then we can create a simple server that hosts the service and
+    accepts requests from the client.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Creating a Java server
+  prefs:
+  - PREF_H4
+  type: TYPE_NORMAL
+- en: In order to expose our service to the outside, we need to create a gRPC server
+    instance and register our `ProductInfo` service to the server. The server will
+    listen on the specified port and dispatch all requests to the relevant service.
+    Let’s create a main class (*ProductInfoServer.java*) inside the package as shown
+    in [Example 2-10](#EX2-10).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 2-10\. gRPC server implementation to host ProductInfo service in Java
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_getting_started_with_grpc_CO7-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Server instance is created on port 50051\. This is the port we want the server
+    to bind to and where it will listen to incoming messages. Our `ProductInfo` service
+    implementation is added to the server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_getting_started_with_grpc_CO7-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: A runtime shutdown hook is added to shut down the gRPC server when JVM shuts
+    down.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_getting_started_with_grpc_CO7-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: At the end of the method, the server thread is held until the server gets terminated.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now we are done with the implementation of the gRPC service in both languages.
+    We can then proceed to the implementation of the gRPC client.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Developing a gRPC Client
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: As we did with the gRPC service implementation, we can now discuss how to create
+    an application to talk with the server. Let’s start off with the generation of
+    the client-side stubs from the service definition. On top of the generated client
+    stub, we can create a simple gRPC client to connect with our gRPC server and invoke
+    the remote methods that it offers.
+  prefs: []
+  type: TYPE_NORMAL
+- en: In this sample, we are going to write client applications in both the Java and
+    Go languages. But you don’t need to create your server and client in the same
+    language, or run them on the same platform. Since gRPC works across languages
+    and platforms, you can create them in any supported language. Let’s discuss the
+    Go implementation first. If you are interested in the Java implementation, you
+    may skip the next section and go directly into the Java client.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementing a gRPC Go client
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Let’s start by creating a new Go module (`productinfo/client`) and subdirectory
+    (*ecommerce*) inside the module. In order to implement the Go client application,
+    we also need to generate the stub as we have done when implementing the Go service.
+    Since we need to create the same file (*product_info.pb.go*) and need to follow
+    the same steps to generate the stubs, we are not going to mention it here. Please
+    refer to [“Generating client/server stubs”](#gen_client_server_stubs) to generate
+    stub files.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s create a new Go file named *productinfo_client.go* inside the Go module
+    (`productinfo/client`) and implement the main method to invoke remote methods
+    as shown in [Example 2-11](#EX2-11).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 2-11\. gRPC client application in Go
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_getting_started_with_grpc_CO8-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Import the package that contains the generated code we created from the protobuf
+    compiler.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_getting_started_with_grpc_CO8-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Set up a connection with the server from the provided address (“localhost:50051”).
+    Here we create an unsecured connection between client and server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_getting_started_with_grpc_CO8-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Pass the connection and create a stub. This stub instance contains all the remote
+    methods to invoke the server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_getting_started_with_grpc_CO8-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Create a `Context` to pass with the remote call. Here the `Context` object contains
+    metadata such as the identity of the end user, authorization tokens, and the request’s
+    deadline and it will exist during the lifetime of the request.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_getting_started_with_grpc_CO8-6)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Call `addProduct` method with product details. This returns a product ID if
+    the action completed successfully. Otherwise it returns an error.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![6](assets/6.png)](#co_getting_started_with_grpc_CO8-7)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Call `getProduct` with the product ID. This returns product details if the action
+    completed successfully. Otherwise it returns an error.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![7](assets/7.png)](#co_getting_started_with_grpc_CO8-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Close the connection when everything is done.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now we have completed building the gRPC client in the Go language. Let’s next
+    create a client using the Java language. This is not a mandatory step to follow.
+    If you are also interested in building a gRPC client in Java, you can continue;
+    otherwise, you can skip the next section and go directly to [“Building and Running”](#build_run).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Implementing a Java client
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: In order to create a Java client application, we also need to set up a Gradle
+    project (`product-info-client`) and generate classes using the Gradle plug-in
+    as we did when implementing the Java service. Please follow the steps in [“Setting
+    up a Java project”](#set_up_java) to set up a Java client project.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Once you generate the client stub code for your project via the Gradle build
+    tool, let’s create a new class called `ProductInfoClient` inside the `ecommerce`
+    package and add the content in [Example 2-12](#EX2-12).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Example 2-12\. gRPC client application in Java
+  prefs:
+  - PREF_H5
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: '[![1](assets/1.png)](#co_getting_started_with_grpc_CO9-1)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Create a gRPC channel specifying the server address and port we want to connect
+    to. Here we are trying to connect to a server running on the same machine and
+    listening on port 50051\. We also enable plaintext, which means we are setting
+    up an unsecured connection between client and server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![2](assets/2.png)](#co_getting_started_with_grpc_CO9-2)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Create the client stub using the newly created channel. We can create two types
+    of stubs. One is the `BlockingStub`, which waits until it receives a server response.
+    The other one is the `NonBlockingStub`, which doesn’t wait for server response,
+    but instead registers an observer to receive the response. In this example, we
+    use a `BlockingStub` to make the client simple.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![3](assets/3.png)](#co_getting_started_with_grpc_CO9-3)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Call `addProduct` method using the product details. This returns a product ID
+    if the action completed successfully.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![4](assets/4.png)](#co_getting_started_with_grpc_CO9-4)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Call `getProduct` with the product ID. Returns the product details if the action
+    completed successfully.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[![5](assets/5.png)](#co_getting_started_with_grpc_CO9-5)'
+  prefs: []
+  type: TYPE_NORMAL
+- en: Close the connection when everything is done so that the network resources that
+    we used in our application are safely returned back after we are finished.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Now we have finished developing the gRPC client. Let’s make the client and server
+    talk to each other.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building and Running
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: It’s time to build and run the gRPC server and client applications that we have
+    created. You can deploy and run a gRPC application on your local machine, on a
+    virtual machine, on Docker, or on Kubernetes. In this section, we will discuss
+    how to build and run the gRPC server and client applications on a local machine.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Note
+  prefs:
+  - PREF_H6
+  type: TYPE_NORMAL
+- en: We will cover how to deploy and run gRPC applications on Docker and Kubernetes
+    environments in [Chapter 7](ch07.html#ch_07).
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s run the gRPC server and client applications that we have just developed
+    in your local machine. Since our server and client applications are written in
+    two languages, we are going to build the server application separately.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building a Go Server
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'When we implement a Go service, the final package structure in the workspace
+    looks like the following:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We can build our service to generate a service binary (*bin/server*). In order
+    to build, first go to the Go module root directory location (*productinfo/service*)
+    and execute the following shell command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: Once the build is successful, an executable file (*bin/server*) is created under
+    the *bin* directory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Next, let’s set up the Go client!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building a Go Client
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'When we implement a Go client, the package structure in the workspace looks
+    like:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: 'We can build the client code the same way we built the Go service using the
+    following shell command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: Once the build is successful, an executable file (*bin/client*) is created under
+    the *bin* directory. The next step is to run the files!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Running a Go Server and Client
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'We’ve just built a client and a server. Let’s run them on separate terminals
+    and make them talk to each other:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: Next we’ll build a Java server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building a Java Server
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Since we implement the Java service as a Gradle project, we can easily build
+    the project using the following command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: Once the build is successful, the executable JAR (*server.jar*) file is created
+    under the *build/libs* directory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Building a Java Client
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'Just as with a service, we can easily build the project using the following
+    command:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: Once the build is successful, the executable JAR (*client.jar*) file is created
+    under the *build/libs* directory.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Running a Java Server and Client
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: 'We’ve now built both a client and server in the Java language. Let’s run them:'
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now we have built and run our sample successfully on local machines. Once we
+    successfully run the client and server, the client application first invokes the
+    `addProduct` method with product details and receives the product identifier of
+    the newly added product as the response. Then it retrieves the newly added product
+    details by calling the `getProduct` method with the product identifier. As we
+    mentioned earlier in this chapter, we don’t need to write the client in the same
+    language to talk with the server. We can run a gRPC Java server and Go client
+    and it will work without any issue.
+  prefs: []
+  type: TYPE_NORMAL
+- en: That brings us to the end of the chapter!
+  prefs: []
+  type: TYPE_NORMAL
+- en: Summary
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: When you develop a gRPC application, you first define a service interface definition
+    using protocol buffers, a language-agnostic, platform-neutral, extensible mechanism
+    for serializing structured data. Next, you generate server-side and client-side
+    code for the programming language of your choice, which simplifies the server-
+    and client-side logic by providing the low-level communication abstractions. From
+    the server side, you implement the logic of the method that you expose remotely
+    and run a gRPC server that binds the service. On the client side, you connect
+    to the remote gRPC server and invoke the remote method using the generated client-side
+    code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: This chapter is mainly about getting hands-on experience with developing and
+    running gRPC server and client applications. The experience you gain by following
+    the session is quite useful when building a real-world gRPC application because
+    irrespective of which language you are using, you need similar steps to build
+    a gRPC application. So, in the next chapter, we will further extend the concepts
+    and technologies you learned to build real-world use cases.
+  prefs: []
+  type: TYPE_NORMAL

@@ -1,0 +1,722 @@
+- en: Chapter 1\. Error Handling Recipes
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: 1.0 Introduction
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Alexander Pope wrote in his *An Essay on Criticism* — “to err is human”. And
+    since software is written by humans (for now), software errs as well. And just
+    like human errors, it’s all about how gracefully we can recover from those errors.
+    That’s what error handling is all about — how do we recover when our program gets
+    into a situation we did not expect or cater for in its normal flow.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As programmers we often treat error handling as tedious work and an after-thought.
+    That’s generally an error by itself. In fact, just like how we should treat testing,
+    error handling should be top of mind and recovering from the error should be part
+    of good software design. In Go, error handling is treated pretty seriously, though
+    a bit unconventionally. Go has the `errors` package in the standard library that
+    provides many functions to manipulate errors but most of error handling in Go
+    is built into the language or is part of the idiomatic way of programming in Go.
+    In this chapter we’ll talk about some of the basic ideas in error handling in
+    Go.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Errors are not exceptions
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: In many programming languages like Python and Java, error handling is done through
+    exceptions. An exception is an object that represents an error and whenever something
+    goes wrong, you can throw an exception. The calling function usually have a `try`
+    and `catch` (or `try` and `except` in Python and so on) that handles anything
+    that goes wrong.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Go does this slightly differently (or completely differently, depending on how
+    you look at it). Go doesn’t have exception handling. Instead of exceptions, it
+    has errors. An `error` is a built-in type that represents an unexpected condition.
+    Instead of throwing an exception you will create an error and returning it to
+    the calling function. You might think, isn’t this like saying the *Odyssey* wasn’t
+    written by Homer but by another Greek named Homer who also lived 2,800 years ago?
+  prefs: []
+  type: TYPE_NORMAL
+- en: Well, not exactly. Exceptions are not returned by the function at all, in fact
+    you don’t know if any exceptions will be returned at all or what kind of exceptions
+    (well sometimes you do but it’s a different story). You have to round it up using
+    `try` and `catch`. It is only thrown when there is a problem (that’s why it’s
+    called an exception), and you can wrap around a number of statements with the
+    same `try` and `catch`. On the other hand, errors are deliberately returned by
+    the function to be inspected by the calling function and dealt with individually.
+  prefs: []
+  type: TYPE_NORMAL
+- en: As a result, those who are more familiar with exceptions find error handling
+    in Go particularly tedious. Rather using a wide net to catch exception in a series
+    of statements, you have to inspect the returning errors every time and deal with
+    it separately. Of course, you can also choose to ignore the errors altogether,
+    though that idiomatically, you’re expected to take errors seriously and deal with
+    it each time you get one. The only exception to this is probably when you don’t
+    care about the returning results at all.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 1.1 Handling errors
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Problem
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You want to handle an unexpected condition in your code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Solution
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: If you’re writing a function, return an `error` along with the return value
+    (if any). If you’re calling a function, inspect the error returned, if it is not
+    nil, handle the error accordingly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Discussion
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: The two ways you’ll be dealing with errors are if you are writing a function
+    or if you’re calling a function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Writing a function
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: Go represents errors with the `error` built-in error type, which is actually
+    an interface. The rule of thumb when writing functions is that if there is any
+    way the function will fail, you need to return an error, along with whatever return
+    value your function returns. This is possible because Go allows multiple return
+    values. By convention, error is the last return value, for example this function
+    below that allows you to guess a number.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE0]'
+  prefs: []
+  type: TYPE_PRE
+- en: The input to the function should be less than 100, and the function should return
+    you a true or false indicating if the guess is correct or not. Obviously if the
+    input number is greater than 100 you want to flag out an error, which is what
+    we do here by creating a new error using the `errors.New` function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE1]'
+  prefs: []
+  type: TYPE_PRE
+- en: This is not the only way to create a new error though, another popular way of
+    creating a new error is in the popular `fmt` package using the `Errorf` function.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE2]'
+  prefs: []
+  type: TYPE_PRE
+- en: The big difference between the two in this example is trivial, but `fmt.Errorf`
+    allows you to format the string, like the `Printf`, `Sprintf` `Sscanf` and so
+    on functions in the `fmt` package. There’s a bit more to this in `fmt.Errorf`
+    though, because it can actually allow you to wrap an error around another error,
+    something we’ll discuss in recipe 3.4.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Calling a function
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The other rule of thumb, which comes along with the philosophy of error handling
+    in Go, is “don’t ignore errors”. The standard way to handle errors in Go is quite
+    straightforward — you deal with it just like any other return value. The example
+    below is taken from chapter 1, recipe 1.5.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE3]'
+  prefs: []
+  type: TYPE_PRE
+- en: The function `strconv.ParseInt` returns two values, the first is the converted
+    integer, and the second is the error. You should inspect the error and if the
+    error is nil, all is well and you can continue with the program flow. If it’s
+    not nil, then you should handle it. In the example above, I called `panic` with
+    the error, which we’ll get to later in the chapter, but you can handle it whichever
+    way you want, including ignoring it. You can of course, also deliberately choose
+    to ignore them like this.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE4]'
+  prefs: []
+  type: TYPE_PRE
+- en: Here we’re assigning the returned error to the underscore `_` which means we’re
+    ignoring it. In either case, it becomes clear that you are deliberately ignoring
+    returned errors, which Go cannot stop you but a linter or your IDE or if you’re
+    in a team, a code review can quickly surface.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Why is error handling done this way in Go?
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: You might wonder why Go does it this way, instead of how using exceptions like
+    many other languages. Exceptions seem easier to handle because you can group statements
+    together. Go’s way of forcing you to handle errors with each function call can
+    be tedious to deal with.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However because of this exceptions can also be easily missed unless you have
+    a `try` and `catch`. If you’re wrapping a bunch of statements with `try` and `catch`
+    it’s easy to miss handling specific errors and it can also be confusing if you
+    bunch too many statements together.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The other benefit of doing it this way is that the returned error is a value
+    that you can use just like any other value in your normal flow. While you can
+    also process exceptions, they are constructs in the `try` and `catch` loop which
+    is not in your normal flow. This seems like a trivial point, but it’s important
+    because this makes handling errors an integral part of writing your code instead
+    of making it optional.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 1.2 Simplifying repetitive error handling
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Problem
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You want to reduce the number of lines of repetitive error handling code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Solution
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Use helper functions to reduce the number of lines of repetitive error handling
+    code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Discussion
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: One of the most frequent complaints about Go’s error handling, especially from
+    newcomers, is that it’s tedious to have to do repetitive checks. Let’s take for
+    example this piece of code that opens up a JSON file to read and unmarshal to
+    a struct.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE5]'
+  prefs: []
+  type: TYPE_PRE
+- en: You can see that there are 3 sets of error handling, one when we call `http.Get`
+    to get the API response into a `http.Response`, then when we call `io.ReadAll`
+    to get the JSON text from the `http.Response` and finally to unmarshal the JSON
+    text into the `Person` struct. Each of these calls are potential points of failure
+    so we need to handle errors that result from those failures.
+  prefs: []
+  type: TYPE_NORMAL
+- en: However these error handling routines are pretty similar to each other and in
+    fact repetitive. How can we resolve this? There are a number of ways but the most
+    straightforward is probably using helper functions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE6]'
+  prefs: []
+  type: TYPE_PRE
+- en: The helper function here is the `check` function that takes in an error and
+    a string. Besides logging the string, you can also put all the common error handling
+    stuff that you might want to do. Instead of a string you can also take in a function
+    to be executed if an error is encountered.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Of course this is only one possible type of helper function, let’s look at another
+    one. This time we’re going to use a pattern that is found in another package in
+    the standard library. In the `text/template` package you can find a helper function
+    called `template.Must` that wraps around functions that returns `(*Template, error)`.
+    If the function returns a non-nil error, then `Must` panics. We can similarly
+    create something like this to wrap around other function calls.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE7]'
+  prefs: []
+  type: TYPE_PRE
+- en: Because it takes any single parameter (using `interface{}`) and returns a single
+    value (also using `interface{}`) we can use this for any function that returns
+    a single value along with an error. For example, we can convert our earlier `unmarshal`
+    function to something like this.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE8]'
+  prefs: []
+  type: TYPE_PRE
+- en: The code is more succinct but at the same time it also makes the code more unreadable
+    so this kind of helper functions should be used sparingly.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 1.3 Creating customized errors
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Problem
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You want to create our own custom errors in order to communicate more information
+    of the error encountered.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Solution
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Create a new string-based error or implement the `error` interface by creating
+    a struct that has an `Error` method that returns a string.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Discussion
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Using a string-based error
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The simplest way to implement a customized error is to create a new string-based
+    error. You can use either the `errors.New` function, which simply creates an error
+    with a simple string, or using `fmt.Errorf` that allows you to use formatting.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The `errors.New` function is very straightforward.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE9]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `fmt.Errorf` function, like many of the functions in the `fmt` function,
+    allows for formatting within the string.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE10]'
+  prefs: []
+  type: TYPE_PRE
+- en: Implementing the error interface
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The `builtin` package contains all the definitions of the built-in types, interfaces
+    and functions. One of the interfaces is the `error` interface.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE11]'
+  prefs: []
+  type: TYPE_PRE
+- en: As you can see, any struct that has a method named `Error` that returns a string
+    is an error. So if you want to define your own custom error to return an custom
+    error message, just implement your own struct and add an `Error` method. For example
+    let’s say you are writing a program used for communications and you want to create
+    your own error to represent an error during communications.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE12]'
+  prefs: []
+  type: TYPE_PRE
+- en: Of course, you normally wouldn’t just want to override `Error` only, you can
+    add fields and other methods to your custom error to carry more information.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s say you want to provide information about where in a line of code the
+    error came from. You can create a custom error to contain the information.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE13]'
+  prefs: []
+  type: TYPE_PRE
+- en: When you get such an error you can typecast it using the comma, ok idiom (because
+    if you typecast it and it’s not that type, it will panic) and extract the additional
+    data for your processing.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE14]'
+  prefs: []
+  type: TYPE_PRE
+- en: 1.4 Wrapping error with other errors
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Problem
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You want to provide additional information and context to an error you receive
+    before returning it as another error.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Solution
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Wrap the error you receive with another error you create before returning it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Discussion
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Sometimes you will get and error but instead of just returning that, you want
+    to provide additional context to it before returning the error. For example if
+    you get a network connection error you might want to know where in the code that
+    happened and what you were doing when that happened.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Of course you can simply extract the information, create a new customized error
+    with the additional information and return that. Alternatively, you can also wrap
+    the error with another error and return it, passing thr error up the call stack
+    while adding additional information and context to it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: There are a couple of ways of wrapping errors. The easiest is simply to use
+    `fmt.Errorf` again, and provide an error as part of the parameter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE15]'
+  prefs: []
+  type: TYPE_PRE
+- en: The `%w` verb allows us to place an error within the format string. In the example
+    above, `err2` wraps `err1`. But how do we extract `err1` out of `err2`? The `errors`
+    package has a function `Unwrap` that does exactly this.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE16]'
+  prefs: []
+  type: TYPE_PRE
+- en: This will give us back `err1`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Another way of wrapping an error with another one is to create a customized
+    error struct like this.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE17]'
+  prefs: []
+  type: TYPE_PRE
+- en: Remember, to make it an error, the struct should have an `Error` method. To
+    allow struct to be unwrapped, we need to implement an `Unwrap` function for it.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE18]'
+  prefs: []
+  type: TYPE_PRE
+- en: 1.5 Inspecting errors
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Problem
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You want to check for specific errors or specific types of errors.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Solution
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Use the `errors.Is` and `errors.As` functions. The `errors.Is` function compares
+    an error to a value and the `errors.As` function checks if an error is of a specific
+    type.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Discussion
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Using `errors.Is`
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The `errors.Is` function is essentially an equality check. Let’s say in your
+    codebase you define a set of customized errors, for example `ApiErr` which happens
+    when a connection to an API encounters an error.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE19]'
+  prefs: []
+  type: TYPE_PRE
+- en: Elsewhere in your code, you have a function that returns this error.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE20]'
+  prefs: []
+  type: TYPE_PRE
+- en: You can use `errors.Is` to check if the error returned is really `ApiErr`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE21]'
+  prefs: []
+  type: TYPE_PRE
+- en: You can also verify if `ApiErr` is somewhere along the chain of wrapped errors.
+    Let’s take the example of a `connect` function that returns a `ConnectionError`
+    that wraps around `ApiErr`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE22]'
+  prefs: []
+  type: TYPE_PRE
+- en: This code still works because `ConnectionError` wraps around `ApiErr`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE23]'
+  prefs: []
+  type: TYPE_PRE
+- en: Using `errors.As`
+  prefs:
+  - PREF_H3
+  type: TYPE_NORMAL
+- en: The `errors.As` function allows us to check for a specific type of error. Let’s
+    continue with the example above but this time round we want to check if the error
+    is of the type `ConnectionError`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE24]'
+  prefs: []
+  type: TYPE_PRE
+- en: We can use `errors.As` to check if the returned error is really a `ConnectionError`
+    by passing it the returned error and a variable of type `*ConnectionError`, named
+    `connErr`. If it turns out to be so, `errors.As` will then assign the returned
+    error into `connErr` and you can process the error at the same time.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 1.6 Handling errors with panic
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Problem
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: You want to report an error that causes your program to halt and is unable to
+    continue.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Solution
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Use the built-in `panic` function to stop the program.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Discussion
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Sometimes your program will encounter an error that makes it unable to continue.
+    In this case you would want stop the program. Go provides a built-in function
+    called `panic` that takes in a single parameter of any type and stops the normal
+    execution of the current goroutine.
+  prefs: []
+  type: TYPE_NORMAL
+- en: When a function calls panic, the normal execution of the function stops immediately
+    and any deferred actions (anything that you call that starts with `defer`) are
+    executed before the function returns to its caller.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The calling function will also panic and stops normal execution and execute
+    deferred actions as well. This bubbles up until the entire program exits with
+    a non-zero exit code.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s take a closer look at this. We create a normal flow of functions where
+    `main` calls `A`, `A` calls `B` and `B` calls `C`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE25]'
+  prefs: []
+  type: TYPE_PRE
+- en: The execution results in this, which is the expected and normal flow.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE26]'
+  prefs: []
+  type: TYPE_PRE
+- en: What happens if we call `panic` in `C` between the two `fmt.Println` statements,
+    like this?
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE27]'
+  prefs: []
+  type: TYPE_PRE
+- en: When we `C` calls `panic` in the middle of the execution, `C` stops immediately
+    and executes the deferred code within its scope. After that it bubbles up to the
+    caller `B` which also stops immediately and executes the deferred code within
+    its scope and returns to its caller, `A`. The same happens to `A` and it bubbles
+    up the `main` function which executes the deferred code within its scope. Since
+    that’s the end of the chain, it will print out the `panic` parameter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: If you run this code on the terminal, this is what you should see.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE28]'
+  prefs: []
+  type: TYPE_PRE
+- en: As you can see from the results, the rest of the code in all the functions never
+    get executed, but all the deferred code gets executed before panic exits with
+    a parameter.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 1.7 Recovering from panic
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Problem
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: One of your goroutines have an error and cannot continue, and a panic is called
+    but you don’t want to stop the rest of the program.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Solution
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Use the built-in `recover` function to stop the panic. This only works in deferred
+    functions.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Discussion
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: In the previous recipe we see how `panic` stops the normal execution of code,
+    runs the deferred code and bubbles up until the program terminates. Sometimes
+    we want to stop `panic` from terminating the program. In this case we can use
+    the built-in `recover` function to stop `panic` and continue the execution of
+    the program.
+  prefs: []
+  type: TYPE_NORMAL
+- en: But why would we want that? There could be a few reasons. You could be using
+    a package that panics whenever it encounters something it cannot recover from.
+    However that doesn’t mean you want your program to terminate(maybe it’s ok for
+    you even if that part of the code is not able to continue). Or you could also
+    simply want to stop the execution of a goroutine without killing off the main
+    program, for example if your web application is running, you don’t want a panicked
+    handler function to shut down the whole server.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Whichever case that is, `recover` can only work if you use it within a `defer`.
+    This is because when a function calls `panic` everything else stops working, except
+    for code that’s deferred.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s use the example from the previous recipe.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE29]'
+  prefs: []
+  type: TYPE_PRE
+- en: We add a new function named `dontPanic`. In this function we call the built-in
+    function `recover`. If this function is called while the program is bubbling up
+    a `panic`, it will return the parameter passed to `panic` and stops `panic` from
+    continuing. Under normal circumstances, `recover` simply returns a nil and the
+    normal deferred code is run.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The execution is as what we expect, which is the normal flow. Calling `recover`
+    returns nil and so the normal deferred code runs.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE30]'
+  prefs: []
+  type: TYPE_PRE
+- en: Now let’s add a `panic` into `C`.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE31]'
+  prefs: []
+  type: TYPE_PRE
+- en: Let’s run it again and see what happens.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE32]'
+  prefs: []
+  type: TYPE_PRE
+- en: When `panic` is called in `C`, the deferred code in `C` kicks in, without running
+    the rest of the code in `C`, and bubbles up to `B`. `B` stops running the rest
+    of the code and starts running the deferred code, which calls `dontPanic`. `dontPanic`
+    calls `recover` which returns the parameter passed to the `panic` called in `C`
+    and the recovery code is run.
+  prefs: []
+  type: TYPE_NORMAL
+- en: The normal execution of `B` doesn’t happen but when `B` returns to `A` all is
+    well and the normal execution flow of the code continues.
+  prefs: []
+  type: TYPE_NORMAL
+- en: 1.8 Handling interrupts
+  prefs:
+  - PREF_H1
+  type: TYPE_NORMAL
+- en: Problem
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Your program receives an interrupt signal from the operating system (for example,
+    if the user presses `ctrl-c`) and you want to clean-up and exit gracefully.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Solution
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Use the goroutine to monitor the interrupt using the `os/signal` package. Place
+    your clean-up code in the goroutine.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Discussion
+  prefs:
+  - PREF_H2
+  type: TYPE_NORMAL
+- en: Signals are messages sent to running programs to trigger certain behaviors within
+    the program. Signals are asynchronous and can be sent by the operating system
+    or other running programs. When a signal is sent, the operating system interrupts
+    the running program to deliver the signal. If the process has a signal handler
+    for the signal, that handler will be executed, otherwise a default handler will
+    be executed.
+  prefs: []
+  type: TYPE_NORMAL
+- en: On the command line, certain key combinations like `ctrl-c` triggers a signal
+    (in this case, `ctrl-c` sends the `SIGINT` signal) to the program running in the
+    foreground. The `SIGINT` signal, or *signal interrupt* is a signal that interrupts
+    the running program and causes it to terminate.
+  prefs: []
+  type: TYPE_NORMAL
+- en: You can capture such signals in Go using the `os/signal` package.
+  prefs: []
+  type: TYPE_NORMAL
+- en: Let’s take a look at how we can do this.
+  prefs: []
+  type: TYPE_NORMAL
+- en: '[PRE33]'
+  prefs: []
+  type: TYPE_PRE
+- en: First, we create a channel `ch` to send the signals. Then we use the `signal.Notify`
+    function to relay incoming signals to `ch`. The first parameter of `signal.Notify`
+    is the channel, and the second parameter is variadic, which means we can pass
+    in none or more parameters. In this case we pass in the various signals we want
+    to capture. In the example code above, we want to relay `os.Interrupt` which is
+    a `syscall.SIGINT` or `ctrl-c`. If no parameters are passed in, all signals will
+    be relayed to the channel.
+  prefs: []
+  type: TYPE_NORMAL
+- en: After we have set things up, we spin up a goroutine where we wait for the signal
+    to come in by receiving from `ch`. This causes the goroutine to block until a
+    signal is send on it. Once a signal comes in, we continue the goroutine, executing
+    whichever clean-up routine we want, before exiting gracefully from the program.
+  prefs: []
+  type: TYPE_NORMAL
