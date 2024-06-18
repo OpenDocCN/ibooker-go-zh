@@ -3463,12 +3463,14 @@
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: Zap日志包
 - en: Of the Three Pillars of Observability, logging is the one that’s least supported
     by OpenTelemetry. Which is to say that it isn’t supported at all, at least at
     the time of this writing (though it will be incorporated in time).
   id: totrans-498
   prefs: []
   type: TYPE_NORMAL
+  zh: 在可观察性的三大支柱中，日志记录是OpenTelemetry中最不受支持的，至少在撰写本文时是这样（尽管随着时间的推移会加入支持）。
 - en: 'So, for now, rather than discuss the OpenTelemetry Logging API, we’ll cover
     another excellent library: [Zap](https://oreil.ly/fjMls), a JSON-formatted logger
     designed to allocate memory as infrequently as possible, and to use reflection
@@ -3476,6 +3478,7 @@
   id: totrans-499
   prefs: []
   type: TYPE_NORMAL
+  zh: 所以，暂时不讨论OpenTelemetry Logging API，我们将介绍另一个优秀的库：[Zap](https://oreil.ly/fjMls)，一个设计为尽可能少分配内存并尽可能少使用反射和字符串格式化的JSON格式记录器。
 - en: Zap is currently one of the two most popular Go logging packages, alongside
     [Logrus](https://oreil.ly/UZt5n). Logrus is actually a little more popular, but
     three main factors drove me to choose Zap for this book instead. First, Zap is
@@ -3486,53 +3489,65 @@
   id: totrans-500
   prefs: []
   type: TYPE_NORMAL
+  zh: Zap目前是两种最流行的Go日志记录包之一，与[Logrus](https://oreil.ly/UZt5n)并列。Logrus实际上稍微更受欢迎，但三个主要因素促使我选择本书中的Zap。首先，Zap以其速度和低内存影响而闻名（在规模上非常有用）。其次，它有一个“结构优先”的哲学，正如我在[“为解析结构化事件”](#section_ch11_logging_structure_events)中所断言的那样，这是非常可取的。最后，Logrus现在处于维护模式，并且不再引入任何新功能。
 - en: How fast is Zap, exactly? It’s really fast. For a minimalist example, [Table 11-2](#table_ch11_zap_benchmarks_no_context)
     shows comparisons of benchmarks between several common structured logging packages,
     without including any context or `printf`-style templating.
   id: totrans-501
   prefs: []
   type: TYPE_NORMAL
+  zh: Zap有多快？它真的很快。例如，[Table 11-2](#table_ch11_zap_benchmarks_no_context)展示了几种常见结构化日志包之间的基准比较，不包括任何上下文或`printf`风格模板。
 - en: Table 11-2\. Relative benchmarks of structured logging packages for a message
     with no context or `printf`-style templating.
   id: totrans-502
   prefs: []
   type: TYPE_NORMAL
+  zh: 表11-2。相对于没有上下文或`printf`风格模板的消息的结构化日志包基准测试。
 - en: '| Package | Time | Time % to Zap | Objects Allocated |'
   id: totrans-503
   prefs: []
   type: TYPE_TB
+  zh: '| Package | Time | Time % to Zap | Objects Allocated |'
 - en: '| --- | --- | --- | --- |'
   id: totrans-504
   prefs: []
   type: TYPE_TB
+  zh: '| --- | --- | --- | --- |'
 - en: '| **Zap** | 118 ns/op | +0% | 0 allocs/op |'
   id: totrans-505
   prefs: []
   type: TYPE_TB
+  zh: '| **Zap** | 118 ns/op | +0% | 0 allocs/op |'
 - en: '| **Zap (sugared)** | 191 ns/op | +62% | 2 allocs/op |'
   id: totrans-506
   prefs: []
   type: TYPE_TB
+  zh: '| **Zap (sugared)** | 191 ns/op | +62% | 2 allocs/op |'
 - en: '| **Zerolog** | 93 ns/op | -21% | 0 allocs/op |'
   id: totrans-507
   prefs: []
   type: TYPE_TB
+  zh: '| **Zerolog** | 93 ns/op | -21% | 0 allocs/op |'
 - en: '| **Go-kit** | 280 ns/op | +137% | 11 allocs/op |'
   id: totrans-508
   prefs: []
   type: TYPE_TB
+  zh: '| **Go-kit** | 280 ns/op | +137% | 11 allocs/op |'
 - en: '| **Standard library** | 499 ns/op | +323% | 2 allocs/op |'
   id: totrans-509
   prefs: []
   type: TYPE_TB
+  zh: '| **标准库** | 499 ns/op | +323% | 2 allocs/op |'
 - en: '| **Logrus** | 3129 ns/op | +2552% | 24 allocs/op |'
   id: totrans-510
   prefs: []
   type: TYPE_TB
+  zh: '| **Logrus** | 3129 ns/op | +2552% | 24 allocs/op |'
 - en: '| **Log15** | 3887 ns/op | +3194% | 23 allocs/op |'
   id: totrans-511
   prefs: []
   type: TYPE_TB
+  zh: '| **Log15** | 3887 ns/op | +3194% | 23 allocs/op |'
 - en: These numbers were developed using [Zap’s own benchmarking suite](https://oreil.ly/uGbA7),
     but I did examine, update, and execute the benchmarks myself. Of course, as with
     any benchmarking, take these numbers with a grain of salt. The two standouts here
@@ -3541,48 +3556,59 @@
   id: totrans-512
   prefs: []
   type: TYPE_NORMAL
+  zh: 这些数据是使用[Zap自己的基准测试套件](https://oreil.ly/uGbA7)开发的，但我自己检查、更新和执行了这些基准测试。当然，像任何基准测试一样，需要保持审慎。两个显著的点是Go自带的标准`log`库，其运行时间约为Zap标准记录器的三倍，以及Logrus，其时间非常显著地比Zap慢25倍。
 - en: But we’re supposed to use context fields, aren’t we? What does Zap look like
     then? Well, those results are even more striking.
   id: totrans-513
   prefs: []
   type: TYPE_NORMAL
+  zh: 但是我们应该使用上下文字段，不是吗？那么Zap看起来如何呢？那些结果甚至更引人注目。
 - en: Table 11-3\. Relative benchmarks of structured logging packages for a message
     with 10 context fields.
   id: totrans-514
   prefs: []
   type: TYPE_NORMAL
+  zh: 表11-3。具有10个上下文字段消息的结构化日志包相对基准测试。
 - en: '| Package | Time | Time % to Zap | Objects Allocated |'
   id: totrans-515
   prefs: []
   type: TYPE_TB
+  zh: '| Package | Time | Time % to Zap | Objects Allocated |'
 - en: '| --- | --- | --- | --- |'
   id: totrans-516
   prefs: []
   type: TYPE_TB
+  zh: '| --- | --- | --- | --- |'
 - en: '| **Zap** | 862 ns/op | +0% | 5 allocs/op |'
   id: totrans-517
   prefs: []
   type: TYPE_TB
+  zh: '| **Zap** | 862 ns/op | +0% | 5 allocs/op |'
 - en: '| **Zap (sugared)** | 1250 ns/op | +45% | 11 allocs/op |'
   id: totrans-518
   prefs: []
   type: TYPE_TB
+  zh: '| **Zap (sugared)** | 1250 ns/op | +45% | 11 allocs/op |'
 - en: '| **Zerolog** | 4021 ns/op | +366% | 76 allocs/op |'
   id: totrans-519
   prefs: []
   type: TYPE_TB
+  zh: '| **Zerolog** | 4021 ns/op | +366% | 76 allocs/op |'
 - en: '| **Go-kit** | 4542 ns/op | +427% | 105 allocs/op |'
   id: totrans-520
   prefs: []
   type: TYPE_TB
+  zh: '| **Go-kit** | 4542 ns/op | +427% | 105 allocs/op |'
 - en: '| **Logrus** | 29501 ns/op | +3322% | 125 allocs/op |'
   id: totrans-521
   prefs: []
   type: TYPE_TB
+  zh: '| **Logrus** | 29501 ns/op | +3322% | 125 allocs/op |'
 - en: '| **Log15** | 29906 ns/op | +3369% | 122 allocs/op |'
   id: totrans-522
   prefs: []
   type: TYPE_TB
+  zh: '| **Log15** | 29906 ns/op | +3369% | 122 allocs/op |'
 - en: Zap’s lead over Logrus has extended to a (very impressive) factor of 33X; the
     standard `log` library isn’t included in this table because it doesn’t even support
     context fields.
