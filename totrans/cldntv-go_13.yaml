@@ -1,123 +1,172 @@
 - en: Chapter 10\. Manageability
+  id: totrans-0
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 第10章。可管理性
 - en: Everyone knows that debugging is twice as hard as writing a program in the first
     place. So if you’re as clever as you can be when you write it, how will you ever
     debug it?^([1](ch10.xhtml#idm45983620458120))
+  id: totrans-1
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: 每个人都知道调试比一开始编写程序要难两倍。所以，如果您在编写代码时尽可能聪明，您将如何调试它呢？^([1](ch10.xhtml#idm45983620458120))
 - en: ''
+  id: totrans-2
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: Brian Kernighan, The Elements of Programming Style (1978)
+  id: totrans-3
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: Brian Kernighan，《程序设计风格的要素》（1978年）
 - en: In a perfect world, you’d never have to deploy a new version of your service
     or (heaven forbid!) shut down your entire system to fix or modify it to meet new
     requirements.
+  id: totrans-4
   prefs: []
   type: TYPE_NORMAL
+  zh: 在完美的世界里，您永远不需要部署新版本的服务，或者（天哪！）关闭整个系统来修复或修改以满足新的需求。
 - en: Then again, in a perfect world, unicorns would exist and four out of five dentists
     would recommend we eat pie for breakfast.^([2](ch10.xhtml#idm45983620454840))
+  id: totrans-5
   prefs: []
   type: TYPE_NORMAL
+  zh: 不过，在完美的世界里，独角兽会存在，五位牙医中会有四位建议我们早餐吃派。^([2](ch10.xhtml#idm45983620454840))
 - en: Clearly, we don’t live in a perfect world. But while unicorns might never exist,^([3](ch10.xhtml#idm45983620452296))
     you don’t have to resign yourself to a world where you have to update your code
     whenever you need to alter your system’s behavior.
+  id: totrans-6
   prefs: []
   type: TYPE_NORMAL
+  zh: 显然，我们不生活在一个完美的世界。但是尽管独角兽可能永远不存在，^([3](ch10.xhtml#idm45983620452296)) 您不必接受一个每次需要修改系统行为时都需要更新代码的世界。
 - en: While you’ll probably always have to make code changes to update core logic,
     it is possible to build your systems so that you—or, critically, somebody else—can
     change a surprising variety of behaviors without having to recode and redeploy.
+  id: totrans-7
   prefs: []
   type: TYPE_NORMAL
+  zh: 虽然您可能总是需要进行代码更改来更新核心逻辑，但是有可能构建您的系统，以便您——或者关键时刻，其他人——可以在无需重新编码和重新部署的情况下改变多种行为。
 - en: You may recall that we introduced this important attribute of cloud native systems
     back in [“Manageability”](ch01.xhtml#section_ch01_manageability), where we defined
     it as the ease with which a system’s behavior can be modified to keep it secure,
     running smoothly, and compliant with changing requirements.
+  id: totrans-8
   prefs: []
   type: TYPE_NORMAL
+  zh: 您可能还记得我们在《“可管理性”》（ch01.xhtml#section_ch01_manageability）中介绍了这个云原生系统的重要属性，我们定义它为系统行为可以轻松修改以保持安全运行顺畅，并与变化的需求符合。
 - en: While this sounds straightforward, there’s actually quite a bit more to manageability
     than you might think. It goes far beyond configuration files (though that’s certainly
     part of it). In this chapter, we’ll discuss what it means to have a manageable
     system, and we’ll cover some of the techniques and implementations that can allow
     you to build a system that can change *almost* as quickly as its requirements.
+  id: totrans-9
   prefs: []
   type: TYPE_NORMAL
+  zh: 尽管听起来很简单，但可管理性实际上比您想象的要复杂得多。它远不止配置文件（尽管这当然是其中的一部分）。在本章中，我们将讨论什么是可管理的系统，以及一些技术和实现，使您能够构建一个几乎可以像其需求一样快速改变的系统。
 - en: What Is Manageability and Why Should I Care?
+  id: totrans-10
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 什么是可管理性以及我为什么要关心它？
 - en: When considering manageability, it’s common to think in terms of a single service.
     Can my service be configured easily? Does it have all the knobs and dials that
     it might need?
+  id: totrans-11
   prefs: []
   type: TYPE_NORMAL
+  zh: 在考虑可管理性时，通常会从单个服务的角度思考。我的服务是否可以轻松配置？它是否拥有可能需要的所有旋钮和按钮？
 - en: However, this misses the larger point by focusing on the component at the expense
     of the system. Manageability doesn’t end at the service boundary. For a system
     to be manageable, the entire system has to be considered.
+  id: totrans-12
   prefs: []
   type: TYPE_NORMAL
+  zh: 然而，通过专注于组件而忽视系统，这忽略了更大的观点。可管理性不仅限于服务边界。要使系统可管理，必须考虑整个系统。
 - en: Take a moment to reconsider manageability with a complex system in mind. Can
     its behavior be easily modified? Can its components be modified independently
     of one another? Can they be easily replaced, if necessary? How do we know when
     that is?
+  id: totrans-13
   prefs: []
   type: TYPE_NORMAL
+  zh: 请花些时间考虑在复杂系统中重新考虑可管理性。它的行为是否可以轻松修改？它的组件是否可以相互独立地修改？如果必要，它们是否可以轻松替换？我们如何知道何时需要这样做？
 - en: Manageability encompasses all possible dimensions of a system’s behavior. Its
     functions can be said to fall into four broad categories:^([5](ch10.xhtml#idm45983620606648))
+  id: totrans-14
   prefs: []
   type: TYPE_NORMAL
+  zh: 可管理性包括系统行为的所有可能维度。可以说其功能可分为四个广泛的类别：^([5](ch10.xhtml#idm45983620606648))
 - en: Configuration and control
+  id: totrans-15
   prefs: []
   type: TYPE_NORMAL
+  zh: 配置和控制
 - en: It’s important that setting up and configuring a system—and each of its components—should
     be easily configurable for optimal availability and performance. Some systems
     need regular or real-time control, so having the right “knobs and levers” is absolutely
     fundamental. This is where we’ll focus most of our attention in this chapter.
+  id: totrans-16
   prefs: []
   type: TYPE_NORMAL
+  zh: 设置和配置系统及其各个组件应该易于配置，以实现最佳的可用性和性能是非常重要的。一些系统需要定期或实时控制，因此拥有正确的“旋钮和杠杆”是绝对基础的。这将是本章大部分关注的焦点。
 - en: Monitoring, logging, and alerting
+  id: totrans-17
   prefs: []
   type: TYPE_NORMAL
+  zh: 监控、日志和警报
 - en: These functions keep track of the system’s ability to do its job, and are critical
     to effective system management. After all, without them, how would we know when
     our system requires management? As vital as these features are to manageability,
     we won’t discuss them in this chapter. Instead, they get an entire chapter of
     their own in [Chapter 11, *Observability*](ch11.xhtml#chapter_11).
+  id: totrans-18
   prefs: []
   type: TYPE_NORMAL
+  zh: 这些功能跟踪系统执行其工作的能力，对于有效的系统管理至关重要。毕竟，没有它们，我们怎么知道我们的系统何时需要管理呢？尽管这些功能对可管理性至关重要，但我们不会在本章讨论它们。相反，它们将在[第
+    11 章，*可观察性*](ch11.xhtml#chapter_11)中专门讨论。
 - en: Deployment and updates
+  id: totrans-19
   prefs: []
   type: TYPE_NORMAL
+  zh: 部署和更新
 - en: Even in the absence of code changes, the ability to easily deploy, update, roll
     back, and scale system components is valuable, especially when there are many
     systems to manage. Obviously, this is useful during the initial deployment, but
     it comes into effect throughout a system’s lifetime any time it has to be updated.
     Fortunately, its lack of external runtimes and singular executable artifacts make
     this an area in which Go excels.
+  id: totrans-20
   prefs: []
   type: TYPE_NORMAL
+  zh: 即使在没有代码更改的情况下，轻松部署、更新、回滚和扩展系统组件的能力也是非常有价值的，尤其是当需要管理许多系统时。显然，在初始部署期间这非常有用，但是在系统的整个生命周期中进行更新也同样重要。幸运的是，Go
+    语言在这方面表现出色，其缺乏外部运行时和单一的可执行构件使其非常优秀。
 - en: Service discovery and inventory
+  id: totrans-21
   prefs: []
   type: TYPE_NORMAL
+  zh: 服务发现和库存
 - en: A key feature of cloud native systems is their distributed nature. It’s critical
     that components be able to quickly and accurately detect one another, a function
     called *service discovery*. Since service discovery is an architectural feature
     rather than a programmatic one, we won’t go too deeply into it in this book.
+  id: totrans-22
   prefs: []
   type: TYPE_NORMAL
+  zh: 云原生系统的一个关键特性是其分布式性质。组件能够快速准确地检测彼此非常关键，这被称为*服务发现*功能。由于服务发现是一种架构特性而不是程序特性，我们在本书中不会深入探讨它。
 - en: Because this is more of a Go book than it is an architecture book,^([6](ch10.xhtml#idm45983620592520))
     it focuses largely on service implementations. For that reason only—*not because
     it’s more important*—most of this chapter will similarly focus on service-level
     configuration. Unfortunately, an in-depth discussion of these is beyond the scope
     of this book.^([7](ch10.xhtml#idm45983620591208))
+  id: totrans-23
   prefs: []
   type: TYPE_NORMAL
+  zh: 因为这本书更像是一本关于 Go 语言而不是架构的书籍^([6](ch10.xhtml#idm45983620592520))，它主要集中于服务实现。正因如此——*并非因为它更重要*——本章的大部分内容将同样聚焦在服务级配置上。不幸的是，对这些内容的深入讨论超出了本书的范围^([7](ch10.xhtml#idm45983620591208))。
 - en: Managing complex computing systems is generally difficult and time-consuming,
     and the costs of managing them can far exceed the costs of the underlying hardware
     and software. By definition, a system designed to be manageable can be managed
@@ -126,550 +175,780 @@
     error, making it easier and faster to undo when it inevitably creeps in. In that
     way, manageability directly impacts reliability, availability, and security, making
     it a key ingredient of system dependability.
+  id: totrans-24
   prefs: []
   type: TYPE_NORMAL
+  zh: 管理复杂的计算系统通常是困难且耗时的，其管理成本可能远远超过底层硬件和软件的成本。按定义，一个设计为可管理的系统可以更高效地进行管理，因此成本更低。即使不考虑管理成本，减少复杂性也可以极大地影响人为错误的发生概率，使其更容易和更快速地纠正。因此，可管理性直接影响可靠性、可用性和安全性，是系统可靠性的关键因素。
 - en: Configuring Your Application
+  id: totrans-25
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 配置您的应用程序
 - en: The most basic function of manageability is the ability to configure an application.
     In an ideally configurable application, anything that’s likely to vary between
     environments—staging, production, developer environments, etc.—will be cleanly
     separated from the code and be externally definable in some way.
+  id: totrans-26
   prefs: []
   type: TYPE_NORMAL
+  zh: 可管理性的最基本功能是配置应用程序的能力。在一个理想的可配置应用程序中，任何在不同环境（如测试、生产、开发环境等）之间可能变化的内容都应该与代码清晰分离，并以某种外部可定义的方式定义。
 - en: 'You may recall that *The Twelve-Factor App*—a set of twelve rules and guidelines
     for building web applications that we introduced way back in [Chapter 6](ch06.xhtml#chapter_6)—had
     quite a bit to say on this subject. In fact, the third of its twelve rules—[“III.
     Configuration”](ch06.xhtml#section_ch06_12_factor_app_configuration)—was concerned
     entirely with application configuration, about which it says:'
+  id: totrans-27
   prefs: []
   type: TYPE_NORMAL
+  zh: 您可能还记得 *The Twelve-Factor App*——我们在 [第6章](ch06.xhtml#chapter_6) 中介绍的用于构建 Web
+    应用程序的十二条规则和指南——对这个主题有很多看法。事实上，它的十二条规则中的第三条——[“III. 配置”](ch06.xhtml#section_ch06_12_factor_app_configuration)——完全关注应用程序配置，关于这一点，它说：
 - en: Store configuration in the environment.
+  id: totrans-28
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: 在环境中存储配置。
 - en: 'As written, *The Twelve-Factor App* insists that all configurations should
     be stored in environment variables. There are a plenty of opinions on this, but
     in the years since its publication the industry seems to have reached a general
     consensus that what really matters is:'
+  id: totrans-29
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如 *The Twelve-Factor App* 所述，所有配置应存储在环境变量中。对此有很多不同看法，但自从其出版以来，行业似乎已达成普遍共识，即真正重要的是：
 - en: Configuration should be strictly separated from the code
+  id: totrans-30
   prefs: []
   type: TYPE_NORMAL
+  zh: 配置应严格与代码分离。
 - en: Configuration—anything that’s likely to vary between environments—should always
     be cleanly separated from the code. While configuration can vary substantially
     across deploys, code does not. Configuration shouldn’t be baked into the code.
     Ever.
+  id: totrans-31
   prefs: []
   type: TYPE_NORMAL
+  zh: 配置——任何可能在不同环境中有所不同的内容——应始终与代码清晰分离。虽然配置在不同部署中可能有很大差异，但代码则不然。配置不应该被硬编码到代码中。永远不要这样做。
 - en: Configurations should be stored in version control
+  id: totrans-32
   prefs: []
   type: TYPE_NORMAL
+  zh: 配置应存储在版本控制中。
 - en: Storing configurations in version control—separately from the code—allows you
     to quickly roll back a configuration change if necessary, and aids system re-creation
     and restoration. Some deployment frameworks, like Kubernetes, make this distinction
     naturally and relatively seamless by providing configuration primitives like the
     ConfigMap.
+  id: totrans-33
   prefs: []
   type: TYPE_NORMAL
+  zh: 将配置存储在版本控制中——与代码分开——允许您在必要时快速回滚配置更改，并有助于系统的重建和恢复。一些部署框架，如 Kubernetes，通过提供像 ConfigMap
+    这样的配置原语，使这种区分自然且相对无缝。
 - en: These days, it’s still quite common to see applications configured mainly by
     environment variables, but it’s just as common to see command-line flags and configuration
     files with various formats. Sometimes an application will even support more than
     one of these options. In the subsequent sections, we’ll review some of these methods,
     their various pros and cons, and how they can be implemented in Go.
+  id: totrans-34
   prefs: []
   type: TYPE_NORMAL
+  zh: 如今，看到应用程序主要通过环境变量进行配置仍然很常见，但看到带有各种格式的命令行标志和配置文件也同样普遍。有时，一个应用程序甚至会支持多种这些选项。在接下来的章节中，我们将审查其中一些方法，它们的各种优缺点，以及如何在
+    Go 中实现它们。
 - en: Configuration Good Practice
+  id: totrans-35
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 配置良好实践
 - en: 'When you’re building an application, you have a lot of options in how you define,
     implement, and deploy your application configurations. However, in my experience,
     I’ve found that certain general practices produce better long- and short-term
     outcomes:'
+  id: totrans-36
   prefs: []
   type: TYPE_NORMAL
+  zh: 在构建应用程序时，您有很多选择来定义、实施和部署应用程序配置。然而，根据我的经验，我发现某些通用实践能够产生更好的长期和短期结果：
 - en: Version control your configurations
+  id: totrans-37
   prefs: []
   type: TYPE_NORMAL
+  zh: 版本控制您的配置。
 - en: Yes, I’m repeating myself, but this bears repeating. Configuration files should
     be stored in version control before being deployed to the system. This makes it
     possible to review them before deployment, to quickly reference them afterwards,
     and to quickly roll back a change if necessary. It’s also helpful if (and when)
     you need to re-create and restore your system.
+  id: totrans-38
   prefs: []
   type: TYPE_NORMAL
+  zh: 是的，我在重复，但这是值得重复的。在部署到系统之前，配置文件应存储在版本控制中。这使得在部署之前能够审查它们，在之后能够快速引用它们，并在必要时能够快速回滚更改。如果（以及当）需要重新创建和恢复系统时，这也是有帮助的。
 - en: Don’t roll your own format
+  id: totrans-39
   prefs: []
   type: TYPE_NORMAL
+  zh: 不要自己发明格式。
 - en: Write your configuration files using a standard format like JSON, YAML, or TOML.
     We’ll cover some of these later in the chapter. If you *must* roll your own format,
     be sure that you’re comfortable with the idea of maintaining it—and forcing any
     future maintainers to deal with it—forever.
+  id: totrans-40
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用 JSON、YAML 或 TOML 等标准格式编写配置文件。我们将在本章后面介绍其中一些。如果 *必须* 自己发明格式，请确保您对维护它的想法感到满意，并且迫使任何未来的维护人员永远处理它。
 - en: Make the zero value useful
+  id: totrans-41
   prefs: []
   type: TYPE_NORMAL
+  zh: 让零值有用。
 - en: Don’t use nonzero default values unnecessarily. This is actually a good rule
     in general; there’s even a “Go proverb” about it.^([8](ch10.xhtml#idm45983620384056))
     Whenever possible, the behavior that results from an undefined configuration should
     be acceptable, reasonable, and unsurprising. A simple, minimal configuration makes
     errors less likely.
+  id: totrans-42
   prefs: []
   type: TYPE_NORMAL
+  zh: 不要无谓地使用非零默认值。总的来说，这是一个很好的规则；甚至有一个关于它的“Go谚语”。^([8](ch10.xhtml#idm45983620384056))
+    在可能的情况下，未定义配置所导致的行为应该是可接受的、合理的和不令人惊讶的。简单、最小化的配置可以减少错误的可能性。
 - en: Configuring with Environment Variables
+  id: totrans-43
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 使用环境变量进行配置
 - en: 'As we discussed in [Chapter 6](ch06.xhtml#chapter_6), and reviewed previously,
     using environment variables to define configuration values is the method advocated
     for in *The Twelve-Factor App*. There’s some merit to this preference: environment
     variables are universally supported, they ensure that configurations don’t get
     accidentally checked into the code, and using them generally requires less code
     than using a configuration file. They’re also perfectly adequate for small applications.'
+  id: totrans-44
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如我们在 [第6章](ch06.xhtml#chapter_6) 中讨论过，并且之前审查过的，使用环境变量定义配置值是《十二要素应用》中提倡的方法。这种偏好确实有其合理性：环境变量得到广泛支持，它们确保配置不会意外地被检入代码中，并且使用它们通常需要的代码比使用配置文件少。对于小型应用程序来说，它们也完全足够了。
 - en: On the other hand, the process of setting and passing environment variables
     can be ugly, tedious, and verbose. While some applications support defining environment
     variables in a file, this largely defeats the purpose of using environment variables
     in the first place.
+  id: totrans-45
   prefs: []
   type: TYPE_NORMAL
+  zh: 另一方面，设置和传递环境变量的过程可能会显得丑陋、乏味和冗长。虽然一些应用程序支持在文件中定义环境变量，但这在很大程度上削弱了首次使用环境变量的初衷。
 - en: The implicit nature of environment variables can introduce some challenges as
     well. Since you can’t easily learn about the existence and behavior of environment
     variables by looking at an existing configuration file or checking the help output,
     applications that reply on them can sometimes be harder to use, and errors in
     them harder to debug.
+  id: totrans-46
   prefs: []
   type: TYPE_NORMAL
+  zh: 环境变量的隐式特性也可能带来一些挑战。由于无法通过查看现有配置文件或检查帮助输出轻松了解环境变量的存在和行为，依赖于它们的应用有时可能更难使用，并且其中的错误更难调试。
 - en: 'As with most high-level languages, Go makes environment variables easily accessible.
     It does this through the standard `os` package, which provides the `os.Getenv`
     function for this purpose:'
+  id: totrans-47
   prefs: []
   type: TYPE_NORMAL
+  zh: 与大多数高级语言一样，Go使得环境变量很容易访问。它通过标准的`os`包实现这一点，该包提供了`os.Getenv`函数用于此目的：
 - en: '[PRE0]'
+  id: totrans-48
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE0]'
 - en: 'The `os.Getenv` function retrieves the value of the environment variable named
     by the key, but if the variable isn’t present, it’ll return an empty string. If
     you need to distinguish between an empty value and an unset value, Go also provides
     the `os.LookEnv` function, which returns both the value and a `bool` that’s `false`
     if the variable isn’t set:'
+  id: totrans-49
   prefs: []
   type: TYPE_NORMAL
+  zh: '`os.Getenv`函数获取由键命名的环境变量的值，但如果变量不存在，则返回一个空字符串。如果需要区分空值和未设置值，Go还提供了`os.LookEnv`函数，它返回值和一个布尔值，如果变量未设置则为`false`：'
 - en: '[PRE1]'
+  id: totrans-50
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE1]'
 - en: 'This functionality is pretty minimal, but perfectly adequate for many (if not
     most) purposes. If you’re in need of more sophisticated options, like default
     values or typed variables, there are several excellent third-party packages that
     provide this functionality. [Viper (spf13/viper)](https://oreil.ly/bS4RY)—which
     we’ll discuss in [“Viper: The Swiss Army Knife of Configuration Packages”](#section_ch10_viper)—is
     particularly popular.'
+  id: totrans-51
   prefs: []
   type: TYPE_NORMAL
+  zh: '这个功能非常基本，但对于许多（如果不是大多数）用途来说完全足够了。如果你需要更复杂的选项，如默认值或类型化变量，有几个出色的第三方包可以提供这些功能。
+    [Viper（spf13/viper）](https://oreil.ly/bS4RY)——我们将在 [“Viper: The Swiss Army Knife
+    of Configuration Packages”](#section_ch10_viper) 中讨论它——特别受欢迎。'
 - en: Configuring with Command-Line Arguments
+  id: totrans-52
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 使用命令行参数进行配置
 - en: As configuration methods go, command-line arguments are definitely worth considering,
     at least for smaller, less-complex applications. After all, they’re explicit,
     and details of their existence and usage are usually available via a `--help`
     option.
+  id: totrans-53
   prefs: []
   type: TYPE_NORMAL
+  zh: 作为配置方法，命令行参数绝对值得考虑，至少对于较小、不太复杂的应用程序来说是如此。毕竟，它们是显式的，并且它们的存在和用法细节通常可以通过`--help`选项获得。
 - en: The standard flag package
+  id: totrans-54
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 标准标志包
 - en: Go includes the `flag` package, which is a basic command-line parsing package,
     in its standard library. While `flag` isn’t particularly feature-rich, it’s fairly
     straightforward to use, and—unlike `os.Getenv`—supports typing out-of-the-box.
+  id: totrans-55
   prefs: []
   type: TYPE_NORMAL
+  zh: Go语言包含`flag`包，这是其标准库中的基本命令行解析包。虽然`flag`包功能不是特别丰富，但使用起来相当简单，并且——不像`os.Getenv`——支持开箱即用的类型。
 - en: 'Take, for example, the following program, which uses `flag` to implement a
     basic command that reads and outputs the values of command-line flags:'
+  id: totrans-56
   prefs: []
   type: TYPE_NORMAL
+  zh: 举个例子，下面的程序使用`flag`实现了一个基本命令，读取并输出命令行标志的值：
 - en: '[PRE2]'
+  id: totrans-57
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE2]'
 - en: 'As you can see from the previous code, the `flag` package allows you to register
     command-line flags with types, default values, and short descriptions, and to
     map those flags to variables. We can see a summary of these flags by running the
     program and passing it the `-help` flag:'
+  id: totrans-58
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如你从前面的代码中看到的，`flag`包允许你注册带有类型、默认值和简短描述的命令行标志，并将这些标志映射到变量。我们可以通过运行程序并传递`-help`标志来查看这些标志的摘要：
 - en: '[PRE3]'
+  id: totrans-59
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE3]'
 - en: 'The help output presents us with a list of all of the available flags. Exercising
     all of these flags gives us something like the following:'
+  id: totrans-60
   prefs: []
   type: TYPE_NORMAL
+  zh: 帮助输出向我们展示了所有可用标志的列表。运行所有这些标志，结果如下：
 - en: '[PRE4]'
+  id: totrans-61
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE4]'
 - en: It works! However, the `flag` package seems to have a couple of issues that
     limit its usefulness.
+  id: totrans-62
   prefs: []
   type: TYPE_NORMAL
+  zh: 它有效果！但是，`flag`包似乎有一些限制其实用性的问题。
 - en: First, as you may have noticed, the resulting flag syntax seems a little…nonstandard.
     Many of us have come to expect command-line interfaces to follow [the GNU argument
     standard,](https://oreil.ly/evqk4) with long-named options prefixed by two dashes
     (`--version`) and short, single-letter equivalents (`-v`).
+  id: totrans-63
   prefs: []
   type: TYPE_NORMAL
+  zh: 首先，你可能已经注意到，生成的标志语法似乎有点不太标准。我们许多人已经习惯了命令行界面遵循[GNU参数标准](https://oreil.ly/evqk4)，长名称选项由两个破折号（`--version`）前缀，而短的单字母等效项（`-v`）。
 - en: Second, all `flag` does is parse flags (though to be fair, it doesn’t claim
     to do any more than that), and while that’s nice, it’s not as powerful as it could
     be. It sure would be nice if we could map commands to functions, wouldn’t it?
+  id: totrans-64
   prefs: []
   type: TYPE_NORMAL
+  zh: 其次，`flag`的功能仅限于解析标志（虽然公平地说，它并没有声称做得更多），虽然这很好，但它的功能远不及它可能达到的水平。如果我们能够将命令映射到函数，那就太好了，不是吗？
 - en: The Cobra command-line parser
+  id: totrans-65
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: Cobra命令行解析器
 - en: The `flags` package is perfectly fine if all you need to do is parse flags,
     but if you’re in the market for something a little more powerful to build your
     command-line interfaces, you might want to consider [the Cobra package](https://oreil.ly/4oCyH).
     Cobra has a number of features that make it a popular choice for building fully
     featured command-line interfaces. It’s used in a number of high-profile projects,
     including Kubernetes, CockroachDB, Docker, Istio, and Helm.
+  id: totrans-66
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果你只需解析标志，`flags`包完全可以胜任，但如果你需要更强大的东西来构建命令行界面，你可能会考虑[Cobra包](https://oreil.ly/4oCyH)。Cobra有许多功能，使它成为构建功能齐全的命令行界面的热门选择。它被用于许多知名项目，包括Kubernetes、CockroachDB、Docker、Istio和Helm。
 - en: 'In addition to providing fully POSIX-compliant flags (short *and* long versions),
     Cobra also supports nested subcommands, and automatically generates help (`--help`)
     output and autocomplete for various shells. It also integrates with Viper, which
     we’ll cover in [“Viper: The Swiss Army Knife of Configuration Packages”](#section_ch10_viper).'
+  id: totrans-67
   prefs: []
   type: TYPE_NORMAL
+  zh: 除了提供完全符合POSIX标准的标志（长*和*短版本），Cobra还支持嵌套子命令，并自动生成各种Shell的帮助（`--help`）输出和自动完成。它还与Viper集成，我们将在[“Viper：配置包的瑞士军刀”](#section_ch10_viper)中介绍它。
 - en: 'Cobra’s primary downside, as you might imagine, is that it’s quite complex
     relative to the `flags` package. Using Cobra to implement the program from [“The
     standard flag package”](#section_ch10_flags_package) looks like the following:'
+  id: totrans-68
   prefs: []
   type: TYPE_NORMAL
+  zh: 你可能会想到，Cobra 的主要缺点是相对于`flags`包来说相当复杂。使用 Cobra 来实现[“标准标志包”](#section_ch10_flags_package)中的程序看起来像这样：
 - en: '[PRE5]'
+  id: totrans-69
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE5]'
 - en: In contrast to the `flags`-package version, which basically just reads some
     flags and prints the results, the Cobra program has a bit more complexity, with
     several distinct parts.
+  id: totrans-70
   prefs: []
   type: TYPE_NORMAL
+  zh: 与`flags`包版本相比，后者基本上只是读取一些标志并打印结果，Cobra程序具有更复杂的结构，包含多个不同的部分。
 - en: First, we declare the target variables with package scope, rather than locally
     within a function. This is necessary because they have to be accessible to both
     the `init` function and the function that implements the command logic proper.
+  id: totrans-71
   prefs: []
   type: TYPE_NORMAL
+  zh: 首先，我们使用包范围声明目标变量，而不是在函数内部局部声明。这是必需的，因为它们必须在`init`函数和实现命令逻辑的函数之间可访问。
 - en: Next, we create a `cobra.Command` struct, `rootCmd`, that represents the *root
     command*. A separate `cobra.Command` instance is used to represent every command
     and subcommand that the CLI makes available. The `Use` field spells out the command’s
     one-line usage message and `Long` is the long message displayed in the help output.
     `Run` is a function of type `func(cmd *Command, args []string)` that implements
     the actual work to be done when the command is executed.
+  id: totrans-72
   prefs: []
   type: TYPE_NORMAL
+  zh: 接下来，我们创建一个`cobra.Command`结构体，`rootCmd`，代表*根命令*。一个单独的`cobra.Command`实例用于表示CLI提供的每个命令和子命令。`Use`字段说明命令的一行使用消息，`Long`是显示在帮助输出中的长消息。`Run`是一个类型为`func(cmd
+    *Command, args []string)`的函数，用于实现命令执行时要执行的实际工作。
 - en: Typically, commands are constructed in an `init` function. In our case, we add
     three flags—`string`, `number`, and `boolean`—to our root command along with their
     short flags, default values, and descriptions.
+  id: totrans-73
   prefs: []
   type: TYPE_NORMAL
+  zh: 通常，命令是在`init`函数中构建的。在我们的情况下，我们将三个标志—`string`，`number`和`boolean`—添加到我们的根命令中，以及它们的短标志、默认值和描述。
 - en: 'Every command gets an automatically generated help output, which we can retrieve
     using the `--help` flag:'
+  id: totrans-74
   prefs: []
   type: TYPE_NORMAL
+  zh: 每个命令都有一个自动生成的帮助输出，我们可以使用`--help`标志来获取它：
 - en: '[PRE6]'
+  id: totrans-75
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE6]'
 - en: 'This makes sense, and it’s also pretty! But does it run as we expect? Executing
     the command (using the standard flags style), gives us the following output:'
+  id: totrans-76
   prefs: []
   type: TYPE_NORMAL
+  zh: 这是有道理的，而且也很漂亮！但它是否按我们的预期运行？执行命令（使用标准标志样式），会给我们带来以下输出：
 - en: '[PRE7]'
+  id: totrans-77
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE7]'
 - en: The outputs are identical; we have achieved parity. But this is just a single
     command. One of the benefits of Cobra is that it also allows *subcommands*.
+  id: totrans-78
   prefs: []
   type: TYPE_NORMAL
+  zh: 输出是相同的；我们已经实现了一致性。但这只是一个单一的命令。Cobra的一个好处是它还允许*子命令*。
 - en: What does this mean? Take, for example, the `git` command. In this example,
     `git` would be the root command. By itself, it doesn’t do much, but it has a series
     of subcommands—`git clone`, `git init`, `git blame`, etc.—that are related but
     are each distinct operations of their own.
+  id: totrans-79
   prefs: []
   type: TYPE_NORMAL
+  zh: 这意味着什么？以`git`命令为例。在这个例子中，`git`将是根命令。它本身不做太多事情，但它有一系列子命令—`git clone`，`git init`，`git
+    blame`等—它们相关，但每个都是独立的操作。
 - en: Cobra provides this capability by treating commands as a tree structure. Each
     command and subcommand (including the root command) are represented by a distinct
     `cobra.Command` value. These are attached to one another using the `(c *Command)
     AddCommand(cmds ...*Command)` function. We demonstrate this in the following example
     by turning the `flags` command into a subcommand of a new root, which we call
     `cng` (for *Cloud Native Go*).
+  id: totrans-80
   prefs: []
   type: TYPE_NORMAL
+  zh: Cobra通过将命令视为树结构来提供此功能。每个命令和子命令（包括根命令）都由一个独立的`cobra.Command`值表示。它们使用`(c *Command)
+    AddCommand(cmds ...*Command)`函数彼此连接。我们在以下示例中演示了这一点，通过将`flags`命令转换为新根命令的子命令，我们称之为`cng`（用于*Cloud
+    Native Go*）。
 - en: 'To do this, we first have to rename the original `rootCmd` to `flagsCmd`. We
     add a `Short` attribute to define its short description in help output, but it’s
     otherwise identical. But now we need a new root command, so we create that as
     well:'
+  id: totrans-81
   prefs: []
   type: TYPE_NORMAL
+  zh: 要做到这一点，我们首先必须将原始的`rootCmd`重命名为`flagsCmd`。我们添加了一个`Short`属性来定义其在帮助输出中的简短描述，但它在其他方面是相同的。但现在我们需要一个新的根命令，因此我们也创建了它：
 - en: '[PRE8]'
+  id: totrans-82
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE8]'
 - en: 'Now we have two commands: the root command, `cng`, and a single subcommand,
     `flags`. The next step is to add the `flags` subcommand to the root command so
     that it’s immediately beneath the root in the command tree. This is typically
     done in an `init` function, which we demonstrate here:'
+  id: totrans-83
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在我们有两个命令：根命令`cng`和一个单一的子命令`flags`。下一步是将`flags`子命令添加到根命令中，使其直接位于命令树的根下。这通常在`init`函数中完成，我们在这里演示：
 - en: '[PRE9]'
+  id: totrans-84
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE9]'
 - en: In the preceding `init` function, we keep the three `Flags` methods, except
     we now call them on `flagsCmd`.
+  id: totrans-85
   prefs: []
   type: TYPE_NORMAL
+  zh: 在前述的`init`函数中，我们保留了三个`Flags`方法，只是现在我们在`flagsCmd`上调用它们。
 - en: What’s new, however, is the `AddCommand` method, which allows us to add `flagsCmd`
     to `rootCmd` as a subcommand. We can repeat `AddCommand` as many times as we like
     with multiple `Command` values, adding as many subcommands (or sub-subcommands,
     or sub-sub-subcommands) as we want.
+  id: totrans-86
   prefs: []
   type: TYPE_NORMAL
+  zh: 然而，新的是`AddCommand`方法，它允许我们将`flagsCmd`作为子命令添加到`rootCmd`中。我们可以多次重复`AddCommand`，使用多个`Command`值添加尽可能多的子命令（或子子命令，或子子子命令）。
 - en: 'Now that we’ve told Cobra about the new `flags` subcommand, its information
     is reflected in the generated help output:'
+  id: totrans-87
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在我们已经告诉Cobra关于新的`flags`子命令，其信息反映在生成的帮助输出中：
 - en: '[PRE10]'
+  id: totrans-88
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE10]'
 - en: 'Now, according to this help output, we have a top-level root command named
     `cng` that has *two* available subcommands: our `flags` command, and an automatically-generated
     `help` subcommand that lets a user view any subcommand’s help. For example, `help
     flags` provides us with information and instructions for the `flags` subcommand:'
+  id: totrans-89
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在，根据此帮助输出，我们有一个顶级根命令名为`cng`，有*两个*可用的子命令：我们的`flags`命令，以及一个自动生成的`help`子命令，允许用户查看任何子命令的帮助。例如，`help
+    flags`为我们提供了有关`flags`子命令的信息和说明：
 - en: '[PRE11]'
+  id: totrans-90
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE11]'
 - en: Kind of neat, huh?
+  id: totrans-91
   prefs: []
   type: TYPE_NORMAL
+  zh: 相当不错，是吗？
 - en: This is a tiny, tiny sample of what the Cobra library is capable of, but it’s
     more than sufficient to let us to build a robust set of configuration options.
     If you’re interested in learning more about Cobra and how you can use it to build
     powerful command-line interfaces, take a look at its [GitHub repository](https://oreil.ly/oy7EN)
     and its [listing on GoDoc](https://oreil.ly/JOeoJ).
+  id: totrans-92
   prefs: []
   type: TYPE_NORMAL
+  zh: 这只是Cobra库能够完成的微小示例，但已经足以让我们构建一组强大的配置选项。如果您有兴趣了解更多关于Cobra及其如何用于构建强大命令行界面的信息，请查看其[GitHub仓库](https://oreil.ly/oy7EN)和其[GoDoc列表](https://oreil.ly/JOeoJ)。
 - en: Configuring with Files
+  id: totrans-93
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 使用文件配置
 - en: 'Last but not least, we have what is probably the most commonly used configuration
     option: the configuration file.'
+  id: totrans-94
   prefs: []
   type: TYPE_NORMAL
+  zh: 最后但同样重要的是，我们可能使用最广泛的配置选项：配置文件。
 - en: Configuration files have a lot of advantages over environment variables, particularly
     for more complex applications. They tend to be more explicit and comprehensible
     by allowing behaviors to be logically grouped and annotated. Often, understanding
     how to use a configuration file is just a matter of looking at its structure or
     an example of its use.
+  id: totrans-95
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于更复杂的应用程序，配置文件比环境变量具有许多优势。它们通常更为明确和可理解，通过允许将行为逻辑地分组和注释来实现。通常，理解如何使用配置文件只是查看其结构或其使用示例的问题。
 - en: Configuration files are particularly useful when managing a large number of
     options, which is an advantage they have over both environment variables and command-line
     flags. Command-line flags in particular can sometimes result in some pretty long
     statements that can be tedious and difficult to construct.
+  id: totrans-96
   prefs: []
   type: TYPE_NORMAL
+  zh: 配置文件在管理大量选项时特别有用，这是它们优于环境变量和命令行标志的优势。特别是命令行标志有时可能会导致一些冗长且构造繁琐的语句。
 - en: Files aren’t the perfect solution though. Depending on your environment, distributing
     them at scale in a way that maintains parity across a cluster can be a challenge.
     This situation can be improved by having a single “source of truth,” such as a
     distributed key/value store like etcd or HashiCorp Consul, or a central source
     code repository from which the deployment automatically draws its configuration,
     but this adds complexity and a dependency on another resource.
+  id: totrans-97
   prefs: []
   type: TYPE_NORMAL
+  zh: 文件并非完美的解决方案。根据您的环境，在大规模分发文件并在集群中保持一致性可能会面临挑战。可以通过拥有单一的“真相源”来改善这种情况，例如像etcd或HashiCorp
+    Consul这样的分布式键/值存储，或者从中部署自动提取其配置的中央源代码仓库，但这会增加复杂性并依赖于其他资源。
 - en: Fortunately, most orchestration platforms provide specialized configuration
     resources—such as Kubernetes’ `ConfigMap` object—that largely alleviate the distribution
     problem.
+  id: totrans-98
   prefs: []
   type: TYPE_NORMAL
+  zh: 幸运的是，大多数编排平台提供专门的配置资源，例如Kubernetes的`ConfigMap`对象，大大缓解了分发问题。
 - en: 'There are probably dozens of file formats that have been used for configuration
     over the years, but in recent years, two in particular have stood out: JSON and
     YAML. In the next few sections, we’ll go into each of these—and how to use them
     in Go—in a little more detail'
+  id: totrans-99
   prefs: []
   type: TYPE_NORMAL
+  zh: 近年来可能有数十种用于配置的文件格式，但特别是两种最为突出：JSON和YAML。在接下来的几节中，我们将更详细地讨论这两种格式以及如何在Go中使用它们。
 - en: Our configuration data structure
+  id: totrans-100
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 我们的配置数据结构
 - en: 'Before we proceed with a discussion of file formats and how to decode them,
     we should discuss the two general ways in which configurations can be unmarshalled:'
+  id: totrans-101
   prefs: []
   type: TYPE_NORMAL
+  zh: 在我们讨论文件格式及其如何解码之前，我们应该讨论配置可以解码的两种一般方式：
 - en: 'Configuration keys and values can be mapped to corresponding fields in a specific
     struct type. For example, a configuration that contains the attribute `host: localhost`,
     could be unmarshalled into a struct type that has a `Host string` field.'
+  id: totrans-102
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '配置键和值可以映射到特定结构类型中的相应字段。例如，包含属性`host: localhost`的配置可以解码为具有`Host string`字段的结构类型。'
 - en: Configuration data can be decoded and unmarshalled into one or more, possibly
     nested, maps of type `map[string]interface{}`. This can be convenient when you’re
     working with arbitrary configurations, but it’s awkward to work with.
+  id: totrans-103
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 配置数据可以解码和解组成一个或多个可能嵌套的`map[string]interface{}`类型的映射。当处理任意配置时这非常方便，但在操作时却有些棘手。
 - en: If you know what your configuration is likely to look like in advance (which
     you generally do), then the first approach to decoding configurations, mapping
     them to a data structure created for that purpose, is by far the easiest. Although
     it’s possible to decode and do useful work with arbitrary configuration schemas,
     doing so can be very tedious and isn’t advisable for most configuration purposes.
+  id: totrans-104
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果您预先知道您的配置可能是什么样子（通常是这样），那么解码配置的第一种方法，将它们映射到为此目的创建的数据结构中，显然是最简单的方法。尽管可以解码并处理任意配置模式，并做有用的工作，但这样做可能非常乏味，并且不适合大多数配置目的。
 - en: 'So, for the remainder of this section, our example configurations will correspond
     to the following `Config` struct:'
+  id: totrans-105
   prefs: []
   type: TYPE_NORMAL
+  zh: 因此，在本节的其余部分，我们的示例配置将对应以下`Config`结构：
 - en: '[PRE12]'
+  id: totrans-106
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE12]'
 - en: Warning
+  id: totrans-107
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 警告
 - en: For a struct field to be marshallable or unmarshallable by *any* encoding package,
     it *must* begin with a capital letter to indicate that it’s exported by its package.
+  id: totrans-108
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于结构体字段要能被*任何*编码包编组或解组，它*必须*以大写字母开头，以指示它被包的导出。
 - en: For each of our examples we’ll start with the `Config` struct, occasionally
     enhancing it with format-specific tags or other decorations.
+  id: totrans-109
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于我们的每一个例子，我们将从`Config`结构开始，偶尔会用格式特定的标签或其他装饰增强它。
 - en: Working with JSON
+  id: totrans-110
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 使用JSON
 - en: JSON (JavaScript Object Notation) was invented in the early 2000s, growing out
     of the need for a modern data interchange format to replace XML and other formats
     in use at the time. It’s based on a subset of the JavaScript scripting language,
     making it both relatively human-readable and efficient for machines to generate
     and parse, while also offering the semantics for lists and mappings that were
     absent from XML.
+  id: totrans-111
   prefs: []
   type: TYPE_NORMAL
+  zh: JSON（JavaScript对象表示法）是在21世纪初发明的，是为了取代XML和当时使用的其他格式而需要的现代数据交换格式。它基于JavaScript脚本语言的一个子集，使其相对易于阅读，并对机器生成和解析都非常高效，同时提供了XML中缺少的列表和映射的语义。
 - en: As common and successful as JSON is, it does have some drawbacks. It’s generally
     considered less user-friendly than YAML. Its syntax is especially unforgiving
     and can be easily broken by a misplaced (or missing) comma, and it doesn’t even
     support comments.
+  id: totrans-112
   prefs: []
   type: TYPE_NORMAL
+  zh: 尽管JSON非常常见和成功，但它确实有一些缺点。它通常被认为不如YAML用户友好。它的语法尤其严格，一个错位（或缺失）的逗号就可能轻易地破坏它，甚至它不支持注释。
 - en: However, of the formats presented in this chapter, it’s the only one that’s
     supported in Go’s standard library.
+  id: totrans-113
   prefs: []
   type: TYPE_NORMAL
+  zh: 然而，在本章介绍的格式中，它是Go标准库唯一支持的格式。
 - en: What follows is a very brief introduction into encoding and decoding data to
     and from JSON. For a somewhat more thorough review, take a look at Andrew Gerrand’s
     “JSON and Go” on [*The Go Blog*](https://oreil.ly/6Uvl2).
+  id: totrans-114
   prefs: []
   type: TYPE_NORMAL
+  zh: 下面是一个关于将数据编码和解码到JSON的非常简要的介绍。想要更全面地了解，请参阅Andrew Gerrand在[*Go博客*](https://oreil.ly/6Uvl2)上的“JSON和Go”。
 - en: Encoding JSON
+  id: totrans-115
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
+  zh: JSON编码
 - en: The first step to understanding how to decode JSON (or any configuration format)
     is understanding how to *encode* it. This may seem strange, particularly in a
     section about reading configuration files, but encoding is important to the general
     subject of JSON encoding, and provides a handy means of generating, testing, and
     debugging your configuration files.^([9](ch10.xhtml#idm45983619649368))
+  id: totrans-116
   prefs: []
   type: TYPE_NORMAL
+  zh: 理解如何解码JSON（或任何配置格式）的第一步是理解如何*编码*它。这可能看起来很奇怪，特别是在一个关于读取配置文件的部分，但编码对于JSON编码的一般主题非常重要，并提供了一个方便的方法来生成、测试和调试您的配置文件。^([9](ch10.xhtml#idm45983619649368))
 - en: JSON encoding and decoding is supported by Go’s standard `encoding/json` package,
     which provides a variety of helper functions useful for encoding, decoding, formatting,
     validating, and otherwise working with JSON.
+  id: totrans-117
   prefs: []
   type: TYPE_NORMAL
+  zh: Go的标准库支持JSON编码和解码，提供了许多有用的辅助函数，用于编码、解码、格式化、验证和其他处理JSON数据。
 - en: 'Among these is the `json.Marshal` function, which accepts an `interface{}`
     value `v`, and returns a `[]byte` array containing a JSON-encoded representation
     of `v`:'
+  id: totrans-118
   prefs: []
   type: TYPE_NORMAL
+  zh: 其中之一是`json.Marshal`函数，它接受一个`interface{}`类型的值`v`，并返回一个包含`v`的JSON编码表示的`[]byte`数组：
 - en: '[PRE13]'
+  id: totrans-119
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE13]'
 - en: In other words, a value goes in, and JSON comes out.
+  id: totrans-120
   prefs: []
   type: TYPE_NORMAL
+  zh: 换句话说，一个值进去，JSON出来。
 - en: 'This function really is as straightforward to use as it looks. For example,
     if we have an instance of `Config`, we can pass it to `json.Marshal` to get its
     JSON encoding:'
+  id: totrans-121
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE14]'
+  id: totrans-122
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE14]'
 - en: 'If everything works as expected, `err` will be `nil`, and `bytes` will be a
     `[]byte` value containing the JSON. The `fmt.Println` output will look something
     like the following:'
+  id: totrans-123
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE15]'
+  id: totrans-124
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE15]'
 - en: Tip
+  id: totrans-125
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
 - en: The `json.Marshal` function traverses the value of `v` recursively, so any internal
     structs will be encoded as well as nested JSON.
+  id: totrans-126
   prefs: []
   type: TYPE_NORMAL
 - en: 'That was pretty painless, but if we’re generating a configuration file it sure
     would be nice if the text was formatted for human consumption. Fortunately, `encoding/json`
     also provides the following `json.MarshalIndent` function, which returns “pretty-printed”
     JSON:'
+  id: totrans-127
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE16]'
+  id: totrans-128
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE16]'
 - en: 'As you can see, `json.MarshalIndent` works a lot like `json.Marshal`, except
     that also takes `prefix` and `indent` strings, as demonstrated here:'
+  id: totrans-129
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE17]'
+  id: totrans-130
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE17]'
 - en: 'The preceding snippet prints exactly what we’d hope to see:'
+  id: totrans-131
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE18]'
+  id: totrans-132
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE18]'
 - en: The result is prettily printed JSON, formatted for humans like you and me^([10](ch10.xhtml#idm45983619331048))
     to read. This is a very useful method for bootstrapping configuration files!
+  id: totrans-133
   prefs: []
   type: TYPE_NORMAL
 - en: Decoding JSON
+  id: totrans-134
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
 - en: Now that we know how to encode a data structure into JSON, let’s take a look
     at how to decode JSON as an existing data structure.
+  id: totrans-135
   prefs: []
   type: TYPE_NORMAL
 - en: 'To do that, we use the conveniently named `json.Unmarshal` function:'
+  id: totrans-136
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE19]'
+  id: totrans-137
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE19]'
 - en: The `json.Unmarshal` function parses the JSON-encoded text contained in the
     `data` array and stores the result in the value pointed to by `v`. Importantly,
     if `v` is `nil` or isn’t a pointer, `json.Unmarshal` returns an error.
+  id: totrans-138
   prefs: []
   type: TYPE_NORMAL
 - en: But, what type should `v` be, exactly? Ideally, it would be a pointer to a data
@@ -677,53 +956,71 @@
     to unmarshal arbitrary JSON into an unstructured map, as we’ll discuss in [“Decoding
     Arbitrary JSON”](#sidebar_ch10_decoding_arbitrary_json), this really should only
     be done if you really don’t have any other choice.
+  id: totrans-139
   prefs: []
   type: TYPE_NORMAL
 - en: 'As we’ll see, though, if you have a data type that reflects your JSON’s structure,
     then `json.Unmarshal` is able to update it directly. To do this, we first have
     to create an instance where our decoded data will be stored:'
+  id: totrans-140
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE20]'
+  id: totrans-141
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE20]'
 - en: 'Now that we have our storage value, we can call `json.Unmarshal`, to which
     we pass a `[]byte` that contains our JSON data and a pointer to `c`:'
+  id: totrans-142
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE21]'
+  id: totrans-143
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE21]'
 - en: 'If `bytes` contains valid JSON, then `err` will be `nil` and the data from
     `bytes` will be stored in the struct `c`. Printing the value of `c` should now
     provide output like the following:'
+  id: totrans-144
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE22]'
+  id: totrans-145
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE22]'
 - en: 'Neat! But what happens when the structure of the JSON doesn’t exactly match
     the Go type? Let’s find out:'
+  id: totrans-146
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE23]'
+  id: totrans-147
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE23]'
 - en: 'Interestingly, this snippet doesn’t produce an error as you might expect. Instead,
     `c` now contains the following values:'
+  id: totrans-148
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE24]'
+  id: totrans-149
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE24]'
 - en: It would seem that the value of `Host` was set, but `Food`, which has no corresponding
     value in the `Config` struct, was ignored. As it turns out, `json.Unmarshal` will
     only decode the fields that it can find in the target type. This behavior can
     actually be quite useful if you want to cherry pick a few specific fields out
     of a big JSON blob.
+  id: totrans-150
   prefs: []
   type: TYPE_NORMAL
 - en: Field formatting with struct field tags
+  id: totrans-151
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
@@ -731,42 +1028,54 @@
     generate appropriate JSON for its type. For structs, the struct’s field names
     are directly used as the default JSON keys, and the struct’s field values become
     the JSON values. Unmarshalling works essentially the same way, except in reverse.
+  id: totrans-152
   prefs: []
   type: TYPE_NORMAL
 - en: 'What happens when you marshal a zero-value struct? Well, as it turns out, when
     you marshal a `Config{}` value, for example, this is the JSON you get:'
+  id: totrans-153
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE25]'
+  id: totrans-154
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE25]'
 - en: This isn’t all that pretty. Or efficient. Is it really necessary to even output
     the empty values at all?
+  id: totrans-155
   prefs: []
   type: TYPE_NORMAL
 - en: Similarly, struct fields have to be exported—and therefore capitalized—to be
     written or read. Does that mean that we’re stuck with uppercase field names?
+  id: totrans-156
   prefs: []
   type: TYPE_NORMAL
 - en: Fortunately, the answer to both questions is “no.”
+  id: totrans-157
   prefs: []
   type: TYPE_NORMAL
 - en: Go supports the use of *struct field tags*—short strings that appear in a struct
     after the type declaration of a field—that allow metadata to be added to specific
     struct fields. Field tags are most commonly used by encoding packages to modify
     encoding and decoding behavior at the field level.
+  id: totrans-158
   prefs: []
   type: TYPE_NORMAL
 - en: 'Go struct field tags are special strings containing one or more keys/values
     pairs enclosed in backticks, after a field’s type declaration:'
+  id: totrans-159
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE26]'
+  id: totrans-160
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE26]'
 - en: In this example, the struct’s `Name` field is tagged with `example:"name"`.
     These tags can be accessed using run-time reflection via the `reflect` package,
     but their most common use case is to provide encoding and decoding directives.
+  id: totrans-161
   prefs: []
   type: TYPE_NORMAL
 - en: The `encoding/json` package supports several such tags. The general format uses
@@ -774,395 +1083,546 @@
     of the field, possibly followed by a comma-separated list of options. The name
     may be empty in order to specify options without overriding the default field
     name.
+  id: totrans-162
   prefs: []
   type: TYPE_NORMAL
 - en: 'The available options supported by `encoding/json` are shown here:'
+  id: totrans-163
   prefs: []
   type: TYPE_NORMAL
 - en: Customizing JSON keys
+  id: totrans-164
   prefs: []
   type: TYPE_NORMAL
 - en: By default, a struct field will case-sensitively map to a JSON key of the exact
     same name. A tag overrides this default name by setting the first (or only) value
     in the tag’s options list.
+  id: totrans-165
   prefs: []
   type: TYPE_NORMAL
 - en: 'Example: `` CustomKey string `json:"custom_key"` ``'
+  id: totrans-166
   prefs: []
   type: TYPE_NORMAL
 - en: Omitting empty values
+  id: totrans-167
   prefs: []
   type: TYPE_NORMAL
 - en: By default, a field will always appear in the JSON, even if it’s empty. Using
     the `omitempty` option will cause fields to be skipped if they contain a zero-value.
     Note the leading comma in front of `omitempty`!
+  id: totrans-168
   prefs: []
   type: TYPE_NORMAL
 - en: 'Example: `` OmitEmpty string `json:",omitempty"` ``'
+  id: totrans-169
   prefs: []
   type: TYPE_NORMAL
 - en: Ignoring a field
+  id: totrans-170
   prefs: []
   type: TYPE_NORMAL
 - en: Fields using the `-` (dash) option always will be completely ignored during
     encoding and decoding.
+  id: totrans-171
   prefs: []
   type: TYPE_NORMAL
 - en: 'Example: `` IgnoredName string `json:"-"` ``'
+  id: totrans-172
   prefs: []
   type: TYPE_NORMAL
 - en: 'A struct that uses all of the previous tags might look like the following:'
+  id: totrans-173
   prefs: []
   type: TYPE_NORMAL
+  zh: 一个使用了所有前述标签的结构体可能如下所示：
 - en: '[PRE27]'
+  id: totrans-174
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE27]'
 - en: For more information on how how `json.Marshal` encodes data, take a look at
     [the function’s documentation on golang.org](https://oreil.ly/5QeJ4).
+  id: totrans-175
   prefs: []
   type: TYPE_NORMAL
+  zh: 欲了解有关`json.Marshal`如何编码数据的更多信息，请参阅[golang.org上该函数的文档](https://oreil.ly/5QeJ4)。
 - en: Working with YAML
+  id: totrans-176
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 使用YAML
 - en: YAML (YAML Ain’t Markup Language^([11](ch10.xhtml#idm45983618773656))) is an
     extensible file format that’s popular with projects like Kubernetes that depend
     on complex, hierarchical configurations. It’s highly expressive, though its syntax
     can also be a bit brittle, and configurations that use it can start to suffer
     from readability issues as they scale up.
+  id: totrans-177
   prefs: []
   type: TYPE_NORMAL
+  zh: YAML（YAML Ain’t Markup Language^([11](ch10.xhtml#idm45983618773656)）是一种可扩展的文件格式，在依赖于复杂分层配置的项目（如Kubernetes）中很受欢迎。它非常表现力强，尽管其语法可能有点脆弱，并且随着规模扩大，使用它的配置可能开始遭遇可读性问题。
 - en: 'Unlike JSON, which was originally created as a data interchange format, YAML
     is largely a configuration language at heart. Interestingly, however, YAML 1.2
     is a superset of JSON, and the two formats are largely inter-convertible. YAML
     does have some advantages over JSON though: it can self-reference, it allows embedded
     block literals, and it supports comments and complex data types.'
+  id: totrans-178
   prefs: []
   type: TYPE_NORMAL
+  zh: 与最初作为数据交换格式创建的JSON不同，YAML在本质上主要是一种配置语言。然而，有趣的是，YAML 1.2是JSON的超集，这两种格式可以相互转换。不过，相比JSON，YAML确实有一些优势：它可以自引用，允许嵌入块文字，支持注释和复杂数据类型。
 - en: Unlike JSON, YAML isn’t supported in Go’s core libraries. While there are a
     few YAML packages to choose from, the standard choice is [Go-YAML](https://oreil.ly/yhERJ).
     Version 1 of Go-YAML started in 2014 as an internal project within Canonical to
     port the well-known `libyaml` C library to Go. As a project, it’s exceptionally
     mature and well maintained. Its syntax is also conveniently very similar to `encoding/json`.
+  id: totrans-179
   prefs: []
   type: TYPE_NORMAL
+  zh: 不像JSON，Go的核心库不支持YAML。虽然有几个YAML包可供选择，但标准选择是[Go-YAML](https://oreil.ly/yhERJ)。Go-YAML的第一个版本始于2014年，是Canonical内部项目，旨在将著名的`libyaml`
+    C库移植到Go。作为一个项目，它非常成熟且得到良好维护。其语法与`encoding/json`非常相似，非常方便。
 - en: Encoding YAML
+  id: totrans-180
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
+  zh: 编码YAML
 - en: 'Using Go-YAML to encode data is a *lot* like encoding JSON. Exactly like it.
     In fact, the signatures for both packages’ `Marshal` functions are identical.
     Like its `encoding/json` equivalent, Go-YAML’s `yaml.Marshal` function also accepts
     an `interface{}` value, and returns its YAML encoding as a `[]byte` value:'
+  id: totrans-181
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用Go-YAML编码数据与编码JSON非常相似。实际上，两个包的`Marshal`函数的签名完全相同。与其`encoding/json`等效项一样，Go-YAML的`yaml.Marshal`函数也接受`interface{}`值，并将其YAML编码作为`[]byte`值返回：
 - en: '[PRE28]'
+  id: totrans-182
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE28]'
 - en: 'Just as we did in [“Encoding JSON”](#section_ch10_encoding_json), we demonstrate
     its use by creating an instance of `Config`, which we pass to `yaml.Marshal` to
     get its YAML encoding:'
+  id: totrans-183
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如我们在[“编码JSON”](#section_ch10_encoding_json)中所做的那样，我们通过创建`Config`的实例来演示其用法，然后将其传递给`yaml.Marshal`以获取其YAML编码：
 - en: '[PRE29]'
+  id: totrans-184
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE29]'
 - en: 'Once again, if everything works as expected, `err` will be `nil` and `bytes`
     will be a `[]byte` value containing the YAML. Printing the string value of `bytes`
     will provide something like the following:'
+  id: totrans-185
   prefs: []
   type: TYPE_NORMAL
+  zh: 再次地，如果一切按预期工作，`err`将是`nil`，`bytes`将是包含YAML的`[]byte`值。打印`bytes`的字符串值将提供如下内容：
 - en: '[PRE30]'
+  id: totrans-186
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE30]'
 - en: Also, just like the version provided by `encoding/json`, Go-YAML’s `Marshal`
     function traverses the value `v` recursively. Any composite types that it finds—arrays,
     slices, maps, and structs—will be encoded appropriately and will be present in
     the output as nested YAML elements.
+  id: totrans-187
   prefs: []
   type: TYPE_NORMAL
+  zh: 此外，就像`encoding/json`提供的版本一样，Go-YAML的`Marshal`函数会递归遍历值`v`。它发现的任何复合类型——数组、切片、映射和结构体——都将被适当编码，并作为嵌套的YAML元素出现在输出中。
 - en: Decoding YAML
+  id: totrans-188
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
+  zh: 解码YAML
 - en: 'In keeping with the theme we’ve established with the similarity of the `Marshal`
     functions from `encoding/json` and Go-YAML, the same consistency is evident between
     the two packages’ `Unmarshal` functions:'
+  id: totrans-189
   prefs: []
   type: TYPE_NORMAL
+  zh: 与我们已建立的主题相一致，与`encoding/json`和Go-YAML相似的`Marshal`函数之间也表现出了相同的一致性：
 - en: '[PRE31]'
+  id: totrans-190
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE31]'
 - en: 'Again, the `yaml.Unmarshal` function parses the YAML-encoded data in the `data`
     array and stores the result in the value pointed to by `v`. If `v` is `nil` or
     not a pointer, `yaml.Unmarshal` returns an error. As shown here, the similarities
     are very clear:'
+  id: totrans-191
   prefs: []
   type: TYPE_NORMAL
+  zh: 再次，`yaml.Unmarshal`函数解析`data`数组中的YAML编码数据，并将结果存储在指向的`v`值中。如果`v`为`nil`或不是指针，则`yaml.Unmarshal`会返回错误。如下所示，这些相似之处非常明显：
 - en: '[PRE32]'
+  id: totrans-192
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE32]'
 - en: 'Just as we did in [“Decoding JSON”](#section_ch10_decoding_json), we pass `yaml.Unmarshal`
     a pointer to a `Config` instance, whose fields correspond to the fields found
     in the YAML. Printing the value of `c` should (once again) provide output like
     the following:'
+  id: totrans-193
   prefs: []
   type: TYPE_NORMAL
+  zh: 就像我们在[“解码JSON”](#section_ch10_decoding_json)中所做的那样，我们将一个指向`Config`实例的指针传递给`yaml.Unmarshal`，其字段与YAML中找到的字段对应。打印`c`的值应该（再次）会提供以下输出：
 - en: '[PRE33]'
+  id: totrans-194
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE33]'
 - en: 'There are other behavioral similarities between `encoding/json` and Go-YAML:'
+  id: totrans-195
   prefs: []
   type: TYPE_NORMAL
+  zh: '`encoding/json`和Go-YAML之间还有其他行为上的相似之处：'
 - en: 'Both will ignore attributes in a source document that cannot be mapped to the
     `Unmarshal` function. Again, this can be useful if you only care about a subset
     of the document, but it can be a “gotcha,” too: if you forget to export the struct
     field, `Unmarshal` will always silently ignore it, and it’ll never get set.'
+  id: totrans-196
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 两者都会忽略源文档中无法映射到`Unmarshal`函数的属性。同样，如果你忘记导出结构字段，`Unmarshal`将会默默地忽略它，从而导致其永远不会被设置。
 - en: Both are capable of unmarshalling arbitrary data by passing an `interface{}`
     value to `Unmarshal`. However, while `json.Unmarshal` will provide a `map[string]interface{}`,
     `yaml.Unmarshal` will return a `map[interface{}]interface{}`. A minor difference,
     but another potential gotcha!
+  id: totrans-197
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 通过将`interface{}`值传递给`Unmarshal`，这两者都能够解码任意数据。然而，`json.Unmarshal`将提供一个`map[string]interface{}`，而`yaml.Unmarshal`则会返回一个`map[interface{}]interface{}`。这是一个细微的差别，但可能会导致问题！
 - en: Struct field tags for YAML
+  id: totrans-198
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
+  zh: 用于YAML的结构字段标签
 - en: 'In addition to the “standard” struct field tags—custom keys, `omitempty`, and
     `-` (dash)—detailed in [“Field formatting with struct field tags”](#section_ch10_field_formatting_with_struct_field_tags),
     Go-YAML supports two additional tags particular to YAML marshal formatting:'
+  id: totrans-199
   prefs: []
   type: TYPE_NORMAL
+  zh: 除了“标准”结构字段标签外——自定义键，`omitempty`和`-`（破折号）——在[“使用结构字段标签进行字段格式化”](#section_ch10_field_formatting_with_struct_field_tags)中详细说明，Go-YAML还支持两个特定于YAML编组格式的附加标签：
 - en: Flow style
+  id: totrans-200
   prefs: []
   type: TYPE_NORMAL
+  zh: 流样式
 - en: Fields using the `flow` option will be marshalled using [the flow style](https://oreil.ly/zyUpd),
     which can be useful for structs, sequences, and maps.
+  id: totrans-201
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用`flow`选项的字段将使用[流样式](https://oreil.ly/zyUpd)进行编组，这对于结构体、序列和映射非常有用。
 - en: 'Example: `` Flow map[string]string `yaml:"flow"` ``'
+  id: totrans-202
   prefs: []
   type: TYPE_NORMAL
+  zh: 示例：`` Flow map[string]string `yaml:"flow"` ``
 - en: Inlining structs and maps
+  id: totrans-203
   prefs: []
   type: TYPE_NORMAL
+  zh: 内联结构体和映射
 - en: The `inline` option causes all of a struct or map fields or keys to be processed
     as if they were part of the outer struct. For maps, keys must not conflict with
     the keys of other struct fields.
+  id: totrans-204
   prefs: []
   type: TYPE_NORMAL
+  zh: '`inline`选项会导致结构体或映射的所有字段或键都被处理为外部结构的一部分。对于映射，键必须与其他结构字段的键不冲突。'
 - en: 'Example: `` Inline map[string]string `yaml:",inline"` ``'
+  id: totrans-205
   prefs: []
   type: TYPE_NORMAL
+  zh: 示例：`` Inline map[string]string `yaml:",inline"` ``
 - en: 'A struct that uses both of these options might look like the following:'
+  id: totrans-206
   prefs: []
   type: TYPE_NORMAL
+  zh: 一个结构体可以同时使用这两个选项的例子如下：
 - en: '[PRE34]'
+  id: totrans-207
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE34]'
 - en: As you can see, the tagging syntax is also consistent, except that instead of
     using the `json` prefix, Go-YAML tags use the `yaml` prefix.
+  id: totrans-208
   prefs: []
   type: TYPE_NORMAL
+  zh: 如你所见，标签语法也是一致的，只是不再使用`json`前缀，而是使用`yaml`前缀。
 - en: Watching for configuration file changes
+  id: totrans-209
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 监视配置文件变化
 - en: When working with configuration files, you’ll inevitably be confronted with
     a situation in which changes have to be made to the configuration of a running
     program. If it doesn’t explicitly watch for and reload changes, then it’ll generally
     have to be restarted to reread its configuration, which can be inconvenient at
     best, and introduce downtime at worst.
+  id: totrans-210
   prefs: []
   type: TYPE_NORMAL
+  zh: 在处理配置文件时，你将不可避免地面对一个情况：必须对正在运行的程序的配置进行更改。如果程序没有明确地监视并重新加载更改，那么通常必须重新启动以重新读取其配置，这可能在最好的情况下会带来不便，而在最坏的情况下则可能导致停机。
 - en: At some point, you’re going to have to decide how you want your program to respond
     to such changes.
+  id: totrans-211
   prefs: []
   type: TYPE_NORMAL
+  zh: 在某个时刻，你必须决定如何让你的程序对这些变化做出响应。
 - en: 'The first (and least complex) option is to do nothing, and just expect the
     program to have to restart when its configuration changes. This is actually a
     fairly common choice, since it ensures that no trace of the former configuration
     exists. It also allows a program to “fail fast” when an error is introduced into
     the configuration file: the program just has to spit out an angry error message
     and refuse to start.'
+  id: totrans-212
   prefs: []
   type: TYPE_NORMAL
+  zh: 第一种（也是最简单的）选择是什么也不做，只是期望程序在配置更改时重新启动。这实际上是一个相当常见的选择，因为它确保了旧配置的任何痕迹都不存在。它还允许程序在配置文件中引入错误时“快速失败”：程序只需输出一条愤怒的错误消息并拒绝启动。
 - en: However, you might prefer to add logic to your program that detects changes
     in your configuration file (or files) and reloads them appropriately.
+  id: totrans-213
   prefs: []
   type: TYPE_NORMAL
 - en: Making your configuration reloadable
+  id: totrans-214
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
 - en: If you’d like your internal configuration representations to reload whenever
     the underlying file changes, you’ll have to plan a little ahead.
+  id: totrans-215
   prefs: []
   type: TYPE_NORMAL
 - en: 'First, you’ll want to have a single global instance of your configuration struct.
     For now, we’ll use a `Config` instance of the kind we introduced in [“Our configuration
     data structure”](#section_ch10_config_data_structure). In a slightly larger project,
     you might even put this in a `config` package:'
+  id: totrans-216
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE35]'
+  id: totrans-217
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE35]'
 - en: Very often you’ll see code in which an explicit `config` parameter is passed
     to just about every method and function. I’ve seen this quite a lot; often enough
     to know that this particular antipattern just makes life harder. Also, because
     the configuration now lives in N places instead of one, it also tends to make
     configuration reloading more complicated.
+  id: totrans-218
   prefs: []
   type: TYPE_NORMAL
 - en: 'Once we have our `config` value, we’ll want to add the logic that reads the
     configuration file and loads it into the struct. Something like the following
     `loadConfiguration` function will do just fine:'
+  id: totrans-219
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE36]'
+  id: totrans-220
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE36]'
 - en: Our `loadConfiguration` function works almost the same way that we discussed
     in [“Working with YAML”](#section_ch10_working_with_yaml), except that it uses
     the `ioutil.ReadFile` function from the `io/ioutil` standard library to retrieve
     the bytes that it passes to `yaml.Unmarshal`. The choice to use YAML here was
     entirely arbitrary.^([12](ch10.xhtml#idm45983618296888)) The syntax for a JSON
     configuration would be practically identical.
+  id: totrans-221
   prefs: []
   type: TYPE_NORMAL
 - en: 'Now that we have logic to load our configuration file into a canonical struct,
     we need something to call it whenever it gets a notification that the file has
     changed. For that we have `startListening`, which monitors an `updates` channel:'
+  id: totrans-222
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE37]'
+  id: totrans-223
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE37]'
 - en: 'As you can see, `startListening` accepts two channels: `updates`, which emits
     the name of a file (presumably the configuration file) when that file changes,
     and an `errors` channel.'
+  id: totrans-224
   prefs: []
   type: TYPE_NORMAL
 - en: It watches both channels in a `select` inside of an infinite loop so that if
     a configuration file changes, the `updates` channel sends its name, which is then
     passed to `loadConfiguration`. If `loadConfiguration` doesn’t return a non-`nil`
     error, then the `Config` value it returns replaces the current one.
+  id: totrans-225
   prefs: []
   type: TYPE_NORMAL
 - en: 'Stepping back another level, we have an `init` function that retrieves the
     channels from a `watchConfig` function and passes them to `startListening`, which
     it runs as a goroutine:'
+  id: totrans-226
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE38]'
+  id: totrans-227
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE38]'
 - en: 'But what’s this `watchConfig` function? Well, we don’t quite know the details
     yet. We’ll figure that out in the next couple of sections. We do know that it
     implements some configuration watching logic, and that it has a function signature
     that looks like the following:'
+  id: totrans-228
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE39]'
+  id: totrans-229
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE39]'
 - en: The `watchConfig` function, whatever its implementation, returns two channels—a
     `string` channel that sends the path of the updated configuration file, and an
     `error` channel that notifies about invalid configurations—and an `error` value
     that reports if there’s a fatal error on startup.
+  id: totrans-230
   prefs: []
   type: TYPE_NORMAL
+  zh: '`watchConfig`函数，无论其实现如何，都会返回两个通道——一个`string`通道，发送更新的配置文件路径，以及一个`error`通道，通知无效配置——还有一个`error`值，报告启动时是否发生致命错误。'
 - en: The exact implementation of `watchConfig` can go a couple of different ways,
     each with its pros and cons. Now let’s take a look at the two most common of those.
+  id: totrans-231
   prefs: []
   type: TYPE_NORMAL
+  zh: '`watchConfig`的确切实现可以有几种不同的方式，每种方式都有其利弊。现在让我们看看其中两种最常见的方式。'
 - en: Polling for configuration changes
+  id: totrans-232
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
+  zh: 轮询配置更改
 - en: Polling, where you check for changes in your configuration file on some regular
     cadence, is a common way of watching a configuration file. A standard implementation
     uses a `time.Ticker` to recalculate a hash of your configuration file every few
     seconds and reload if the hash changes.
+  id: totrans-233
   prefs: []
   type: TYPE_NORMAL
+  zh: 轮询，您可以在一定的时间间隔内检查配置文件的更改，这是一种常见的观察配置文件的方式。标准的实现使用`time.Ticker`每隔几秒重新计算配置文件的哈希值，并在哈希值更改时重新加载。
 - en: Go makes a number of common hash algorithms available in its `crypto` package,
     each of which lives in its own subpackage of `crypto` and satisfies both the `crypto.Hash`
     and `io.Writer` interfaces.
+  id: totrans-234
   prefs: []
   type: TYPE_NORMAL
+  zh: Go在其`crypto`包中提供了许多常见的哈希算法，每个算法都位于`crypto`的子包中，并满足`crypto.Hash`和`io.Writer`接口。
 - en: 'For example, Go’s standard implementation of `SHA256` can be found in `crypto/sha256`.
     To use it, you use its `sha256.New` function to get a new `sha256.Hash` value,
     into which you then write the data you want to calculate the hash of, just as
     you would any `io.Writer`. When that’s complete, you use its `Sum` method to retrieve
     the resulting hash sum:'
+  id: totrans-235
   prefs: []
   type: TYPE_NORMAL
+  zh: 例如，Go的`SHA256`标准实现可以在`crypto/sha256`中找到。要使用它，您可以使用其`sha256.New`函数获取一个新的`sha256.Hash`值，然后像对待任何`io.Writer`一样将要计算哈希的数据写入其中。完成后，使用其`Sum`方法检索生成的哈希总和：
 - en: '[PRE40]'
+  id: totrans-236
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE40]'
 - en: Generating a hash for a configuration has three distinct parts. First, we get
     a `[]byte` source in the form of an `io.Reader`. In this example we use an `io.File`.
     Next, we copy those bytes from the `io.Reader` to our `sha256.Hash` instance,
     which we do with a call to `io.Copy`. Finally, we use the `Sum` method to retrieve
     the hash sum from `hash`.
+  id: totrans-237
   prefs: []
   type: TYPE_NORMAL
+  zh: 为配置生成哈希有三个明确的部分。首先，我们以`io.Reader`的形式获取一个`[]byte`源。在本例中，我们使用`io.File`。接下来，我们将这些字节从`io.Reader`复制到我们的`sha256.Hash`实例中，使用`io.Copy`方法完成。最后，我们使用`Sum`方法从`hash`中检索哈希总和。
 - en: 'Now that we have our `calculateFileHash` function, creating our `watchConfig`
     implementation is just a matter of using a `time.Ticker` to concurrently check
     it on some cadence, and emit any positive results (or errors) to the appropriate
     channel:'
+  id: totrans-238
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在我们有了我们的`calculateFileHash`函数，创建我们的`watchConfig`实现只是使用`time.Ticker`并发地在某个节奏上检查它，并将任何积极的结果（或错误）发送到适当的通道的问题：
 - en: '[PRE41]'
+  id: totrans-239
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE41]'
 - en: The polling approach has some benefits. It’s not especially complex, which is
     always a big plus, and it works for any operating system. Perhaps most interestingly,
     because hashing only cares about the configuration’s contents, it even can be
     generalized to detect changes in places like remote key/value stores that aren’t
     technically files.
+  id: totrans-240
   prefs: []
   type: TYPE_NORMAL
+  zh: 轮询方法有一些好处。它并不特别复杂，这总是一个大的优点，并且适用于任何操作系统。也许最有趣的是，因为哈希只关心配置的内容，它甚至可以泛化到检测像远程键/值存储这样的地方的更改，这些地方在技术上不是文件。
 - en: Unfortunately, the polling approach can be a little computationally wasteful,
     especially for very large or many files. By its nature, it also incurs also a
     brief delay between the time the file is changed and the detection of that change.
     If you’re definitely working with local files, it would probably be more efficient
     to watch OS-level filesystem notifications, which we discuss in the next section.
+  id: totrans-241
   prefs: []
   type: TYPE_NORMAL
+  zh: 不幸的是，轮询方法可能会有些计算资源浪费，尤其是对于非常大或文件数量众多的情况。由其性质决定，它还会在文件更改后和检测到该更改之间存在短暂的延迟。如果您确实要处理本地文件，可能更高效的方法是监视操作系统级别的文件系统通知，我们将在下一节讨论。
 - en: Watching OS filesystem notifications
+  id: totrans-242
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
+  zh: 监视操作系统文件系统通知
 - en: Polling for changes works well enough, but this method has some drawbacks. Depending
     on your use case, you may find it more efficient to instead monitor OS-level filesystem
     notifications.
+  id: totrans-243
   prefs: []
   type: TYPE_NORMAL
+  zh: 虽然轮询变化的方法效果足够好，但这种方法也有一些缺点。根据您的使用情况，您可能会发现监视操作系统级别的文件系统通知更为高效。
 - en: Actually doing so, however, is complicated by the fact that each operating system
     has a different notification mechanism. Fortunately, the [fsnotify](https://oreil.ly/ziw4J)
     package provides a workable abstraction that supports most operating systems.
+  id: totrans-244
   prefs: []
   type: TYPE_NORMAL
+  zh: 实际上，这样做的复杂性在于每个操作系统具有不同的通知机制。幸运的是，[fsnotify](https://oreil.ly/ziw4J) 包提供了一个可行的抽象，支持大多数操作系统。
 - en: To use this package to watch one or more files, you use the `fsnotify.NewWatcher`
     function to get a new `fsnotify.Watcher` instance, and use the `Add` method to
     register more files to watch. The `Watcher` provides two channels, `Events` and
     `Errors`, which sends notifications of file events and errors, respectively.
+  id: totrans-245
   prefs: []
   type: TYPE_NORMAL
+  zh: 要使用此包监视一个或多个文件，您可以使用 `fsnotify.NewWatcher` 函数获取一个新的 `fsnotify.Watcher` 实例，并使用
+    `Add` 方法注册更多要监视的文件。`Watcher` 提供两个通道，`Events` 和 `Errors`，分别发送文件事件和错误的通知。
 - en: 'For example, if we wanted to watch our config file, we could do something like
     the following:'
+  id: totrans-246
   prefs: []
   type: TYPE_NORMAL
+  zh: 例如，如果我们想要监视我们的配置文件，我们可以像下面这样做：
 - en: '[PRE42]'
+  id: totrans-247
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE42]'
 - en: Note the statement `event.Op & fsnotify.Write == fsnotify.Write`, which uses
     a bitwise AND (`&`) to filter for “write” events. We do this because the `fsnotify.Event`
     can potentially include multiple operations, each of which is represented as one
@@ -1170,80 +1630,121 @@
     binary `0b00010`) and `fsnotify.Chmod` (`16`, binary `0b10000`) would result in
     an `event.Op` value of `18` (binary `0b10010`). Because `0b10010 & 0b00010 = 0b00010`,
     the bitwise AND allows us to guarantee that an operation includes a `fsnotify.Write`.
+  id: totrans-248
   prefs: []
   type: TYPE_NORMAL
+  zh: 注意语句 `event.Op & fsnotify.Write == fsnotify.Write`，它使用按位与 (`&`) 来筛选“写入”事件。我们这样做是因为
+    `fsnotify.Event` 可能包含多个操作，每个操作在无符号整数中表示为一个位。例如，同时发生 `fsnotify.Write` (`2`，二进制
+    `0b00010`) 和 `fsnotify.Chmod` (`16`，二进制 `0b10000`) 会导致 `event.Op` 值为 `18` (二进制
+    `0b10010`)。因为 `0b10010 & 0b00010 = 0b00010`，按位与允许我们确保操作包括 `fsnotify.Write`。
 - en: 'Viper: The Swiss Army Knife of Configuration Packages'
+  id: totrans-249
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: Viper：配置包的瑞士军刀
 - en: '[Viper (spf13/viper)](https://oreil.ly/pttZM) bills itself as a complete configuration
     solution for Go applications, and justifiably so. Among other things, it allows
     application configuration by a variety of mechanisms and formats, including, in
     order of precedence:'
+  id: totrans-250
   prefs: []
   type: TYPE_NORMAL
+  zh: '[Viper (spf13/viper)](https://oreil.ly/pttZM) 自称是 Go 应用程序的完整配置解决方案，这确实如此。除其他功能外，它允许通过多种机制和格式进行应用程序配置，包括优先顺序为：'
 - en: Explicitly set values
+  id: totrans-251
   prefs: []
   type: TYPE_NORMAL
+  zh: 明确设置值
 - en: This takes precedence over all other methods, and can be useful during testing.
+  id: totrans-252
   prefs: []
   type: TYPE_NORMAL
+  zh: 这比所有其他方法优先，测试期间非常有用。
 - en: Command-line flags
+  id: totrans-253
   prefs: []
   type: TYPE_NORMAL
+  zh: 命令行标志
 - en: Viper is designed to be a companion to Cobra, which we introduced in [“The Cobra
     command-line parser”](#section_ch10_cobra).
+  id: totrans-254
   prefs: []
   type: TYPE_NORMAL
+  zh: Viper 被设计为 Cobra 的伴侣，我们在 [“Cobra 命令行解析器”](#section_ch10_cobra) 中介绍过。
 - en: Environment variables
+  id: totrans-255
   prefs: []
   type: TYPE_NORMAL
+  zh: 环境变量
 - en: Viper has full support for environment variables. Importantly, Viper treats
     environment variables as case-sensitive!
+  id: totrans-256
   prefs: []
   type: TYPE_NORMAL
+  zh: Viper 对环境变量有全面支持。重要的是，Viper 将环境变量视为区分大小写！
 - en: Configuration files, in multiple file formats
+  id: totrans-257
   prefs: []
   type: TYPE_NORMAL
+  zh: 配置文件，支持多种文件格式
 - en: Out of the box, Viper supports JSON and YAML with the packages we introduced
     previously; as well as TOML, HCL, INI, envfile, and Java Properties files. It
     can also write configuration files to help bootstrap your configurations, and
     even optionally supports live watching and rereading of configuration files.
+  id: totrans-258
   prefs: []
   type: TYPE_NORMAL
+  zh: Viper 出厂支持 JSON 和 YAML 与我们之前介绍的包，以及 TOML、HCL、INI、envfile 和 Java Properties 文件。它还可以编写配置文件以帮助启动配置，并且可选择支持配置文件的实时监视和重新读取。
 - en: Remote key/value stores
+  id: totrans-259
   prefs: []
   type: TYPE_NORMAL
+  zh: 远程键值存储
 - en: Viper can access key/value stores like etcd or Consul, and can watch them for
     changes.
+  id: totrans-260
   prefs: []
   type: TYPE_NORMAL
+  zh: Viper 可以访问诸如 etcd 或 Consul 之类的键值存储，并监视其变化。
 - en: It also supports features like default values and typed variables, which the
     standard packages typically don’t provide.
+  id: totrans-261
   prefs: []
   type: TYPE_NORMAL
+  zh: 它还支持诸如默认值和类型化变量等特性，这些通常标准包不提供。
 - en: Keep in mind though, that while Viper does *a lot*, it’s also a pretty big hammer
     that brings in a lot of dependencies. If you’re trying to build a slim, streamlined
     application, Viper may be more than you need.
+  id: totrans-262
   prefs: []
   type: TYPE_NORMAL
+  zh: 但请记住，尽管 Viper 做了很多事情，但它也是一个引入许多依赖的大锤。如果您尝试构建一个精简、流畅的应用程序，Viper 可能会超出您的需求。
 - en: Explicitly setting values in Viper
+  id: totrans-263
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 明确在 Viper 中设置值
 - en: 'Viper allows you to use the `viper.Set` function to explicitly set values from,
     for example, command-line flags or the application logic. This can be pretty handy
     during testing:'
+  id: totrans-264
   prefs: []
   type: TYPE_NORMAL
+  zh: Viper 允许您使用 `viper.Set` 函数从命令行标志或应用程序逻辑显式设置值。这在测试期间非常方便：
 - en: '[PRE43]'
+  id: totrans-265
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE43]'
 - en: Explicitly set values have the highest priority, and override values that would
     be set by other mechanisms.
+  id: totrans-266
   prefs: []
   type: TYPE_NORMAL
 - en: Working with command-line flags in Viper
+  id: totrans-267
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -1252,58 +1753,74 @@
     in [“The Cobra command-line parser”](#section_ch10_cobra). This close integration
     with Cobra makes it straightforward to bind command-line flags to configuration
     keys.
+  id: totrans-268
   prefs: []
   type: TYPE_NORMAL
 - en: Viper provides the `viper.BindPFlag` function, which allows individual command-line
     flags to be bound to a named key, and `viper.BindPFlags`, which binds a full flag
     set using each flag’s long name as the key.
+  id: totrans-269
   prefs: []
   type: TYPE_NORMAL
 - en: 'Because the actual value of the configuration value is set when the binding
     is accessed, rather than when it’s called, you can call `viper.BindPFlag` in an
     `init` function as we do here:'
+  id: totrans-270
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE44]'
+  id: totrans-271
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE44]'
 - en: In the preceding snippet, we declare a `&cobra.Command` and define an integer
     flag called “number.” Note that we use the `IntP` method instead of `IntVarP`,
     since there’s no need to store the value of the flag in an external value when
     Cobra is used in this way. Then, using the `viper.BindPFlag` function, we bind
     the “number” flag to a configuration key of the same name.
+  id: totrans-272
   prefs: []
   type: TYPE_NORMAL
 - en: 'After it’s been bound (and the command-line flags parsed), the value of the
     bound key can be retrieved from Viper by using the `viper.GetInt` function:'
+  id: totrans-273
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE45]'
+  id: totrans-274
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE45]'
 - en: Working with environment variables in Viper
+  id: totrans-275
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: 'Viper provides several functions for working with environment variables as
     a configuration source. The first of these is `viper.BindEnv`, which is used to
     bind a configuration key to an environment variable:'
+  id: totrans-276
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE46]'
+  id: totrans-277
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE46]'
 - en: If only a key is provided, `viper.BindEnv` will bind to the environment variable
     matching the key. More arguments can be provided to specify one or more environment
     variables to bind to. In both cases, Viper automatically assumes that the name
     of the environment variable is in all caps.
+  id: totrans-278
   prefs: []
   type: TYPE_NORMAL
 - en: Viper provides several additional helper functions for working with environment
     variables. See [the Viper GoDoc](https://oreil.ly/CGpPS) for more details on these.
+  id: totrans-279
   prefs: []
   type: TYPE_NORMAL
 - en: Working with configuration files in Viper
+  id: totrans-280
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -1311,6 +1828,7 @@
     previously; as well as TOML, HCL, INI, envfile, and Java Properties files. It
     can also write configuration files to help bootstrap your configurations, and
     even optionally supports live watching and rereading of configuration files.
+  id: totrans-281
   prefs: []
   type: TYPE_NORMAL
 - en: A discussion of local configuration files may seem unexpected in a book on cloud
@@ -1321,9 +1839,11 @@
     A configuration file could even be baked or mounted into a container image in
     a way that looks—as far as a containerized service is concerned—exactly like any
     other local file.
+  id: totrans-282
   prefs: []
   type: TYPE_NORMAL
 - en: Reading configuration files
+  id: totrans-283
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
@@ -1332,47 +1852,60 @@
     be inferred from a file extension. The `viper.ReadInConfig` function instructs
     Viper to find and read the configuration file, potentially returning an `error`
     value if something goes wrong. All of those steps are demonstrated here:'
+  id: totrans-284
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE47]'
+  id: totrans-285
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE47]'
 - en: As you can see, Viper can search multiple paths for a configuration file. Unfortunately,
     at this time, a single Viper instance only supports reading a single configuration
     file.
+  id: totrans-286
   prefs: []
   type: TYPE_NORMAL
 - en: Watching and rereading configuration files in Viper
+  id: totrans-287
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
 - en: Viper natively allows your application to watch a configuration file for modifications
     and reload when changes are detected, which means that configurations can change
     without having to restart the server for them to take effect.
+  id: totrans-288
   prefs: []
   type: TYPE_NORMAL
 - en: 'By default, this functionality is turned off. The `viper.WatchConfig` function
     can be used to enable it. Additionally, the `viper.OnConfigChange` function allows
     you to specify a function that’s called whenever the configuration file is updated:'
+  id: totrans-289
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE48]'
+  id: totrans-290
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE48]'
 - en: Warning
+  id: totrans-291
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
 - en: Make sure that any calls to `viper.AddConfigPath` are made *before* calling
     `viper.WatchConfig`.
+  id: totrans-292
   prefs: []
   type: TYPE_NORMAL
 - en: Interestingly, Viper actually uses the `fsnotify/fsnotify` package behind the
     scenes, the same mechanism that we detailed in [“Watching for configuration file
     changes”](#section_ch10_watching_files).
+  id: totrans-293
   prefs: []
   type: TYPE_NORMAL
 - en: Using remote key/value stores with Viper
+  id: totrans-294
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -1381,87 +1914,111 @@
     like [etcd](https://etcd.io) or [HashiCorp Consul](https://consul.io). These values
     take precedence over default values, but are overridden by configuration values
     retrieved from disk, command-line flags, or environment variables.
+  id: totrans-295
   prefs: []
   type: TYPE_NORMAL
 - en: 'To enable remote support in Viper, you first have to do a blank import of the
     `viper/remote` package:'
+  id: totrans-296
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE49]'
+  id: totrans-297
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE49]'
 - en: 'A remote key/value configuration source can then be registered using the `viper.AddRemoteProvider`
     method, whose signature is as follows:'
+  id: totrans-298
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE50]'
+  id: totrans-299
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE50]'
 - en: The `provider` parameter can be one of `etcd`, `consul`, or `firestore`.
+  id: totrans-300
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: The `endpoint` is the URL of the remote resource. An odd quirk of Viper is that
     the etcd provider requires the URL to include a scheme (`http://ip:port`), while
     Consul requires *no scheme* (ip:port).
+  id: totrans-301
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: The `path` is the path in the key-value store to retrieve the configuration
     from.
+  id: totrans-302
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: 'To read a JSON-formatted configuration file from an etcd service, for example,
     you’ll do something like the following:'
+  id: totrans-303
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE51]'
+  id: totrans-304
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE51]'
 - en: Note that even though the configuration path includes a file extension, we also
     use `viper.SetConfigType` to explicitly define the configuration type. This is
     because from Viper’s perspective, the resource is just a stream of bytes, so it
     can’t automatically infer the format.^([13](ch10.xhtml#idm45983617110392)) As
     of the time of writing, the supported formats are *json*, *toml*, *yaml*, *yml*,
     *properties*, *props*, *prop*, *env*, and *dotenv*.
+  id: totrans-305
   prefs: []
   type: TYPE_NORMAL
 - en: Multiple providers may be added, in which case they’re searched in the order
     in which they were added.
+  id: totrans-306
   prefs: []
   type: TYPE_NORMAL
 - en: This is just a very basic introduction to what Viper can do with remote key/value
     stores. For more details about how to use Viper to read from Consul, watch for
     configuration changes, or read encrypted configurations, take a look at [Viper’s
     README](https://oreil.ly/1iE2y).
+  id: totrans-307
   prefs: []
   type: TYPE_NORMAL
 - en: Setting defaults in Viper
+  id: totrans-308
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: Unlike all of the other packages we reviewed in this chapter, Viper optionally
     allows default values to be defined for a key, by way of the `SetDefault` function.
+  id: totrans-309
   prefs: []
   type: TYPE_NORMAL
 - en: Default values can sometimes be useful, but care should be taken with this functionality.
     As mentioned in [“Configuration Good Practice”](#section_ch10_good_practice),
     useful zero values are generally preferable to implicit defaults, which can lead
     to surprising behaviors when thoughtlessly applied.
+  id: totrans-310
   prefs: []
   type: TYPE_NORMAL
 - en: 'A snippet of Viper showing default values in action might look like the following:'
+  id: totrans-311
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE52]'
+  id: totrans-312
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE52]'
 - en: Default values have the lowest priority, and will only take effect if a key
     isn’t explicitly set by another mechanism.
+  id: totrans-313
   prefs: []
   type: TYPE_NORMAL
 - en: Feature Management with Feature Flags
+  id: totrans-314
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -1469,6 +2026,7 @@
     is a software development pattern designed to increase the speed and safety with
     which new features can be developed and delivered by allowing specific functionality
     to be turned on or off during runtime, without having to deploy new code.'
+  id: totrans-315
   prefs: []
   type: TYPE_NORMAL
 - en: A feature flag is essentially a conditional in your code that enables or disables
@@ -1476,10 +2034,12 @@
     setting. By setting the configuration to different values, a developer can, for
     example, choose to enable an incomplete feature for testing and disable it for
     other users.
+  id: totrans-316
   prefs: []
   type: TYPE_NORMAL
 - en: Having the ability to release a product with unfinished features provides a
     number of powerful benefits.
+  id: totrans-317
   prefs: []
   type: TYPE_NORMAL
 - en: First, feature flags allow many small incremental versions of software to be
@@ -1490,12 +2050,14 @@
     encourages and facilitates continuous deployment and delivery. As a result, developers
     get more rapid feedback about their code, which in turn allows smaller, faster,
     and safer iterations.
+  id: totrans-318
   prefs: []
   type: TYPE_NORMAL
 - en: Second, not only can feature flags allow features to be more easily tested before
     they’re deemed ready for release, but they can also do so dynamically. For example,
     logic can be used to build feedback loops that can be combined with a circuit
     breaker–like pattern to enable or disable flags automatically under specific conditions.
+  id: totrans-319
   prefs: []
   type: TYPE_NORMAL
 - en: Finally, logically executing flags can even be used to target feature rollouts
@@ -1504,9 +2066,11 @@
     based rollouts. When combined with observability techniques, feature gating can
     even allow you to more easily execute experiments like A/B testing or targeted
     tracing that instrument particular slices of user base, or even single customers.
+  id: totrans-320
   prefs: []
   type: TYPE_NORMAL
 - en: The Evolution of a Feature Flag
+  id: totrans-321
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
@@ -1515,14 +2079,17 @@
     in [Chapter 5](ch05.xhtml#chapter_5). Starting with the baseline function, we’ll
     progress through several evolutionary stages, from flaglessness all the way to
     a dynamic feature flag that toggles on for a particular subset of users.
+  id: totrans-322
   prefs: []
   type: TYPE_NORMAL
 - en: In our scenario, we’ve decided that we want to be able to scale our key-value
     store, so we want to update the logic so that it’s backed by a fancy distributed
     data structure instead of a local map.
+  id: totrans-323
   prefs: []
   type: TYPE_NORMAL
 - en: 'Generation 0: The Initial Implementation'
+  id: totrans-324
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
@@ -1532,61 +2099,77 @@
     the `HandlerFunc` interface defined in the `net/http` package. If you’re a little
     rusty on what that means, you may want to take a look back at [“Building an HTTP
     Server with net/http”](ch05.xhtml#section_ch05_server_with_nethttp).
+  id: totrans-325
   prefs: []
   type: TYPE_NORMAL
 - en: 'The initial handler function, copied almost directly from [Chapter 5](ch05.xhtml#chapter_5)
     (minus some of its error handling, for brevity) is shown here:'
+  id: totrans-326
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE53]'
+  id: totrans-327
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE53]'
 - en: As you can see, this function has no feature toggle logic (or indeed anything
     to toggle *to*). All it does is retrieve the key from the request variables, use
     the `Get` function to retrieve the value associated with that key, and write that
     value to the response.
+  id: totrans-328
   prefs: []
   type: TYPE_NORMAL
 - en: 'In our next implementation, we’ll start testing a new feature: a fancy distributed
     data structure to replace the local `map[string]string` that’ll allow the service
     to scale beyond a single instance.'
+  id: totrans-329
   prefs: []
   type: TYPE_NORMAL
 - en: 'Generation 1: The Hard-Coded Feature Flag'
+  id: totrans-330
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
 - en: In this implementation, we’ll imagine that we’ve built our new and experimental
     distributed backend, and made it accessible via the `NewGet` function.
+  id: totrans-331
   prefs: []
   type: TYPE_NORMAL
 - en: 'Our first attempt at creating a feature flag introduces a condition that allows
     us to use a simple Boolean value, `useNewStorage`, to switch between the two implementations:'
+  id: totrans-332
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE54]'
+  id: totrans-333
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE54]'
 - en: This first iteration shows some progress, but it’s far from where we want to
     be. Having the flag condition fixed in the code as a hard-coded value makes it
     possible to toggle between implementations well enough for local testing, but
     it won’t be easy to test both together in an automated and continuous manner.
+  id: totrans-334
   prefs: []
   type: TYPE_NORMAL
 - en: Plus, you’ll have to rebuild and redeploy the service whenever you want to change
     the algorithm you’re using in a deployed instance, which largely negates the benefits
     of having a feature flag in the first place.
+  id: totrans-335
   prefs: []
   type: TYPE_NORMAL
 - en: Tip
+  id: totrans-336
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
 - en: Practice good feature flag hygiene! If you haven’t updated a feature flag in
     a while, consider removing it.
+  id: totrans-337
   prefs: []
   type: TYPE_NORMAL
 - en: 'Generation 2: The Configurable Flag'
+  id: totrans-338
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
@@ -1594,29 +2177,36 @@
     have become evident. For one thing, it would be really nice if we could use an
     external mechanism to change the value of the flag so we can test *both* algorithms
     in our tests.
+  id: totrans-339
   prefs: []
   type: TYPE_NORMAL
 - en: 'In this example, we use Viper to bind and read an environment variable, which
     we can now use to enable or disable the feature at runtime. The choice of configuration
     mechanism isn’t really important here. All that matters is that we’re able to
     externally update the flag without having to rebuild the code:'
+  id: totrans-340
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE55]'
+  id: totrans-341
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE55]'
 - en: 'In addition to using Viper to read the environment variable that sets the `use-new-storage`
     flag, we’ve also introduced a new function: `FeatureEnabled`. At the moment all
     this does is perform `viper.GetBool(flag)`, but more importantly it also concentrates
     the flag reading logic in a single place. We’ll see exactly what the benefit of
     this is in the next iteration.'
+  id: totrans-342
   prefs: []
   type: TYPE_NORMAL
 - en: You might be wondering why `FeatureEnabled` accepts an `*http.Request`. Well,
     it doesn’t use it yet, but it’ll make sense in the next iteration.
+  id: totrans-343
   prefs: []
   type: TYPE_NORMAL
 - en: 'Generation 3: Dynamic Feature Flags'
+  id: totrans-344
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
@@ -1625,27 +2215,34 @@
     It’s clear that we’re not going to be able to implement this kind of flag with
     a configuration setting. Instead, we’ll have to build dynamic flags that can *figure
     out for themselves* if they should be set. That means associating flags with functions.
+  id: totrans-345
   prefs: []
   type: TYPE_NORMAL
 - en: Dynamic flags as functions
+  id: totrans-346
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: 'The first step in building dynamic flag functions is deciding what the signature
     of the functions will be. While it’s not strictly required, it’s helpful to define
     this explicitly with a function type like the one shown here:'
+  id: totrans-347
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE56]'
+  id: totrans-348
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE56]'
 - en: The `Enabled` function type is the prototype for all of our dynamic feature
     flags functions. Its contract defines a function that accepts the flag name as
     a `string` and the `*http.Request`, and it returns a `bool` that’s `true` if the
     requested flag is enabled.
+  id: totrans-349
   prefs: []
   type: TYPE_NORMAL
 - en: Implementing a dynamic flag function
+  id: totrans-350
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -1653,15 +2250,19 @@
     that we can use to determine whether a request is coming from a private network
     by comparing the request’s remote address against a standard list of IP ranges
     allocated for private networks:'
+  id: totrans-351
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE57]'
+  id: totrans-352
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE57]'
 - en: As you can see, the `fromPrivateIP` function conforms to `Enabled` by receiving
     a `string` value (the flag name) and an `*http.Request` (specifically, the instance
     associated with the initiating request). It returns `true` if the request originates
     from a private IP range (as defined by [RFC 1918](https://oreil.ly/lZ5PQ)).
+  id: totrans-353
   prefs: []
   type: TYPE_NORMAL
 - en: To make this determination, the `fromPrivateIP` function first retrieves the
@@ -1670,23 +2271,28 @@
     using `net.ParseIP` to parse it into a `*net.IP` value, it compares the originating
     IP against each of the private CIDR ranges contained in `privateCIDRs`, returning
     `true` if a match is found.
+  id: totrans-354
   prefs: []
   type: TYPE_NORMAL
 - en: Warning
+  id: totrans-355
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
 - en: This function also returns `true` if the request is traversing a load balancer
     or reverse proxy. A production-grade implementation will need to be aware of this,
     and would ideally be [proxy protocol-aware](https://oreil.ly/S3btg).
+  id: totrans-356
   prefs: []
   type: TYPE_NORMAL
 - en: Of course, this function is just an example. I used it because it’s relatively
     simple, but a similar technique can be used to enable or disable a flag for a
     geographic region, a fixed percentage of users, or even for a specific customer.
+  id: totrans-357
   prefs: []
   type: TYPE_NORMAL
 - en: The flag function lookup
+  id: totrans-358
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -1694,59 +2300,74 @@
     have to implement some mechanism of associating flags with it, by name. Perhaps
     the most straightforward way of doing this is to use a map of flag name strings
     to `Enabled` functions:'
+  id: totrans-359
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE58]'
+  id: totrans-360
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE58]'
 - en: Using a map in this manner to indirectly reference functions provides us with
     a good deal of flexibility. We can even associate a function with multiple flags,
     if we like. This could be useful if we want a set of related features to always
     be active under the same conditions.
+  id: totrans-361
   prefs: []
   type: TYPE_NORMAL
 - en: You may have noticed that we’re using an `init` function to fill the `enabledFunctions`
     map. But wait, didn’t we already have an `init` function?
+  id: totrans-362
   prefs: []
   type: TYPE_NORMAL
 - en: 'Yes, we did, and that’s okay. The `init` function is special: you’re allowed
     to have multiple `init` functions if you like.'
+  id: totrans-363
   prefs: []
   type: TYPE_NORMAL
 - en: The router function
+  id: totrans-364
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: Finally, we get to tie everything together.
+  id: totrans-365
   prefs: []
   type: TYPE_NORMAL
 - en: 'We do this by refactoring the `FeatureEnabled` function to look up the appropriate
     dynamic flag function, call it if it finds it, and return the result:'
+  id: totrans-366
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE59]'
+  id: totrans-367
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE59]'
 - en: At this point, `FeatureEnabled` has become a full-fledged router function that
     can dynamically control which code path is live according to explicit feature-flag
     settings and the output of flag functions. In this implementation, flags that
     have been explicitly set take precedence over everything else. This allows automated
     tests to verify both sides of a flagged feature.
+  id: totrans-368
   prefs: []
   type: TYPE_NORMAL
 - en: Our implementation uses a simple in-memory lookup to determine the behavior
     of particular flags, but this could just as easily be implemented with a database
     or other data source, or even a sophisticated managed service like LaunchDarkly.
     Keep in mind, though, that these solutions do introduce a new dependency.
+  id: totrans-369
   prefs: []
   type: TYPE_NORMAL
 - en: Summary
+  id: totrans-370
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
 - en: Manageability isn’t the most glamorous subject in the cloud native world—or
     any world, really—but I still really enjoyed how much we got our hands dirty with
     details in this chapter.
+  id: totrans-371
   prefs: []
   type: TYPE_NORMAL
 - en: We dug into some of the nuts and bolts of various configuration styles, including
@@ -1754,6 +2375,7 @@
     went over a couple of strategies for detecting configuration changes to trigger
     a reload. That’s not to mention Viper, which pretty much does all of that and
     more.
+  id: totrans-372
   prefs: []
   type: TYPE_NORMAL
 - en: I do feel like there may be some potential to go a lot deeper on some things,
@@ -1762,69 +2384,86 @@
     would have liked to have been able to explore them a bit more. Some subjects,
     like deployments and service discovery, we couldn’t even cover at all. I guess
     we have some things to look forward to in the next edition, right?
+  id: totrans-373
   prefs: []
   type: TYPE_NORMAL
 - en: As much as I enjoyed this chapter, I’m especially excited about [Chapter 11](ch11.xhtml#chapter_11),
     in which we’ll get to dive into observability in general, and OpenTelemetry in
     particular.
+  id: totrans-374
   prefs: []
   type: TYPE_NORMAL
 - en: 'Finally, I’ll leave you with some advice: always be yourself, and remember
     that luck comes from hard work.'
+  id: totrans-375
   prefs: []
   type: TYPE_NORMAL
 - en: ^([1](ch10.xhtml#idm45983620458120-marker)) Kernighan, Brian W., and P. J. Plauger.
     *The Elements of Programming Style*. McGraw-Hill, 1978.
+  id: totrans-376
   prefs: []
   type: TYPE_NORMAL
 - en: '^([2](ch10.xhtml#idm45983620454840-marker)) Staff, America’s Test Kitchen.
     *Perfect Pie: Your Ultimate Guide to Classic and Modern Pies, Tarts, Galettes,
     and More*. America’s Test Kitchen, 2019\. [*https://oreil.ly/rl5TP*](https://oreil.ly/rl5TP).'
+  id: totrans-377
   prefs: []
   type: TYPE_NORMAL
 - en: ^([3](ch10.xhtml#idm45983620452296-marker)) They’re doing some pretty amazing
     things with genetic engineering. Don’t stop believing.
+  id: totrans-378
   prefs: []
   type: TYPE_NORMAL
 - en: '^([4](ch10.xhtml#idm45983620614104-marker)) “Systems and Software Engineering:
     Vocabulary.” ISO/IEC/IEEE 24765:2010(E), 15 Dec. 2010\. [*https://oreil.ly/NInvC*](https://oreil.ly/NInvC).'
+  id: totrans-379
   prefs: []
   type: TYPE_NORMAL
 - en: ^([5](ch10.xhtml#idm45983620606648-marker)) Radle, Byron, et al. “What Is Manageability?”
     *NI*, National Instruments, 5 Mar. 2019\. [*https://oreil.ly/U3d7Q*](https://oreil.ly/U3d7Q).
+  id: totrans-380
   prefs: []
   type: TYPE_NORMAL
 - en: ^([6](ch10.xhtml#idm45983620592520-marker)) Or so I told my editors. Hi, Amelia!
     Hi, Zan!
+  id: totrans-381
   prefs: []
   type: TYPE_NORMAL
 - en: ^([7](ch10.xhtml#idm45983620591208-marker)) This makes me sad. These are important
     topics, but we have to focus.
+  id: totrans-382
   prefs: []
   type: TYPE_NORMAL
 - en: ^([8](ch10.xhtml#idm45983620384056-marker)) Pike, Rob. “Go Proverbs.” Gopherfest,
     18 Nov. 2015, YouTube. [*https://oreil.ly/5bOxW*](https://oreil.ly/5bOxW).
+  id: totrans-383
   prefs: []
   type: TYPE_NORMAL
 - en: ^([9](ch10.xhtml#idm45983619649368-marker)) Neat trick, huh?
+  id: totrans-384
   prefs: []
   type: TYPE_NORMAL
 - en: ^([10](ch10.xhtml#idm45983619331048-marker)) Well, like you.
+  id: totrans-385
   prefs: []
   type: TYPE_NORMAL
 - en: ^([11](ch10.xhtml#idm45983618773656-marker)) Seriously, that really is what
     it stands for.
+  id: totrans-386
   prefs: []
   type: TYPE_NORMAL
 - en: ^([12](ch10.xhtml#idm45983618296888-marker)) Also, I just love JSON *so much*.
+  id: totrans-387
   prefs: []
   type: TYPE_NORMAL
 - en: ^([13](ch10.xhtml#idm45983617110392-marker)) Or that feature just hasn’t been
     implemented. I don’t know.
+  id: totrans-388
   prefs: []
   type: TYPE_NORMAL
 - en: ^([14](ch10.xhtml#idm45983616980664-marker)) I’ve also seen “feature switch,”
     “feature flipper,” “conditional feature,” and more. The industry seems to be settling
     on “flag” and “toggle,” probably because the other names are just a little silly.
+  id: totrans-389
   prefs: []
   type: TYPE_NORMAL
