@@ -214,6 +214,7 @@
   id: totrans-23
   prefs: []
   type: TYPE_NORMAL
+  zh: 一般来说，优化不一定需要改进我们程序的效率特性，如果这不是我们的目标的话。例如，如果我们的目标是提高安全性、可维护性或代码大小，我们也可以为此进行优化。然而，在本书中，当我们谈论优化时，它们将是在效率背景下的（改进资源消耗或速度）。
 - en: The goal of efficiency optimization should be to modify code (generally without
     changing its functionality^([1](ch03.html#idm45606836661792))) so that its execution
     is either overall more efficient or at least more efficient in the categories
@@ -221,32 +222,38 @@
   id: totrans-24
   prefs: []
   type: TYPE_NORMAL
+  zh: 效率优化的目标应该是修改代码（通常不改变其功能^([1](ch03.html#idm45606836661792)）），使其执行要么整体更高效，要么至少在我们关心的类别中更高效（在其他方面更差）。
 - en: 'The important part is that, from a high-level view, we can perform the optimization
     by doing either of two things (or both):'
   id: totrans-25
   prefs: []
   type: TYPE_NORMAL
+  zh: 重要的部分是，从高层次的视角来看，我们可以通过以下两种方式（或两者兼有）来进行优化：
 - en: We can eliminate “wasted” resource consumption.
   id: totrans-26
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们可以消除“浪费”的资源消耗。
 - en: We can trade one resource consumption for another or deliberately sacrifice
     other software qualities (so-called trade-off).
   id: totrans-27
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们可以用一种资源消耗来换取另一种，或者故意牺牲其他软件质量（所谓的权衡）。
 - en: Let me explain the difference between these two by describing the first type
     of change—reducing so-called waste.
   id: totrans-28
   prefs: []
   type: TYPE_NORMAL
+  zh: 让我通过描述第一种变化——减少所谓的浪费来解释这两者之间的区别。
 - en: Reasonable Optimizations
   id: totrans-29
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 合理的优化
 - en: 'Our program consists of a code—a set of instructions that operates on some
     data and uses various resources on our machines (CPU, memory, disk, power, etc.).
     We write this code so our program can perform the requested functionality. But
@@ -260,18 +267,21 @@
   id: totrans-30
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们的程序由代码组成——一组操作数据并在我们的机器上使用各种资源（CPU、内存、磁盘、电源等）的指令。我们编写这些代码以便我们的程序能够执行请求的功能。但是，涉及到的一切很少是完美的（或完美集成）：我们编写的代码、编译器、操作系统，甚至硬件。因此，我们有时会引入“浪费”。资源消耗的浪费代表了我们程序中相对不必要的操作，这些操作占用了宝贵的时间、内存或CPU时间等。这种浪费可能是出于故意简化、偶然、技术债务、疏忽或对更好方法的无知。例如：
 - en: We might have accidentally left some debugging code that introduces massive
     latency in the heavily used function (e.g., `fmt.Println` statements).
   id: totrans-31
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们可能不小心留下了一些调试代码，导致在频繁使用的函数中引入了巨大的延迟（例如，`fmt.Println`语句）。
 - en: We performed an unnecessary, expensive check because the caller has already
     verified the input.
   id: totrans-32
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们进行了一个不必要的昂贵检查，因为调用者已经验证了输入。
 - en: We forgot to stop certain goroutines (a concurrency paradigm we will explain
     in detail in [“Go Runtime Scheduler”](ch04.html#ch-hw-concurrency)), which are
     no longer required, yet still running, which wastes our memory and CPU time.^([2](ch03.html#idm45606836647264))
@@ -279,24 +289,28 @@
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们忘记停止某些不再需要但仍在运行的goroutines（一种我们将在[“Go运行时调度器”](ch04.html#ch-hw-concurrency)中详细解释的并发范式），这浪费了我们的内存和CPU时间。^([2](ch03.html#idm45606836647264))
 - en: We used a nonoptimized function from a third-party library, when an optimized
     one exists in a different, well-maintained library that does the same thing faster.
   id: totrans-34
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 当存在一个更快的优化函数时，我们使用了第三方库中的非优化函数，而这个函数在另一个不同的、维护良好的库中存在。
 - en: We saved the same piece of data a couple of times on disk, while it could be
     just reused and stored once.
   id: totrans-35
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们在磁盘上多次保存了相同的数据，而实际上可以只重复使用并存储一次。
 - en: Our algorithm might have performed checks too many times when it could have
     done less for free (e.g., naive search versus binary search on sorted data).
   id: totrans-36
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 当我们的算法在处理时可能进行了过多的检查，而实际上可以免费减少（例如，在有序数据上进行朴素搜索与二分搜索的比较）。
 - en: The operation performed by our program or consumption of specific resources
     is a “waste” if, by eliminating it, we don’t sacrifice anything else. And “anything”
     here means anything we particularly care for, such as extra CPU time, other resource
@@ -393,6 +407,7 @@
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: 如果你正在处理的是噪音，你不应立即处理，因为投入时间和精力的回报非常小。但是，如果你在浏览你的代码库时注意到一个显著改进的机会（比如10%或12%），当然可以弯腰捡起来。
 - en: ''
   id: totrans-49
   prefs:
@@ -403,6 +418,7 @@
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: Scott Meyers，《[重要的事情](https://oreil.ly/T9VFz)》
 - en: Initially, when you are new to programming or a particular language, you might
     not know which operations are unnecessary waste or if eliminating the potential
     waste will harm your program. That’s fine. The “obviousness” comes from practice,
@@ -412,6 +428,7 @@
   id: totrans-51
   prefs: []
   type: TYPE_NORMAL
+  zh: 起初，当您刚接触编程或某种特定语言时，您可能不知道哪些操作是不必要的浪费，或者消除潜在浪费是否会损害您的程序。这没关系。这种“显而易见”的能力来自实践，所以不要猜测。如果你在猜测，这意味着优化并不明显。通过经验，您将学会什么是合理的，我们将在第[10](ch10.html#ch-opt)章和第[11](ch11.html#ch-opt2)章中一起练习这一点。
 - en: Reasonable optimizations yield consistent performance improvements and often
     simplify or make our code more readable. However, we might want to take a more
     deliberate approach for bigger efficiency impacts, where the result might be less
@@ -419,11 +436,13 @@
   id: totrans-52
   prefs: []
   type: TYPE_NORMAL
+  zh: 合理的优化会带来一致的性能改进，并经常简化或使我们的代码更可读。然而，对于更大的效率影响，我们可能希望采取更为刻意的方法，结果可能不那么明显，正如下一节所解释的那样。
 - en: Deliberate Optimizations
   id: totrans-53
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 刻意优化
 - en: Beyond waste, we have operations that are critically important for our functionality.
     In this case, we can say we have a zero-sum game.^([3](ch03.html#idm45606836619040))
     This means we have a situation where we cannot eliminate a certain operation that
@@ -432,6 +451,7 @@
   id: totrans-54
   prefs: []
   type: TYPE_NORMAL
+  zh: 除了浪费，我们还有对功能至关重要的操作。在这种情况下，我们可以说我们处于一个零和游戏的情况^([3](ch03.html#idm45606836619040))。这意味着我们有一个情况，我们不能消除使用资源A（例如内存）的某个操作，而不使用更多的资源B（例如CPU时间）或其他质量（例如可读性、可移植性或正确性）。
 - en: The optimizations that are not obvious or require us to make a certain trade-off
     can be called *deliberate*^([4](ch03.html#idm45606836617440)) since we have to
     spend a little bit more time on them. We can understand the trade-off, measure
@@ -439,6 +459,7 @@
   id: totrans-55
   prefs: []
   type: TYPE_NORMAL
+  zh: 那些不明显或需要我们做出某种权衡的优化可以被称为*刻意*^([4](ch03.html#idm45606836617440))，因为我们需要在其上花费更多的时间。我们可以理解这种权衡，对其进行测量或评估，并决定保留还是放弃它。
 - en: Deliberate optimizations are not worse in any way. On the contrary, they often
     significantly impact the latency or resource consumption you want to cut. For
     example, if our request is too slow on a web server, we can consider optimizing
@@ -453,6 +474,7 @@
   id: totrans-56
   prefs: []
   type: TYPE_NORMAL
+  zh: 刻意优化在任何方面都不差。相反，它们通常会显著影响您希望减少的延迟或资源消耗。例如，如果我们的网络服务器请求速度太慢，我们可以考虑通过引入缓存来优化延迟。缓存将允许我们保存从昂贵计算中的结果，以便为请求相同数据的情况提供响应。此外，它节省了CPU时间，避免了引入复杂的并行逻辑。然而，在服务器的生命周期内，我们将牺牲内存或磁盘使用，并可能引入一些代码复杂性。因此，刻意优化可能不会提高程序的整体效率，但它可以提高我们当前关心的特定资源使用的效率。根据情况，这种牺牲可能是值得的。
 - en: However, the implication of having certain sacrifices means we have to perform
     such optimization in a separate development phase isolated from the functionality
     one, as explained in [“Efficiency-Aware Development Flow”](#ch-conq-eff-flow).
@@ -462,6 +484,7 @@
   id: totrans-57
   prefs: []
   type: TYPE_NORMAL
+  zh: 然而，有些牺牲意味着我们必须在一个与功能分离的开发阶段中执行这种优化，正如在[“效率感知开发流程”](#ch-conq-eff-flow)中所解释的那样。这样做的原因很简单。首先，我们必须确保我们理解我们所牺牲的内容及其影响是否不大。不幸的是，人类在估计这类影响时通常表现得很差。
 - en: For example, a common way to reduce network bandwidth and disk usage is to compress
     the data before sending it or storing it. However, simultaneously it requires
     us to decompress (decode) when receiving or reading the data. The potential balance
@@ -470,16 +493,19 @@
   id: totrans-58
   prefs: []
   type: TYPE_NORMAL
+  zh: 例如，在发送或存储数据之前，常见的网络带宽和磁盘使用优化方法是对数据进行压缩。然而，同时在接收或读取数据时需要进行解压（解码）。我们软件引入压缩前后资源使用的潜在平衡可以在[图 3-1](#img-opt-sum)中看到。
 - en: '![efgo 0301](assets/efgo_0301.png)'
   id: totrans-59
   prefs: []
   type: TYPE_IMG
+  zh: '![efgo 0301](assets/efgo_0301.png)'
 - en: Figure 3-1\. Potential impact on latency and resource usage if we compress the
     data before sending it over the network and saving it on disk
   id: totrans-60
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 3-1\. 如果在发送到网络和保存到磁盘之前压缩数据，可能对延迟和资源使用造成潜在影响
 - en: The exact numbers will vary, but the CPU resource will potentially be used more
     after compression addition. Instead of a simple data write operation, we must
     go through all bytes and compress them. It takes some time, even for the best
@@ -490,6 +516,7 @@
   id: totrans-61
   prefs: []
   type: TYPE_NORMAL
+  zh: 具体的数字可能会有所不同，但在增加压缩后，CPU资源的使用可能会增加。我们不再进行简单的数据写入操作，而是必须逐字节压缩它们。即使对于最佳的无损压缩算法（例如`snappy`或`gzip`），这也需要一些时间。但发送到网络和磁盘的消息数量减少，可能会改善这种操作的总延迟。所有的压缩算法都需要一些额外的缓冲区，因此也会增加内存使用。
 - en: To sum up, there are strong implications for categorizing optimization reasonably
     and deliberately. If we see a potential efficiency improvement, we must be aware
     of its unintended consequences. There might be cases where it’s reasonable and
@@ -502,17 +529,20 @@
   id: totrans-62
   prefs: []
   type: TYPE_NORMAL
+  zh: 总之，对于合理和有意义地分类优化有着深远的影响。如果我们看到潜在的效率提升，必须意识到其意外后果。有些情况下，进行优化可能是合理且容易获得的，例如我们可以免费剥离一些不必要的程序操作。但更多时候，要在每个方面使我们的软件高效是不可能的，或者我们会影响其他软件质量。这时候我们陷入了一个零和博弈，必须认真审视这些问题。在本书和实践中，你将学习到你所处的情况及如何预测这些后果。
 - en: Before we bring the two types of optimizations into our development flow, let’s
     discuss the efficiency optimization challenges we must be aware of. We will go
     through the most important ones in the next section.
   id: totrans-63
   prefs: []
   type: TYPE_NORMAL
+  zh: 在我们将这两种优化类型引入开发流程之前，让我们讨论一下我们必须意识到的效率优化挑战。我们将在下一节中重点介绍其中最重要的挑战。
 - en: Optimization Challenges
   id: totrans-64
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 优化挑战
 - en: 'I wouldn’t need to write this book if optimizing our software was easy. It’s
     not. The process can be time-consuming and prone to mistakes. This is why many
     developers tend to ignore this topic or learn it later in their careers. But don’t
@@ -523,11 +553,13 @@
   id: totrans-65
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果优化我们的软件很容易，我就不需要写这本书了。但事实并非如此。这个过程可能耗时且容易出错。这就是为什么许多开发人员倾向于忽略这个主题或在他们职业生涯的后期学习它。但不要感到沮丧！每个人经过一些实践后都可以成为一个有效且务实的效率感知开发者。了解优化障碍应该给我们一个很好的指示，告诉我们应该专注于改进什么。让我们来看看一些基本问题：
 - en: Programmers are bad at estimating what part is responsible for the performance
     problem.
   id: totrans-66
   prefs: []
   type: TYPE_NORMAL
+  zh: 程序员很难估计哪一部分是性能问题的罪魁祸首。
 - en: We are really bad at guessing which part of the program consumes the most resources
     and how much. However, it’s essential to find these problems because, generally,
     [the Pareto Principle](https://oreil.ly/eZIl5) applies. It states that 80% of
@@ -538,10 +570,14 @@
   id: totrans-67
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们很难猜测程序的哪一部分消耗了最多的资源以及具体的数量。然而，找出这些问题至关重要，因为通常情况下，适用于[帕累托原则](https://oreil.ly/eZIl5)。该原则指出，我们程序消耗的时间或资源的
+    80% 只来自其执行的 20% 操作。由于任何优化都是耗时的，我们希望专注于那关键的 20% 操作，而不是一些噪音。幸运的是，有工具和方法可以估算这些问题，我们将在第 9
+    章中详细介绍。
 - en: Programmers are notoriously bad at estimating exact resource consumption.
   id: totrans-68
   prefs: []
   type: TYPE_NORMAL
+  zh: 程序员在估计确切的资源消耗方面声名狼藉。
 - en: Similarly, we often make wrong assumptions on whether certain optimizations
     should help. Our guesses get better with experience (and hopefully after reading
     this book). Yet, it’s best to *never trust your judgment*, and always measure
@@ -550,10 +586,13 @@
   id: totrans-69
   prefs: []
   type: TYPE_NORMAL
+  zh: 同样地，我们经常对某些优化是否有帮助作出错误假设。通过经验，我们的猜测会变得更准确（希望在阅读本书后如此）。然而，最好*不要轻信自己的判断*，始终在深思熟虑进行优化后，测量和验证所有数据（在第 7
+    章中详细讨论）。软件执行过程中有太多层和许多未知因素和变量。
 - en: Maintaining efficiency over time is hard.
   id: totrans-70
   prefs: []
   type: TYPE_NORMAL
+  zh: 长期保持效率是困难的。
 - en: The complex software execution layers mentioned previously are constantly changing
     (new versions of operating systems, hardware, firmware, etc.), not to mention
     the program’s evolution and future developers who might touch your code. We might
@@ -564,10 +603,13 @@
   id: totrans-71
   prefs: []
   type: TYPE_NORMAL
+  zh: 之前提到的复杂软件执行层（操作系统的新版本、硬件、固件等）是不断变化的，更不用说程序的演变以及未来可能接触您代码的开发人员。我们可能花了几周时间优化一个部分，但如果我们不防范回归，这些优化可能就变得无关紧要了。有多种方法可以自动化或者至少结构化我们程序的效率基准测试和验证过程，因为事情每天都在变化，如第 6
+    章中所述。
 - en: Reliable verification of current performance is very difficult.
   id: totrans-72
   prefs: []
   type: TYPE_NORMAL
+  zh: 可靠地验证当前性能非常困难。
 - en: 'As we will learn in [“Efficiency-Aware Development Flow”](#ch-conq-eff-flow),
     the solution to the aforementioned challenges is to benchmark, measure, and validate
     the efficiency. Unfortunately, these are difficult to perform and prone to errors.
@@ -578,10 +620,13 @@
   id: totrans-73
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如我们将在[“效率感知开发流程”](#ch-conq-eff-flow)中了解到的那样，解决上述挑战的方法是对效率进行基准测试、测量和验证。不幸的是，这些操作难以执行且容易出错。有很多原因：无法足够接近模拟生产环境、外部因素如噪声邻居、缺乏预热阶段、错误的数据集或微基准测试中的意外编译器优化。这就是为什么我们将在“实验可靠性”（第 7
+    章中的[“Reliability of Experiments”](ch07.html#ch-obs-rel)）中花费一些时间讨论这个主题。
 - en: Optimizing can easily impact other software qualities.
   id: totrans-74
   prefs: []
   type: TYPE_NORMAL
+  zh: 优化很容易影响其他软件质量。
 - en: 'Solid software is great at many qualities: functionality, compatibility, usability,
     reliability, security, maintainability, portability, and efficiency. Each of these
     characteristics is nontrivial to get right, so they cause some cost to the development
@@ -591,10 +636,12 @@
   id: totrans-75
   prefs: []
   type: TYPE_NORMAL
+  zh: 坚实的软件在许多方面都非常出色：功能性、兼容性、可用性、可靠性、安全性、可维护性、可移植性和效率。每一种特性都不容易做到完美，所以它们都会给开发过程带来一些成本。每种特性的重要性可能因您的用例而异。然而，每种软件质量都有其安全的最低标准，以保证程序的实用性。在添加更多功能和优化时，这可能会带来挑战。
 - en: Specifically, in Go we don’t have strict control over memory management.
   id: totrans-76
   prefs: []
   type: TYPE_NORMAL
+  zh: 具体来说，在Go中，我们无法严格控制内存管理。
 - en: As we learned in [“Go Runtime”](ch02.html#ch-go-runtime), Go is garbage-collected
     language. While it’s lifesaving for the simplicity of our code, memory safety,
     and developer velocity, it has downsides that can be seen when we want to be memory
@@ -605,10 +652,12 @@
   id: totrans-77
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如我们在[《Go运行时》](ch02.html#ch-go-runtime)中学到的，Go是一种垃圾收集语言。虽然这对我们的代码简洁性、内存安全性和开发速度至关重要，但在追求内存效率时也会显现出一些不足。有方法可以改进我们的Go代码以减少内存使用，但事情可能会变得复杂，因为内存释放模型是最终的。通常，解决方案就是简单地减少分配。我们将详细讨论[《我们是否存在内存问题？》](ch05.html#ch-hw-memory)中的内存管理。
 - en: When is our program efficient “enough”?
   id: totrans-78
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们的程序何时足够高效？
 - en: In the end, all optimizations are never fully free. They require a bigger or
     smaller effort from the developer. Both reasonable and deliberate optimizations
     require prior knowledge and time spent on implementation, experimentations, testing,
@@ -620,6 +669,7 @@
   id: totrans-79
   prefs: []
   type: TYPE_NORMAL
+  zh: 最终，所有的优化都不是完全免费的。它们需要开发人员付出不同大小的努力。合理和有意识的优化需要先前的知识和时间用于实现、实验、测试和基准测试。鉴于此，我们需要找到这种努力的正当理由。否则，我们可以把这些时间花在别的地方。我们应该消除这种浪费吗？我们应该将资源X的消耗交换为资源Y吗？这种转换对我们有用吗？答案可能是“不”。如果是“是”，那么效率提升到什么程度才够？
 - en: Regarding the last point, this is why it’s extremely important to know your
     goals. What things, resources, and qualities do you (or your boss) care about
     during the development? It can vary depending on what you build. In the next section,
@@ -628,11 +678,13 @@
   id: totrans-80
   prefs: []
   type: TYPE_NORMAL
+  zh: 关于最后一点，这就是为什么了解你的目标非常重要。在开发过程中，你（或你的老板）关心什么事物、资源和品质可能会有所不同。在下一节中，我将提出一种明确软件性能要求的务实方法。
 - en: Understand Your Goals
   id: totrans-81
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 理解你的目标
 - en: Before you proceed toward such lofty goals [program efficiency optimization],
     you should examine your reasons for doing so. Optimization is one of many desirable
     goals in software engineering and is often antagonistic to other important goals
@@ -646,6 +698,7 @@
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: 在你朝着这些崇高目标（程序效率优化）迈进之前，你应该审视自己的原因。优化是软件工程中许多可取的目标之一，但它经常与其他重要目标（如稳定性、可维护性和可移植性）相对立。在其最表面的层次上（高效的实现、清晰的非冗余接口），优化是有益的，应该始终应用。但在其最具侵入性的层次上（内联汇编、预编译/自修改代码、循环展开、位字段化、超标量和向量化），它可能是一个耗时的实现和错误追踪的不竭源泉。对于优化代码的成本要谨慎和警惕。
 - en: ''
   id: totrans-83
   prefs:
@@ -656,6 +709,7 @@
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: 保罗·谢（Paul Hsieh），[《编程优化》](https://oreil.ly/PQ4pk)
 - en: By our definition, efficiency optimization improves our program resource consumption
     or latency. It’s highly addictive to challenge ourselves and explore how fast
     our program can be.^([5](ch03.html#idm45606836572944)) First, however, we need
@@ -666,16 +720,19 @@
   id: totrans-85
   prefs: []
   type: TYPE_NORMAL
+  zh: 根据我们的定义，效率优化改善了我们程序的资源消耗或延迟。挑战自己并探索我们的程序可以有多快是非常令人着迷的^([5](ch03.html#idm45606836572944))。然而，首先我们需要明白优化的目标并不是让我们的程序完全高效或“最优”的（因为这可能是不可能或不可行的），而是足够地次优。但是对于我们来说，“足够”意味着什么？什么时候停止？如果甚至没有必要开始优化呢？
 - en: 'One answer is to optimize when stakeholders (or users) ask for better efficiency
     in the software we develop until they are happy. But unfortunately, this is usually
     very difficult for a few reasons:'
   id: totrans-86
   prefs: []
   type: TYPE_NORMAL
+  zh: 当利益相关者（或用户）要求我们开发的软件更高效时，一个答案是进行优化，直到他们满意。但不幸的是，由于几个原因，这通常非常困难：
 - en: '[XY problem](https://oreil.ly/AolRQ).'
   id: totrans-87
   prefs: []
   type: TYPE_NORMAL
+  zh: '[XY 问题](https://oreil.ly/AolRQ)。'
 - en: Stakeholders often ask for better efficiency, whereas a better solution is elsewhere.
     For example, many people complain about the heavy memory usage of the metric system
     if they try to monitor unique events. Instead, the potential solution might be
@@ -685,10 +742,13 @@
   id: totrans-88
   prefs: []
   type: TYPE_NORMAL
+  zh: 利益相关者经常要求更高的效率，而更好的解决方案可能在其他地方。例如，许多人抱怨使用度量系统时的内存使用量过大，如果他们尝试监控唯一事件。相反，解决方案可能是使用日志记录或跟踪系统来处理此类数据，而不是使度量系统更快。^([6](ch03.html#idm45606836566448))
+    因此，我们不能总是信任初期用户的请求，特别是关于效率的请求。
 - en: Efficiency is not a zero-sum game.
   id: totrans-89
   prefs: []
   type: TYPE_NORMAL
+  zh: 效率不是零和游戏。
 - en: Ideally, we need to see the big picture of all efficiency goals. As we learned
     in [“Deliberate Optimizations”](#ch-conq-opt-deliberate), one optimization for
     latency might cause more memory usage or impact other resources, so we can’t react
@@ -700,10 +760,12 @@
   id: totrans-90
   prefs: []
   type: TYPE_NORMAL
+  zh: 理想情况下，我们需要全面了解所有效率目标的大局。正如我们在[“刻意优化”](#ch-conq-opt-deliberate)中学到的，为了降低延迟而进行的一项优化可能会导致更多的内存使用或影响其他资源，因此我们不能仅凭反应到每一个关于效率的用户投诉。当然，软件通常越精简和高效越好，但很可能我们无法制作出一款既满足需要低延迟实时事件捕获解决方案的用户，又满足在此操作期间需要极低内存使用的用户的单一软件。
 - en: Stakeholders might not understand the optimization cost.
   id: totrans-91
   prefs: []
   type: TYPE_NORMAL
+  zh: 利益相关者可能不理解优化成本。
 - en: Everything costs, especially optimization effort and maintaining highly optimized
     code. Technically speaking, only physics laws limit us on how optimized software
     can be.^([7](ch03.html#idm45606836561456)) At some point, however, the benefit
@@ -712,21 +774,26 @@
   id: totrans-92
   prefs: []
   type: TYPE_NORMAL
+  zh: 一切都有成本，特别是优化工作和维护高度优化的代码。从技术上讲，只有物理定律限制了我们的软件可以优化到多么高的程度。^([7](ch03.html#idm45606836561456))
+    然而，在某个时候，优化带来的好处与寻找和开发这种优化的成本相比是不划算的。让我们深入探讨一下最后一点。
 - en: '[Figure 3-2](#img-opt-cost) shows a typical correlation between the efficiency
     of the software and different costs.'
   id: totrans-93
   prefs: []
   type: TYPE_NORMAL
+  zh: '[图 3-2](#img-opt-cost)展示了软件效率与不同成本之间的典型相关性。'
 - en: '![efgo 0302](assets/efgo_0302.png)'
   id: totrans-94
   prefs: []
   type: TYPE_IMG
+  zh: '![efgo 0302](assets/efgo_0302.png)'
 - en: Figure 3-2\. Beyond the “sweet spot,” the cost of gaining higher efficiency
     might be extremely high
   id: totrans-95
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 3-2\. 超出“甜点”之后，提高效率的成本可能非常高。
 - en: '[Figure 3-2](#img-opt-cost) explains why at some “sweet spot” point, it might
     not be feasible to invest more time and resources in our software efficiency.
     Beyond some point, the cost of optimizing and developing optimized code can quickly
@@ -737,6 +804,7 @@
   id: totrans-96
   prefs: []
   type: TYPE_NORMAL
+  zh: '[图 3-2](#img-opt-cost)解释了为什么在某些“甜点”点上，投入更多时间和资源来提高软件效率可能是不可行的。超过某一点后，优化和开发优化代码的成本可能会迅速超过我们从更轻量的软件中获得的好处，例如计算成本和机会。我们可能需要投入更多昂贵的开发人员时间，需要引入巧妙的、不可移植的技巧，专用的机器码，专用的操作系统，甚至专用的硬件。'
 - en: In many cases, optimizations beyond the sweet spot aren’t worth it, and it might
     be better to design a different system or use other flows to avoid such work.
     Unfortunately, there is also no single answer to where the sweet spot is. Typically,
@@ -747,6 +815,7 @@
   id: totrans-97
   prefs: []
   type: TYPE_NORMAL
+  zh: 在许多情况下，超越甜点之外的优化并不值得，可能更好的做法是设计一个不同的系统或使用其他流程来避免这样的工作。不幸的是，甜点在哪里并没有一个单一的答案。通常情况下，计划软件寿命越长，部署越大，投资价值就越大。另一方面，如果您计划仅几次使用您的程序，您的甜点可能在此图表的开始处，效率非常低。
 - en: The problem is that users and stakeholders will not be aware of this. While
     ideally, product owners help us find that out, it’s often the developer’s role
     to advise the level of those different costs, using tools we will learn in Chapters
@@ -754,6 +823,7 @@
   id: totrans-98
   prefs: []
   type: TYPE_NORMAL
+  zh: 问题在于用户和利益相关者将不会意识到这一点。虽然理想情况下，产品所有者帮助我们找出这一点，但往往是开发者的角色使用我们将在第[6](ch06.html#ch-observability)和[7](ch07.html#ch-observability2)章中学习的工具来建议这些不同成本的水平。
 - en: However, whatever numbers we agree on, the best idea to solve the “when is enough”
     problem and have clear efficiency requirements is to write them down. In the next
     section, I will explain why. In [“Resource-Aware Efficiency Requirements”](#ch-conq-req),
@@ -763,11 +833,13 @@
   id: totrans-99
   prefs: []
   type: TYPE_NORMAL
+  zh: 但是，无论我们同意多少数字，解决“什么时候足够”的最佳方法并确定明确的效率要求是将它们写下来。在下一节中，我将解释为什么。在[“资源感知效率要求”](#ch-conq-req)中，我将介绍其轻量级公式。然后在[“获取和评估效率目标”](#ch-conq-acquiring-raer)中，我们将讨论如何获取和评估这些效率要求。
 - en: Efficiency Requirements Should Be Formalized
   id: totrans-100
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 效率要求应该被形式化
 - en: 'As you probably already know, every software development starts with the functional
     requirements gathering stage (FR stage). An architect, product manager, or yourself
     has to go through potential stakeholders, interview them, gather use cases and,
@@ -782,6 +854,7 @@
   id: totrans-101
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如您可能已经知道的那样，每个软件开发都始于功能需求收集阶段（FR阶段）。架构师、产品经理或您本人必须通过潜在的利益相关者进行访谈，收集用例，并理想情况下将它们记录在某些功能需求文档中。然后开发团队和利益相关者会在该文档中审查和协商功能细节。FR文档描述了您的程序应接受的输入，用户期望的行为和输出。它还提到了先决条件，例如应用程序预期运行的操作系统是什么。理想情况下，您会对FR文档获得正式批准，并成为双方之间的“合同”。特别是在您因构建软件而获得补偿时，这一点非常重要：
 - en: FR tells developers what they should focus on. It tells you what inputs should
     be valid and what things a user can configure. It dictates what you should focus
     on. Are you spending your time on something stakeholders paid for?
@@ -789,6 +862,7 @@
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: FR告诉开发人员他们应该专注于什么。它告诉您输入应该是有效的以及用户可以配置哪些内容。它规定了您应该专注的内容。您是否在为利益相关者支付的内容而花费时间？
 - en: It’s easier to integrate with software with a clear FR. For example, stakeholders
     might want to design or order further system pieces that will be compatible with
     your software. They can start doing this before your software is even finished!
@@ -796,6 +870,7 @@
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 与明确的**FR（功能需求）**结合软件更容易。例如，利益相关者可能希望设计或订购进一步与您的软件兼容的系统部件。他们甚至可以在您的软件完成之前开始做这些！
 - en: FR enforces clear communication. Ideally, the FR is written and formal. This
     is helpful, as people tend to forget things, and it’s easy to miscommunicate.
     That’s why you write it all down and ask stakeholders for review. Maybe you misheard
@@ -804,6 +879,7 @@
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: FR强化了明确的沟通。理想情况下，FR应该是书面和正式的。这是有帮助的，因为人们往往会忘记事情，很容易发生误解。这就是为什么您要把所有事情写下来并要求利益相关者审查的原因。也许您听错了什么？
 - en: You do formal functional requirements for bigger systems and features. For a
     smaller piece of software, you tend to write them up for some issue in your backlog,
     e.g., GitHub or GitLab issues, and then document them. Even for tiny scripts or
@@ -814,12 +890,14 @@
   id: totrans-105
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于更大的系统和功能，您需要形式化的功能需求。对于较小的软件部件，您往往将其写入您的待办事项中，例如GitHub或GitLab的问题，然后进行文档化。即使是微小的脚本或小程序，也要设定一些目标和先决条件，例如特定的环境（例如Python版本）和一些依赖项（机器上的GPU）。当您希望其他人有效地使用它时，您必须提及您的软件的功能需求和目标。
 - en: Defining and agreeing on functional requirements is well adopted in the software
     industry. Even if a bit bureaucratic, developers tend to like those specifications
     because it makes their life easier—requirements are then more stable and specific.
   id: totrans-106
   prefs: []
   type: TYPE_NORMAL
+  zh: 定义和达成功能需求在软件行业中已被广泛接受。即使有些官僚主义，开发人员倾向于喜欢这些规范，因为这使得需求更加稳定和具体。
 - en: Probably you know where I am going with this. Surprisingly, we often neglect
     to define similar requirements focused on the more nonfunctional aspects of the
     software we are expected to build, for example, describing a required efficiency
@@ -827,6 +905,7 @@
   id: totrans-107
   prefs: []
   type: TYPE_NORMAL
+  zh: 也许你知道我要说什么。令人惊讶的是，我们经常忽视定义类似要求，这些要求集中在我们预期构建的软件更多的非功能方面，例如描述所需功能的效率和速度。^([8](ch03.html#idm45606836534640))
 - en: 'Such efficiency requirements are typically part of the [nonfunctional requirement
     (NFR)](https://oreil.ly/AQWLm) documentation or specification. Its gathering process
     ideally should be similar to the FR process, but for all other qualities requested,
@@ -836,17 +915,20 @@
   id: totrans-108
   prefs: []
   type: TYPE_NORMAL
+  zh: 这样的效率要求通常是[非功能性需求（NFR）](https://oreil.ly/AQWLm)文档或规范的一部分。其收集过程理想情况下应该类似于FR过程，但对于所有其他请求的质量，软件应具备：可移植性、可维护性、可扩展性、可访问性、可操作性、容错性和可靠性、合规性、文档、执行效率等等。列举如此之多。
 - en: The NFR name can be in some way misleading since many qualities, including efficiency,
     massively impact our software functionality. As we learned in [Chapter 1](ch01.html#ch-efficiency-matters),
     efficiency and speed are critical for user experience.
   id: totrans-109
   prefs: []
   type: TYPE_NORMAL
+  zh: NFR的名字可能在某种程度上具有误导性，因为许多品质，包括效率，对我们的软件功能有着巨大的影响。正如我们在[第1章](ch01.html#ch-efficiency-matters)中学到的，效率和速度对用户体验至关重要。
 - en: 'In reality, NFRs are not very popular to use during software development, based
     on my experience and research. I found multiple reasons:'
   id: totrans-110
   prefs: []
   type: TYPE_NORMAL
+  zh: 实际上，在软件开发过程中，根据我的经验和研究，NFR并不常用。我找到了多个原因：
 - en: Conventional NFR specification is considered bureaucratic and full of boilerplate.
     Especially if the mentioned qualities are not quantifiable and not specific, NFR
     for every software will look obvious and more or less similar. Of course, all
@@ -856,6 +938,7 @@
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 传统的NFR（非功能性需求）规范被认为是官僚主义的，并且充满样板文件。特别是如果提到的品质无法量化并且不具体，那么每个软件的NFR看起来显而易见且多少相似。当然，所有软件都应该是可读的、可维护的，尽可能快速地使用最少的资源，并且可用。这并不起作用。
 - en: There are no easy-to-use, open, and accessible standards for this process. The
     most popular [ISO/IEC 25010:2011 standard](https://oreil.ly/IzqJo) costs around
     $200 to read. It has a staggering 34 pages, and hasn’t been changed since the
@@ -864,6 +947,7 @@
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 没有易于使用的、开放的、和可访问的标准来进行这一过程。最流行的[ISO/IEC 25010:2011标准](https://oreil.ly/IzqJo)阅读起来需要大约$200。它有令人震惊的34页，并且自2017年最后一次修订以来没有改变。
 - en: NFRs are usually too complex to be applicable in practice. For example, the
     ISO/IEC 25010 standard previously mentioned specifies [13 product characteristics
     with 42 subcharacteristics in total](https://oreil.ly/0MMcb). It is hard to understand
@@ -872,6 +956,7 @@
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: NFR通常过于复杂，以至于无法在实践中应用。例如，之前提到的ISO/IEC 25010标准指定了[总共13个产品特征，42个子特征](https://oreil.ly/0MMcb)。理解它并花费大量时间进行收集和审查非常困难。
 - en: As we will learn in [“Optimization Design Levels”](#ch-conq-opt-levels), our
     software’s speed and execution efficiency depend on more factors than our code.
     The typical developer usually can impact the efficiency by optimizing algorithms,
@@ -883,12 +968,14 @@
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 正如我们将在[“优化设计级别”](#ch-conq-opt-levels)中了解到的那样，我们的软件速度和执行效率取决于比我们的代码更多的因素。典型的开发者通常可以通过优化算法、代码和编译器来影响效率。然后由操作员或管理员来安装该软件，将其适应更大的系统，配置它，并为该工作负载提供操作系统和硬件。当开发人员不在“生产”环境中运行其软件的领域时，很难谈论运行时效率。
 - en: The SRE Domain
   id: totrans-115
   prefs:
   - PREF_IND
   - PREF_H1
   type: TYPE_NORMAL
+  zh: SRE领域
 - en: '[Site Reliability Engineering (SRE)](https://sre.google) introduced by Google
     is a role focused on marrying these two domains: software development and operators/administrators.
     Such engineers have experience running and building their software on a large
@@ -897,6 +984,7 @@
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
+  zh: '[站点可靠性工程（SRE）](https://sre.google)由Google引入，专注于将软件开发与运营/管理结合起来。这些工程师具有在大规模上运行和构建软件的经验。有了更多的实践经验，更容易讨论效率要求。'
 - en: Last but not least, we are humans and full of emotions. Because it’s hard to
     estimate the efficiency of our software, especially in advance, it’s not uncommon
     to feel humiliated when setting efficiency or speed goals. This is why we sometimes
@@ -906,6 +994,7 @@
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 最后但同样重要的是，我们都是人类，充满了情感。因为预估我们的软件效率特别是提前是困难的，所以在设定效率或速度目标时有时会感到羞辱。这就是为什么我们有时会不自觉地避免同意可量化的性能目标。这是正常的，感到不舒服也是正常的。
 - en: 'OK, scratch that, we aren’t going there. We need something more pragmatic and
     easier to work with. Something that will state our rough goals for efficiency
     and speed of the requested software and will be a starting point for some contracts
@@ -914,10 +1003,12 @@
   id: totrans-118
   prefs: []
   type: TYPE_NORMAL
+  zh: 好吧，抛开那个，我们不去那里。我们需要更加务实和易于操作的东西。需要阐明我们的软件效率和速度的大致目标，并成为消费者和开发团队之间一些合同的起点。在功能性要求之上提前设定这些效率要求是非常有帮助的，因为：
 - en: We know exactly how fast or resource efficient our software has to be.
   id: totrans-119
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们确切知道我们的软件必须有多快或资源高效。
 - en: For instance, let’s say we agree that a certain operation should use 1 GB of
     memory, 2 CPU seconds, and take 2 minutes at maximum. If our tests show that it
     takes 2 GB of memory and 1 CPU second for 1 minute, then there is no point in
@@ -925,31 +1016,37 @@
   id: totrans-120
   prefs: []
   type: TYPE_NORMAL
+  zh: 例如，假设我们同意某个操作应使用1 GB内存、2 CPU秒，并最多花费2分钟。如果我们的测试显示它需要2 GB内存和1 CPU秒1分钟，那么优化延迟就没有意义了。
 - en: We know if we have room for a trade-off or not.
   id: totrans-121
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们知道我们是否有权进行权衡。
 - en: In the preceding example, we can precalculate or compress things to improve
     memory efficiency. We still have 1 CPU second to spare, and we can be slower for
     1 minute.
   id: totrans-122
   prefs: []
   type: TYPE_NORMAL
+  zh: 在前面的例子中，我们可以预先计算或压缩一些内容以提高内存效率。我们仍然有1 CPU秒可以用，我们可以慢1分钟。
 - en: Without official requirements, users will implicitly assume some efficiency
     expectations.
   id: totrans-123
   prefs: []
   type: TYPE_NORMAL
+  zh: 没有官方要求，用户将隐含地假设一些效率期望。
 - en: For example, maybe our program was accidentally very fast for a certain input.
     Users can assume this is by design, and they will depend on the fact in the future,
     or for other parts of the systems. This can lead to poor user experience and surprises.^([9](ch03.html#idm45606836510192))
   id: totrans-124
   prefs: []
   type: TYPE_NORMAL
+  zh: 例如，也许我们的程序对某个输入意外地运行非常快。用户可以假设这是设计意图，并且将来会依赖这一事实，或者用于系统的其他部分。这可能导致用户体验不佳和意外情况。^([9](ch03.html#idm45606836510192))
 - en: It’s easier to use your software in a bigger system.
   id: totrans-125
   prefs: []
   type: TYPE_NORMAL
+  zh: 在更大的系统中使用您的软件更容易。
 - en: More often than not, your software will be a dependency on another piece of
     software and form a bigger system. Even a basic efficiency requirements document
     can tell system architects what to expect from the component. It can help enormously
@@ -957,10 +1054,12 @@
   id: totrans-126
   prefs: []
   type: TYPE_NORMAL
+  zh: 更多时候，您的软件将成为另一软件的依赖，并形成更大的系统。即使是基本的效率要求文档也可以告诉系统架构师从组件中期望什么。这可以极大地帮助进一步的系统性能评估和容量规划任务。
 - en: It’s easier to provide operational support.
   id: totrans-127
   prefs: []
   type: TYPE_NORMAL
+  zh: 提供运行支持更容易。
 - en: When users do not know what performance to expect from your software, you will
     have difficulty supporting it over time. There will be many back-and-forths with
     the user on what is acceptable efficiency and what’s not. Instead, with clear
@@ -969,6 +1068,7 @@
   id: totrans-128
   prefs: []
   type: TYPE_NORMAL
+  zh: 当用户不知道您的软件可以期望什么样的性能时，随着时间的推移，您将很难支持它。用户会就什么样的效率是可以接受的、什么样的不是进行多次来回。相反，有了明确的效率要求，更容易判断您的软件是否被充分利用，结果问题可能在用户一侧。
 - en: Let’s summarize our situation. We know efficiency requirements can be enormously
     useful. On the other hand, we also know they can be tedious and full of boilerplate.
     So let’s explore some options and see if we can find some balance between the
@@ -976,11 +1076,13 @@
   id: totrans-129
   prefs: []
   type: TYPE_NORMAL
+  zh: 让我们总结一下我们的情况。我们知道效率要求可能非常有用。另一方面，我们也知道它们可能很繁琐且充满样板文件。所以让我们探索一些选项，看看是否能在需求收集工作和带来的价值之间找到平衡。
 - en: Resource-Aware Efficiency Requirements
   id: totrans-130
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 资源感知效率要求
 - en: No one has defined a good standard process for creating efficiency requirements,
     so let’s try to [define one](https://oreil.ly/DCzpu)! Of course, we want it to
     be as lightweight a process as possible, but let’s start with the ideal situation.
@@ -990,16 +1092,19 @@
   id: totrans-131
   prefs: []
   type: TYPE_NORMAL
+  zh: 没有人定义一个良好的标准流程来创建效率要求，所以让我们尝试 [定义一个](https://oreil.ly/DCzpu)！当然，我们希望它尽可能轻量化，但让我们从理想情况开始。有什么是某个资源感知效率要求（RAER）文档中可以放入的完美信息集？比“我希望这个程序运行得相当快速”的更具体和可操作性的信息。
 - en: In [Example 3-1](#code-opt-raer), you can see an example of a data-driven, minimal
     RAER for a single operation in some software.
   id: totrans-132
   prefs: []
   type: TYPE_NORMAL
+  zh: 在 [Example 3-1](#code-opt-raer) 中，您可以看到某个软件中单个操作的数据驱动、最小 RAER 的示例。
 - en: Example 3-1\. The example RAER entry
   id: totrans-133
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 3-1\. 示例 RAER 条目
 - en: '[PRE0]'
   id: totrans-134
   prefs: []
@@ -1010,38 +1115,45 @@
   id: totrans-135
   prefs: []
   type: TYPE_NORMAL
+  zh: 理想情况下，这个 RAER 是一组记录，其中包含某些操作的效率要求。原则上，单个记录应该包含如下信息：
 - en: The operation, API, method, or function it relates to.
   id: totrans-136
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 它所涉及的操作、API、方法或函数。
 - en: The size and shape dataset we operate on, e.g., input or data stored (if any).
   id: totrans-137
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们操作的数据集的大小和形状，例如输入或存储的数据（如果有）。
 - en: Maximum latency of the operation.
   id: totrans-138
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 操作的最大延迟。
 - en: The resource consumption budget for this operation on that dataset, e.g., memory,
     disk, network bandwidth, etc.
   id: totrans-139
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 在该数据集上，这个操作的资源消耗预算，例如内存、磁盘、网络带宽等。
 - en: 'Now, there is bad news and good news. The bad news is that, strictly speaking,
     such records are unrealistic to gather for all small operations. This is because:'
   id: totrans-140
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在，有坏消息和好消息。坏消息是，严格来说，这样的记录对于所有小操作来说是不现实的。这是因为：
 - en: There are potentially hundreds of different operations that run during the software
     execution.
   id: totrans-141
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 在软件执行期间，可能有数百种不同的操作。
 - en: 'There is an almost infinite number of dataset shapes and sizes (e.g., imagine
     an SQL query being an input, and stored SQL data being a dataset: we have a near-infinite
     amount of option permutations).'
@@ -1049,6 +1161,7 @@
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 几乎有无数种数据集的形状和大小（例如，想象一个 SQL 查询作为输入，存储的 SQL 数据作为数据集：我们有近乎无限的选项排列）。
 - en: Modern hardware with an operating system has thousands of elements that can
     be “consumed” when we execute our software. Overall, CPU seconds and memory are
     common, but what about the space and bandwidth of individual CPU caches, memory
@@ -1058,6 +1171,7 @@
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 现代硬件和操作系统在执行软件时可以“消耗”的成千上万个元素。总体而言，CPU 秒和内存是常见的，但 CPU 缓存、内存总线带宽、使用的 TCP 套接字数量、使用的文件描述符等成千上万的其他元素怎么样呢？我们需要指定所有可以使用的吗？
 - en: 'The good news is that we don’t need to provide all the small details. This
     is similar to how we deal with functional requirements. Do we focus on all possible
     user stories and details? No, just the most important ones. Do we define all possible
@@ -1067,6 +1181,7 @@
   id: totrans-144
   prefs: []
   type: TYPE_NORMAL
+  zh: 好消息是，我们不需要提供所有的细节。这类似于我们处理功能要求的方式。我们是否关注所有可能的用户故事和细节？不，只关注最重要的那些。我们是否定义所有可能的有效输入和预期输出的排列组合？不，我们只定义了几个围绕边界的基本特性（例如，信息必须是正整数）。让我们看看如何简化RAER条目的详细级别：
 - en: Focus on the most utilized and expensive operations our software does first.
     These will impact the software resource usage the most. We will discuss benchmarking
     and profiling that will help you with this later in this book.
@@ -1074,6 +1189,7 @@
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 首先专注于我们软件中最常用和最昂贵的操作。这些将最大程度地影响软件资源的使用。我们将在本书后面讨论有助于您的基准测试和分析性能的内容。
 - en: We don’t need to outline requirements for all tiny resources that might be consumed.
     Start with those that have the highest impact and matter the most. Usually, it
     means specific requirements toward CPU time, memory space, and storage (e.g.,
@@ -1087,6 +1203,7 @@
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们不需要概述可能被消耗的所有微小资源的要求。从对资源使用影响最大且最重要的那些开始。通常，这意味着特定于CPU时间、内存空间和存储（例如，磁盘空间）的要求。从这里开始迭代并添加其他将来可能重要的资源。也许我们的软件需要一些独特、昂贵和难以找到的资源，值得一提（例如，GPU）。也许某种消耗对整体可伸缩性构成限制，例如，如果我们的操作使用更少的TCP套接字或磁盘IOPS，我们可以在单台机器上放置更多的进程。只有当它们重要时才添加它们。
 - en: Similar to what we do in unit tests when validating functionality, we can focus
     only on important categories of inputs and datasets. If we pick edge cases, we
     have a high chance of providing resource requirements for the worst- and best-case
@@ -1095,6 +1212,7 @@
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 类似于我们在单元测试中验证功能时所做的，我们可以只关注重要的输入类别和数据集。如果我们选择边界案例，我们有很高的概率为最坏和最佳情况的数据集提供资源需求。这已经是一个巨大的胜利。
 - en: Alternatively, there is a way to define the relation of input (or dataset) to
     the allowed resource consumption. We can then describe this relation in the form
     of mathematical functions, which we usually call *complexity* (discussed in [“Asymptotic
@@ -1105,12 +1223,14 @@
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 或者，还有一种方法可以定义输入（或数据集）与允许的资源消耗之间的关系。然后，我们可以以数学函数的形式描述这种关系，通常称为*复杂性*（在[“渐近复杂性与大O标记”](ch07.html#ch-hw-algo-bigo)中讨论）。即使有些近似，这也是一种非常有效的方法。我们的操作`/rules`的RAER可以在[示例 3-1](#code-opt-raer)中看到，如[示例 3-2](#code-opt-raer-func)所示。
 - en: Example 3-2\. The example RAER entry with complexities or throughput instead
     of absolute numbers
   id: totrans-149
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 3-2\. 以复杂性或吞吐量而不是绝对数字的示例RAER条目
 - en: '[PRE1]'
   id: totrans-150
   prefs: []
@@ -1123,6 +1243,7 @@
   id: totrans-151
   prefs: []
   type: TYPE_NORMAL
+  zh: 总体而言，我甚至建议在先前提到的功能需求（FR）文档中包括RAER。将其放在另一部分称为“效率要求”。毕竟，如果没有合理的速度和效率，我们的软件怎么能被称为完全功能的呢？
 - en: To sum up, in this section we defined the Resource-Aware Efficiency Requirements
     specification that gives us approximations of the needs and expected performance
     toward our software efficiency. It will be extremely helpful for the further development
@@ -1132,16 +1253,19 @@
   id: totrans-152
   prefs: []
   type: TYPE_NORMAL
+  zh: 总之，在本节中，我们定义了资源感知效率要求（RAER）规范，该规范为我们提供了关于软件效率需求和期望性能的近似值。这对我们在进一步开发和优化技术中学到的内容将极为有帮助。因此，我鼓励你在开始开发软件并优化或添加更多功能之前，了解你所追求的性能。
 - en: Let’s explain how we can possess or create such RAERs ourselves for the system,
     application, or function we aim to provide.
   id: totrans-153
   prefs: []
   type: TYPE_NORMAL
+  zh: 让我们解释一下如何为我们打算提供的系统、应用程序或功能拥有或创建这样的RAER。
 - en: Acquiring and Assessing Efficiency Goals
   id: totrans-154
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 获取和评估效率目标
 - en: Ideally, when you come to work on any software project, you have something like
     a RAER already specified. In bigger organizations, you might have dedicated people
     like project or product managers who will gather such efficiency requirements
@@ -1151,6 +1275,7 @@
   id: totrans-155
   prefs: []
   type: TYPE_NORMAL
+  zh: 理想情况下，当你参与任何软件项目时，你应该像已经规定了RAER一样。在较大的组织中，你可能会有专门的人员，如项目经理或产品经理，他们会收集这些效率需求，除了功能需求之外。他们还应确保这些需求是可以实现的。如果他们没有收集RAER，不要犹豫要求他们提供这样的信息。通常他们的职责就是这样。
 - en: Unfortunately, in most cases, there are no specific efficiency requirements,
     especially in smaller companies, community-driven projects, or, obviously, your
     personal projects. In those cases, we need to acquire the efficiency goals ourselves.
@@ -1158,6 +1283,7 @@
   id: totrans-156
   prefs: []
   type: TYPE_NORMAL
+  zh: 不幸的是，在大多数情况下，特别是在较小的公司、社区驱动的项目或显然是你的个人项目中，往往没有明确的效率需求。在这些情况下，我们需要自己获取效率目标。那么我们该如何开始呢？
 - en: This task is, again, similar to functional goals. We need to bring value to
     users, so ideally, we need to ask them what they need in terms of speed and running
     costs. So we go to the stakeholders or customers and ask what they need in terms
@@ -1171,6 +1297,7 @@
   id: totrans-157
   prefs: []
   type: TYPE_NORMAL
+  zh: 这项任务与功能目标类似。我们需要为用户带来价值，因此理想情况下，我们需要向他们询问他们在速度和运行成本方面的需求。因此，我们去找利益相关者或客户，询问他们在效率和速度方面的需求，他们愿意支付多少，以及他们这方面的限制是什么（例如，集群只有四台服务器或GPU只有512MB内存）。同样地，对于功能，优秀的产品经理和开发人员会努力将用户性能需求转化为效率目标，如果利益相关者不来自工程领域，则这并不是件容易的事情。例如，“我希望这个应用程序运行快速”的声明必须被具体化。
 - en: If the stakeholder can’t give the latency numbers they might expect from your
     software, just pick a number. It can be high for a start, which is great for you,
     but it will make your life easier later. Perhaps this will trigger discussions
@@ -1178,6 +1305,7 @@
   id: totrans-158
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果利益相关者无法提供软件的潜在延迟数字，只需选择一个数字。起始值可以设置得较高，这对你很有利，但以后会使你的工作更轻松。也许这会引发利益相关者讨论该数字带来的影响。
 - en: Very often, there are multiple personas of the system users too. For example,
     let’s imagine our company will run our software as a service for the customer,
     and the service has already defined a price. In this case, the user cares about
@@ -1189,11 +1317,13 @@
   id: totrans-159
   prefs: []
   type: TYPE_NORMAL
+  zh: 很多时候，系统用户会有多种角色。例如，让我们想象我们的公司将为客户提供软件服务，并且该服务已经定义了价格。在这种情况下，用户关心速度和正确性，而我们公司关心软件的效率，因为这直接影响运行服务的净利润（或者如果运行我们的软件的计算成本过大，则是损失）。在这种典型的软件即服务（SaaS）示例中，我们对我们的RAER有了不只一个，而是两个来源的输入。
 - en: Dogfooding
   id: totrans-160
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: Dogfooding
 - en: Very often, for smaller coding libraries, tools, and our infrastructure software,
     we are both developers and users. In this case, setting RAERs from the user’s
     perspective is much easier. That is only one of the reasons why using the software
@@ -1202,6 +1332,7 @@
   id: totrans-161
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于较小的编码库、工具以及我们的基础设施软件，我们往往既是开发者也是用户。在这种情况下，从用户的角度设置RAER会更容易。这只是使用你自己创建的软件的一个[良好实践](https://oreil.ly/xBgef)的原因之一。这种方法通常被称为“吃自己的狗食”（dogfooding）。
 - en: Unfortunately, even if a user is willing to define the RAER, the reality is
     not so perfect. Here comes the difficult part. Are we sure that what was proposed
     from the user perspective is doable within the expected amount of time? We know
@@ -1213,21 +1344,25 @@
   id: totrans-162
   prefs: []
   type: TYPE_NORMAL
+  zh: 不幸的是，即使用户愿意定义RAER，现实却并非如此完美。这里就涉及到难点。我们能确定从用户角度提出的建议是否在预期的时间内可行吗？我们了解需求，但我们必须通过团队技能、技术可能性和所需时间来验证它。通常情况下，即使有了一些RAER，我们也需要进行自己的尽职调查，并从实现可能性的角度定义或评估RAER。本书将教会您完成这项任务所需的一切。
 - en: In the meantime, let’s go through one example of the RAER definition process.
   id: totrans-163
   prefs: []
   type: TYPE_NORMAL
+  zh: 同时，让我们通过一个RAER定义过程的例子来了解一下。
 - en: Example of Defining RAER
   id: totrans-164
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 定义RAER的示例
 - en: Defining and assessing complex RAERs can get complicated. However, starting
     with potentially trivial yet clear requirements is reasonable if you have to do
     it from scratch.
   id: totrans-165
   prefs: []
   type: TYPE_NORMAL
+  zh: 定义和评估复杂的RAER可能会变得复杂。然而，如果你必须从零开始，从潜在的琐碎但明确的要求开始是合理的。
 - en: Setting these requirements boils down to the user perspective. We need to find
     the minimum requirements that make your software valuable in its context. For
     example, let’s say we need to create software that applies image enhancements
@@ -1237,6 +1372,7 @@
   id: totrans-166
   prefs: []
   type: TYPE_NORMAL
+  zh: 设置这些要求归结为用户的观点。我们需要找到使得你的软件在其环境中具有价值的最低要求。例如，假设我们需要创建一个在一组JPEG格式图像上应用图像增强的软件。在RAER中，我们现在可以将这样的图像转换视为一个*操作*，而图像文件集和选择的增强效果则是我们的*输入*。
 - en: The second item in our RAER is the latency of our operation. It is better to
     have it as fast as possible from a user perspective. Yet our experience should
     tell us that there are limits on how quickly we can apply the enhancement to images
@@ -1245,6 +1381,7 @@
   id: totrans-167
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们RAER中的第二项是我们操作的延迟时间。从用户角度来看，尽可能快地完成是更好的。然而，我们的经验告诉我们，在多张图片（特别是大尺寸和多张）上应用增强效果时，我们可以施加的速度有其限制。但是我们如何找到一个合理的延迟时间要求，既适用于潜在用户，又使得我们的软件能够实现呢？
 - en: It’s not easy to agree on a single number, especially when we are new to the
     efficient world. For example, we could potentially guess that 2 hours for a single
     image process might be too long, and 20 nanoseconds is not achievable, but it’s
@@ -1254,11 +1391,13 @@
   id: totrans-168
   prefs: []
   type: TYPE_NORMAL
+  zh: 在我们新接触效率世界时，很难达成一个共识的单一数字。例如，我们可能猜测单张图像处理需要2小时可能太长，而20纳秒则不可实现，但在这里找到中间地带却很困难。然而正如在[“效率要求应当被形式化”](#ch-conq-req-formal)中所提到的，我建议您尝试定义一个数字，因为这将使得您的软件更容易评估！
 - en: Defining Efficiency Requirements Is Like Negotiating Salary
   id: totrans-169
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 定义效率要求就像谈判薪水一样
 - en: 'Agreeing to someone’s compensation for their work is similar to finding the
     requirement sweet spot for our program’s latency or resource usage. The candidate
     wants the salary to be the highest possible. As an employer, you don’t want to
@@ -1269,6 +1408,13 @@
   id: totrans-170
   prefs: []
   type: TYPE_NORMAL
+  zh: 'Agreeing to someone’s compensation for their work is similar to finding the
+    requirement sweet spot for our program’s latency or resource usage. The candidate
+    wants the salary to be the highest possible. As an employer, you don’t want to
+    overpay. It’s also hard to assess the value the person will be providing and how
+    to set meaningful goals for such work. What works in salary negotiating works
+    when defining RAER: don’t set too high expectations, look at other competitors,
+    negotiate, and have trial periods!'
 - en: One way to define RAER details like latency or resource consumption is to check
     the competition. Competitors are already stuck in some kind of limits and framework
     for stating their efficiency guarantees. You don’t need to set those as your numbers,
@@ -1276,6 +1422,10 @@
   id: totrans-171
   prefs: []
   type: TYPE_NORMAL
+  zh: One way to define RAER details like latency or resource consumption is to check
+    the competition. Competitors are already stuck in some kind of limits and framework
+    for stating their efficiency guarantees. You don’t need to set those as your numbers,
+    but they can give you some clue of what’s possible or what customers want.
 - en: While useful, checking competition is often not enough. Eventually, we have
     to estimate what’s roughly possible with the system and algorithm we have in mind
     and the modern hardware. We can start by defining the initial naive algorithm.
@@ -1286,6 +1436,13 @@
   id: totrans-172
   prefs: []
   type: TYPE_NORMAL
+  zh: While useful, checking competition is often not enough. Eventually, we have
+    to estimate what’s roughly possible with the system and algorithm we have in mind
+    and the modern hardware. We can start by defining the initial naive algorithm.
+    We can assume our first algorithm won’t be the most efficient, but it will give
+    us a good start on what’s achievable with little effort. For example, let’s assume
+    for our problem that we want to read an image in JPEG format from disk (SSD),
+    decode it to memory, apply enhancement, encode it back, and write it to disk.
 - en: With the algorithm, we can start discussing its potential efficiency. However,
     as you will learn in [“Optimization Design Levels”](#ch-conq-opt-levels) and [“Reliability
     of Experiments”](ch07.html#ch-obs-rel), efficiency depends on many factors! It’s
@@ -1294,15 +1451,21 @@
   id: totrans-173
   prefs: []
   type: TYPE_NORMAL
+  zh: With the algorithm, we can start discussing its potential efficiency. However,
+    as you will learn in [“优化设计级别”](#ch-conq-opt-levels) and [“实验可靠性”](ch07.html#ch-obs-rel),
+    efficiency depends on many factors! It’s tough to measure it on an existing system,
+    not to mention forecasting it just from the unimplemented algorithm.
 - en: This is where the complexity analysis with napkin math comes into play!
   id: totrans-174
   prefs: []
   type: TYPE_NORMAL
+  zh: This is where the complexity analysis with napkin math comes into play!
 - en: Napkin Math
   id: totrans-175
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: Napkin Math
 - en: Sometimes referred to as back-of-the-envelope calculation, *napkin math* is
     a technique of making rough calculations and estimations based on simple, theoretical
     assumptions. For example, we could assume latency for certain operations in computers,
@@ -1313,6 +1476,13 @@
   id: totrans-176
   prefs: []
   type: TYPE_NORMAL
+  zh: Sometimes referred to as back-of-the-envelope calculation, *napkin math* is
+    a technique of making rough calculations and estimations based on simple, theoretical
+    assumptions. For example, we could assume latency for certain operations in computers,
+    e.g., a sequential read of 8 KB from SSD is taking approximately 10 μs while writing
+    1 ms.^([10](ch03.html#idm45606836385424)) With that, we could calculate how long
+    it takes to read and write 4 MB of sequential data. Then we can go from there
+    and calculate overall latency if we make a few reads in our system, etc.
 - en: Napkin math is only an estimate, so we need to treat it with a grain of salt.
     Sometimes it can be intimidating to do since it all feels abstract. Yet such quick
     calculation is always a fantastic test on whether our guesses and initial system
@@ -1321,12 +1491,19 @@
   id: totrans-177
   prefs: []
   type: TYPE_NORMAL
+  zh: Napkin math is only an estimate, so we need to treat it with a grain of salt.
+    Sometimes it can be intimidating to do since it all feels abstract. Yet such quick
+    calculation is always a fantastic test on whether our guesses and initial system
+    ideas are correct. It gives early feedback worth our time, especially around common
+    efficiency requirements like latency, memory, or CPU usage.
 - en: We will discuss both complexity analysis and napkin math in detail in [“Complexity
     Analysis”](ch07.html#ch-hw-complexity), but let’s quickly define the initial RAER
     for our example JPEG enhancement problem space.
   id: totrans-178
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们将在[“复杂性分析”](ch07.html#ch-hw-complexity)中详细讨论复杂性分析和餐巾数学，但让我们快速定义我们示例 JPEG 增强问题空间的初始
+    RAER。
 - en: Complexity allows us to represent efficiency as the function of the latency
     (or resource usage) to the input. What’s our input for the RAER discussion? Assume
     the worst case first. Find the slowest part of your system and what input can
@@ -1340,6 +1517,9 @@
   id: totrans-179
   prefs: []
   type: TYPE_NORMAL
+  zh: 复杂性允许我们将效率表示为与输入的延迟（或资源使用）的函数。对于 RAER 讨论，我们的输入是什么？首先假设最坏情况。找出系统中最慢的部分以及可以触发该部分的输入。在我们的示例中，我们可以想象我们允许的最大图像（例如，8K
+    分辨率）是处理最慢的。处理一组图像的需求使事情有些复杂。现在，我们可以假设最坏情况，并开始从那里进行协商。最坏情况是图像不同，并且我们不使用并发。这意味着我们的延迟可能是
+    *x* * *N* 的函数，其中 *x* 是最大图像的延迟，*N* 是集合中图像的数量。
 - en: 'Given the worst-case input of an 8K image in JPEG format, we can try to estimate
     the complexities. The size of the input depends on the number of unique colors,
     but most of the images I found were around 4 MB, so let’s have this number represent
@@ -1355,10 +1535,15 @@
   id: totrans-180
   prefs: []
   type: TYPE_NORMAL
+  zh: 考虑到 JPEG 格式的 8K 图像的最坏情况输入，我们可以尝试估算其复杂性。输入的大小取决于唯一颜色的数量，但我找到的大多数图像大小约为 4 MB，所以让我们将这个数字作为我们的平均输入大小。使用附录
+    A 中的数据，我们可以计算出这样的输入至少需要 5 ms 读取和 0.5 s 保存到磁盘上。类似地，从 JPEG 格式编码和解码很可能至少意味着循环并在内存中分配多达
+    7680 × 4320 像素（约 33 百万）。查看[`image/jpeg`标准 Go 库](https://oreil.ly/3Fnbz)，每个像素由三个[`uint8`数](https://oreil.ly/JmgZf)表示以在[YCbCr格式](https://oreil.ly/lWiTf)中表示颜色。这意味着大约
+    1 亿个无符号 8 字节整数。因此，我们可以了解到潜在的运行时和空间复杂性：
 - en: Runtime
   id: totrans-181
   prefs: []
   type: TYPE_NORMAL
+  zh: 运行时
 - en: We need to fetch each element from memory (~5 ns for a sequential read from
     RAM) twice (one for decode, one for encode), which means 2 * 100 million * 5 ns,
     so 1 second. As a result of this quick math, we now know that without applying
@@ -1367,6 +1552,8 @@
   id: totrans-182
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们需要两次从内存中提取每个元素（从 RAM 顺序读取约 5 ns），一次用于解码，一次用于编码，这意味着 2 * 1 亿 * 5 ns，因此 1 秒。因此，通过这种快速的数学计算，我们现在知道，在不应用任何增强或更复杂的算法的情况下，单个图像的此类操作至少需要
+    1s + 0.5s，即 1.5 秒。
 - en: Since napkin math is only an estimate, plus we did not account for the actual
     enhancing operation, it would be safe to assume we are wrong up to three times.
     This means we could use 5 seconds as the initial latency requirement for a single
@@ -1374,10 +1561,13 @@
   id: totrans-183
   prefs: []
   type: TYPE_NORMAL
+  zh: 由于餐巾数学只是一个估算，而且我们没有考虑实际的增强操作，可以安全地假设我们的错误率高达三倍。这意味着我们可以将单个图像的初始延迟要求设置为 5 * *N*
+    秒，其中 *N* 是图像数量。
 - en: Space
   id: totrans-184
   prefs: []
   type: TYPE_NORMAL
+  zh: 空间
 - en: For the naive algorithm that reads the whole image to memory, storing that image
     will probably be the operation that allocates the most memory. With the mentioned
     three `uint8` numbers per pixel, we have 33 million * 3 * 8 bytes, so a maximum
@@ -1385,6 +1575,8 @@
   id: totrans-185
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于读取整个图像到内存的朴素算法来说，存储该图像可能是分配最多内存的操作。每个像素使用三个`uint8`数，所以最多使用 33 百万 * 3 * 8 字节，因此最多使用
+    755 MB 内存。
 - en: We assumed typical cases and unoptimized algorithms, so we expect to be able
     to improve those initial numbers. But it might as well be fine for the user to
     wait 50 seconds for 10 images and use 1 GB of memory on each image. Knowing those
@@ -1392,6 +1584,7 @@
   id: totrans-186
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们假设了典型情况和未优化的算法，因此我们期望能够改进这些初始数字。但如果用户等待 10 张图像需要 50 秒，并且每张图像使用 1 GB 内存可能也是可以接受的。知道这些数字可以在可能的情况下减少效率工作的范围！
 - en: To be more confident of the calculations we did, or if you are stuck in napkin
     math calculations, we could perform a quick benchmark^([11](ch03.html#idm45606836367744))
     for the critical, slowest operation in our system. So I wrote a single benchmark
@@ -1401,12 +1594,15 @@
   id: totrans-187
   prefs: []
   type: TYPE_NORMAL
+  zh: 为了更加自信地进行我们的计算，或者如果您在草稿计算中遇到困难，我们可以对系统中关键、最慢的操作进行快速基准测试^([11](ch03.html#idm45606836367744))。因此，我编写了一个单一的基准测试，使用标准的
+    Go `jpeg` 库来读取、解码、编码和保存 8K 图像。[示例 3-3](#bench-enhance) 显示了基准测试结果的总结。
 - en: Example 3-3\. Go microbenchmark results of reading, decoding, encoding, and
     saving an 8K JPEG file
   id: totrans-188
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
+  zh: 示例 3-3\. 对读取、解码、编码和保存一张 8K JPEG 图像的微基准测试结果
 - en: '[PRE2]'
   id: totrans-189
   prefs: []
@@ -1421,6 +1617,8 @@
   id: totrans-190
   prefs: []
   type: TYPE_NORMAL
+  zh: 结果表明我们的运行时计算相当准确。平均执行一个 8K 图像的基本操作需要 1.56 秒！然而，分配的内存比我们预想的要好三倍多。仔细检查[`YCbCr
+    结构的注释`](https://oreil.ly/lm3T4)揭示了这种类型每像素存储一个 `Y` 样本，但每个 `Cb` 和 `Cr` 样本可能跨越一个或多个像素，这也许可以解释差异。
 - en: Acquiring and assessing RAERs seems complex, but I recommend doing the exercise
     and getting those numbers before any serious development. Then, with benchmarking
     and napkin math, we can quickly understand if the RAERs are achievable with the
@@ -1430,17 +1628,21 @@
   id: totrans-191
   prefs: []
   type: TYPE_NORMAL
+  zh: 虽然获取和评估 RAER 看起来复杂，但我建议在进行任何严肃开发之前进行这项练习并获得这些数据。然后，通过基准测试和草稿计算，我们可以快速判断我们心目中的初步算法是否能够实现
+    RAER。同样的过程也可以用来判断是否有更多易于实现的优化空间，正如在[“优化设计级别”](#ch-conq-opt-levels)中所述。
 - en: With the ability to obtain, define, and assess your RAER, we can finally attempt
     to conquer some efficiency issues! In the next section, we will discuss steps
     I would recommend to handle such sometimes stressful situations professionally.
   id: totrans-192
   prefs: []
   type: TYPE_NORMAL
+  zh: 通过获取、定义和评估您的 RAER 的能力，我们最终可以尝试解决一些效率问题！在下一节中，我们将讨论我建议的处理这类有时会造成压力的情况的步骤。
 - en: Got an Efficiency Problem? Keep Calm!
   id: totrans-193
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 遇到效率问题？保持冷静！
 - en: First of all, don’t panic! We all have been there. We wrote a piece of code
     and tested it on our machine, which worked great. Then, proud of it, we released
     it to others, and immediately someone reported performance issues. Maybe it can’t
@@ -1449,6 +1651,7 @@
   id: totrans-194
   prefs: []
   type: TYPE_NORMAL
+  zh: 首先，不要惊慌！我们都曾经历过这种情况。我们编写了一段代码，并在自己的机器上测试通过，效果很好。然后，为此感到自豪地发布给其他人使用，但立刻有人报告性能问题。也许它在其他人的机器上运行不够快。或者它在其他用户数据集上使用了意想不到的内存量。
 - en: When facing efficiency issues in the program we build, manage, or are responsible
     for, we have several choices. But before you make any decisions, there is one
     critical thing you have to do. When issues happen, clear your mind from negative
@@ -1461,6 +1664,7 @@
   id: totrans-195
   prefs: []
   type: TYPE_NORMAL
+  zh: 在我们建立、管理或负责的程序面临效率问题时，我们有几种选择。但在做出任何决定之前，有一件至关重要的事情你必须做。当问题发生时，请摆脱对自己或与你共事的团队的负面情绪。责怪自己或别人犯错是非常常见的。当有人抱怨你的工作时，感到一种不舒服的内疚感是很自然的。然而，每个人（包括我们在内）都必须理解，效率问题是具有挑战性的话题。此外，即使是经验丰富的开发人员，每天也会遇到效率低下或有bug的代码。因此，犯错误是没有羞耻的。
 - en: Why do I write about emotions in a programming book? Because psychological safety
     is an important reason why developers take the wrong approach toward code efficiency.
     Procrastinating, feeling stuck, and being afraid to try new things or scratch
@@ -1472,11 +1676,13 @@
   id: totrans-196
   prefs: []
   type: TYPE_NORMAL
+  zh: 为什么我在一本编程书中谈论情感？因为心理安全是开发者在代码效率方面采取错误方法的一个重要原因。拖延、感觉被困、害怕尝试新事物或者批评错误想法只是一些负面后果。根据我的经验，如果我们开始责怪自己或他人，我们不会解决任何问题。相反，我们会扼杀创新和生产力，引入焦虑、毒性和压力。这些感受进一步会阻止你在处理报告的效率问题或其他任何问题时做出专业合理的决定。
 - en: Blameless Culture Matters
   id: totrans-197
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 无过失文化至关重要
 - en: Highlighting a blameless attitude is especially important during the “postmortem”
     process, which the Site Reliability Engineers perform after incidents. For example,
     sometimes costly mistakes are triggered by a single person. While we don’t want
@@ -1487,6 +1693,7 @@
   id: totrans-198
   prefs: []
   type: TYPE_NORMAL
+  zh: 在“事后分析”过程中，强调无过失的态度尤为重要，这是可靠性工程师在事故发生后进行的一项工作。例如，有时昂贵的错误是由一个人触发的。虽然我们不希望打击这个人或惩罚他们，但理解事故的原因以防止再次发生至关重要。此外，无过失的方法使我们能够在尊重他人的前提下诚实地讨论事实，从而使每个人都能安全地升级问题而无需担心。
 - en: We should stop worrying too much, and with a clear mind, we should follow a
     systematic, almost robotic process (yes, ideally all of this is automated someday!).
     Let’s face it, practically speaking, not every performance issue has to be followed
@@ -1496,23 +1703,28 @@
   id: totrans-199
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们不应过于担心，而应以清晰的头脑按照系统化的几乎是机械化的过程（是的，理想情况下，所有这些都会有一天自动化！）。让我们面对现实，实际上，并不是每个性能问题都必须跟随优化。我建议开发人员的潜在流程如图[3-3](#img-issue-handling)所示。请注意，优化步骤尚未列入清单！
 - en: '![efgo 0303](assets/efgo_0303.png)'
   id: totrans-200
   prefs: []
   type: TYPE_IMG
+  zh: '![efgo 0303](assets/efgo_0303.png)'
 - en: Figure 3-3\. Recommended flow for efficiency issue triaging
   id: totrans-201
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图3-3\. 推荐的效率问题排查流程
 - en: 'Here, we outline six steps to do when an efficiency issue is reported:'
   id: totrans-202
   prefs: []
   type: TYPE_NORMAL
+  zh: 在这里，我们概述了报告效率问题时应采取的六个步骤：
 - en: 'Step 1: An efficiency issue was reported on our bug tracker.'
   id: totrans-203
   prefs: []
   type: TYPE_NORMAL
+  zh: 第1步：我们的错误跟踪器上报告了一个效率问题。
 - en: The whole process starts when someone reports an efficiency issue for the software
     we are responsible for. If more than one issue was reported, always begin the
     process shown in [Figure 3-3](#img-issue-handling) for every single issue (divide
@@ -1520,16 +1732,19 @@
   id: totrans-204
   prefs: []
   type: TYPE_NORMAL
+  zh: 当有人报告我们负责的软件的效率问题时，整个流程就开始了。如果报告了多个问题，请始终为每个问题按图[3-3](#img-issue-handling)所示的过程进行处理（分而治之）。
 - en: Note that going through this process and putting things through a bug tracker
     should be your habit, even for small personal projects. How else would you remember
     in detail all the things you want to improve?
   id: totrans-205
   prefs: []
   type: TYPE_NORMAL
+  zh: 请注意，进行这一过程并将事物记录在错误跟踪器中应成为你的习惯，即使是对小型个人项目也是如此。否则，你怎么能详细记住所有想要改进的事物呢？
 - en: 'Step 2: Check for duplicates.'
   id: totrans-206
   prefs: []
   type: TYPE_NORMAL
+  zh: 步骤 2：检查重复项。
 - en: This might be trivial, but try to be organized. Combine multiple issues for
     a single, focused conversation. Save time. Unfortunately, we are not yet at the
     stage where automation (e.g., artificial intelligence) can reliably find duplicates
@@ -1537,10 +1752,12 @@
   id: totrans-207
   prefs: []
   type: TYPE_NORMAL
+  zh: 这可能是微不足道的，但请尽量保持有序。将多个问题合并成一次专注的对话。节省时间。不幸的是，我们还没有到可以可靠地为我们找到重复问题的自动化（例如人工智能）的阶段。
 - en: 'Step 3: Validate the circumstances against functional requirements.'
   id: totrans-208
   prefs: []
   type: TYPE_NORMAL
+  zh: 步骤 3：根据功能要求验证情况。
 - en: In this step, we have to ensure that the efficiency issue reporter used supported
     functionality. We design software for specific use cases defined in functional
     requirements. Due to the high demand for solving various unique yet sometimes
@@ -1550,16 +1767,19 @@
   id: totrans-209
   prefs: []
   type: TYPE_NORMAL
+  zh: 在这一步骤中，我们必须确保效率问题报告者使用了支持的功能。我们为功能要求中定义的特定用例设计软件。由于解决各种独特但有时相似的用例需求的高需求，用户经常尝试“滥用”我们的软件来做它本不应该做的事情。有时候他们会走运，事情能够正常工作。有时候则以崩溃、意外的资源使用或者减速结束。^([12](ch03.html#idm45606836314240))
 - en: Similarly, we should do the same if the agreed prerequisites are not matched.
     For example, the unsupported, malformed request was sent, or the software was
     deployed on a machine without the required GPU resource.
   id: totrans-210
   prefs: []
   type: TYPE_NORMAL
+  zh: 同样地，如果未达到约定的先决条件，我们也应该采取同样的措施。例如，发送了不支持的、格式错误的请求，或者在没有必需 GPU 资源的机器上部署了软件。
 - en: 'Step 4: Validate the situation against RAERs.'
   id: totrans-211
   prefs: []
   type: TYPE_NORMAL
+  zh: 步骤 4：根据 RAERs 验证情况。
 - en: Some expectations toward speed and efficiency cannot or do not need to be satisfied.
     This is where the formal efficiency requirements specification discussed in [“Resource-Aware
     Efficiency Requirements”](#ch-conq-req) is invaluable. If the reported observation
@@ -1568,17 +1788,20 @@
   id: totrans-212
   prefs: []
   type: TYPE_NORMAL
+  zh: 某些关于速度和效率的期望可能无法或者不需要满足。这就是“资源感知效率要求”（[“Resource-Aware Efficiency Requirements”](#ch-conq-req)）中讨论的正式效率要求规范非常宝贵的地方。如果报告的观察结果（例如有效请求的响应延迟）仍在约定的软件性能数值范围内，我们应该传达这一事实并继续进行。^([13](ch03.html#idm45606836310064))
 - en: Similarly, when the issue author deployed our software with an HDD disk where
     SSD was required, or the program was running on a machine with lower CPU cores
     than stated in the formal agreement, we should politely close such a bug report.
   id: totrans-213
   prefs: []
   type: TYPE_NORMAL
+  zh: 同样地，当问题作者在需要 SSD 的情况下使用了 HDD 磁盘部署我们的软件，或者程序在核心数低于正式协议中规定的机器上运行时，我们应该礼貌地关闭这样的错误报告。
 - en: Functional or Efficiency Requirements Can Change!
   id: totrans-214
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 功能或效率要求可能会改变！
 - en: There might also be cases where the functional or efficiency specification did
     not predict certain corner cases. As a result, the specification might need to
     be revised to match reality. Requirements and demands evolve, and so should performance
@@ -1586,10 +1809,12 @@
   id: totrans-215
   prefs: []
   type: TYPE_NORMAL
+  zh: 也许还有一些情况，功能或效率规范没有预测到某些边缘情况。因此，规范可能需要修订以符合现实。需求和需求在演变，性能规格和期望也应该如此。
 - en: 'Step 5: Acknowledge the issue, note it for prioritization, and move on.'
   id: totrans-216
   prefs: []
   type: TYPE_NORMAL
+  zh: 步骤 5：确认问题，记录优先级并继续。
 - en: Yes, you read it right. After you check the impact and all the previous steps,
     it’s often acceptable (and even recommended!) to do almost nothing about the reported
     problem at the current moment. There might be more important things that need
@@ -1598,6 +1823,7 @@
   id: totrans-217
   prefs: []
   type: TYPE_NORMAL
+  zh: 是的，你没看错。在检查影响和所有先前步骤之后，通常可以（甚至建议！）当前时刻对报告的问题几乎不采取任何措施。可能有更重要的事情需要我们的关注——也许是一个重要的、过期的特性或者代码不同部分的另一个效率问题。
 - en: The world is not perfect. We can’t solve everything. Exercise your assertiveness.
     Notice that this is not the same as ignoring the problem. We still have to acknowledge
     that there is an issue and ask follow-up questions that will help find the bottleneck
@@ -1611,10 +1837,12 @@
   id: totrans-218
   prefs: []
   type: TYPE_NORMAL
+  zh: 世界并非完美。我们不能解决一切。行使你的断言权。注意，这与忽视问题并非同一回事。我们仍然必须承认存在问题，并提出后续问题，帮助找到瓶颈并在以后的某个日期优化它。确保询问他们正在运行的确切软件版本。尝试提供解决方法或提示发生了什么，以便用户帮助找到根本原因。讨论可能出错的想法。把它们都写在问题中。这将帮助你或其他开发者以后有一个很好的起点。明确地传达你将在下一个优先级会议上与团队优先处理此问题。
 - en: 'Step 6: Done, issue was triaged.'
   id: totrans-219
   prefs: []
   type: TYPE_NORMAL
+  zh: 第六步：完成，问题已分级。
 - en: Congratulations, the issue is handled. It’s either closed or open. If it’s open
     after all those steps, we can now consider its urgency and discuss the next steps
     with the team. Once we plan to tackle a specific issue, the efficiency flow in
@@ -1623,11 +1851,13 @@
   id: totrans-220
   prefs: []
   type: TYPE_NORMAL
+  zh: 恭喜，问题已处理。它可能已关闭或打开。如果在所有这些步骤之后仍然打开，我们现在可以考虑其紧急性，并与团队讨论下一步。一旦计划解决特定问题，[“效率感知开发流程”](#ch-conq-eff-flow)中的效率流程将告诉你如何有效地做到这一点。别害怕。这可能比你想象的要容易！
 - en: This Flow Is Applicable for Both SaaS and Externally Installed Software
   id: totrans-221
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 此流程适用于SaaS和外部安装软件
 - en: The same flow is applicable for the software that is installed and executed
     by the user on their laptop, smartphone, or servers (sometimes called “on-premise”
     installation), as well as when it’s managed by our company “as a service” (software
@@ -1635,6 +1865,7 @@
   id: totrans-222
   prefs: []
   type: TYPE_NORMAL
+  zh: 相同的流程适用于用户在他们的笔记本电脑、智能手机或服务器上安装和执行的软件（有时称为“本地”安装），以及当它由我们公司作为服务管理时（软件即服务——SaaS）。我们开发者仍应尝试系统地处理所有问题。
 - en: We divided optimizations into reasonable and deliberate. Let’s not hesitate
     and make the next division. To simplify and isolate the problem of software efficiency
     optimizations, we can divide it into levels, which we can then design and optimize
@@ -1642,11 +1873,13 @@
   id: totrans-223
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们将优化分为合理和谨慎的。让我们不要犹豫，进行下一个分割。为了简化和隔离软件效率优化问题，我们可以将其分成几个层次，然后在独立的层次中设计和优化。我们将在下一节讨论这些内容。
 - en: Optimization Design Levels
   id: totrans-224
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 优化设计层次
 - en: 'Let’s take our previous real-life example of the long commute to work every
     day (we will use this example a couple of times in this chapter!). If such a commute
     makes you unhappy because it takes a considerable effort and is too long, it might
@@ -1654,32 +1887,38 @@
   id: totrans-225
   prefs: []
   type: TYPE_NORMAL
+  zh: 让我们以之前的现实生活例子为例，每天通勤时间很长（在本章中我们将多次使用这个例子！）。如果这样的通勤让你感到不快，因为需要付出相当大的努力并且时间太长，那么优化它可能是有意义的。然而，我们可以从多个层面上进行这样的优化：
 - en: We can start small, by buying more comfortable shoes for walking distances.
   id: totrans-226
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们可以从小处着手，比如为步行距离购买更舒适的鞋子。
 - en: We could buy an electric scooter or a car if that helps.
   id: totrans-227
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 如果有帮助，我们可以购买电动滑板车或汽车。
 - en: We could plan the journey so it takes less time or distance to travel.
   id: totrans-228
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们可以计划旅程，使其花费更少的时间或距离。
 - en: We could buy an ebook reader and invest in a book-reading hobby to not waste
     time.
   id: totrans-229
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们可以购买电子书阅读器，并投资于阅读书籍的爱好，以免浪费时间。
 - en: Finally, we could move closer to the workplace or even change jobs.
   id: totrans-230
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 最后，我们可以靠近工作场所，甚至换工作。
 - en: We could do one such optimization in those separate “levels” or all, but each
     optimization takes some investment, trade-off (buying a car costs money), and
     effort. Ideally, we want to minimize the effort while maximizing value and making
@@ -1687,6 +1926,7 @@
   id: totrans-231
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们可以在这些单独的“层次”中进行这样的优化，或者全部进行，但每个优化都需要一些投资、权衡（购买汽车需要花钱）和努力。理想情况下，我们希望在最小化努力的同时最大化价值并产生影响。
 - en: 'There is another crucial aspect of those levels: optimizations from one level
     can be impacted or devalued if we do optimization on a higher level. For instance,
     let’s say we did many optimizations to our commute on one level. We bought a better
@@ -1699,6 +1939,7 @@
   id: totrans-232
   prefs: []
   type: TYPE_NORMAL
+  zh: 这些级别的另一个关键方面是：如果我们在更高的级别进行优化，可能会影响或贬值从一个级别到另一个级别的优化。例如，假设我们在一个级别上对通勤进行了多次优化。我们买了一辆更好的车，组织了拼车以节省燃料费，改变了工作时间以避开交通拥堵等等。现在想象一下，我们决定在更高的级别进行优化：搬到工作地点步行可达的公寓。在这种情况下，之前所有优化的努力和投资现在都变得不那么有价值（如果不是完全浪费）。在工程领域也是如此。我们应该意识到我们在哪里投入了优化的努力，以及何时投入。
 - en: When studying computer science, one of the students’ first encounters with optimization
     is learning theory about algorithms and data structures. They explore how to optimize
     programs using different algorithms with better time or space complexities (explained
@@ -1710,32 +1951,39 @@
   id: totrans-233
   prefs: []
   type: TYPE_NORMAL
+  zh: 在学习计算机科学时，学生们对优化的第一次接触之一是学习有关算法和数据结构的理论。他们探索如何使用具有更好时间或空间复杂性的不同算法来优化程序（在[“渐近复杂性与大
+    O 符号”](ch07.html#ch-hw-algo-bigo)中有解释）。虽然改变我们在代码中使用的算法是一种重要的优化技术，但我们还有许多其他可以优化的领域和变量，以提高软件的效率。要适当地讨论性能，软件依赖于更多级别。
 - en: '[Figure 3-4](#img-opt-levels) presents the levels that take a significant part
     in software execution. This list of levels is inspired by Jon Louis Bentley’s
     list made in 1982,^([14](ch03.html#idm45606836284512)) and it’s still very accurate.'
   id: totrans-234
   prefs: []
   type: TYPE_NORMAL
+  zh: '[图 3-4](#img-opt-levels) 展示了参与软件执行的主要级别。这个级别列表是受 Jon Louis Bentley 在 1982 年制作的列表的启发，^([14](ch03.html#idm45606836284512))至今仍然非常准确。'
 - en: '![efgo 0304](assets/efgo_0304.png)'
   id: totrans-235
   prefs: []
   type: TYPE_IMG
+  zh: '![efgo 0304](assets/efgo_0304.png)'
 - en: Figure 3-4\. Levels that take part in software execution. We can provide optimization
     in each of these in isolation.
   id: totrans-236
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 3-4\. 参与软件执行的级别。我们可以分别在每个级别提供优化。
 - en: 'This book outlines five optimization design levels, each with its optimization
     approaches and verification strategies. So let’s dig into them, from the highest
     to the lowest:'
   id: totrans-237
   prefs: []
   type: TYPE_NORMAL
+  zh: 本书概述了五个优化设计级别，每个级别都有其优化方法和验证策略。所以让我们从最高级到最低级深入挖掘它们：
 - en: System level
   id: totrans-238
   prefs: []
   type: TYPE_NORMAL
+  zh: 系统级别
 - en: In most cases, our software is part of some bigger system. Maybe it’s one of
     many distributed processes or a thread in the bigger monolith application. In
     all cases, the system is structured around multiple modules. A module is a small
@@ -1745,6 +1993,8 @@
   id: totrans-239
   prefs: []
   type: TYPE_NORMAL
+  zh: 在大多数情况下，我们的软件是某个更大系统的一部分。也许它是许多分布式进程中的一个，或者是更大单体应用程序中的一个线程。在所有情况下，系统都是围绕多个模块结构化的。模块是一个小的软件组件，通过方法、接口或其他
+    API（例如网络 API 或文件格式）封装某些功能，以便更轻松地进行交换和修改。
 - en: Each Go application, even the smallest, is an executable module that imports
     the code from other modules. As a result, your software depends on other components.
     Optimizing at the system level means changing what modules are used, how they
@@ -1754,15 +2004,19 @@
   id: totrans-240
   prefs: []
   type: TYPE_NORMAL
+  zh: 每个 Go 应用程序，即使是最小的，也是一个可执行模块，导入其他模块的代码。因此，您的软件依赖于其他组件。在系统级别进行优化意味着改变使用哪些模块，它们如何链接在一起，谁调用哪个组件以及多频繁。我们可以说，我们正在设计跨模块和
+    API 的算法，这些算法是我们的数据结构。
 - en: It is nontrivial work that requires multiple-team efforts and good architecture
     design up front. But, on the other hand, it often brings enormous efficiency improvements.
   id: totrans-241
   prefs: []
   type: TYPE_NORMAL
+  zh: 这是一项复杂的工作，需要多团队的努力和良好的架构设计。但另一方面，它通常带来了巨大的效率改进。
 - en: Intramodule algorithm and data structure level
   id: totrans-242
   prefs: []
   type: TYPE_NORMAL
+  zh: 模块内算法和数据结构级别
 - en: 'Given a problem to solve, its input data, and expected output, the module developer
     usually starts by designing two main elements of the procedure. First is the *algorithm*,
     a finite number of computer instructions that operate on data and can solve our
@@ -1772,6 +2026,7 @@
   id: totrans-243
   prefs: []
   type: TYPE_NORMAL
+  zh: 面对要解决的问题、其输入数据和期望输出，模块开发人员通常首先设计该过程的两个主要元素。首先是*算法*，一系列计算机指令，操作数据并能解决我们的问题（例如产生正确的输出）。你可能已经听说过许多流行的算法：二分查找、快速排序、归并排序、映射-减少等等，但是你的程序执行的任何一组自定义步骤都可以称为算法。
 - en: 'The second element is *data structures*, often implied by a chosen algorithm.
     They allow us to store data on our computer, e.g., input, output, or intermittent
     data. There are unlimited options here, too: arrays, hash maps, linked lists,
@@ -1781,10 +2036,12 @@
   id: totrans-244
   prefs: []
   type: TYPE_NORMAL
+  zh: 第二个要素是*数据结构*，通常由选择的算法隐含。它们允许我们在计算机上存储数据，例如输入、输出或临时数据。在这里也有无限的选择：数组、哈希映射、链表、栈、队列、其他数据结构、混合结构或自定义结构。在你的模块中选择合适的算法非常重要。它们必须根据你的具体目标（例如请求延迟）和输入特性进行调整。
 - en: Implementation (code) level
   id: totrans-245
   prefs: []
   type: TYPE_NORMAL
+  zh: 实现（code）级别
 - en: Algorithms in the module do not exist until they are written in code, compilable
     to machine code. Developers have huge control here. We can have an inefficient
     algorithm implemented efficiently, which fulfils our RAERs. On the other hand,
@@ -1796,12 +2053,14 @@
   id: totrans-246
   prefs: []
   type: TYPE_NORMAL
+  zh: 模块中的算法在编写成可编译为机器码的代码之前是不存在的。开发人员在这里有很大的控制权。我们可以高效地实现低效的算法，以满足我们的RAERs。另一方面，我们也可以糟糕地实现高效的算法，导致意外的系统减速。在代码级别进行优化意味着接受用高级语言（例如Go语言）编写的程序，实现特定算法，并生成更高效的程序，在任何我们希望的方面（例如延迟）使用相同的算法并产生相同的正确输出。
 - en: Typically, we optimize on both algorithm and code levels together. In other
     cases, settling on one algorithm and focusing only on code optimizations is easier.
     You will see both approaches in Chapters [10](ch10.html#ch-opt) and [11](ch11.html#ch-opt2).
   id: totrans-247
   prefs: []
   type: TYPE_NORMAL
+  zh: 通常，我们同时在算法和代码级别进行优化。在其他情况下，只选定一个算法并专注于代码优化更为简单。你将在第[10](ch10.html#ch-opt)章和第[11](ch11.html#ch-opt2)章看到这两种方法。
 - en: Some previous materials consider the compilation step as an individual level.
     I would argue that code-level optimization techniques have to embody compiler-level
     ones. There is a deep synergy between your implementation and how the compiler
@@ -1810,10 +2069,12 @@
   id: totrans-248
   prefs: []
   type: TYPE_NORMAL
+  zh: 有些先前的材料将编译步骤视为一个独立的层次。我认为代码级优化技术必须包含编译器级的优化技术。你的实现和编译器如何将其转换为机器码之间存在深刻的协同作用。作为开发人员，我们必须理解这种关系。我们将在[“理解Go编译器”](ch04.html#ch-hw-compilation)中更深入地探讨Go编译器的影响。
 - en: Operating system level
   id: totrans-249
   prefs: []
   type: TYPE_NORMAL
+  zh: 操作系统级别
 - en: These days, our software is never executed directly on the machine hardware
     and never runs alone. Instead, we run operating systems that split each software
     execution into processes (then threads), schedule them on CPU cores, and provide
@@ -1823,6 +2084,7 @@
   id: totrans-250
   prefs: []
   type: TYPE_NORMAL
+  zh: 这些天，我们的软件从未直接在机器硬件上执行，也不再单独运行。相反，我们运行操作系统，将每个软件执行分成进程（然后是线程），在CPU核心上调度它们，并提供其他必要的服务，如内存和IO管理，设备访问等等。此外，我们还有额外的虚拟化层（虚拟机、容器），可以放入操作系统桶中，特别是在云原生环境中。
 - en: All those layers pose some overhead that can be optimized by those who control
     the operating system development and configuration. In this book, I assume that
     Go developers can rarely impact this level. Yet, we can gain a lot by understanding
@@ -1833,10 +2095,12 @@
   id: totrans-251
   prefs: []
   type: TYPE_NORMAL
+  zh: 所有这些层级都带来了一些开销，可以通过控制操作系统开发和配置的人员进行优化。在本书中，我假设Go开发人员很少能够影响这个层级。然而，通过理解挑战和使用模式，我们可以在其他更高层级上实现效率提升。我们将在第[Chapter 4](ch04.html#ch-hardware)章中详细讨论它们，主要集中在Unix操作系统和流行的虚拟化技术上。在本书中，我假设设备驱动程序和固件也属于这个类别。
 - en: Hardware level
   id: totrans-252
   prefs: []
   type: TYPE_NORMAL
+  zh: 硬件层级
 - en: 'Finally, at some point, a set of instructions translated from our code is executed
     by the computer CPU units, with internal caches that are connected to other essential
     parts in the motherboard: RAM, local disks, network interfaces, input and output
@@ -1853,6 +2117,7 @@
   id: totrans-253
   prefs: []
   type: TYPE_NORMAL
+  zh: 最后，在某个时刻，从我们的代码翻译出来的一组指令会由计算机CPU单元执行，这些单元与主板上的其他重要部件连接，如RAM、本地磁盘、网络接口、输入输出设备等等。通常情况下，作为开发者或运营商，我们可以从这种复杂性中抽象出来（这种复杂性在硬件产品中也有所不同），这要归功于前面提到的操作系统级别。然而，我们应用程序的性能受到硬件限制的限制。其中一些可能会让人惊讶。例如，您是否知道多核机器的NUMA节点的存在及其如何影响我们的性能？您是否知道CPU和内存节点之间的内存总线带宽有限？这是一个广泛的主题，可能会影响我们的软件效率优化过程。我们将在第[4](ch04.html#ch-hardware)和[5](ch05.html#ch-hardware2)章中简要探讨这个话题，以及Go语言在解决这些问题时采用的机制。
 - en: What are the practical benefits of dividing our problem space into levels? First
     of all, studies^([15](ch03.html#idm45606836251792)) show that when it comes to
     application speed, it is often possible to achieve speedups with factors of 10
@@ -1861,6 +2126,7 @@
   id: totrans-254
   prefs: []
   type: TYPE_NORMAL
+  zh: 将我们的问题空间分成层级的实际好处是什么？首先，研究^([15](ch03.html#idm45606836251792))表明，在应用程序速度方面，通常可以在任何提到的层级上实现10到20倍的加速，甚至更多。这也与我的经验类似。
 - en: The good news is that this implies the possibility of focusing our optimizations
     on just one level to gain the desired system efficiency.^([16](ch03.html#idm45606836249888))
     However, suppose you optimized your implementation 10 to 20 times on one level.
@@ -1871,6 +2137,8 @@
   id: totrans-255
   prefs: []
   type: TYPE_NORMAL
+  zh: 这个好消息是，这意味着我们可以将优化的重点集中在一个层级上，以达到所需的系统效率提升。^([16](ch03.html#idm45606836249888))
+    但是，假设您在一个层级上将您的实现优化了10到20倍。在没有显著牺牲开发时间、可读性和可维护性的情况下，进一步优化这个层级可能会很困难（参见我们从[图 3-2](#img-opt-cost)找到的甜蜜点）。因此，您可能需要查看另一个层级以获得更多的优势。
 - en: The bad news is that you might be unable to change certain levels. For example,
     as programmers, we generally don’t have the power to easily change the compiler,
     operating system, or hardware. Similarly, system administrators won’t be able
@@ -1879,16 +2147,19 @@
   id: totrans-256
   prefs: []
   type: TYPE_NORMAL
+  zh: 坏消息是，您可能无法更改某些层级。例如，作为程序员，我们通常无法轻松更改编译器、操作系统或硬件。同样，系统管理员也无法更改软件正在使用的算法。相反，他们可以更换系统并进行配置或调整。
 - en: Beware of the Optimization Biases!
   id: totrans-257
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 警惕优化偏见！
 - en: It is sometimes funny (and scary!) how different engineering groups within a
     single company come up with highly distinct solutions to the same efficiency problems.
   id: totrans-258
   prefs: []
   type: TYPE_NORMAL
+  zh: 有时候（令人有趣且可怕！）一个公司内部不同工程组对同一效率问题提出高度不同的解决方案，这有时令人感到有些好笑。
 - en: If the group has more system administrators or DevOps engineers, the solution
     is often to switch to another system, software, or operating system or try to
     “tune” them. In contrast, the software engineering group will mostly iterate on
@@ -1896,6 +2167,7 @@
   id: totrans-259
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果团队中有更多的系统管理员或DevOps工程师，解决方案通常是切换到另一个系统、软件或操作系统，或者尝试“调整”它们。相反，软件工程组将主要在同一个代码库上进行迭代，优化系统、算法或代码层次。
 - en: This bias comes from the experience of changing each level, but it can have
     negative impacts. For example, switching the whole system, e.g., from [RabbitMQ](https://oreil.ly/ZVYo1)
     to [Kafka](https://oreil.ly/wPpUD), is a considerable effort. If you are doing
@@ -1906,6 +2178,7 @@
   id: totrans-260
   prefs: []
   type: TYPE_NORMAL
+  zh: 这种偏见来自于每个层级变更的经验，但可能会产生负面影响。例如，完全切换系统，比如从[RabbitMQ](https://oreil.ly/ZVYo1)切换到[Kafka](https://oreil.ly/wPpUD)，需要付出相当大的努力。如果你只是因为RabbitMQ“感觉慢”，而没有试图做出贡献，也许简单的代码级优化可能就过度了。反过来，试图在代码级别优化为不同目的设计的系统的效率可能不够。
 - en: We discussed what optimization is, and we mentioned how to set performance goals,
     handle efficiency issues, and the design levels we operate in. Now it’s time to
     hook everything together and combine this knowledge into the complete development
@@ -1913,11 +2186,13 @@
   id: totrans-261
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们讨论了优化的概念，提到了如何设定性能目标，处理效率问题以及我们操作的设计级别。现在是将所有知识结合到完整开发周期中的时候了。
 - en: Efficiency-Aware Development Flow
   id: totrans-262
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 高效开发流程
 - en: The primary concerns of the programmer during the early part of a program’s
     life should be the overall organization of the programming project and producing
     correct and maintainable code. Furthermore, in many contexts, the cleanly designed
@@ -1926,6 +2201,7 @@
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: 程序员在程序生命周期的早期阶段的主要关注点应该是编程项目的整体组织和产生正确且可维护的代码。此外，在许多情况下，清晰设计的程序通常对于手头的应用来说已经足够高效了。
 - en: ''
   id: totrans-264
   prefs:
@@ -1936,6 +2212,7 @@
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: 乔恩·路易斯·本特利，《编写高效程序》
 - en: Hopefully, at this point, you are aware that we have to think about performance,
     ideally from the early development stages. But there are risks—we don’t develop
     code for it to be just efficient. We write programs for specific functionality
@@ -1946,21 +2223,25 @@
   id: totrans-266
   prefs: []
   type: TYPE_NORMAL
+  zh: 希望到目前为止，你已经意识到我们必须从早期开发阶段就考虑性能问题。但是也存在风险——我们开发代码不仅仅是为了高效。我们编写程序是为了满足我们设定或从利益相关者那里得到的功能需求。我们的工作是有效地完成这项工作，因此需要一种务实的方法。从高层次来看，开发一个工作但高效的代码会是什么样子呢？
 - en: We can simplify the development process into nine steps, as presented in [Figure 3-5](#img-opt-flow).
     For lack of a better term, let’s call it the *TFBO* flow—test, fix, benchmark,
     and optimize.
   id: totrans-267
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们可以将开发过程简化为九个步骤，如[图3-5](#img-opt-flow)所示。暂且称之为*TFBO*流程——测试、修复、基准测试和优化。
 - en: '![efgo 0305](assets/efgo_0305.png)'
   id: totrans-268
   prefs: []
   type: TYPE_IMG
+  zh: '![efgo 0305](assets/efgo_0305.png)'
 - en: Figure 3-5\. Efficiency-aware development flow
   id: totrans-269
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图3-5\. 高效开发流程
 - en: The process is systematic and highly iterative. Requirements, dependencies,
     and environments are changing, so we have to work in smaller chunks too. The TFBO
     process can feel a little strict, but trust me, mindful and effective software
@@ -1972,17 +2253,20 @@
   id: totrans-270
   prefs: []
   type: TYPE_NORMAL
+  zh: 这个过程是系统化且高度迭代的。需求、依赖关系和环境都在变化，因此我们也必须分块进行工作。TFBO过程可能有点严格，但相信我，有意识和有效的软件开发需要一些纪律。它适用于从头开始创建新软件、添加功能或更改代码的情况。TFBO应该适用于任何语言编写的软件，不仅仅是Go。它也适用于[“优化设计级别”](#ch-conq-opt-levels)中提到的所有级别。让我们一起来看看九个TFBO步骤。
 - en: Functionality Phase
   id: totrans-271
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 功能性阶段
 - en: It is far, far easier to make a correct program fast than it is to make a fast
     program correct.
   id: totrans-272
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: 制作正确的程序比制作快速的程序正确要容易得多。
 - en: ''
   id: totrans-273
   prefs:
@@ -1994,6 +2278,7 @@
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: H. Sutter和A. Alexandrescu，《C++编码标准：101条规则、指南和最佳实践》（Addison-Wesley，2004）
 - en: Always start with functionality first. Whether we aim to start a new program,
     add new functionality, or just optimize an existing program, we should always
     begin with the design or implementation of the functionality. Make it work, make
@@ -2004,11 +2289,14 @@
   id: totrans-275
   prefs: []
   type: TYPE_NORMAL
+  zh: 总是先从功能开始。 无论我们是要开始一个新的程序，添加新功能，还是只是优化现有程序，我们应该始终从设计或功能的实现开始。 使其工作，使其简单，易读，易维护，安全等等，根据我们设定的目标，最好是以书面形式。
+    尤其是当您作为软件工程师开始您的旅程时，请专注于一件事。 通过实践，我们可以在早期添加更合理的优化。
 - en: 1\. Test functionality first
   id: totrans-276
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 1. 首先测试功能
 - en: 'It might feel counterintuitive for some, but you should almost always start
     with a verification framework for the expected functionality. The more automated
     it is, the better. This also applies when you have a blank page and start developing
@@ -2018,23 +2306,28 @@
   id: totrans-277
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于一些人来说，这可能感觉反直觉，但几乎总是应该从期望功能的验证框架开始。 自动化程度越高越好。 当您有一个空白页并开始开发新程序时，这也适用。 这种开发范式称为测试驱动开发（TDD）。
+    它主要集中在代码可靠性和功能交付速度效率上。 以严格的形式，在代码水平上，它强制执行特定流程：
 - en: Write a test (or extend an existing one) that expects the feature to be implemented.
   id: totrans-278
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 编写一个测试（或扩展现有测试），期望实施该功能。
 - en: Make sure to run all tests and see the new tests failing for expected reasons.
     If you don’t see the failure or other failures, fix those tests first.
   id: totrans-279
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 确保运行所有测试并查看新测试因预期原因而失败。 如果您没有看到失败或其他失败，请先修复这些测试。
 - en: Iterate with the smallest possible changes until all tests pass and the code
     is clean.
   id: totrans-280
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 迭代，直到所有测试通过并且代码干净。
 - en: TDD eliminates many unknowns. Imagine if we would not follow TDD. For example,
     we add a feature, and we write a test. It’s easy to make a mistake that always
     passes the test even without our feature. Similarly, let’s say we add the test
@@ -2046,6 +2339,8 @@
   id: totrans-281
   prefs: []
   type: TYPE_NORMAL
+  zh: TDD消除了许多未知数。 想象一下，如果我们不遵循TDD。 例如，我们添加了一个功能，并编写了一个测试。 即使没有我们的功能，也很容易犯一个错误。 同样，让我们说我们在实施后添加了测试，这是通过的，但是其他先前添加的测试失败了。
+    很可能我们在实施之前没有运行测试，因此我们不知道之前是否一切正常。 TDD确保您不会在工作结束时遇到这些问题，极大地提高了可靠性。 它还减少了实施时间，允许安全的代码修改并及早给出反馈。
 - en: 'Furthermore, what if the functionality we wanted to implement is already done
     and we didn’t notice? Writing a test first would reveal that quickly, saving us
     time. Spoiler alert: we will use the same principles for benchmark-driven optimization
@@ -2053,6 +2348,7 @@
   id: totrans-282
   prefs: []
   type: TYPE_NORMAL
+  zh: 此外，如果我们想要实施的功能已经完成而我们没有注意到怎么办？ 首先编写测试会快速揭示这一点，为我们节省时间。 剧透警告：稍后在步骤4中我们将使用相同的原则进行基准驱动优化！
 - en: The TDD can be easily understood as a code-level practice, but what if you design
     or optimize algorithms and systems? The answer is that the flow remains the same,
     but our testing strategy must be applied on a different level, e.g., validating
@@ -2060,16 +2356,19 @@
   id: totrans-283
   prefs: []
   type: TYPE_NORMAL
+  zh: TDD可以很容易地理解为代码级实践，但是如果您设计或优化算法和系统怎么办？ 答案是流程保持不变，但我们的测试策略必须在不同的水平上应用，例如验证系统设计。
 - en: Let’s say we implemented a test or performed an assessment on what is currently
     designed or implemented. What’s next?
   id: totrans-284
   prefs: []
   type: TYPE_NORMAL
+  zh: 假设我们实施了一个测试或对当前设计或实施进行了评估。 接下来呢？
 - en: 2\. Do we pass the functional tests?
   id: totrans-285
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 2. 我们是否通过了功能测试？
 - en: With the results from step 1, our work is much easier—we can perform data-driven
     decisions on what to do next! First, we should compare tests or assessment results
     with our agreed functional requirements. Is the current implementation or design
@@ -2079,6 +2378,8 @@
   id: totrans-286
   prefs: []
   type: TYPE_NORMAL
+  zh: 有了步骤 1 的结果，我们的工作变得更容易——我们可以基于数据进行决策，确定接下来该做什么！首先，我们应该将测试或评估结果与我们约定的功能要求进行比较。当前的实现或设计是否满足规范？很好，我们可以跳到步骤
+    4\. 然而，如果测试失败或功能评估显示出某些功能差距，那么现在是时候回到步骤 3 并解决这种情况了。
 - en: The problem is when you don’t have those functional requirements stated anywhere.
     As discussed in [“Efficiency Requirements Should Be Formalized”](#ch-conq-req-formal),
     this is why asking for functional requirements or defining them on your own is
@@ -2087,16 +2388,20 @@
   id: totrans-287
   prefs: []
   type: TYPE_NORMAL
+  zh: 当你没有任何地方说明这些功能要求时，问题就来了。正如在[“效率需求应当被规范化”](#ch-conq-req-formal)中讨论的那样，这就是为什么要求功能需求或自行定义它们如此重要。即使是在项目
+    README 中写下的最简单的目标项目清单，也比什么都不写要好。
 - en: Now, let’s explore what to do if the current state of our software doesn’t pass
     functional verification.
   id: totrans-288
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在，让我们探讨一下，如果我们的软件当前状态不能通过功能验证会怎么办。
 - en: 3\. If the tests fail, we have to fix, implement, or design the missing parts
   id: totrans-289
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 3\. 如果测试失败，我们必须修复、实现或设计缺失的部分。
 - en: Depending on the design level we are at, in this step, we should design, implement,
     or fix the functional parts to close the gap between the current state and the
     functional expectation. As we discussed in [“Reasonable Optimizations”](#ch-conq-opt-reasonable),
@@ -2109,6 +2414,7 @@
   id: totrans-290
   prefs: []
   type: TYPE_NORMAL
+  zh: 根据我们所处的设计水平，在这一步骤中，我们应该设计、实现或修复功能部分，以弥合当前状态与功能期望之间的差距。正如我们在[“合理优化”](#ch-conq-opt-reasonable)中讨论的那样，在这里除了明显的合理优化外，不允许其他优化。专注于模块的可读性、设计和简洁性。例如，不要费心考虑通过指针还是值传递参数更优，或者在这里解析整数会不会太慢，除非这是显而易见的。从功能和可读性的角度来看，做任何有意义的事情即可。我们暂时不验证效率，所以现在先不要考虑刻意的优化。
 - en: As you might have noticed in [Figure 3-5](#img-opt-flow), steps 1, 2, and 3
     compose a small loop. This gives us an early feedback loop whenever we change
     things in our code or design. Step 3 is like us steering the direction of our
@@ -2120,6 +2426,8 @@
   id: totrans-291
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如你在[图 3-5](#img-opt-flow)中可能已经注意到的，步骤 1、2 和 3 构成了一个小循环。每当我们在代码或设计中进行更改时，这为我们提供了一个早期的反馈循环。步骤
+    3 就像我们驾驶名为“软件”的船航行在大海上时的指引方向。我们知道我们想要去哪里，并且知道如何正确地看向太阳或星星的方向。然而，如果没有像 GPS 这样精确的反馈工具，我们可能会结束在错误的地方航行，直到几周后才意识到。这就是为什么在短间隔内验证我们的航行位置是有益的早期反馈！
 - en: This is the same for our code. We don’t want to work for months only to learn
     that we didn’t get closer to what we expected from the software. Leverage the
     functionality phase loop by making a small iteration of code or design change,
@@ -2131,6 +2439,8 @@
   id: totrans-292
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于我们的代码也是如此。我们不想工作几个月后才发现我们没有接近我们从软件中期望的东西。通过对代码或设计的小迭代进行功能阶段循环，进行步骤 1（运行测试）、步骤
+    2，然后回到步骤 3 进行另一个小修正[^17]。这是多年来工程师们找到的最有效的开发周期。所有现代方法论，如[极限编程](https://oreil.ly/rhx8W)，Scrum，看板以及其他[敏捷](https://oreil.ly/sKZUA)技术，都建立在小迭代的前提上。
 - en: After potentially hundreds of iterations, we might have software or design that
     fulfills, in step 2, the functional requirements we have set for ourselves for
     this development session. Finally, it’s time to ensure our software is fast and
@@ -2138,16 +2448,19 @@
   id: totrans-293
   prefs: []
   type: TYPE_NORMAL
+  zh: 在可能的数百次迭代之后，我们可能会拥有在第2步中为本次开发会话设定的功能要求。最后，现在是确保我们的软件足够快速和高效的时候了！让我们在下一节来看看这个问题。
 - en: Efficiency Phase
   id: totrans-294
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 效率阶段
 - en: Once we are happy with the functional aspects of our software, it’s time to
     ensure it matches the expected resource consumption and speed.
   id: totrans-295
   prefs: []
   type: TYPE_NORMAL
+  zh: 一旦我们满意软件的功能方面，现在是确保其匹配预期资源消耗和速度的时候了。
 - en: Splitting phases and isolating them from each other seems like a burden at first
     glance, but it will organize your developer workflow better. It gives us deep
     focus, ruling our early unknowns and mistakes, and helps us avoid expensive focus
@@ -2155,17 +2468,20 @@
   id: totrans-296
   prefs: []
   type: TYPE_NORMAL
+  zh: 将各个阶段拆分并将其彼此隔离起来，乍一看似乎是一种负担，但它会更好地组织您的开发工作流程。它让我们能够深度聚焦，统治我们早期的未知和错误，并帮助我们避免昂贵的聚焦上下文切换。
 - en: Let’s start our efficiency phase by performing the initial (baseline) efficiency
     validation in step 4\. Then, who knows, maybe our software is efficient enough
     without any changes!
   id: totrans-297
   prefs: []
   type: TYPE_NORMAL
+  zh: 让我们通过在第4步进行初始（基线）效率验证来开始我们的效率阶段。然后，也许我们的软件在没有任何更改的情况下已经足够高效了！
 - en: 4\. Efficiency assessment
   id: totrans-298
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 4\. 效率评估
 - en: 'Here we employ a similar strategy to step 1 of the functionality phase, but
     toward efficiency space. We can define an equivalent of the TDD method explained
     in step 1\. Let’s call it benchmark-driven optimization (BDO). In practice, step
@@ -2173,6 +2489,7 @@
   id: totrans-299
   prefs: []
   type: TYPE_NORMAL
+  zh: 在这里，我们采用与功能阶段第1步类似的策略，但是朝着效率空间。我们可以定义一个等效于第1步中介绍的TDD方法的方法。让我们称之为基准驱动优化（BDO）。在实践中，第4步看起来像是代码层面的这个过程：
 - en: Write benchmarks (or extend existing ones) for all the operations from the efficiency
     requirements we want to compare against. Do it even if you know that the current
     implementation is not efficient yet. We will need that work later. It is not trivial,
@@ -2181,6 +2498,7 @@
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 为我们希望与之比较的效率要求编写基准测试（或扩展现有的基准测试）。即使您知道当前实现尚不高效，也要执行此操作。我们以后会需要这项工作。这并不是一件微不足道的事情，我们将在第[第8章](ch08.html#ch-benchmarking)中详细讨论这一方面。
 - en: Ideally, run all the benchmarks to ensure your changes did not impact unrelated
     operations. In practice, this takes too much time, so focus on one part of the
     program (e.g., one operation) you want to check and run benchmarks only for that.
@@ -2189,16 +2507,19 @@
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 理想情况下，运行所有基准测试以确保您的更改没有影响到无关的操作。实际上，这需要太多时间，因此只专注于您想要检查并仅对其运行基准测试的程序部分（例如，一个操作）。保存结果以备后用。这将成为我们的基线。
 - en: Similar to step 1, the higher-level assessment might require different tools.
     Equipped with results from benchmarks or assessments, let’s go to step 5.
   id: totrans-302
   prefs: []
   type: TYPE_NORMAL
+  zh: 与第1步类似，更高级别的评估可能需要不同的工具。凭借基准测试或评估结果，让我们进入第5步。
 - en: 5\. Are we within RAERs?
   id: totrans-303
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 5\. 我们在RAERs范围内吗？
 - en: In this step, we must compare the results from step 4 with the RAERs we gathered.
     For example, is our latency within the acceptable norm for the current implementation?
     Is the amount of resources our operation consumes within what we agreed? If yes,
@@ -2206,6 +2527,7 @@
   id: totrans-304
   prefs: []
   type: TYPE_NORMAL
+  zh: 在此步骤中，我们必须将第4步的结果与我们收集到的RAERs进行比较。例如，我们的延迟是否在当前实现的可接受标准内？我们的操作消耗的资源量是否符合我们所约定的？如果是，则不需要优化！
 - en: Again, similar to step 2, we have to establish requirements or rough goals for
     efficiency. Otherwise, we have zero ideas if the numbers we see are acceptable
     or not. Again, refer to [“Acquiring and Assessing Efficiency Goals”](#ch-conq-acquiring-raer)
@@ -2213,6 +2535,7 @@
   id: totrans-305
   prefs: []
   type: TYPE_NORMAL
+  zh: 与第2步类似，我们必须为效率建立要求或大致目标。否则，我们对看到的数字是否可接受一无所知。再次参考[“获取和评估效率目标”](#ch-conq-acquiring-raer)来定义RAERs。
 - en: With this comparison, we should have a clear answer. Are we within acceptable
     thresholds? If yes, we can jump straight to the release process in step 9\. If
     not, there is exciting optimization logic ahead of us in steps 6, 7, and 8\. Let’s
@@ -2220,17 +2543,20 @@
   id: totrans-306
   prefs: []
   type: TYPE_NORMAL
+  zh: 通过这种比较，我们应该有一个明确的答案。我们是否在可接受的阈值内？如果是，我们可以直接跳转到第9步的发布过程。如果不是，接下来的第6、7和8步将有令人兴奋的优化逻辑等待我们。让我们现在走过这些步骤。
 - en: 6\. Find the main bottleneck
   id: totrans-307
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 6\. 找出主要瓶颈
 - en: Here we must address the first challenge mentioned in [“Optimization Challenges”](#ch-conq-challenges).
     We are typically bad at guessing which part of the operation causes the biggest
     bottleneck; unfortunately, that’s where our optimization should focus first.
   id: totrans-308
   prefs: []
   type: TYPE_NORMAL
+  zh: 在这里，我们必须解决在[“Optimization Challenges”](#ch-conq-challenges)中提到的第一个挑战。通常情况下，我们很难猜测操作的哪个部分引起了最大的瓶颈；不幸的是，这正是我们应该首先关注优化的地方。
 - en: The word *bottleneck* describes a place where most consumption of specific resources
     or software comes from. It might be a significant number of disk reads, deadlock,
     memory leak, or a function executed millions of times during a single operation.
@@ -2239,22 +2565,26 @@
   id: totrans-309
   prefs: []
   type: TYPE_NORMAL
+  zh: '*瓶颈* 这个词描述了特定资源或软件消耗最多的地方。可能是大量的磁盘读取、死锁、内存泄漏，或者在单个操作期间执行数百万次的函数。一个程序通常只有少数几个这样的瓶颈。要进行有效的优化，我们必须首先理解瓶颈的后果。'
 - en: As part of this process, we need first to understand the underlying root cause
     of the problem we found in step 5\. We will discuss the best tools for this job
     in [Chapter 9](ch09.html#ch-observability3).
   id: totrans-310
   prefs: []
   type: TYPE_NORMAL
+  zh: 作为这个过程的一部分，我们首先需要了解我们在第5步中找到的问题的根本原因。我们将在[第9章](ch09.html#ch-observability3)中讨论最适合这项工作的工具。
 - en: Let’s say we found the set of functions executed the most or another part of
     a program that consumes the most resources. What’s next?
   id: totrans-311
   prefs: []
   type: TYPE_NORMAL
+  zh: 假设我们找到了执行次数最多的一组函数或程序中消耗最多资源的另一部分。接下来怎么办？
 - en: 7\. Choice of level
   id: totrans-312
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 7\. 层次选择
 - en: In step 7, we must choose how we want to tackle the optimization. Should we
     make the code more efficient? Perhaps we could improve the algorithm? Or maybe
     optimize on the system level? In extreme cases, we might also want to optimize
@@ -2262,6 +2592,7 @@
   id: totrans-313
   prefs: []
   type: TYPE_NORMAL
+  zh: 在第7步，我们必须选择如何解决优化问题。我们应该让代码更高效吗？也许我们可以改进算法？或者在系统层面进行优化？在极端情况下，我们甚至可能希望优化操作系统或硬件！
 - en: The choice depends on what’s more pragmatic at the moment and where we are in
     our efficiency spectrum in [Figure 3-1](#img-opt-sum). The important part is to
     stick to single-level optimization at one optimization iteration. Similar to the
@@ -2269,41 +2600,49 @@
   id: totrans-314
   prefs: []
   type: TYPE_NORMAL
+  zh: 选择取决于当前的实用性和我们在效率范围内的位置，以及在[图 3-1](#img-opt-sum)中的单级优化。重要的是在一个优化迭代中坚持单级优化。类似于功能阶段，进行短迭代和小修正。
 - en: Once we know the level we want to make more efficient or faster, we are ready
     to perform optimization!
   id: totrans-315
   prefs: []
   type: TYPE_NORMAL
+  zh: 一旦我们知道要使哪个层次更高效或更快，我们就准备好进行优化了！
 - en: 8\. Optimize!
   id: totrans-316
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 8\. 优化！
 - en: 'This is what everyone was waiting for. Finally, after all that effort, we know:'
   id: totrans-317
   prefs: []
   type: TYPE_NORMAL
+  zh: 这就是每个人都在等待的时刻。经过那么多努力之后，我们终于知道：
 - en: What place in the code or design to optimize for the most impact.
   id: totrans-318
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 优化代码或设计的最重要影响点在哪里。
 - en: What to optimize for—what resource consumption is too large.
   id: totrans-319
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 要优化的是什么——哪些资源消耗太大了。
 - en: How much sacrifice we can make on other resources because we have RAER. There
     will be trade-offs.
   id: totrans-320
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们可以在其他资源上做出多大的牺牲，因为我们有 RAER。这将涉及到权衡。
 - en: On what level we are optimizing.
   id: totrans-321
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们正在优化的层次。
 - en: These elements make the optimization process much easier and often even make
     it possible to begin with. Now we focus on the mental model we introduced in [“Beyond
     Waste, Optimization Is a Zero-Sum Game”](#ch-conq-opt). We are looking for *waste*.
@@ -2314,34 +2653,41 @@
   id: totrans-322
   prefs: []
   type: TYPE_NORMAL
+  zh: 这些元素使优化过程变得更加容易，通常甚至使其成为可能。现在我们专注于在[“Beyond Waste, Optimization Is a Zero-Sum
+    Game”](#ch-conq-opt)中引入的心智模型。我们正在寻找*浪费*。我们在寻找可以*少做工作*的地方。总会有一些事情可以消除，无论是免费的还是通过使用其他资源做其他工作。我将在[第11章](ch11.html#ch-opt2)中介绍一些模式，并在[第10章](ch10.html#ch-opt)中展示示例。
 - en: 'Let’s say we found some ideas for improvement. This is when you should implement
     it or design it (depending on the level). But what’s next? We cannot just release
     our optimization like this simply because:'
   id: totrans-323
   prefs: []
   type: TYPE_NORMAL
+  zh: 假设我们找到了一些改进的想法。这时候你应该去实施或设计它（取决于层次）。但接下来呢？我们不能简单地发布我们的优化，因为：
 - en: We don’t know that we did not introduce functional issues (bugs).
   id: totrans-324
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们不知道是否引入了功能问题（错误）。
 - en: We don’t know if we improved any performance.
   id: totrans-325
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们不知道我们是否改进了性能。
 - en: This is why we have to perform the full cycle now (no exceptions!). It’s critical
     to go to step 1 and test the optimized code or design. If there are problems,
     we must fix them or revert optimization (steps 2 and 3).
   id: totrans-326
   prefs: []
   type: TYPE_NORMAL
+  zh: 这就是为什么我们现在必须执行完整的循环（没有例外！）。关键是转向步骤1并测试优化的代码或设计。如果出现问题，我们必须修复它们或恢复优化（步骤2和3）。
 - en: It is tempting to ignore the functional testing phase when iterating on optimizations.
     For example, what can go wrong if you only reduce one allocation by reusing some
     memory?
   id: totrans-327
   prefs: []
   type: TYPE_NORMAL
+  zh: 在进行优化迭代时，很容易忽略功能测试阶段。例如，如果只通过重复使用一些内存来减少一个分配，会出现什么问题呢？
 - en: I often caught myself doing this, and it was a painful mistake. Unfortunately,
     when you find that your code cannot pass tests after a few iterations of optimizations,
     it is hard to find what caused it. Usually, you have to revert all and start from
@@ -2350,6 +2696,7 @@
   id: totrans-328
   prefs: []
   type: TYPE_NORMAL
+  zh: 我经常发现自己这样做，这是一个痛苦的错误。不幸的是，当你发现你的代码在几次优化迭代后无法通过测试时，很难找出原因。通常情况下，你必须全部恢复并重新开始。因此，我建议每次优化尝试后运行一个范围单元测试。
 - en: Once we gain confidence that our optimization did not break any basic functionality,
     it’s crucial to check if our optimization improved the situation we want to improve.
     It’s important to run *the same* benchmark, ensuring that nothing changes except
@@ -2358,6 +2705,7 @@
   id: totrans-329
   prefs: []
   type: TYPE_NORMAL
+  zh: 一旦我们确信优化没有破坏任何基本功能，就关键检查我们的优化是否改进了我们想要改进的情况。重要的是运行*相同*的基准测试，确保除了你做的优化（步骤4）外，没有任何改变。这样可以减少未知因素，并分步迭代我们的优化。
 - en: With the results from this recent step 4, compare it with the baseline made
     in the initial visit to step 4\. This crucial step will tell us if we optimized
     anything or introduced performance regression. Again, don’t assume anything. Let
@@ -2366,6 +2714,7 @@
   id: totrans-330
   prefs: []
   type: TYPE_NORMAL
+  zh: 利用最近步骤4的结果，将其与初始访问步骤4时制作的基准进行比较。这一关键步骤将告诉我们是否优化了任何内容或引入了性能退化。再次强调，不要假设任何事情。让数据来说话！Go语言在这方面有很棒的工具，我们将在[第8章](ch08.html#ch-benchmarking)中讨论。
 - en: If the new optimization doesn’t have a better efficiency result, we simply try
     different ideas again until it works out. If the optimization has better results,
     we save our work and go to step 5 to check if it’s enough. If not, we have to
@@ -2374,16 +2723,19 @@
   id: totrans-331
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果新的优化没有更好的效率结果，我们简单地再试几个不同的想法，直到成功为止。如果优化效果更好，我们保存工作并转向步骤5以检查是否足够。如果不够，我们必须进行另一次迭代。通常情况下，在我们已经做过的基础上再构建另一个优化是很有用的。也许还有更多可以改进的地方！
 - en: We repeat this cycle, and after a few (or hundreds), we hopefully have acceptable
     results in step 5\. In this case, we can move to step 9 and enjoy our work!
   id: totrans-332
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们重复这个周期，在几次（或数百次）之后，希望在步骤5得到可接受的结果。在这种情况下，我们可以转向步骤9并享受我们的工作！
 - en: 9\. Release and enjoy!
   id: totrans-333
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 9\. 发布并享受！
 - en: Great job! You went through the full iteration of the efficiency-aware development
     flow. Your software is now fairly safe to be released and deployed in the wild.
     The process might feel bureaucratic, but it’s easy to build an instinct for it
@@ -2392,11 +2744,13 @@
   id: totrans-334
   prefs: []
   type: TYPE_NORMAL
+  zh: 做得好！你已经完整地经历了注重效率的开发流程的迭代。现在你的软件基本上可以放心发布和部署了。这个过程可能感觉有些官僚，但习惯后就能自然而然地遵循了。当然，你可能已经在不知不觉中使用了这个流程！
 - en: Summary
   id: totrans-335
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 总结
 - en: As we learned in this chapter, conquering efficiency is not trivial. However,
     certain patterns exist that help to navigate this process systematically and effectively.
     For example, the TFBO flow was immensely helpful for me to keep my efficiency-aware
@@ -2404,6 +2758,7 @@
   id: totrans-336
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如我们在本章中学到的，征服效率并不是件容易的事。然而，存在某些模式可以帮助我们系统和有效地导航这个过程。例如，TFBO流程对我来说在保持效率感知开发方面非常有帮助。
 - en: Some of the frameworks incorporated in the TFBO, like test-driven development
     and benchmark-driven optimizations, might seem tedious initially. However, similar
     to the saying, [“Give me six hours to chop a tree, I will spend four hours sharpening
