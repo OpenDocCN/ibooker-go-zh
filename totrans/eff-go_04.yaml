@@ -445,6 +445,7 @@
   id: totrans-52
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![1](assets/1.png)](#co_how_go_uses_the_cpu_resource__or_two__CO2-1)'
 - en: The first line represents a [quadword (64 bit) MOV instruction](https://oreil.ly/SDE5R)
     that tells the CPU to copy the 64-bit value from memory under the address stored
     in register `SP` plus 80 bytes and put that into the `SI` register.^([4](ch04.html#idm45606835798912))
@@ -453,10 +454,13 @@
   id: totrans-53
   prefs: []
   type: TYPE_NORMAL
+  zh: 第一行代表一个[四字节（64位）MOV指令](https://oreil.ly/SDE5R)，告诉CPU从存储在寄存器`SP`地址加上80字节的内存中复制64位值，并将其放入`SI`寄存器中。^([4](ch04.html#idm45606835798912))
+    编译器决定`SI`将存储返回参数在我们函数中的初始值，所以`ret`整数变量用于`ret+=num`操作。
 - en: '[![2](assets/2.png)](#co_how_go_uses_the_cpu_resource__or_two__CO2-2)'
   id: totrans-54
   prefs: []
   type: TYPE_NORMAL
+  zh: '[![2](assets/2.png)](#co_how_go_uses_the_cpu_resource__or_two__CO2-2)'
 - en: As a second instruction, we tell the CPU to add a quadword value from the `AX`
     register to the `SI` register. The compiler used the `AX` register to store the
     `num` integer variable, which we parsed from the `string` in previous instructions
@@ -464,6 +468,7 @@
   id: totrans-55
   prefs: []
   type: TYPE_NORMAL
+  zh: 作为第二条指令，我们告诉CPU将来自`AX`寄存器的四字节值添加到`SI`寄存器中。编译器使用`AX`寄存器来存储`num`整数变量，该变量是我们从之前指令（不在本段内）解析的字符串。
 - en: The preceding example shows `MOVQ` and `ADDQ` instructions. To make things more
     complex, each distinct CPU implementation allows a different set of instructions,
     with different memory addressing, etc. The industry created the [Instruction Set
@@ -478,6 +483,9 @@
   id: totrans-56
   prefs: []
   type: TYPE_NORMAL
+  zh: 前面的示例展示了`MOVQ`和`ADDQ`指令。为了使事情更加复杂，每个不同的CPU实现允许不同的指令集，具有不同的内存寻址等。行业创建了[指令集架构（ISA）](https://oreil.ly/eTzST)来指定软件和硬件之间严格的、可移植的接口。由于ISA，我们可以将我们的程序编译为与x86架构的ISA兼容的机器码，并在任何x86
+    CPU上运行。^([5](ch04.html#idm45606835763760)) ISA定义了数据类型、寄存器、主存储器管理、固定指令集、唯一标识、输入/输出模型等。不同类型的CPU有不同的[ISA](https://oreil.ly/TLxJn)。例如，32位和64位的Intel和AMD处理器都使用x86
+    ISA，而ARM则使用其ARM ISA（例如，新的[Apple M芯片使用ARMv8.6-A](https://oreil.ly/NZqT1)）。
 - en: As far as Go developers are concerned, the ISA defines a set of instructions
     and registers our compiled machine code can use. To produce a portable program,
     a compiler can transform our Go code into machine code compatible with a specific
@@ -487,11 +495,13 @@
   id: totrans-57
   prefs: []
   type: TYPE_NORMAL
+  zh: 就Go开发者而言，ISA定义了一组指令和寄存器，我们编译的机器码可以使用。为了生成可移植的程序，编译器可以将我们的Go代码转换为与特定ISA（架构）和所需操作系统类型兼容的机器码。在下一节中，让我们看看默认的Go编译器是如何工作的。在此过程中，我们将揭示帮助Go编译器生成高效快速机器码的机制。
 - en: Understanding Go Compiler
   id: totrans-58
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 理解Go编译器
 - en: The topic of building effective compilers can fill a few books. In this book,
     however, we will try to understand the Go compiler basics that we, as Go developers
     interested in efficient code, have to be aware of. Generally, many things are
@@ -1427,43 +1437,51 @@
   id: totrans-164
   prefs: []
   type: TYPE_NORMAL
+  zh: 总之，所有上述的 CPU 优化和相应的编程技术只在优化周期的最后阶段使用，并且只在我们想要在关键路径上挤出最后几十纳秒时使用。
 - en: Three Principles of Writing CPU-Efficient Code on Critical Path
   id: totrans-165
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 编写关键路径上 CPU 高效代码的三个原则
 - en: 'The three basic rules that will yield CPU-friendly code are as follows:'
   id: totrans-166
   prefs: []
   type: TYPE_NORMAL
+  zh: 会产生 CPU 友好代码的三条基本规则如下：
 - en: Use algorithms that do less work.
   id: totrans-167
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 使用做更少工作的算法。
 - en: Focus on writing low-complexity code that will be easier to optimize for the
     compiler and CPU branch predictors. Ideally, separate “hot” from “cold” code.
   id: totrans-168
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 专注于编写低复杂度的代码，这样更容易为编译器和 CPU 分支预测器进行优化。理想情况下，将“热”代码与“冷”代码分开。
 - en: Favor contiguous memory data structures when you plan to iterate or traverse
     over them a lot.
   id: totrans-169
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 在计划经常迭代或遍历它们时，倾向于使用连续的内存数据结构。
 - en: With this brief understanding of CPU hardware dynamics, let’s dive deeper into
     the essential software types that allow us to run thousands of programs simultaneously
     on shared hardware—schedulers.
   id: totrans-170
   prefs: []
   type: TYPE_NORMAL
+  zh: 通过对 CPU 硬件动态的简要了解，让我们深入探讨关键路径上运行成千上万程序的关键软件类型——调度器。
 - en: Schedulers
   id: totrans-171
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 调度器
 - en: Scheduling generally means allocating necessary, usually limited, resources
     for a certain process to finish. For example, assembling car parts must be tightly
     scheduled in a certain place at a certain time in a car factory to avoid downtime.
@@ -1472,6 +1490,7 @@
   id: totrans-172
   prefs: []
   type: TYPE_NORMAL
+  zh: 调度通常意味着为某个进程分配必要的、通常是有限的资源以完成。例如，在汽车工厂中，组装汽车零部件必须在特定的地点和特定的时间紧密安排，以避免停机。我们还可能需要在某些时间段内安排会议参与者之间的会议。
 - en: In modern computers or clusters of servers, we have thousands of programs that
     have to be running on shared resources like CPU, memory, network, disks, etc.
     That’s why the industry developed many types of scheduling software (commonly
@@ -1480,6 +1499,7 @@
   id: totrans-173
   prefs: []
   type: TYPE_NORMAL
+  zh: 在现代计算机或服务器集群中，我们有成千上万的程序需要在共享的资源如 CPU、内存、网络、磁盘等上运行。这就是为什么行业开发了许多类型的调度软件（通常称为*调度器*），专注于将这些程序分配给多个级别的空闲资源。
 - en: In this section, we will discuss CPU scheduling. Starting from the bottom level,
     we have an operating system that schedules arbitrary programs on a limited number
     of physical CPUs. Operating system mechanisms should tell us how multiple programs
@@ -1490,11 +1510,14 @@
   id: totrans-174
   prefs: []
   type: TYPE_NORMAL
+  zh: 在本节中，我们将讨论 CPU 调度。从底层开始，我们有一个操作系统，它在有限数量的物理 CPU 上调度任意程序。操作系统的机制应告诉我们同时运行多个程序如何影响我们的
+    CPU 资源，以及如何影响我们自己的 Go 程序执行延迟。它还将帮助我们了解开发人员如何同时利用多个 CPU 内核，以并行或同时方式实现更快的执行。
 - en: Operating System Scheduler
   id: totrans-175
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 操作系统调度器
 - en: As with compilers, there are many different operating systems (OSes), each with
     different task scheduling and resource management logic. While most of the systems
     operate on similar abstractions (e.g., threads, processes with priorities), we
@@ -1505,6 +1528,8 @@
   id: totrans-176
   prefs: []
   type: TYPE_NORMAL
+  zh: 与编译器一样，有许多不同的操作系统（OSes），每个都有不同的任务调度和资源管理逻辑。虽然大多数系统都在类似的抽象上操作（例如，带有优先级的线程、进程），但在本书中我们将专注于
+    Linux 操作系统。它的核心称为内核，具有许多重要功能，如管理内存、设备、网络访问、安全性等。它还通过一个可配置的组件称为调度器来确保程序的执行。
 - en: 'As a central part of resource management, the OS thread scheduler must maintain
     the following, simple, invariant: make sure that ready threads are scheduled on
     available cores.'
@@ -1512,6 +1537,7 @@
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: 作为资源管理的核心部分，操作系统线程调度器必须保持以下简单的不变性：确保准备好的线程在可用的核心上调度。
 - en: ''
   id: totrans-178
   prefs:
@@ -1522,6 +1548,7 @@
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: J.P. Lozi 等人的文章 [“Linux 调度器：十年浪费核心”](https://oreil.ly/bfiEW)
 - en: The smallest scheduling unit for the Linux scheduler is called an [OS thread](https://oreil.ly/Lp2Sk).
     The thread (sometimes also referred to as a *task* or *lightweight process*) contains
     an independent set of machine code in the form of CPU instructions designed to
@@ -1707,12 +1734,17 @@
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 依靠纯程序执行延迟（有时称为 *墙上时间* 或 *墙钟时间*）来估算我们程序的 CPU 效率是困难的。这是因为现代操作系统调度器是抢占式的，而程序通常会等待其他
+    I/O 或同步操作。因此，要可靠地检查在修复后，我们的程序是否比以前的实现更有效地利用了 CPU，这是相当困难的。这就是为什么行业定义了一个重要的度量标准，用于收集我们程序进程（所有其线程）在所有
+    CPU 核心上处于“运行”状态的时间。我们通常称之为 CPU 时间，并将在 [“CPU 使用率”](ch06.html#ch-obs-cpu-usage)
+    中讨论。
 - en: CPU Time on an Overloaded Machine
   id: totrans-202
   prefs:
   - PREF_IND
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 在负载过重的机器上的 CPU 时间
 - en: Measuring CPU time is a great way to check our program’s CPU efficiency. However,
     be careful when looking at the CPU time from some narrow window of process execution
     time. For example, lower CPU time might mean our process was not using much CPU
@@ -1721,6 +1753,8 @@
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
+  zh: 测量 CPU 时间是检查我们程序 CPU 效率的一种好方法。然而，在查看某个进程执行时间的狭窄窗口时要小心。例如，较低的 CPU 时间可能意味着我们的进程在那一时刻没有使用太多
+    CPU，但它也可能表示 CPU 负载过重。
 - en: Overall, sharing processes on the same system has its problems. That’s why in
     virtualized environments, we tend to reserve these resources. For example, we
     can limit CPU use of one process to 200 milliseconds of CPU time per second, so
@@ -1729,6 +1763,8 @@
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
+  zh: 总体而言，在同一系统上共享进程存在问题。这就是为什么在虚拟化环境中，我们倾向于保留这些资源的原因。例如，我们可以将一个进程的 CPU 使用限制为每秒钟
+    200 毫秒的 CPU 时间，这相当于一个 CPU 核心的 20%。
 - en: The final consequence of the CFS design is that it is too fair to ensure dedicated
     CPU time for a single thread. The Linux scheduler has priorities, a user-configurable
     “niceness” flag, and different scheduling policies. Modern Linux OS even has a
@@ -1738,6 +1774,8 @@
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: CFS 设计的最终后果是，它对于确保单个线程专用的 CPU 时间过于公平了。Linux 调度器具有优先级、用户可配置的“niceness”标志以及不同的调度策略。现代
+    Linux 操作系统甚至有一种调度策略，用特殊的实时调度程序替代 CFS，以执行需要第一顺序执行的线程。^([20](ch04.html#idm45606835364128))
 - en: Unfortunately, even with a real-time scheduler, a Linux system cannot ensure
     that higher-priority threads will have all the CPU time they need, as it will
     still try to ensure that low-priority threads are not starved. Furthermore, because
@@ -1751,6 +1789,9 @@
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
+  zh: 不幸的是，即使有了实时调度程序，Linux 系统也不能确保高优先级线程将获得它们所需的所有 CPU 时间，因为它仍然会努力确保低优先级线程不会挨饿。此外，因为
+    CFS 和实时对应物都是抢占式的，它们不是确定性和可预测性的。因此，在有严格实时要求的任务（例如毫秒级交易或飞机软件）之前，不能保证足够的执行时间。这就是为什么一些公司为
+    [严格实时程序](https://oreil.ly/oVsCz) 开发了他们自己的调度程序或系统，如 [Zephyr OS](https://oreil.ly/hV7ym)。
 - en: Despite the somewhat complex characteristics of the CFS scheduler, it remains
     the most popular thread orchestration system available in modern Linux systems.
     In 2016 the CFS was also overhauled for multicore machines and NUMA architectures,
@@ -1760,6 +1801,8 @@
   id: totrans-207
   prefs: []
   type: TYPE_NORMAL
+  zh: 尽管 CFS 调度器具有一定复杂的特性，它仍然是现代 Linux 系统中最流行的线程编排系统。2016 年，CFS 还针对多核机器和 NUMA 架构进行了全面升级，基于
+    [一篇著名的研究论文](https://oreil.ly/kUEiQ) 的发现。因此，现在线程可以智能地分布在空闲核心上，同时确保迁移不会太频繁，也不会在共享相同资源的线程之间进行。
 - en: With a basic understanding of the OS scheduler, let’s dive into why the Go scheduler
     exists and how it enables developers to program multiple tasks to run concurrently
     on single or multiple CPU cores.
@@ -2195,21 +2238,29 @@
   id: totrans-267
   prefs: []
   type: TYPE_NORMAL
+  zh: 作为开发人员，我们通常控制我们程序中创建的 goroutines 数量。通常不是为每个小工作单元生成它们是最佳选择，所以不要过度使用它们。还值得注意的是，许多标准或第三方库的抽象可以生成
+    goroutines，特别是那些需要 `Close` 或取消的操作。特别是，常见操作如 `http.Do`、`context.WithCancel` 和 `time.After`
+    都会创建 goroutines。如果使用不当，goroutines 可能会被泄漏（留下孤立的 goroutines），这通常会浪费内存和 CPU 资源。我们将探讨在
+    [“Goroutine”](ch09.html#ch-obs-pprof-goroutine) 中调试 goroutines 数量和快照的方法。
 - en: First Rule of Efficient Code
   id: totrans-268
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 高效代码的第一条规则
 - en: Always close or release the resources you use. Sometimes simple structures can
     cause colossal and unbounded waste of memory and goroutines if we forget to close
     them. We will explore common examples in [“Don’t Leak Resources”](ch11.html#ch-basic-leaks).
   id: totrans-269
   prefs: []
   type: TYPE_NORMAL
+  zh: 总是关闭或释放您使用的资源。有时，如果忘记关闭它们，简单的结构可能会导致内存和 goroutines 的巨大且无界的浪费。我们将在 [“不要泄露资源”](ch11.html#ch-basic-leaks)
+    中探讨常见示例。
 - en: '`GOMAXPROCS`'
   id: totrans-270
   prefs: []
   type: TYPE_NORMAL
+  zh: '`GOMAXPROCS`'
 - en: This important environmental variable can be set to control the number of virtual
     CPUs you want to leverage in your Go program. The same configuration value can
     be applied via the `runtime.GOMAXPROCS(n)` function. The underlying logic on how
@@ -2224,17 +2275,24 @@
   id: totrans-271
   prefs: []
   type: TYPE_NORMAL
+  zh: 这个重要的环境变量可以设置来控制你希望在 Go 程序中利用的虚拟 CPU 数量。可以通过 `runtime.GOMAXPROCS(n)` 函数应用相同的配置值。Go
+    调度程序如何使用这个变量的底层逻辑是相当复杂的^([26](ch04.html#idm45606834697536))，但它通常控制 Go 可以期望的并行
+    OS 线程执行的数量（内部称为“proc”数）。然后，Go 调度程序将维护 `GOMAXPROCS/proc` 数量的队列，并尝试在它们之间分发 goroutines。`GOMAXPROCS`
+    的默认值始终是操作系统公开的虚拟 CPU 核心数，这通常会为您提供最佳性能。如果希望您的 Go 程序使用较少的 CPU 核心（较少的并行性）以换取潜在的更高延迟，请减少
+    `GOMAXPROCS` 值。
 - en: Recommended GOMAXPROCS Configuration
   id: totrans-272
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 推荐的 `GOMAXPROCS` 配置
 - en: Set `GOMAXPROCS` to the number of virtual cores you want your Go program to
     utilize at once. Typically, we want to use the whole machine; thus, the default
     value should work.
   id: totrans-273
   prefs: []
   type: TYPE_NORMAL
+  zh: 将 `GOMAXPROCS` 设置为您希望您的 Go 程序同时利用的虚拟核心数。通常情况下，我们希望使用整个机器，因此默认值应该适用。
 - en: For virtualized environments, especially using lightweight virtualization mechanisms
     like containers, use [Uber’s `automaxprocs` library](https://oreil.ly/ysr40),
     which will adjust `GOMAXPROCS` based on the Linux CPU limits the container is
@@ -2242,6 +2300,8 @@
   id: totrans-274
   prefs: []
   type: TYPE_NORMAL
+  zh: 对于虚拟化环境，特别是使用像容器这样的轻量级虚拟化机制，请使用 [Uber 的 `automaxprocs` 库](https://oreil.ly/ysr40)，它将根据容器被允许使用的
+    Linux CPU 限制调整 `GOMAXPROCS`，这通常是我们想要的。
 - en: Multitasking is always a tricky concept to introduce into a language. I believe
     the goroutines with channels in Go are quite an elegant solution to this problem,
     which allows many readable programming patterns without sacrificing efficiency.
@@ -2250,15 +2310,20 @@
   id: totrans-275
   prefs: []
   type: TYPE_NORMAL
+  zh: 多任务始终是引入语言的一个棘手概念。我认为在 Go 语言中，带有通道的 goroutines 是这个问题的相当优雅的解决方案，它允许许多可读的编程模式而不会牺牲效率。我们将通过改进本章介绍的
+    [“通过并发优化延迟”](ch10.html#ch-opt-latency-concurrency-example) 中所示的 [Example 4-1](#code-sum)
+    来探索实际的并发模式。
 - en: Let’s now look into when concurrency might be useful in our Go programs.
   id: totrans-276
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在让我们看看在我们的 Go 程序中何时可能会使用并发。
 - en: When to Use Concurrency
   id: totrans-277
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 何时使用并发
 - en: 'As with any efficiency optimization, the same classic rules apply when transforming
     a single goroutine code to a concurrent one. No exceptions here. We have to focus
     on the goal, apply the TFBO loop, benchmark early, and look for the biggest bottleneck.
@@ -2365,17 +2430,20 @@
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 并发代码很难进行基准测试，因为它更加依赖环境、可能存在的噪声邻居、多核设置、操作系统版本等。另一方面，顺序的单核代码具有更加确定和可移植的性能，更容易证明并进行比较。
 - en: As we can see, using concurrency is not the cure for all performance problems.
     It’s just another tool in our hands that we can use to fulfill our efficiency
     goals.
   id: totrans-290
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如我们所见，使用并发并不是解决所有性能问题的灵丹妙药。这只是我们手中的另一个工具，可以用来实现效率目标。
 - en: Adding Concurrency Should Be One of Our Last Deliberate Optimizations to Try
   id: totrans-291
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 添加并发应该是我们最后尝试的有意义优化之一。
 - en: As per our TFBO cycle, if you are still not meeting your RAERs, e.g., in terms
     of speed, make sure you try more straightforward optimization techniques before
     adding concurrency. The rule of thumb is to think about concurrency when our CPU
@@ -2385,6 +2453,7 @@
   id: totrans-292
   prefs: []
   type: TYPE_NORMAL
+  zh: 根据我们的TFBO周期，如果您仍然不能满足您的RAERs，例如速度方面，请确保在添加并发之前尝试更简单的优化技术。经验法则是，在我们的CPU分析器（在[第9章](ch09.html#ch-observability3)中解释）显示我们的程序只在对我们功能至关重要的事务上花费CPU时间之前，是我们知道的最有效的方式。
 - en: The mentioned list of disadvantages is one reason, but the second is that our
     program’s characteristics might differ after basic (without concurrency) optimizations.
     For example, we thought our task was CPU bound, but after improvements, we may
@@ -2393,11 +2462,13 @@
   id: totrans-293
   prefs: []
   type: TYPE_NORMAL
+  zh: 上述的缺点列表是一个原因，但第二个原因是，在基本的（不使用并发）优化之后，我们程序的特性可能会有所不同。例如，我们以为我们的任务是CPU密集型的，但在改进之后，我们可能发现大部分时间都花在等待I/O操作上。或者我们可能意识到，其实我们根本不需要大规模的并发修改。
 - en: Summary
   id: totrans-294
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 总结
 - en: The modern CPU hardware is a nontrivial component that allows us to run our
     software efficiently. With ongoing operating systems, Go language development,
     and advancements in hardware, only more optimization techniques and complexities
@@ -2405,6 +2476,7 @@
   id: totrans-295
   prefs: []
   type: TYPE_NORMAL
+  zh: 现代CPU硬件是一个复杂的组件，它允许我们高效地运行我们的软件。随着操作系统的持续发展、Go语言开发和硬件的进步，只会出现更多的优化技术和复杂性，以降低运行成本并增加处理能力。
 - en: In this chapter, I hopefully gave you basics that will help you optimize your
     usage of CPU resources and, generally, your software execution speed. First, we
     discussed the Assembly language and how it can be useful during Go development.
@@ -2413,12 +2485,14 @@
   id: totrans-296
   prefs: []
   type: TYPE_NORMAL
+  zh: 在本章中，我希望给了你一些基础知识，帮助你优化CPU资源的使用，以及通常的软件执行速度。首先，我们讨论了汇编语言及其在Go开发中的用处。然后，我们探讨了Go编译器的功能、优化方法和调试方式。
 - en: 'Later, we jumped into the main challenge for CPU execution: memory access latency
     in modern systems. Finally, we discussed the various low-level optimizations like
     L-caches, pipelining, CPU branch prediction, and Hyper-Threading.'
   id: totrans-297
   prefs: []
   type: TYPE_NORMAL
+  zh: 后来，我们深入探讨了CPU执行的主要挑战：现代系统中的内存访问延迟。最后，我们讨论了诸如L缓存、流水线处理、CPU分支预测和超线程等各种低级优化技术。
 - en: Last, we explored the practical problems of executing our programs in production
     systems. Unfortunately, our machine’s program is rarely the only process, so efficient
     execution matters. Finally, we summarized Go’s concurrency framework’s benefits
@@ -2426,6 +2500,7 @@
   id: totrans-298
   prefs: []
   type: TYPE_NORMAL
+  zh: 最后，我们探讨了在生产系统中执行我们程序的实际问题。不幸的是，我们机器上的程序很少是唯一的进程，因此高效的执行非常重要。最后，我们总结了Go并发框架的优缺点。
 - en: In practice, CPU resource is essential to optimize in modern infrastructure
     to achieve faster execution and the ability to pay less for our workloads. Unfortunately,
     CPU resource is only one aspect. For example, our choice optimization might prefer
@@ -2433,6 +2508,7 @@
   id: totrans-299
   prefs: []
   type: TYPE_NORMAL
+  zh: 在实践中，优化CPU资源是现代基础设施中实现更快执行和减少工作负载成本的关键。不幸的是，CPU资源只是一个方面。例如，我们的选择优化可能更倾向于使用更多内存以减少CPU使用率，或者反之。
 - en: As a result, our programs typically use a lot of memory resources (plus I/O
     traffic through disk or network). While execution is tied to CPU resources like
     memory and I/O, it might be the first on our list of optimizations depending on
@@ -2508,16 +2584,20 @@
   id: totrans-310
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([10](ch04.html#idm45606835689456-marker)) 然而，有关从默认构建过程中删除它的讨论。
 - en: ^([11](ch04.html#idm45606835684112-marker)) [Bound check elimination](https://oreil.ly/E7FJI)
     is not explained in this book, as it’s a rare optimization idea.
   id: totrans-311
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([11](ch04.html#idm45606835684112-marker)) [边界检查消除](https://oreil.ly/E7FJI)
+    不在本书中详细解释，因为这是一种罕见的优化思想。
 - en: ^([12](ch04.html#idm45606835565472-marker)) This is very often used in standard
     libraries for critical code.
   id: totrans-312
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([12](ch04.html#idm45606835565472-marker)) 这在标准库中的关键代码中非常常见。
 - en: ^([13](ch04.html#idm45606835552784-marker)) On top of SISD and SIMD, Flynn’s
     taxonomy also specifies MISD, which describes performing multiple instructions
     on the same data, and MIMD, which describes full parallelism. MISD is rare and
@@ -2528,6 +2608,9 @@
   id: totrans-313
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([13](ch04.html#idm45606835552784-marker)) 在 SISD 和 SIMD 的基础上，弗林分类法还指定了 MISD，它描述了在同一数据上执行多个指令，并且
+    MIMD，描述了完全并行。MISD 是罕见的，仅在可靠性重要时才会发生。例如，四个飞行控制计算机在每个 NASA 航天飞机上执行完全相同的计算，以进行四重错误检查。另一方面，由于多核甚至多
+    CPU 设计，MIMD 更为常见。
 - en: ^([14](ch04.html#idm45606835540240-marker)) This is why we see specialized chips
     (called Neural Processing Units, or NPUs) appearing in the commodity devices—for
     example, Tensor Processing Unit (TPU) in Google phones, A14 Bionic chip in iPhones,
@@ -2535,12 +2618,15 @@
   id: totrans-314
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([14](ch04.html#idm45606835540240-marker)) 这就是为什么我们在通用设备中看到专用芯片（称为神经处理单元或NPU）的原因，例如Google手机中的张量处理单元（TPU），iPhone中的A14仿生芯片，以及苹果笔记本电脑中的专用NPU。
 - en: ^([15](ch04.html#idm45606835530224-marker)) Sizes of caches can vary. Example
     sizes are taken from my laptop. You can check the sizes of your CPU caches in
     Linux by using the `sudo dmidecode -t cache` command.
   id: totrans-315
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([15](ch04.html#idm45606835530224-marker)) 缓存的大小可以不同。示例大小取自我的笔记本电脑。您可以通过使用
+    `sudo dmidecode -t cache` 命令在 Linux 中检查 CPU 缓存的大小。
 - en: ^([16](ch04.html#idm45606835511424-marker)) If a CPU can in total perform up
     to one instruction per cycle (IPC ⇐ 1), we call it a scalar CPU. Most modern CPU
     cores have IPC ⇐ 1, but one CPU has more than one core, which makes IPC > 1\.
@@ -2549,6 +2635,9 @@
   id: totrans-316
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([16](ch04.html#idm45606835511424-marker)) 如果一个 CPU 总共每个周期最多执行一条指令（IPC ≤ 1），我们称其为标量
+    CPU。大多数现代 CPU 核心的 IPC ≤ 1，但是有一些 CPU 拥有多个核心，使得 IPC > 1。这使得这些 CPU 成为超标量 CPU。IPC
+    已经迅速成为 CPU 的性能指标。
 - en: ^([17](ch04.html#idm45606835495520-marker)) Huge cost is not an overstatement.
     Latency of context switch depends on many factors, but it was measured that in
     the best case, direct latency (including operating system switch latency) is around
@@ -2561,12 +2650,15 @@
   id: totrans-317
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([17](ch04.html#idm45606835495520-marker)) 高昂的成本一点也不为过。上下文切换的延迟取决于许多因素，但是据测量，在最佳情况下，直接延迟（包括操作系统切换延迟）约为1,350纳秒
+    — 如果必须迁移到不同的核心，则为2,200纳秒。这仅仅是直接延迟，从一个线程的结束到另一个线程的开始。总延迟将包括缓存和流水线预热的间接成本，可能高达10,000纳秒（这是我们在[表A-1](app01.html#table-napkin-math)中看到的情况）。在此期间，我们可以计算大约40,000条指令。
 - en: ^([18](ch04.html#idm45606835464576-marker)) In some sources, this technique
     is also called CPU threading (aka hardware threads). I will avoid this terminology
     in this book due to possible confusion with operating system threads.
   id: totrans-318
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([18](ch04.html#idm45606835464576-marker)) 在一些资料中，这种技术也称为 CPU 线程（又称硬件线程）。由于可能与操作系统线程引起混淆，本书将避免使用这种术语。
 - en: ^([19](ch04.html#idm45606835463680-marker)) Do not confuse Hyper-Threading logical
     cores with virtual CPUs (vCPUs) referenced when we use virtualizations like virtual
     machines. Guest operating systems use the machine’s physical or logical CPUs depending
@@ -2574,6 +2666,8 @@
   id: totrans-319
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([19](ch04.html#idm45606835463680-marker)) 不要将超线程逻辑核心与在虚拟化中使用的虚拟 CPU（vCPU）混淆。客户操作系统根据主机选择使用机器的物理或逻辑
+    CPU，但在两种情况下，它们都被称为 vCPU。
 - en: ^([20](ch04.html#idm45606835364128-marker)) There are [lots of good materials](https://oreil.ly/8OPW3)
     about tuning up the operating system. Many virtualization mechanisms, like containers
     with orchestrating systems like Kubernetes, also have their notion of priorities
@@ -2583,6 +2677,7 @@
   id: totrans-320
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([20](ch04.html#idm45606835364128-marker)) 有关调整操作系统的良好材料，[很多](https://oreil.ly/8OPW3)。许多虚拟化机制，如具有像Kubernetes这样的编排系统的容器，也有它们的优先级和亲和性概念（将进程固定到特定的核心或机器）。在本书中，我们专注于编写高效的代码，但必须意识到执行环境的调整在确保程序快速可靠执行中起着重要作用。
 - en: ^([21](ch04.html#idm45606835341536-marker)) Details around Go runtime implementing
     Go scheduling [are pretty impressive](https://oreil.ly/G9bFb). Essentially, Go
     does everything to keep the OS thread busy (spinning the OS thread) so it’s not
@@ -2592,12 +2687,14 @@
   id: totrans-321
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([21](ch04.html#idm45606835341536-marker)) 围绕Go运行时实现Go调度的细节[相当令人印象深刻](https://oreil.ly/G9bFb)。基本上，Go尽一切努力保持操作系统线程忙碌（旋转操作系统线程），以便尽可能长时间地保持不进入阻塞状态。如果需要，它可以从其他线程窃取goroutine，轮询网络等，以确保我们保持CPU忙碌，使操作系统不会抢占Go进程。
 - en: ^([22](ch04.html#idm45606835218752-marker)) In practice, there are ways to get
     this information using debug tracing. However, we should not rely on the program
     knowing which goroutine is a parent goroutine for normal execution flow.
   id: totrans-322
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([22](ch04.html#idm45606835218752-marker)) 在实践中，有办法使用调试跟踪获取这些信息。但是，我们不应依赖程序知道哪个goroutine是正常执行流的父goroutine。
 - en: ^([23](ch04.html#idm45606834944896-marker)) Funny enough, even atomic operations
     on CPU require some kind of locking. The difference is that instead of specialized
     locking mechanisms like [spinlock](https://oreil.ly/ZKXuN), atomic instruction
@@ -2605,12 +2702,14 @@
   id: totrans-323
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([23](ch04.html#idm45606834944896-marker)) 有趣的是，即使是CPU上的原子操作也需要某种形式的锁定。不同之处在于，与专门的自旋锁机制不同，原子指令可以使用更快的[内存总线锁](https://oreil.ly/9jchk)。
 - en: ^([24](ch04.html#idm45606834933072-marker)) Assuming the programmer keeps to
     that rule. There is a way to send a pointer variable (e.g., `*string`) that points
     to shared memory, which violates the rule of sharing information through communicating.
   id: totrans-324
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([24](ch04.html#idm45606834933072-marker)) 假设程序员遵循这个规则。有一种方法可以发送一个指向共享内存的指针变量（例如，`*string`），这违反了通过通信共享信息的规则。
 - en: ^([25](ch04.html#idm45606834709824-marker)) I omitted two additional mechanisms
     on purpose. First of all, `runtime.Gosched()` exists, which allows yielding the
     current goroutine so others can do some work in the meantime. This command is
@@ -2621,9 +2720,12 @@
   id: totrans-325
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([25](ch04.html#idm45606834709824-marker)) 我特意省略了两个额外的机制。首先，`runtime.Gosched()`
+    存在，允许当前goroutine让出执行权，以便其他goroutine在此期间执行一些工作。这个命令如今不太有用，因为当前的Go调度器是抢占式的，手动让出执行权已变得不切实际。第二个有趣的操作，`runtime.LockOSThread()`，听起来有用，但它并非设计用于效率；相反，它将goroutine固定到操作系统线程，以便我们可以从中读取某些操作系统线程状态。
 - en: ^([26](ch04.html#idm45606834697536-marker)) I recommend watching [Chris Hines’s
     talk from GopherCon 2019](https://oreil.ly/LoFiH) to learn the low-level details
     around the Go scheduler.
   id: totrans-326
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([26](ch04.html#idm45606834697536-marker)) 我建议观看[Chris Hines在GopherCon 2019的演讲](https://oreil.ly/LoFiH)，以了解有关Go调度器的低级细节。
