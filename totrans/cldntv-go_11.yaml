@@ -1683,6 +1683,7 @@
   id: totrans-245
   prefs: []
   type: TYPE_NORMAL
+  zh: 结果是一个 ELF（可执行链接格式）格式的共享对象（`.so`）文件：
 - en: '[PRE24]'
   id: totrans-246
   prefs: []
@@ -1694,42 +1695,50 @@
   id: totrans-247
   prefs: []
   type: TYPE_NORMAL
+  zh: ELF 文件通常用于插件，因为一旦它们被内核加载到内存中，它们以一种允许轻松发现和访问符号的方式暴露符号。
 - en: Using our go plug-ins
   id: totrans-248
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 使用我们的 Go 插件
 - en: Now that we’ve built our plug-ins, which are patiently sitting there with their
     `.so` extensions, we need to write some code that’ll load and use them.
   id: totrans-249
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在我们已经构建了我们的插件，它们正静静地坐在那里，带有它们的 `.so` 扩展名，我们需要写一些代码来加载和使用它们。
 - en: Note that even though we have our plug-ins fully built and in place, we haven’t
     had to reach for the `plugin` package yet. However, now that we want to actually
     use our plug-ins, we get to change that now.
   id: totrans-250
   prefs: []
   type: TYPE_NORMAL
+  zh: 请注意，即使我们已经完全构建并放置了我们的插件，我们还没有去使用 `plugin` 包。然而，现在我们想要实际使用我们的插件，我们可以改变这一点了。
 - en: The process of finding, opening, and consuming a plug-in requires several steps,
     which I demonstrate next.
   id: totrans-251
   prefs: []
   type: TYPE_NORMAL
+  zh: 寻找、打开和使用插件的过程需要几个步骤，接下来我将演示。
 - en: Import the plugin package
   id: totrans-252
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
+  zh: 导入插件包
 - en: 'First things first: we have to import the `plugin` package, which will provide
     us the tools we need to open and access our plug-ins.'
   id: totrans-253
   prefs: []
   type: TYPE_NORMAL
+  zh: 首先要做的事情是导入 `plugin` 包，这将为我们提供打开和访问插件所需的工具。
 - en: 'In this example, we import four packages: `fmt`, `log`, `os`, and most relevant
     to this example, `plugin`:'
   id: totrans-254
   prefs: []
   type: TYPE_NORMAL
+  zh: 在这个例子中，我们引入了四个包：`fmt`、`log`、`os`，以及与这个例子最相关的 `plugin`：
 - en: '[PRE25]'
   id: totrans-255
   prefs: []
@@ -1740,6 +1749,7 @@
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
+  zh: 找到我们的插件
 - en: To load a plug-in, we have to find its relative or absolute file path. For this
     reason, plug-in binaries are usually named according to some pattern and placed
     somewhere where they can be easily discovered, like the user’s command path or
@@ -1747,11 +1757,13 @@
   id: totrans-257
   prefs: []
   type: TYPE_NORMAL
+  zh: 要加载一个插件，我们必须找到它的相对或绝对文件路径。因此，插件二进制文件通常根据某种模式命名，并放置在可以轻松发现的位置，如用户的命令路径或其他标准固定位置。
 - en: 'For simplicity, our implementation assumes that our plug-in has the same name
     as the user’s chosen animal and lives in a path relative to the execution location:'
   id: totrans-258
   prefs: []
   type: TYPE_NORMAL
+  zh: 为了简单起见，我们的实现假设我们的插件与用户选择的动物具有相同的名称，并位于执行位置相对路径下：
 - en: '[PRE26]'
   id: totrans-259
   prefs: []
@@ -1763,11 +1775,13 @@
   id: totrans-260
   prefs: []
   type: TYPE_NORMAL
+  zh: 重要的是，这种方法意味着我们的插件在编译时不需要被知道或甚至存在。通过这种方式，我们能够随时实现任何想要的插件，并根据需要动态加载和访问它们。
 - en: Open our plug-in
   id: totrans-261
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
+  zh: 打开我们的插件
 - en: 'Now that we think we know our plug-in’s path we can use the `Open` function
     to “open” it, loading it into memory and discovering its available symbols. The
     `Open` function returns a `*Plugin` value that can then be used to look up any
@@ -1775,6 +1789,8 @@
   id: totrans-262
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在我们认为已经知道了插件的路径，我们可以使用 `Open` 函数来“打开”它，将其加载到内存中，并发现其可用的符号。`Open` 函数返回一个 `*Plugin`
+    值，然后可以用来查找插件暴露的任何符号：
 - en: '[PRE27]'
   id: totrans-263
   prefs: []
@@ -1786,21 +1802,26 @@
   id: totrans-264
   prefs: []
   type: TYPE_NORMAL
+  zh: 当使用 `Open` 函数首次打开插件时，会调用所有不在程序中的包的 `init` 函数。包的 `main` 函数不会运行。
 - en: When a plug-in is opened, a single canonical `*Plugin` value representation
     of it is loaded into memory. If a particular path has already been opened, subsequent
     calls to `Open` will return the same `*Plugin` value.
   id: totrans-265
   prefs: []
   type: TYPE_NORMAL
+  zh: 当打开一个插件时，它的一个单一的规范化 `*Plugin` 值表示被加载到内存中。如果已经打开了特定路径，那么对 `Open` 的后续调用将返回相同的
+    `*Plugin` 值。
 - en: A plug-in can’t be loaded more than once, and can’t be closed.
   id: totrans-266
   prefs: []
   type: TYPE_NORMAL
+  zh: 插件不能被加载超过一次，也不能被关闭。
 - en: Look up your symbol
   id: totrans-267
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
+  zh: 查找您的符号
 - en: 'To retrieve a variable or function exported by our package—and therefore exposed
     as a symbol by the plug-in—we have to use the `Lookup` method to find it. Unfortunately,
     the `plugin` package doesn’t provide any way to list all of the symbols exposed
@@ -1808,6 +1829,7 @@
   id: totrans-268
   prefs: []
   type: TYPE_NORMAL
+  zh: 要检索由我们的包导出的变量或函数（因此作为插件符号公开），我们必须使用 `Lookup` 方法找到它。不幸的是，`plugin` 包并没有提供列出插件暴露的所有符号的方法，所以您必须提前知道我们符号的名称：
 - en: '[PRE28]'
   id: totrans-269
   prefs: []
@@ -1818,11 +1840,13 @@
   id: totrans-270
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果符号存在于插件 `p` 中，则 `Lookup` 返回一个 `Symbol` 值。如果符号在 `p` 中不存在，则返回一个非空的 `error`。
 - en: Assert and use your symbol
   id: totrans-271
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
+  zh: 断言并使用您的符号
 - en: 'Now that we have our `Symbol`, we can convert it into the form we need and
     use it however we want. To make things nice and easy for us, the `Symbol` type
     is essentially a rebranded `interface{}` value. From the `plugin` source code:'
@@ -2006,43 +2030,51 @@
   id: totrans-302
   prefs: []
   type: TYPE_NORMAL
+  zh: '`commons` 包是新的。它包含了一些资源，这些资源被插件和消费者共享，包括服务接口和一些 RPC 样板代码。'
 - en: As before, the complete source code for this example is available in [this book’s
     companion GitHub repository](https://oreil.ly/9jRyU).
   id: totrans-303
   prefs: []
   type: TYPE_NORMAL
+  zh: 和之前一样，本示例的完整源代码可在 [本书的伴随 GitHub 仓库](https://oreil.ly/9jRyU) 中找到。
 - en: Common code
   id: totrans-304
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 共享代码
 - en: The `commons` package contains some resources that are shared by both the plug-in
     and the consumer, so in our example it’s imported by both the plug-in and client
     code.
   id: totrans-305
   prefs: []
   type: TYPE_NORMAL
+  zh: '`commons` 包含了一些资源，这些资源被插件和消费者共享，所以在我们的例子中，它被插件和客户端代码同时导入。'
 - en: It contains the RPC stubs that are used by the underlying `net/rpc` machinery
     to define the service abstraction for the host and allow the plug-ins to construct
     their service implementations.
   id: totrans-306
   prefs: []
   type: TYPE_NORMAL
+  zh: 它包含了由底层的 `net/rpc` 机制使用的 RPC 存根，用于为主机定义服务抽象并允许插件构建它们的服务实现。
 - en: The Sayer interface
   id: totrans-307
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
+  zh: '`Sayer` 接口'
 - en: The first of these is the `Sayer` interface. This is our service interface,
     which provides the service contract that the plug-in service implementations must
     conform to and that the host can expect.
   id: totrans-308
   prefs: []
   type: TYPE_NORMAL
+  zh: 其中之一是 `Sayer` 接口。这是我们的服务接口，提供了插件服务实现必须符合的服务契约，也是主机可以期望的。
 - en: 'It’s identical to the interface that we used in [“The Sayer interface”](#section_ch08_standard_plugin_sayer):'
   id: totrans-309
   prefs: []
   type: TYPE_NORMAL
+  zh: 它与我们在 [“Sayer 接口”](#section_ch08_standard_plugin_sayer) 中使用的接口完全相同：
 - en: '[PRE34]'
   id: totrans-310
   prefs: []
@@ -2054,27 +2086,33 @@
   id: totrans-311
   prefs: []
   type: TYPE_NORMAL
+  zh: '`Sayer` 接口只描述了一个方法：`Says`。尽管此代码是共享的，只要这个接口不改变，共享的契约就会得到满足，并且耦合度保持相当低。'
 - en: The SayerPlugin struct
   id: totrans-312
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
+  zh: '`SayerPlugin` 结构体'
 - en: The more complex of the common resources is the `SayerPlugin` struct, shown
     in the following. It’s an implementation of `plugin.Plugin`, the primary plug-in
     interface from the `github.com/hashicorp/go-plugin` package.
   id: totrans-313
   prefs: []
   type: TYPE_NORMAL
+  zh: 其中较为复杂的公共资源是 `SayerPlugin` 结构体，如下所示。它是 `github.com/hashicorp/go-plugin` 包中主要的插件接口
+    `plugin.Plugin` 的实现。
 - en: Warning
   id: totrans-314
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 警告
 - en: The package declaration inside the *github.com/hashicorp/go-plugin* repository
     is `plugin`, not `go-plugin`, as its path might suggest. Adjust your imports accordingly!
   id: totrans-315
   prefs: []
   type: TYPE_NORMAL
+  zh: 在 *github.com/hashicorp/go-plugin* 存储库内的包声明是 `plugin`，而不是如其路径所示的 `go-plugin`。请相应地调整你的导入！
 - en: 'The `Client` and `Server` methods are used to describe our service according
     to the expectations of Go’s standard `net/rpc` package. We won’t cover that package
     in this book, but if you’re interested, you can find a wealth of information in
@@ -2082,6 +2120,8 @@
   id: totrans-316
   prefs: []
   type: TYPE_NORMAL
+  zh: '`Client` 和 `Server` 方法用于描述我们的服务，符合 Go 标准 `net/rpc` 包的期望。我们不会在本书中涵盖该包，但如果你感兴趣，可以在
+    [Go 文档](https://oreil.ly/uoe8k) 中找到丰富的信息：'
 - en: '[PRE35]'
   id: totrans-317
   prefs: []
@@ -2093,17 +2133,21 @@
   id: totrans-318
   prefs: []
   type: TYPE_NORMAL
+  zh: 这两个方法都接受一个 `plugin.MuxBroker`，用于在插件连接上创建多路复用流。虽然非常有用，但这是一个更高级的用例，我们在本书中没有时间涵盖。
 - en: The SayerRPC client implementation
   id: totrans-319
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
+  zh: '`SayerRPC` 客户端的实现'
 - en: 'SayerPlugin’s `Client` method provides an implementation of our `Sayer` interface
     that communicates over an RPC client—the appropriately named `SayerRPC` struct—shown
     in the following:'
   id: totrans-320
   prefs: []
   type: TYPE_NORMAL
+  zh: '`SayerPlugin` 的 `Client` 方法提供了一个 `Sayer` 接口的实现，通过 RPC 客户端进行通信，这个客户端被适当地命名为
+    `SayerRPC` 结构体，如下所示：'
 - en: '[PRE36]'
   id: totrans-321
   prefs: []
@@ -2116,11 +2160,14 @@
   id: totrans-322
   prefs: []
   type: TYPE_NORMAL
+  zh: '`SayerRPC` 使用 Go 的 RPC 框架远程调用插件中实现的 `Says` 方法。它调用附加到 `*rpc.Client` 的 `Call`
+    方法，传递任何参数（`Says` 没有参数，所以我们传递空的 `interface{}`），并检索响应，将其放入 `resp` 字符串中。'
 - en: The handshake configuration
   id: totrans-323
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
+  zh: 握手配置
 - en: '`HandshakeConfig` is used by both the plug-in and host to do a basic handshake
     between the host and the plug-in. If the handshake fails—if the plug-in was compiled
     with a different protocol version, for example—a user-friendly error is shown.
@@ -2129,6 +2176,7 @@
   id: totrans-324
   prefs: []
   type: TYPE_NORMAL
+  zh: '`HandshakeConfig` 被插件和主机都用来在主机和插件之间进行基本的握手。如果握手失败——例如插件使用了不同的协议版本编译——将显示一个用户友好的错误。这可以防止用户执行不良插件或直接执行插件。重要的是，这是一个用户体验特性，而不是安全特性：'
 - en: '[PRE37]'
   id: totrans-325
   prefs: []
@@ -2139,11 +2187,14 @@
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
+  zh: '`SayerRPCServer` 服务器实现'
 - en: 'SayerPlugin’s `Server` method provides a definition of an RPC server—the `SayerRPCServer`
     struct—to serve the actual methods in a way that’s consistent with `net/rpc`:'
   id: totrans-327
   prefs: []
   type: TYPE_NORMAL
+  zh: '`SayerPlugin` 的 `Server` 方法提供了一个 RPC 服务器的定义——`SayerRPCServer` 结构，以一种与 `net/rpc`
+    一致的方式提供实际的方法：'
 - en: '[PRE38]'
   id: totrans-328
   prefs: []
@@ -2155,23 +2206,29 @@
   id: totrans-329
   prefs: []
   type: TYPE_NORMAL
+  zh: '`SayerRPCServer` 并不实现 `Sayer` 服务。相反，它的 `Says` 方法调用一个我们将在构建插件时提供的 `Sayer` 实现——`Impl`。'
 - en: Our plug-in implementation
   id: totrans-330
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 我们的插件实现
 - en: Now that we’ve assembled the code that’s common between the host and plug-ins—the
     `Sayer` interface and the RPC stubs—we can build our plug-in code. The code in
     this section represents the entirety of our `main/main.go` file.
   id: totrans-331
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在我们已经组装了主机和插件之间共同的代码——`Sayer` 接口和 RPC 存根，我们可以构建我们的插件代码。本节中的代码代表了我们的 `main/main.go`
+    文件的全部内容。
 - en: 'Just like standard Go plug-ins, HashiCorp plug-ins are compiled into standalone
     executable binaries, so they must be in the `main` package. Effectively, every
     HashiCorp plug-in is a small, self-contained RPC server:'
   id: totrans-332
   prefs: []
   type: TYPE_NORMAL
+  zh: 就像标准的 Go 插件一样，HashiCorp 插件被编译成独立的可执行二进制文件，因此它们必须位于 `main` 包中。实际上，每个 HashiCorp
+    插件都是一个小型的、自包含的 RPC 服务器：
 - en: '[PRE39]'
   id: totrans-333
   prefs: []
@@ -2182,6 +2239,7 @@
   id: totrans-334
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们必须导入我们的 `commons` 包，以及 `hashicorp/go-plugin` 包，我们将引用它的内容作为 `plugin`：
 - en: '[PRE40]'
   id: totrans-335
   prefs: []
@@ -2193,6 +2251,7 @@
   id: totrans-336
   prefs: []
   type: TYPE_NORMAL
+  zh: 在我们的插件中，我们可以构建我们真正的实现。我们可以按照我们想要的方式构建它，只要它符合我们在 commons 包中定义的 `Sayer` 接口即可：
 - en: '[PRE41]'
   id: totrans-337
   prefs: []
@@ -2203,6 +2262,7 @@
   id: totrans-338
   prefs: []
   type: TYPE_NORMAL
+  zh: 最后，我们来到我们的 `main` 函数。它有点“样板化”，但是它是必不可少的：
 - en: '[PRE42]'
   id: totrans-339
   prefs: []
@@ -2213,44 +2273,52 @@
   id: totrans-340
   prefs: []
   type: TYPE_NORMAL
+  zh: '`main` 函数做三件事。首先，在本例中，它创建并初始化我们的服务实现，一个 `*Duck` 值。'
 - en: Next, it maps the service implementation to the name “sayer” in the `pluginMap`.
     If we wanted to, we could actually implement several plug-ins, listing them all
     here with different names.
   id: totrans-341
   prefs: []
   type: TYPE_NORMAL
+  zh: 接下来，它将服务实现映射到`pluginMap`中的“sayer”名称。如果我们愿意，实际上我们可以实现几个插件，并在这里列出它们的不同名称。
 - en: Finally, we call `plugin.Serve`, which starts the RPC server that will handle
     any connections from the host process, allowing the handshake with the host to
     proceed and the service’s methods to be executed as the host sees fit.
   id: totrans-342
   prefs: []
   type: TYPE_NORMAL
+  zh: 最后，我们调用 `plugin.Serve`，这将启动 RPC 服务器，处理来自主机进程的任何连接，允许与主机的握手继续进行并根据主机的需要执行服务的方法。
 - en: Our host process
   id: totrans-343
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 我们的主机进程
 - en: We now have our host process; the main command that acts as a client that finds,
     loads, and executes the plug-in processes.
   id: totrans-344
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在我们有了我们的主机进程；主要命令充当客户端，查找、加载和执行插件进程。
 - en: As you’ll see, using HashiCorp plug-ins isn’t all that different from the steps
     that described for Go plug-ins in [“Using our go plug-ins”](#section_ch08_using_our_go_plugins).
   id: totrans-345
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如你将看到的，使用 HashiCorp 插件与描述 Go 插件的步骤并没有太大的不同 [“使用我们的 Go 插件”](#section_ch08_using_our_go_plugins)。
 - en: Import the hashicorp/go-plugin and commons packages
   id: totrans-346
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
+  zh: 导入 `hashicorp/go-plugin` 和 `commons` 包
 - en: As usual, we start with our package declaration and imports. The imports mostly
     aren’t interesting, and their necessity should be clear from examination of the
     code.
   id: totrans-347
   prefs: []
   type: TYPE_NORMAL
+  zh: 像往常一样，我们从包声明和导入开始。导入主要是不那么有趣的，它们的必要性应该从代码的检查中清楚地体现出来。
 - en: 'The two that *are* interesting (but not surprising) are `github.com/hashicorp/go-plugin`,
     which we, once again, have to reference as `plugin`, and our `commons` package,
     which contains the interface and handshake configuration, both of which must be
@@ -2258,6 +2326,7 @@
   id: totrans-348
   prefs: []
   type: TYPE_NORMAL
+  zh: 其中两个是*有趣的*（但不奇怪的）是`github.com/hashicorp/go-plugin`，我们再次必须将其引用为`plugin`，以及我们的`commons`包，其中包含必须由主机和插件之间达成一致的接口和握手配置：
 - en: '[PRE43]'
   id: totrans-349
   prefs: []
@@ -2268,12 +2337,14 @@
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
+  zh: 查找我们的插件
 - en: 'Since our plug-in is an external file, we have to find it. Again, for simplicity,
     our implementation assumes that our plug-in has the same name as the user’s chosen
     animal and lives in a path relative to the execution location:'
   id: totrans-351
   prefs: []
   type: TYPE_NORMAL
+  zh: 由于我们的插件是一个外部文件，我们必须找到它。同样，为了简单起见，我们的实现假设我们的插件与用户选择的动物名称相同，并位于相对于执行位置的路径中：
 - en: '[PRE44]'
   id: totrans-352
   prefs: []
@@ -2286,11 +2357,13 @@
   id: totrans-353
   prefs: []
   type: TYPE_NORMAL
+  zh: 值得重申的是，这种方法的价值在于我们的插件——及其实现——在编译时不需要被了解，甚至不需要存在。我们能够随时实现任何插件，并根据需要动态使用它们。
 - en: Create our plug-in client
   id: totrans-354
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
+  zh: 创建我们的插件客户端
 - en: The first way that a HashiCorp RPC plug-in differs from a Go plug-in is the
     way that it retrieves the implementation. Where Go plug-ins have to be “opened”
     and their symbol “looked up,” HashiCorp plug-ins are built on RPC, and therefore
@@ -2298,17 +2371,20 @@
   id: totrans-355
   prefs: []
   type: TYPE_NORMAL
+  zh: HashiCorp RPC插件与Go插件的第一个不同之处在于它检索实现的方式。在Go插件中，必须“打开”插件并“查找”其符号，而HashiCorp插件建立在RPC之上，因此需要一个RPC客户端。
 - en: 'This actually requires two steps, and two clients: a `*plugin.Client` that
     manages the lifecycle of the plug-in subprocess, and a protocol client—a `plugin.ClientProtocol`
     implementation—that can communicate with the plug-in subprocess.'
   id: totrans-356
   prefs: []
   type: TYPE_NORMAL
+  zh: 实际上，这需要两个步骤和两个客户端：一个管理插件子进程生命周期的`*plugin.Client`，以及一个协议客户端——一个`plugin.ClientProtocol`实现，可以与插件子进程通信。
 - en: 'This awkward API is mostly historical, but is used to split the client that
     deals with subprocess management and the client that does RPC management:'
   id: totrans-357
   prefs: []
   type: TYPE_NORMAL
+  zh: 这个笨拙的API主要是历史遗留问题，但用于分离处理子进程管理的客户端和执行RPC管理的客户端：
 - en: '[PRE45]'
   id: totrans-358
   prefs: []
@@ -2321,52 +2397,63 @@
   id: totrans-359
   prefs: []
   type: TYPE_NORMAL
+  zh: 大部分这段代码是以`plugin.ClientConfig`的形式定义我们想要的插件参数。[可用客户端配置的完整列表](https://oreil.ly/z29Ys)很长。本示例仅使用了三个：
 - en: '`HandshakeConfig`'
   id: totrans-360
   prefs: []
   type: TYPE_NORMAL
+  zh: '`HandshakeConfig`'
 - en: The handshake configuration. This has to match the plug-in’s own handshake configuration
     or we’ll get an error in the next step.
   id: totrans-361
   prefs: []
   type: TYPE_NORMAL
+  zh: 握手配置。这必须与插件自身的握手配置匹配，否则我们将在下一步中出现错误。
 - en: '`Plugins`'
   id: totrans-362
   prefs: []
   type: TYPE_NORMAL
+  zh: '`Plugins`'
 - en: A map that specifies the name and type of the plug-in we want.
   id: totrans-363
   prefs: []
   type: TYPE_NORMAL
+  zh: 指定我们想要的插件名称和类型的映射。
 - en: '`Cmd`'
   id: totrans-364
   prefs: []
   type: TYPE_NORMAL
+  zh: '`Cmd`'
 - en: An `*exec.Cmd` value that represents the command for starting the plug-in subprocess.
   id: totrans-365
   prefs: []
   type: TYPE_NORMAL
+  zh: 一个代表启动插件子进程的`*exec.Cmd`值。
 - en: With all of the configuration stuff out of the way, we can first use `plugin.NewClient`
     to retrieve a `*plugin.Client` value, which we call `client`.
   id: totrans-366
   prefs: []
   type: TYPE_NORMAL
+  zh: 在所有配置都完成之后，我们首先使用`plugin.NewClient`检索`*plugin.Client`值，我们称之为`client`。
 - en: Once we have that, we can use `client.Client` to request a protocol client.
     We call this `rpcClient` because it knows how to use RPC to communicate with the
     plug-in subprocess.
   id: totrans-367
   prefs: []
   type: TYPE_NORMAL
+  zh: 一旦我们完成这些步骤，我们可以使用`client.Client`请求协议客户端。我们称之为`rpcClient`，因为它知道如何使用RPC与插件子进程进行通信。
 - en: Connect to our plug-in and dispense our Sayer
   id: totrans-368
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
+  zh: 连接到我们的插件并分发我们的Sayer
 - en: 'Now that we have our protocol client, we can use it to dispense our `Sayer`
     implementation:'
   id: totrans-369
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在我们有了我们的协议客户端，我们可以使用它来分发我们的`Sayer`实现：
 - en: '[PRE46]'
   id: totrans-370
   prefs: []
@@ -2378,11 +2465,13 @@
   id: totrans-371
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用协议客户端的`Dispense`函数，我们最终能够检索到我们的`Sayer`实现作为一个`interface{}`，我们可以断言为`commons.Sayer`值，并立即像使用本地值一样使用它。
 - en: Under the covers, our `sayer` is in fact a `SayerRPC` value, and calls to its
     functions trigger RPC calls that are executed in our plug-in’s address space.
   id: totrans-372
   prefs: []
   type: TYPE_NORMAL
+  zh: 在底层，我们的`sayer`实际上是一个`SayerRPC`值，调用其函数会触发在我们插件地址空间中执行的RPC调用。
 - en: In the next section, we’ll introduce the hexagonal architecture, an architectural
     pattern built around the entire concept of loose coupling by using easily exchangeable
     “ports and adapters” to connect to its environment.
@@ -2518,15 +2607,18 @@
   id: totrans-392
   prefs: []
   type: TYPE_NORMAL
+  zh: 然而，在六边形架构中，所有的依赖关系都是向内指向的：核心业务逻辑不知道外部世界的任何细节，适配器知道如何在核心之间传递信息，并且外部世界的适配器知道如何与参与者交互。
 - en: Implementing a Hexagonal Service
   id: totrans-393
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 实现一个六边形服务
 - en: To illustrate this, we’re going to refactor our old friend the key-value store.
   id: totrans-394
   prefs: []
   type: TYPE_NORMAL
+  zh: 为了说明这一点，我们将重构我们的老朋友键值存储。
 - en: If you’ll recall from [Chapter 5](ch05.xhtml#chapter_5), the core application
     of our key-value store reads and writes to a in-memory map, which can be accessed
     via a RESTful (or gRPC) frontend. Later in the same chapter, we implemented a
@@ -2535,21 +2627,25 @@
   id: totrans-395
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果您还记得在[第5章](ch05.xhtml#chapter_5)中，我们的键值存储核心应用程序读写到内存映射中，可以通过RESTful（或gRPC）前端访问。在同一章节的后面，我们实现了一个事务记录器，它知道如何将所有事务写入*某处*并在系统重新启动时将它们全部读回来。
 - en: We’ll reproduce important snippets of the service here, but if you want a refresher
     on what we did, go back and do so now.
   id: totrans-396
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们将在此处重现服务的重要片段，但如果您想复习我们所做的内容，请返回并进行复习。
 - en: 'By this point in the book, we’ve accumulated a couple of different implementations
     for a couple of different components of our service that seem like good candidates
     for ports and adapters in a hexagonal architecture:'
   id: totrans-397
   prefs: []
   type: TYPE_NORMAL
+  zh: 到本书的这一点，我们已经积累了几种不同组件的不同实现，这些组件似乎是六边形架构中端口和适配器的良好候选者：
 - en: The frontend
   id: totrans-398
   prefs: []
   type: TYPE_NORMAL
+  zh: 前端
 - en: 'Back in [“Generation 1: The Monolith”](ch05.xhtml#section_ch05_generation_1)
     we implemented a REST frontend, and then in [“Remote Procedure Calls with gRPC”](#section_ch08_gRPC)
     we implemented a separate gRPC frontend. We can describe these with a single “driver”
@@ -2557,21 +2653,25 @@
   id: totrans-399
   prefs: []
   type: TYPE_NORMAL
+  zh: 回到[“第1代：单片机”](ch05.xhtml#section_ch05_generation_1)，我们实现了一个REST前端，然后在[“使用gRPC进行远程过程调用”](#section_ch08_gRPC)中实现了一个独立的gRPC前端。我们可以用一个“驱动”端口描述它们，可以将任一（或两者！）插入适配器中。
 - en: The transaction logger
   id: totrans-400
   prefs: []
   type: TYPE_NORMAL
+  zh: 事务记录器
 - en: In [“What’s a Transaction Log?”](ch05.xhtml#section_ch05_whats_a_transaction_log)
     we created two implementations of a transaction log. These seem like a natural
     choice for a “driven” port and adapters.
   id: totrans-401
   prefs: []
   type: TYPE_NORMAL
+  zh: 在[“什么是事务日志？”](ch05.xhtml#section_ch05_whats_a_transaction_log)中，我们创建了事务日志的两个实现。这些看起来是“驱动”端口和适配器的自然选择。
 - en: 'While all the logic for all of these already exists, we’ll need to do some
     refactoring to make this architecture “hexagonal”:'
   id: totrans-402
   prefs: []
   type: TYPE_NORMAL
+  zh: 虽然所有这些逻辑已经存在，但我们需要进行一些重构，以使此架构变为“六边形”：
 - en: 'Our original core application—originally described in [“Generation 0: The Core
     Functionality”](ch05.xhtml#section_ch05_generation_0)—uses exclusively public
     functions. We’ll refactor those into struct methods to make it easier to use in
@@ -2580,6 +2680,7 @@
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 我们最初的核心应用程序——最初在[“第0代：核心功能”](ch05.xhtml#section_ch05_generation_0)中描述——仅使用公共函数。我们将这些重构为结构方法，以便在“端口和适配器”格式中更容易使用。
 - en: Both the RESTful and gRPC frontends are already consistent with hexagonal architecture,
     since the core application doesn’t know or care about them, but they’re constructed
     in a `main` function. We’ll convert these into `FrontEnd` adapters into which
@@ -2588,6 +2689,7 @@
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: RESTful和gRPC前端已经与六边形架构一致，因为核心应用程序不知道或不关心它们，但它们在一个`main`函数中构建。我们将这些转换为`FrontEnd`适配器，可以将我们的核心应用程序传递进去。这种模式是“驱动”端口的典型代表。
 - en: The transaction loggers themselves won’t need much refactoring, but they’re
     currently embedded in the frontend logic. When we refactor the core application,
     we’ll add a transaction logger port so that the adapter can be passed into the
@@ -2596,21 +2698,25 @@
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 事务记录器本身不需要进行大规模重构，但它们目前嵌入在前端逻辑中。在我们重构核心应用程序时，我们将添加一个事务记录器端口，以便可以将适配器传递到核心逻辑中。这种模式是“驱动”端口的典型代表。
 - en: In the next section, we’ll begin taking the existing components and refactoring
     them in accordance with hexagonal principles.
   id: totrans-406
   prefs: []
   type: TYPE_NORMAL
+  zh: 在接下来的章节中，我们将开始按照六边形原则对现有组件进行重构。
 - en: Our refactored components
   id: totrans-407
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 我们重构后的组件
 - en: 'For the sake of this example, all of our components live under the `github.com/cloud-native-go/examples/ch08/hexarch`
     package:'
   id: totrans-408
   prefs: []
   type: TYPE_NORMAL
+  zh: 为了本示例，我们所有的组件都位于`github.com/cloud-native-go/examples/ch08/hexarch`包下：
 - en: '[PRE47]'
   id: totrans-409
   prefs: []
@@ -2620,52 +2726,63 @@
   id: totrans-410
   prefs: []
   type: TYPE_NORMAL
+  zh: '`core`'
 - en: The core key-value application logic. Importantly, it has no dependencies outside
     of the Go standard libraries.
   id: totrans-411
   prefs: []
   type: TYPE_NORMAL
+  zh: 核心键值应用程序逻辑。重要的是，它没有依赖于 Go 标准库之外的任何东西。
 - en: '`frontend`'
   id: totrans-412
   prefs: []
   type: TYPE_NORMAL
+  zh: '`frontend`'
 - en: Contains the REST and gRPC frontend driver adapters. These have a dependency
     on `core`.
   id: totrans-413
   prefs: []
   type: TYPE_NORMAL
+  zh: 包含 REST 和 gRPC 前端驱动适配器。这些依赖于 `core`。
 - en: '`transact`'
   id: totrans-414
   prefs: []
   type: TYPE_NORMAL
+  zh: '`transact`'
 - en: Contains the file and PostgreSQL transaction logger driven adapters. These also
     have a dependency on `core`.
   id: totrans-415
   prefs: []
   type: TYPE_NORMAL
+  zh: 包含文件和 PostgreSQL 事务日志记录器驱动适配器。这些也依赖于 `core`。
 - en: '`main.go`'
   id: totrans-416
   prefs: []
   type: TYPE_NORMAL
+  zh: '`main.go`'
 - en: Makes the core application instance, into which it passes the driven components,
     and which it passes to the driver adapters.
   id: totrans-417
   prefs: []
   type: TYPE_NORMAL
+  zh: 将核心应用程序实例化，将驱动组件传递给它，并将其传递给驱动适配器。
 - en: The complete source code is also available in [the companion GitHub repository](https://oreil.ly/SsujV).
   id: totrans-418
   prefs: []
   type: TYPE_NORMAL
+  zh: 完整的源代码也可以在[伴随的 GitHub 仓库](https://oreil.ly/SsujV)中找到。
 - en: Now that we have our very high-level structure, let’s go ahead and implement
     our first plug.
   id: totrans-419
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在我们有了非常高层次的结构，让我们继续实现我们的第一个插件。
 - en: Our first plug
   id: totrans-420
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 我们的第一个插件
 - en: You may remember that we also implemented a *transaction log* to maintain a
     record of every time a resource is modified so that if our service crashes, is
     restarted, or otherwise finds itself in an inconsistent state, it can reconstruct
@@ -2673,11 +2790,14 @@
   id: totrans-421
   prefs: []
   type: TYPE_NORMAL
+  zh: 也许你还记得，我们还实现了一个*事务日志*，用来记录每次资源修改的情况，以便如果我们的服务崩溃、重新启动或以其他方式处于不一致状态时，可以通过重播事务来重建其完整状态。
 - en: 'In [“Your transaction logger interface”](ch05.xhtml#section_ch05_eventlogger_interface),
     we represented a generic transaction logger with the `TransactionLogger`:'
   id: totrans-422
   prefs: []
   type: TYPE_NORMAL
+  zh: 在[“你的事务日志接口”](ch05.xhtml#section_ch05_eventlogger_interface)中，我们用 `TransactionLogger`
+    表示了一个通用的事务日志记录器：
 - en: '[PRE48]'
   id: totrans-423
   prefs: []
@@ -2687,23 +2807,28 @@
   id: totrans-424
   prefs: []
   type: TYPE_NORMAL
+  zh: 为简洁起见，我们仅定义了 `WriteDelete` 和 `WritePut` 方法。
 - en: A common aspect of “driven” adapters is that the core logic acts *on them*,
     so the core application has to know about the port. As such, this code lives in
     the `core` package.
   id: totrans-425
   prefs: []
   type: TYPE_NORMAL
+  zh: “驱动”适配器的一个共同特点是核心逻辑作用于*它们*，因此核心应用程序必须了解端口。因此，此代码位于 `core` 包中。
 - en: Our core application
   id: totrans-426
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 我们的核心应用程序
 - en: 'In our original implementation in [“Your Super Simple API”](ch05.xhtml#section_ch05_our_api),
     the transaction logger was used by the frontend. In a hexagonal architecture we
     move the port—in the form of the `TransactionLogger` interface—into the core application:'
   id: totrans-427
   prefs: []
   type: TYPE_NORMAL
+  zh: 在我们在[“你的超级简单 API”](ch05.xhtml#section_ch05_our_api)的原始实现中，事务日志记录器被前端使用。在六边形架构中，我们将端口——以
+    `TransactionLogger` 接口的形式——移到核心应用程序中：
 - en: '[PRE49]'
   id: totrans-428
   prefs: []
@@ -2715,6 +2840,7 @@
   id: totrans-429
   prefs: []
   type: TYPE_NORMAL
+  zh: 将之前的代码与原始形式在[“第 0 代：核心功能”](ch05.xhtml#section_ch05_generation_0)进行比较，你会看到一些重大的变化。
 - en: 'First, `Put` and `Delete` aren’t pure functions anymore: they’re now methods
     on a new `KeyValueStore` struct, which also has the map data structure. We’ve
     also added a `NewKeyValueStore` function that initializes and returns a new `KeyValueStore`
@@ -2722,50 +2848,61 @@
   id: totrans-430
   prefs: []
   type: TYPE_NORMAL
+  zh: 首先，`Put` 和 `Delete` 不再是纯函数：它们现在是一个新的 `KeyValueStore` 结构体的方法，该结构体还具有映射数据结构。我们还添加了一个
+    `NewKeyValueStore` 函数，该函数初始化并返回一个新的 `KeyValueStore` 指针值。
 - en: Finally, `KeyValueStore` now has a `TransactionLogger`, which `Put` and `Delete`
     act upon appropriately. This is our port.
   id: totrans-431
   prefs: []
   type: TYPE_NORMAL
+  zh: 最后，`KeyValueStore` 现在有一个 `TransactionLogger`，它会适当地对 `Put` 和 `Delete` 进行操作。这是我们的端口。
 - en: Our TransactionLogger adapters
   id: totrans-432
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 我们的 TransactionLogger 适配器
 - en: 'In [Chapter 5](ch05.xhtml#chapter_5) we created two `TransactionLogger` implementations:'
   id: totrans-433
   prefs: []
   type: TYPE_NORMAL
+  zh: 在[第 5 章](ch05.xhtml#chapter_5)中，我们创建了两个 `TransactionLogger` 实现：
 - en: In [“Implementing your FileTransactionLogger”](ch05.xhtml#section_ch05_implementing_filetransactionlogger),
     we describe a file-based implementation.
   id: totrans-434
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 在[“实现你的 FileTransactionLogger”](ch05.xhtml#section_ch05_implementing_filetransactionlogger)中，我们描述了一个基于文件的实现。
 - en: In [“Implementing your PostgresTransactionLogger”](ch05.xhtml#section_ch05_implementing_postgrestransactionlogger),
     we describe a PostgreSQL-backed implementation.
   id: totrans-435
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 在[“实现你的 PostgresTransactionLogger”](ch05.xhtml#section_ch05_implementing_postgrestransactionlogger)中，我们描述了一个基于
+    PostgreSQL 的实现。
 - en: Both of these have been moved to the `transact` package. They hardly have to
     change at all, except to account for the fact that the `TransactionLogger` interface
     and `Event` struct now live in the `core` package.
   id: totrans-436
   prefs: []
   type: TYPE_NORMAL
+  zh: 这两者都已移至 `transact` 包。除了考虑到 `TransactionLogger` 接口和 `Event` 结构现在位于 `core` 包中这一事实外，它们几乎没有任何改变。
 - en: But how do we determine which one to load? Well, Go doesn’t have annotations
     or any fancy dependency injection features,^([10](ch08.xhtml#idm45983624481432))
     but there are still a couple of ways you can do this.
   id: totrans-437
   prefs: []
   type: TYPE_NORMAL
+  zh: 但是，我们如何确定要加载哪一个？好吧，Go没有注解或任何高级的依赖注入功能，^([10](ch08.xhtml#idm45983624481432))但仍然有几种方法可以做到这一点。
 - en: The first option is to use plug-ins of some kind (this is actually a primary
     use case for Go plug-ins). This might make sense if you want changing adapters
     to require *zero* code changes.
   id: totrans-438
   prefs: []
   type: TYPE_NORMAL
+  zh: 第一种选择是使用某种插件（这实际上是Go插件的一个主要用例）。如果您希望更改适配器不需要*任何*代码更改，这可能是有意义的。
 - en: More commonly, you’ll see some kind of “factory” function^([11](ch08.xhtml#idm45983624478280))
     that’s used by the initializing function. While this still requires code changes
     to add adapters, they’re isolated to a single, easily modified location. A more
@@ -2774,10 +2911,12 @@
   id: totrans-439
   prefs: []
   type: TYPE_NORMAL
+  zh: 更常见的是，您会看到某种“工厂”函数^([11](ch08.xhtml#idm45983624478280))，该函数由初始化函数使用。虽然这仍然需要更改代码以添加适配器，但它们仅限于一个易于修改的位置。一个更复杂的方法可能接受参数或配置值以选择要使用的适配器。
 - en: 'An example of a `TransactionLogger` factory function might look like the following:'
   id: totrans-440
   prefs: []
   type: TYPE_NORMAL
+  zh: '`TransactionLogger`工厂函数的示例可能如下所示：'
 - en: '[PRE50]'
   id: totrans-441
   prefs: []
@@ -2790,16 +2929,19 @@
   id: totrans-442
   prefs: []
   type: TYPE_NORMAL
+  zh: 在此示例中，`NewTransactionLogger`函数接受一个指定所需实现的字符串，返回我们的实现之一或一个`error`。我们使用`os.Getenv`函数从环境变量中检索适当的参数。
 - en: Our FrontEnd port
   id: totrans-443
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 我们的前端端口
 - en: 'But what about our frontends? If you will recall, we now have two frontend
     implementations:'
   id: totrans-444
   prefs: []
   type: TYPE_NORMAL
+  zh: 但是我们的前端怎么样？如果您还记得，现在我们有两个前端实现：
 - en: 'In [“Generation 1: The Monolith”](ch05.xhtml#section_ch05_generation_1) in
     [Chapter 5](ch05.xhtml#chapter_5), we built a RESTful interface using `net/http`
     and `gorilla/mux`.'
@@ -2807,22 +2949,26 @@
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 在[“第一代：单体应用”](ch05.xhtml#section_ch05_generation_1)中，我们使用`net/http`和`gorilla/mux`构建了一个RESTful接口。
 - en: In [“Remote Procedure Calls with gRPC”](#section_ch08_gRPC), earlier in this
     chapter, we built an RPC interface with gRPC.
   id: totrans-446
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 在[“使用gRPC进行远程过程调用”](#section_ch08_gRPC)中，本章前面，我们使用gRPC构建了一个RPC接口。
 - en: Both of these implementations include a `main` function where we configure and
     start the service to listen for connections.
   id: totrans-447
   prefs: []
   type: TYPE_NORMAL
+  zh: 这两个实现都包括一个`main`函数，其中我们配置并启动服务以侦听连接。
 - en: 'Since they’re “driver” ports, we need to pass the core application to them,
     so let’s refactor both frontends into structs according to the following interface:'
   id: totrans-448
   prefs: []
   type: TYPE_NORMAL
+  zh: 由于它们是“驱动程序”端口，我们需要将核心应用程序传递给它们，因此让我们根据以下接口将两个前端重构为结构体：
 - en: '[PRE51]'
   id: totrans-449
   prefs: []
@@ -2835,6 +2981,7 @@
   id: totrans-450
   prefs: []
   type: TYPE_NORMAL
+  zh: '`FrontEnd`接口充当我们的“前端端口”，所有前端实现都应满足该接口。`Start`方法接受以`*core.KeyValueStore`形式提供的核心应用程序API，并且还包括先前位于`main`函数中的设置逻辑。'
 - en: 'Now that we have this, we can refactor both frontends so that they comply with
     the `FrontEnd` interface, starting with the RESTful frontend. As usual, the complete
     source code for this and the gRPC service refactor are available in [this book’s
@@ -2842,6 +2989,8 @@
   id: totrans-451
   prefs: []
   type: TYPE_NORMAL
+  zh: 有了这个，我们现在可以重构两个前端，使它们符合`FrontEnd`接口，首先是RESTful前端。与往常一样，此书及gRPC服务重构的完整源代码可在[此书的伴随
+    GitHub 仓库](https://oreil.ly/9jRyU)中找到：
 - en: '[PRE52]'
   id: totrans-452
   prefs: []
@@ -2852,43 +3001,51 @@
   id: totrans-453
   prefs: []
   type: TYPE_NORMAL
+  zh: 将之前的代码与我们在[“第一代：单体应用”](ch05.xhtml#section_ch05_generation_1)中生成的代码进行比较，一些差异是显而易见的：
 - en: All functions are now methods attached to a `restFrontEnd` struct.
   id: totrans-454
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 现在，所有函数都是附加到`restFrontEnd`结构的方法。
 - en: All calls to the core application go through the `store` value that lives in
     the `restFrontEnd` struct.
   id: totrans-455
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 所有对核心应用程序的调用都通过`restFrontEnd`结构中的`store`值进行。
 - en: Creating the router, defining the handlers, and starting the server now live
     in the `Start` method.
   id: totrans-456
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 创建路由器、定义处理程序并启动服务器现在都存在于`Start`方法中。
 - en: Similar changes will have been made for our gRPC frontend implementation to
     make it consistent with the `FrontEnd` port.
   id: totrans-457
   prefs: []
   type: TYPE_NORMAL
+  zh: 类似的更改将用于我们的gRPC前端实现，以使其与`FrontEnd`端口保持一致。
 - en: This new arrangement makes it easier for a consumer to choose and plug in a
     “frontend adapter,” as demonstrated in the following.
   id: totrans-458
   prefs: []
   type: TYPE_NORMAL
+  zh: 这种新的安排使得消费者更容易选择并插入“前端适配器”，如下所示。
 - en: Putting it all together
   id: totrans-459
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 把所有内容综合起来
 - en: 'Here, we have our `main` function, in which we plug all of the components into
     our application:'
   id: totrans-460
   prefs: []
   type: TYPE_NORMAL
+  zh: 在这里，我们有我们的 `main` 函数，我们在其中将所有组件插入我们的应用程序：
 - en: '[PRE53]'
   id: totrans-461
   prefs: []
@@ -2900,12 +3057,14 @@
   id: totrans-462
   prefs: []
   type: TYPE_NORMAL
+  zh: 首先，我们根据环境变量 `TLOG_TYPE` 创建事务记录器。我们首先这样做是因为“事务记录器端口”是“被驱动”的，所以我们需要将其提供给应用程序以便插入。
 - en: We then create our `KeyValueStore` value, which represents our core application
     functions and provides an API for ports to interact with, and provide it with
     any driven adapters.
   id: totrans-463
   prefs: []
   type: TYPE_NORMAL
+  zh: 然后，我们创建我们的 `KeyValueStore` 值，它代表我们的核心应用程序功能并提供一个供端口与之交互的 API，并为其提供任何驱动适配器。
 - en: Next, we create any “driver” adapters. Since these act on the core application
     API, we provide the API to the adapter instead of the other way around as we would
     with a “driven” adapter. This means we could also create multiple frontends here,
@@ -2914,22 +3073,27 @@
   id: totrans-464
   prefs: []
   type: TYPE_NORMAL
+  zh: 接下来，我们创建任何“驱动”适配器。由于这些适配器作用于核心应用程序 API，我们将 API 提供给适配器，而不是反过来，就像我们与“被驱动”适配器一样。这意味着，如果需要的话，我们也可以在这里创建多个前端，通过创建一个新的适配器并将其传递给暴露核心应用程序
+    API 的 `KeyValueStore`。
 - en: Finally, we call `Start` on our frontend, which instructs it to start listening
     for connections. At last, we have a complete hexagonal service!
   id: totrans-465
   prefs: []
   type: TYPE_NORMAL
+  zh: 最后，在我们的前端上调用 `Start`，指示它开始监听连接。终于，我们有了一个完整的六边形服务！
 - en: Summary
   id: totrans-466
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 概要
 - en: We covered a lot of ground in this chapter, but really only scratched the surface
     of all the different ways that components can find themselves tightly coupled
     and all the different ways of managing each of those tightly coupled components.
   id: totrans-467
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们在本章中涵盖了很多内容，但实际上只是浅尝辄止了组件可能发现自己紧密耦合的各种方式，以及管理每个紧密耦合组件的各种方式。
 - en: In the first half of the chapter, we focused on the coupling that can result
     from how services communicate. We talked about the problems caused by fragile
     exchange protocols like SOAP, and demonstrated REST and gRPC, which are less fragile
@@ -2940,6 +3104,7 @@
   id: totrans-468
   prefs: []
   type: TYPE_NORMAL
+  zh: 在本章的上半部分，我们专注于由服务通信方式可能导致的耦合问题。我们讨论了由脆弱的交换协议如 SOAP 引起的问题，并演示了 REST 和 gRPC，它们不那么脆弱，因为在一定程度上可以进行更改而不必强制客户端升级。我们还触及了“时间上”的耦合，其中一个服务隐含地期望另一个及时响应，以及如何使用发布-订阅消息传递来减轻这种情况。
 - en: In the second half we addressed some of the ways that systems can minimize coupling
     to local resources. After all, even distributed services are just programs, subject
     to the same limitations of the architectures and implementations as any program.
@@ -2948,60 +3113,74 @@
   id: totrans-469
   prefs: []
   type: TYPE_NORMAL
+  zh: 在第二部分中，我们解决了一些系统可以最小化与本地资源耦合的方式。毕竟，即使是分布式服务也只是程序，受到与任何程序相同的架构和实现的限制。插件实现和六边形架构是通过强制关注点分离和控制反转来实现此目的的两种方式。
 - en: Unfortunately, we didn’t get to drill down into some other fascinating topics
     like service discovery, but, sadly, I had to draw a line somewhere before this
     subject got away from me!
   id: totrans-470
   prefs: []
   type: TYPE_NORMAL
+  zh: 不幸的是，我们没有深入探讨一些其他引人入胜的主题，比如服务发现，但遗憾的是，在这个主题远离我之前，我必须在某个地方划一条线！
 - en: ^([1](ch08.xhtml#idm45983628500424-marker)) Ullman, Ellen. “The Dumbing-down
     of Programming.” *Salon*, 12 May 1998\. [*https://oreil.ly/Eib3K*](https://oreil.ly/Eib3K).
   id: totrans-471
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([1](ch08.xhtml#idm45983628500424-marker)) 乌尔曼，埃伦。“编程的愚蠢化。” *Salon*，1998 年
+    5 月 12 日。[*https://oreil.ly/Eib3K*](https://oreil.ly/Eib3K)。
 - en: ^([2](ch08.xhtml#idm45983628463640-marker)) Get off my lawn.
   id: totrans-472
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([2](ch08.xhtml#idm45983628463640-marker)) 请离开我的草坪。
 - en: ^([3](ch08.xhtml#idm45983628462344-marker)) In XML, no less. We didn’t know
     any better at the time.
   id: totrans-473
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([3](ch08.xhtml#idm45983628462344-marker)) 在 XML 中，我们当时并不知道有更好的选择。
 - en: ^([4](ch08.xhtml#idm45983628457112-marker)) At Google, even the acronyms are
     recursive.
   id: totrans-474
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([4](ch08.xhtml#idm45983628457112-marker)) 在 Google，甚至缩写词也是递归的。
 - en: ^([5](ch08.xhtml#idm45983628447000-marker)) This is actually a pretty nuanced
     discussion. See [“Service Architectures”](ch07.xhtml#section_ch07_service_architectures).
   id: totrans-475
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([5](ch08.xhtml#idm45983628447000-marker)) 实际上这是一个相当微妙的讨论。参见[“服务架构”](ch07.xhtml#section_ch07_service_architectures)。
 - en: ^([6](ch08.xhtml#idm45983627711544-marker)) If you’re into that kind of thing.
   id: totrans-476
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([6](ch08.xhtml#idm45983627711544-marker)) 如果你喜欢那种事情的话。
 - en: ^([7](ch08.xhtml#idm45983626853480-marker)) If you wanted to be creative, this
     could be a [`FileListener`](https://oreil.ly/mViL3), or even a `stdio` stream.
   id: totrans-477
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([7](ch08.xhtml#idm45983626853480-marker)) 如果你想要创意，这可以是一个[`FileListener`](https://oreil.ly/mViL3)，甚至是一个`stdio`流。
 - en: ^([8](ch08.xhtml#idm45983626256968-marker)) Yes, I know the animal thing has
     been done before. Sue me.
   id: totrans-478
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([8](ch08.xhtml#idm45983626256968-marker)) 是的，我知道这个动物的主题之前已经做过了。起诉我吧。
 - en: ^([9](ch08.xhtml#idm45983625313160-marker)) So, naturally, we’re building a
     duck. Obviously.
   id: totrans-479
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([9](ch08.xhtml#idm45983625313160-marker)) 所以，自然而然地，我们正在构建一个鸭子。显然。
 - en: ^([10](ch08.xhtml#idm45983624481432-marker)) Good riddance.
   id: totrans-480
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([10](ch08.xhtml#idm45983624481432-marker)) 好了，终于摆脱了。
 - en: ^([11](ch08.xhtml#idm45983624478280-marker)) I’m sorry.
   id: totrans-481
   prefs: []
   type: TYPE_NORMAL
+  zh: ^([11](ch08.xhtml#idm45983624478280-marker)) 对不起。

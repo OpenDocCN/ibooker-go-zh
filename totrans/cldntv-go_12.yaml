@@ -1,32 +1,43 @@
 - en: Chapter 9\. Resilience
+  id: totrans-0
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 第九章. 弹性
 - en: A distributed system is one in which the failure of a computer you didn’t even
     know about can render your own computer unusable.^([1](ch09.xhtml#idm45983623944264))
+  id: totrans-1
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: 分布式系统是这样一种系统，其中你甚至不知道的一台计算机的故障可以使你自己的计算机无法使用。^([1](ch09.xhtml#idm45983623944264))
 - en: ''
+  id: totrans-2
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: Leslie Lamport, DEC SRC Bulletin Board (May 1987)
+  id: totrans-3
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: 莱斯利·兰波特，DEC SRC 公告板（1987年5月）
 - en: Late one September night, at just after two in the morning, a portion of Amazon’s
     internal network quietly stopped working.^([2](ch09.xhtml#idm45983623938904))
     This event was brief, and not particularly interesting, except that it happened
     to affect a sizable number of the servers that supported the DynamoDB service.
+  id: totrans-4
   prefs: []
   type: TYPE_NORMAL
+  zh: 一个九月的深夜，正值两点多的时候，亚马逊内部网络的一部分悄然停止了运行。^([2](ch09.xhtml#idm45983623938904)) 这个事件很短暂，也不是特别有趣，除非它碰巧影响了支持DynamoDB服务的大量服务器。
 - en: Most days, this wouldn’t be such a big deal. Any affected servers would just
     try to reconnect to the cluster by retrieving their membership data from a dedicated
     metadata service. If that failed, they would temporarily take themselves offline
     and try again.
+  id: totrans-5
   prefs: []
   type: TYPE_NORMAL
+  zh: 大多数情况下，这并不是什么大问题。任何受影响的服务器只需尝试从专用元数据服务中检索其成员数据，以重新连接到集群。如果失败了，它们将暂时自行下线并重试。
 - en: But this time, when the network was restored, a small army of storage servers
     simultaneously requested their membership data from the metadata service, overwhelming
     it so that requests—even ones from previously unaffected servers—started to time
@@ -35,29 +46,39 @@
     even more servers to go offline, and so on. Within minutes, the outage had spread
     to the entire cluster. The service was effectively down, taking a number of dependent
     services down with it.
+  id: totrans-6
   prefs: []
   type: TYPE_NORMAL
+  zh: 但这一次，当网络恢复时，一大群存储服务器同时请求从元数据服务获取其成员数据，压垮了它，以至于即使是以前未受影响的服务器的请求也开始超时。存储服务器们顺从地对超时做出响应，将自己脱机并重试（再次），进一步加重了元数据服务的压力，导致更多服务器脱机，如此循环。几分钟之内，故障扩散到整个集群。服务有效地停机，导致多个依赖服务也随之停机。
 - en: To make matters worse, the sheer volume of retry attempts—a “retry storm”—put
     such a burden on the metadata service that it even became entirely unresponsive
     to requests to add capacity. The on-call engineers were forced to explicitly block
     requests to the metadata service just to relieve enough pressure to allow them
     to manually scale up.
+  id: totrans-7
   prefs: []
   type: TYPE_NORMAL
+  zh: 更糟糕的是，重试尝试的大量增加——一场“重试风暴”——给元数据服务带来了巨大压力，以至于甚至完全无法响应增加容量的请求。值班工程师不得不明确地阻止对元数据服务的请求，以减轻足够的压力，以允许他们手动扩展。
 - en: Finally, nearly five hours after the initial network hiccup that triggered the
     incident, normal operations resumed, putting an end to what must have been a long
     night for all involved.
+  id: totrans-8
   prefs: []
   type: TYPE_NORMAL
+  zh: 最终，在初次触发事件的网络小故障近五个小时后，正常运营恢复，结束了所有相关人员显然度过的漫长夜晚。
 - en: 'Keeping on Ticking: Why Resilience Matters'
+  id: totrans-9
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 继续走下去：为什么弹性很重要
 - en: So, what was the root cause of Amazon’s outage? Was it the network disruption?
     Was it the storage servers’ enthusiastic retry behavior? Was it the metadata service’s
     response time, or maybe its limited capacity?
+  id: totrans-10
   prefs: []
   type: TYPE_NORMAL
+  zh: 那么，亚马逊停机的根本原因是什么？是网络中断吗？是存储服务器的积极重试行为吗？是元数据服务的响应时间，或者可能是它有限的容量吗？
 - en: 'Clearly, what happened that early morning didn’t have a single root cause.
     Failures in complex systems never do.^([3](ch09.xhtml#idm45983623929384)) Rather,
     the system failed as complex systems do: with a failure in a subsystem, which
@@ -67,173 +88,234 @@
     servers, the metadata service—had been able to isolate and recover from failures
     elsewhere in the system, the overall system likely would have recovered without
     human intervention.'
+  id: totrans-11
   prefs: []
   type: TYPE_NORMAL
+  zh: 显然，那个清晨发生的事情并非单一根源所致。复杂系统的失败从未只有一个原因。^([3](ch09.xhtml#idm45983623929384)) 相反，系统失败了，就像复杂系统通常做的那样：一个子系统的故障引发了另一个子系统的潜在故障，导致*它*失败，然后是另一个，再一个，直到最终整个系统崩溃。但有趣的是，如果我们故事中的任何组件——网络、存储服务器、元数据服务——能够隔离并从系统其他部分的故障中恢复，整个系统很可能会在无需人工干预的情况下恢复正常。
 - en: 'Unfortunately, this is just one example of a common pattern. Complex systems
     fail in complex (and often surprising) ways, but they don’t fail all at once:
     they fail one subsystem at a time. For this reason, resilience patterns in complex
     systems take the form of bulwarks and safety valves that work to isolate failures
     at component boundaries. Frequently, a failure contained is a failure avoided.'
+  id: totrans-12
   prefs: []
   type: TYPE_NORMAL
+  zh: 不幸的是，这只是一个常见模式的例子。复杂系统以复杂（且常常令人惊讶）的方式失败，但它们不会一次性失败：它们逐个子系统地失败。因此，复杂系统中的弹性模式采取的形式是防护墙和安全阀，这些防护墙和安全阀可以在组件边界上隔离故障。频繁地，遏制的失败就是避免的失败。
 - en: This property, the measure of a system’s ability to withstand and recover from
     errors and failures, is its *resilience*. A system can be considered *resilient*
     if it can continue operating correctly—possibly at a reduced level—rather than
     failing completely when one of its subsystems fails.
+  id: totrans-13
   prefs: []
   type: TYPE_NORMAL
+  zh: 这一特性，即系统抵御和从错误和故障中恢复的能力，称为*弹性*。一个系统如果在某个子系统出现故障时仍然能够继续正确运行（可能是在降级状态下），就可以被认为是*弹性*的。
 - en: What Does It Mean for a System to Fail?
+  id: totrans-14
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 一个系统若失败，意味着什么？
 - en: For want of a nail the shoe was lost,
+  id: totrans-15
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: 一切因忽视了一枚钉而失去了鞋，
 - en: for want of a shoe the horse was lost;
+  id: totrans-16
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: 一切因忽视了一只鞋而失去了马；
 - en: for want of a horse the rider was lost;
+  id: totrans-17
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: 一切因忽视了一匹马而失去了骑士；
 - en: all for want of care about a horse-shoe nail.
+  id: totrans-18
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: 一切因忽视一枚马蹄钉而失。
 - en: ''
+  id: totrans-19
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: Benjamin Franklin, The Way to Wealth (1758)
+  id: totrans-20
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: 本杰明·富兰克林，《致富之道》（1758年）
 - en: If we want to know what it means for a system to fail, we first have to ask
     what a “system” is.
+  id: totrans-21
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果我们想知道系统失败意味着什么，首先必须问什么是“系统”。
 - en: This is important. Bear with me.
+  id: totrans-22
   prefs: []
   type: TYPE_NORMAL
+  zh: 这一点非常重要。请耐心听我解释。
 - en: 'By definition, a *system* is a set of components that work together to accomplish
     an overall goal. So far, so good. But here’s the important part: each component
     of a system—a *subsystem*—is also a complete system unto itself, that in turn
     is composed of still smaller subsystems, and so on, and so on.'
+  id: totrans-23
   prefs: []
   type: TYPE_NORMAL
+  zh: 根据定义，*系统*是一组组件共同工作以实现整体目标。到目前为止，一切顺利。但这里的关键是：系统的每个组件——*子系统*——也是一个完整的系统，它本身又由更小的子系统组成，如此循环。
 - en: 'Take a car, for example. Its engine is one of dozens of subsystems, but it—like
     all the others—is also a very complex system with a number of subsystems of its
     own, including a cooling subsystem, which includes a thermostat, which includes
     a temperature switch, and so on. That’s just some of thousands of components and
     subcomponents and sub-subcomponents. It’s enough to make the mind spin: so many
     things that can fail. But what happens when they do?'
+  id: totrans-24
   prefs: []
   type: TYPE_NORMAL
+  zh: 以汽车为例。它的引擎是数十个子系统之一，但它——和其他所有的子系统一样——也是一个非常复杂的系统，具有自己的多个子系统，包括冷却子系统，其中包括恒温器，恒温器包括温度开关，依此类推。这只是成千上万个组件和子组件及其子子组件中的一部分。这足以令人头晕：有那么多东西可能会出错。但当它们出错时会发生什么？
 - en: 'As we mentioned earlier—and discussed in some depth in [Chapter 6](ch06.xhtml#chapter_6)—failures
     of complex systems don’t just happen all at once. They unravel in predictable
     steps:'
+  id: totrans-25
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如我们之前提到的——并在[第6章](ch06.xhtml#chapter_6)中深入讨论——复杂系统的失败不会一次性发生。它们会按可预测的步骤逐步展开：
 - en: All systems contain *faults*, which we lovingly refer to as “bugs” in the software
     world. A tendency for a temperature switch in a car engine to stick would be a
     fault. So would the metadata service’s limited capacity and the storage server’s
     retry behavior in the DynamoDB case study.^([5](ch09.xhtml#idm45983623900600))
     Under the right conditions, a fault can be exercised to produce an *error*.
+  id: totrans-26
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 所有系统都包含*缺陷*，在软件世界中我们常常称之为“bug”。比如汽车引擎中温度开关卡住的倾向就是一种缺陷。同样，元数据服务的容量有限以及DynamoDB案例中存储服务器的重试行为也算是缺陷。^([5](ch09.xhtml#idm45983623900600))
+    在适当的条件下，缺陷可以被激发出来导致*错误*。
 - en: An *error* is any discrepancy between the system’s intended and actual behavior.
     Many errors can be caught and handled appropriately, but if they’re not they can—singly
     or in accumulation—give rise to a *failure*. A stuck temperature switch in a car
     engine’s thermostat is an error.
+  id: totrans-27
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: '*错误*是系统预期行为与实际行为之间的任何差异。许多错误可以被及时捕获和适当处理，但如果未能处理，它们单独或累积起来就会导致*失败*。例如汽车引擎中温度开关卡住的情况就是一个错误。'
 - en: Finally, a system can be said to be experiencing a *failure* when it’s no longer
     able to provide correct service.^([6](ch09.xhtml#idm45983623894792)) A temperature
     switch that no longer responds to high temperatures can be said to have failed.
     A failure at the subsystem level becomes a fault at the system level.
+  id: totrans-28
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 最后，一个系统在无法提供正确服务时可以说正在经历*失败*。一个不再响应高温的温度开关可以说是失败了。子系统级别的故障会变成系统级别的缺陷。
 - en: 'This last bit bears repeating: *a failure at the subsystem level becomes a
     fault at the system level.* A stuck temperature switch causes a thermostat to
     fail, preventing coolant from flowing through the radiator, raising the temperature
     of the engine, causing it to stall and the car to stop.^([7](ch09.xhtml#idm45983623892568))'
+  id: totrans-29
   prefs: []
   type: TYPE_NORMAL
+  zh: 最后值得重申的是：*子系统级别的故障变成了系统级别的故障*。一个卡住的温度开关导致恒温器失效，阻止冷却剂通过散热器流动，提高了引擎温度，导致其熄火并使汽车停止。^([7](ch09.xhtml#idm45983623892568))
 - en: That’s how systems fail. It starts with the failure of one component—one subsystem—which
     causes an error in one or more components that interact with it, and ones that
     interact with that, and so on, propagating upward until the entire system fails.
+  id: totrans-30
   prefs: []
   type: TYPE_NORMAL
+  zh: 这就是系统失败的方式。它始于一个组件的故障——一个子系统——这导致与其互动的一个或多个组件出现错误，以及与此类似的组件，依此类推，逐层上升，直至整个系统失败。
 - en: 'This isn’t just academic. Knowing how complex systems fail—one component at
     a time—makes the means of resisting failures clearer: if a fault can be contained
     before it propagates all the way to the system level, the system may be able to
     recover (or at least fail on its own terms).'
+  id: totrans-31
   prefs: []
   type: TYPE_NORMAL
+  zh: 这不仅仅是学术上的问题。了解复杂系统如何失败——一个组件一个组件地——使得抵抗故障的手段更加清晰：如果故障可以在传播到系统级别之前被限制，系统可能能够恢复（或至少以自身条件失败）。
 - en: Building for Resilience
+  id: totrans-32
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 构建韧性
 - en: In a perfect world it would be possible to rid a system of every possible fault,
     but this isn’t realistic, and it’s wasteful and unproductive to try. By instead
     assuming that all components are destined to fail eventually—which they absolutely
     are—and designing them to respond gracefully to errors when they do occur, you
     can produce a system that’s functionally healthy even when some of its components
     are not.
+  id: totrans-33
   prefs: []
   type: TYPE_NORMAL
+  zh: 在一个完美的世界中，消除系统中的每一个可能故障是可能的，但这并不现实，试图这样做是浪费和低效的。相反，假设所有组件最终都会出现故障——事实确实如此——并在其发生时设计它们能够优雅地响应错误，你就可以构建一个功能健全的系统，即使其中的某些组件出现问题也能正常运行。
 - en: There are lots of ways to increase the resiliency of a system. Redundancy, such
     as deploying multiple components of the same type, is probably the most common
     approach. Specialized logic like circuit breakers and request throttles can be
     used to isolate specific kinds of errors, preventing them from propagating. Faulty
     components can even be reaped—or intentionally allowed to fail—to benefit the
     health of the larger system.
+  id: totrans-34
   prefs: []
   type: TYPE_NORMAL
+  zh: 有很多方法可以增强系统的韧性。冗余性，例如部署多个相同类型的组件，可能是最常见的方法。像断路器和请求限制器这样的专门逻辑可以用来隔离特定类型的错误，防止其传播。甚至可以删除有故障的组件——或者故意允许它们失败——以造福更大系统的健康。
 - en: Resilience is a particularly rich subject. We’ll explore several of these approaches—and
     more—over the remainder of the chapter.
+  id: totrans-35
   prefs: []
   type: TYPE_NORMAL
+  zh: 韧性是一个特别丰富的主题。在本章的其余部分中，我们将探讨几种这样的方法——以及更多。
 - en: Cascading Failures
+  id: totrans-36
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 级联故障
 - en: The reason the DynamoDB case study is so appropriate is that it demonstrates
     so many different ways that things that can go wrong at scale.
+  id: totrans-37
   prefs: []
   type: TYPE_NORMAL
+  zh: DynamoDB案例研究之所以如此适合，是因为它展示了大规模发生故障的多种不同方式。
 - en: Take, for example, how the failure of a group of storage servers caused requests
     to the metadata service to time out, which in turn caused more storage servers
     to fail, which increased the pressure on the metadata service, and so on. This
     is an excellent example of a particular—and particularly common—failure mode known
     as a *cascading failure*. Once a cascading failure has begun, it tends to spread
     very quickly, often on the order of a few minutes.
+  id: totrans-38
   prefs: []
   type: TYPE_NORMAL
+  zh: 例如，存储服务器组的故障导致元数据服务的请求超时，进而导致更多存储服务器故障，增加了对元数据服务的压力，如此类推。这是一个特定的——尤其常见的——故障模式的绝佳示例，被称为*级联故障*。一旦级联故障开始，往往会非常迅速地扩展，通常在几分钟之内。
 - en: The mechanisms of cascading failures can vary a bit, but one thing they share
     is some kind of positive feedback mechanism. One part of a system experiences
     a local failure—a reduction in capacity, an increase in latency, etc.—that causes
     other components to attempt to compensate for the failed component in a way that
     exacerbates the problem, eventually leading to the failure of the entire system.
+  id: totrans-39
   prefs: []
   type: TYPE_NORMAL
+  zh: 级联故障的机制可能有所不同，但它们共享的一点是某种正反馈机制。系统的某一部分经历了局部故障——容量减少，延迟增加等——导致其他组件试图补偿失败组件的方式加剧了问题，最终导致整个系统的失败。
 - en: The classic cause of cascading failures is overload, illustrated in [Figure 9-1](#image_ch09_cascading_failures).
     This occurs when one or more nodes in a set fails, causing the load to be catastrophically
     redistributed to the survivors. The increase in load overloads the remaining nodes,
     causing them to fail from resource exhaustion, taking the entire system down.
+  id: totrans-40
   prefs: []
   type: TYPE_NORMAL
 - en: '![cngo 0901](Images/cngo_0901.png)'
+  id: totrans-41
   prefs: []
   type: TYPE_IMG
 - en: Figure 9-1\. Server overload is a common cause of cascade failures; each server
     handles 600 requests per second, so when server B fails, server A is overloaded
     and also fails
+  id: totrans-42
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
@@ -243,13 +325,16 @@
     system down in the first place. Sometimes, the only fix is to take your entire
     service down—perhaps by explicitly blocking the problematic traffic—in order to
     recover, and then slowly reintroduce load.
+  id: totrans-43
   prefs: []
   type: TYPE_NORMAL
 - en: But how do you prevent cascading failures in the first place? This will be the
     subject of the next section (and, to some extent, most of this chapter).
+  id: totrans-44
   prefs: []
   type: TYPE_NORMAL
 - en: Preventing Overload
+  id: totrans-45
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
@@ -259,35 +344,43 @@
     some request frequency, a threshold beyond which bad things will start to happen.
     So, how do we keep a large number of requests from accidentally (or intentionally!)
     bringing our service down?
+  id: totrans-46
   prefs: []
   type: TYPE_NORMAL
 - en: 'Ultimately, a service that finds itself in such a situation has no choice but
     to reject—partially or entirely—some number of requests. There are two main strategies
     for doing this:'
+  id: totrans-47
   prefs: []
   type: TYPE_NORMAL
 - en: Throttling
+  id: totrans-48
   prefs: []
   type: TYPE_NORMAL
 - en: Throttling is a relatively straightforward strategy that kicks in when requests
     come in faster than some predetermined frequency, typically, by just refusing
     to handle them. This is often used as a preventative measure by ensuring that
     no particular user consumes more resources than they would reasonably require.
+  id: totrans-49
   prefs: []
   type: TYPE_NORMAL
 - en: Load shedding
+  id: totrans-50
   prefs: []
   type: TYPE_NORMAL
 - en: Load shedding is a little more adaptive. Services using this strategy intentionally
     drop (“shed”) some proportion of load as they approach overload conditions by
     either refusing requests or falling back into a degraded mode.
+  id: totrans-51
   prefs: []
   type: TYPE_NORMAL
 - en: These strategies aren’t mutually exclusive; a service may choose to employ either
     or both of them, according to its needs.
+  id: totrans-52
   prefs: []
   type: TYPE_NORMAL
 - en: Throttling
+  id: totrans-53
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -295,54 +388,71 @@
     a lot like the throttle in a car, except that instead of limiting the amount of
     fuel entering an engine, it limits the number of requests that a user (human or
     otherwise) can make to a service in a set period of time.
+  id: totrans-54
   prefs: []
   type: TYPE_NORMAL
 - en: The general-purpose throttle example that we provided in [“Throttle”](ch04.xhtml#section_ch04_throttle)
     was relatively simple, and effectively global, at least as written. However, throttles
     are also frequently applied on a per-user basis to provide something like a usage
     quota, so that no one caller can consume too much of a service’s resources.
+  id: totrans-55
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们在[“节流”](ch04.xhtml#section_ch04_throttle)中提供的通用节流示例相对简单，并且在写作时实际上是全局有效的。然而，节流经常也会按用户基础应用，以提供类似使用配额的服务，这样任何一个调用者都不能消耗过多服务资源。
 - en: In the following, we demonstrate a throttle implementation that, while still
     using a token bucket,^([9](ch09.xhtml#idm45983623725192)) is otherwise quite different
     in several ways.
+  id: totrans-56
   prefs: []
   type: TYPE_NORMAL
+  zh: 在接下来的内容中，我们展示了一个节流实现，虽然仍然使用令牌桶，^([9](ch09.xhtml#idm45983623725192))但在几个方面上相当不同。
 - en: First, instead of having a single bucket that’s used to gate all incoming requests,
     the following implementation throttles on a per-user basis, returning a function
     that accepts a “key” parameter, that’s meant to represent a username or some other
     unique identifier.
+  id: totrans-57
   prefs: []
   type: TYPE_NORMAL
+  zh: 首先，不再使用单个桶来控制所有传入请求，而是在以下实现中基于每个用户进行节流，返回一个接受“key”参数的函数，该参数用于表示用户名或其他唯一标识符。
 - en: 'Second, rather than attempting to “replay” a cached value when imposing a throttle
     limit, the returned function returns a Boolean that indicates when a throttle
     has been imposed. Note that the throttle doesn’t return an `error` when it’s activated:
     throttling isn’t an error condition, so we don’t treat it as one.'
+  id: totrans-58
   prefs: []
   type: TYPE_NORMAL
+  zh: 其次，而不是在实施节流限制时尝试“重播”缓存值，返回的函数返回一个布尔值，指示何时施加了节流。请注意，当激活节流时，节流不返回`error`：节流不是错误条件，因此我们不将其视为错误。
 - en: 'Finally, and perhaps most interestingly, it doesn’t actually use a timer (a
     `time.Ticker`) to explicitly add tokens to buckets on some regular cadence. Rather,
     it refills buckets on demand, based on the time elapsed between requests. This
     strategy means that we don’t have to dedicate background processes to filling
     buckets until they’re actually used, which will scale much more effectively:'
+  id: totrans-59
   prefs: []
   type: TYPE_NORMAL
+  zh: 最后，也许最有趣的是，它实际上并不使用定时器（`time.Ticker`）在某个常规时间段内显式地向桶中添加令牌。相反，它根据请求之间经过的时间来按需填充桶。这种策略意味着我们不必专门为填充桶而分配后台进程，这将更有效地扩展：
 - en: '[PRE0]'
+  id: totrans-60
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE0]'
 - en: Like the example in [“Throttle”](ch04.xhtml#section_ch04_throttle), this `Throttle`
     function accepts a function literal that conforms to the `Effector` contract,
     plus some values that define the size and refill rate of the underlying token
     bucket.
+  id: totrans-61
   prefs: []
   type: TYPE_NORMAL
+  zh: 像[“节流”](ch04.xhtml#section_ch04_throttle)中的示例一样，这个`Throttle`函数接受一个符合`Effector`合约的函数文字，加上一些定义底层令牌桶大小和补充速率的值。
 - en: Instead of returning another `Effector`, however, it returns a `Throttled` function,
     which in addition to wrapping the effector with the throttling logic adds a “key”
     input parameter, which represents a unique user identifier, and a Boolean return
     value, which indicates whether the function has been throttled (and therefore
     not executed).
+  id: totrans-62
   prefs: []
   type: TYPE_NORMAL
+  zh: 然而，它不返回另一个`Effector`，而是返回一个`Throttled`函数，该函数除了用节流逻辑包装效应器外，还添加了一个“key”输入参数，表示唯一的用户标识符，以及一个布尔返回值，指示函数是否被节流（因此未执行）。
 - en: As interesting as you may (or may not) find the `Throttle` code, it’s still
     not production ready. First of all, it’s not entirely safe for concurrent use.
     A production implementation will probably want to lock on the `record` values,
@@ -350,20 +460,27 @@
     production, we’d probably want to use something like an LRU cache, like the one
     we described in [“Efficient Caching Using an LRU Cache”](ch07.xhtml#section_ch07_lru_cache),
     instead.
+  id: totrans-63
   prefs: []
   type: TYPE_NORMAL
+  zh: 尽管您可能（或可能不）发现`Throttle`代码有趣，但它仍未准备好投入生产。首先，它并非完全安全用于并发使用。生产实现可能需要在`record`值上加锁，可能还有`bucket`映射。其次，没有办法清除旧记录。在生产环境中，我们可能想要使用像我们在[“使用LRU缓存实现高效缓存”](ch07.xhtml#section_ch07_lru_cache)中描述的LRU缓存之类的东西。
 - en: 'In the following, we show a toy example of how `Throttle` might be used in
     a RESTful web service:'
+  id: totrans-64
   prefs: []
   type: TYPE_NORMAL
+  zh: 在接下来的内容中，我们展示了如何在RESTful web服务中使用`Throttle`的玩具示例：
 - en: '[PRE1]'
+  id: totrans-65
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE1]'
 - en: The previous code creates a small web service with a single (somewhat contrived)
     endpoint at `/hostname` that returns the service’s hostname. When the program
     is run, the `throttled` var is created by wrapping the `getHostname` function—which
     provides the actual service logic—by passing it to `Throttle`, which we defined
     previously.
+  id: totrans-66
   prefs: []
   type: TYPE_NORMAL
 - en: When the router receives a request for the `/hostname` endpoint, the request
@@ -372,20 +489,24 @@
     `error` value. A defined error causes us to return a `500 Internal Server Error`,
     and a throttled request gets a `429 Too Many Requests`. If all else goes well,
     we return the hostname and a status `200 OK`.
+  id: totrans-67
   prefs: []
   type: TYPE_NORMAL
 - en: Note that the bucket values are stored locally, so this implementation can’t
     really be considered production-ready either. If you want this to scale out, you
     might want to store the record values in an external cache of some kind so that
     multiple service replicas can share them.
+  id: totrans-68
   prefs: []
   type: TYPE_NORMAL
 - en: Load shedding
+  id: totrans-69
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: It’s an unavoidable fact of life that, as load on a server increases beyond
     what it can handle, something eventually has to give.
+  id: totrans-70
   prefs: []
   type: TYPE_NORMAL
 - en: '*Load shedding* is a technique used to predict when a server is approaching
@@ -393,10 +514,12 @@
     of traffic in a controlled fashion. Ideally, this will prevent the server from
     overloading and failing health checks, serving with high latency, or just collapsing
     in a graceless, uncontrolled failure.'
+  id: totrans-71
   prefs: []
   type: TYPE_NORMAL
 - en: Unlike quota-based throttling, load shedding is reactive, typically engaging
     in response to depletion of a resource like CPU, memory, or request-queue depth.
+  id: totrans-72
   prefs: []
   type: TYPE_NORMAL
 - en: 'Perhaps the most straightforward form of load shedding is a per-task throttling
@@ -407,16 +530,20 @@
     an HTTP Server with gorilla/mux”](ch05.xhtml#section_ch05_building_with_gorilla),
     makes this fairly straightforward by [supporting “middleware” handler functions](https://oreil.ly/GTxes)
     that are called on every request:'
+  id: totrans-73
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE2]'
+  id: totrans-74
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE2]'
 - en: Gorilla Mux middlewares are called on every request, each taking a request,
     doing something with it, and passing it down to another middleware or the final
     handler. This makes them perfect for implementing general request logging, header
     manipulation, `ResponseWriter` hijacking, or in our case, resource-reactive load
     shedding.
+  id: totrans-75
   prefs: []
   type: TYPE_NORMAL
 - en: Our middleware uses the fictional `CurrentQueueDepth()` (your actual function
@@ -424,491 +551,705 @@
     requests with an HTTP 503 (service unavailable) if the value is too high. More
     sophisticated implementations might even be smarter about choosing which work
     is dropped by prioritizing particularly important requests.
+  id: totrans-76
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们的中间件使用虚构的`CurrentQueueDepth()`（实际函数将取决于您的实现）来检查当前队列深度，如果值过高，则拒绝带有HTTP 503（服务不可用）的请求。更复杂的实现甚至可以通过优先处理特别重要的请求来智能选择放弃哪些工作。
 - en: Graceful service degradation
+  id: totrans-77
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 优雅的服务退化
 - en: Resource-sensitive load shedding works well, but in some applications it’s possible
     to act a little more gracefully by significantly decreasing the quality of responses
     when the service is approaching overload. Such *graceful degradation* takes the
     concept of load shedding one step further by strategically reducing the amount
     of work needed to satisfy each request instead of just rejecting requests.
+  id: totrans-78
   prefs: []
   type: TYPE_NORMAL
+  zh: 资源敏感的负载抛弃效果很好，但在某些应用中，当服务接近超载时，通过显著降低响应质量，可以更加优雅地行事。这种*优雅的退化*将负载抛弃的概念推向更深层次，通过战略性地减少满足每个请求所需的工作量，而不仅仅是拒绝请求。
 - en: There are as many ways of doing this as there are services, and not every service
     can be degraded in a reasonable manner, but common approaches include falling
     back on cached data or less expensive—if less precise—algorithms.
+  id: totrans-79
   prefs: []
   type: TYPE_NORMAL
+  zh: 做这件事的方法多种多样，服务不能都以合理的方式退化，但常见的方法包括回退到缓存数据或使用更便宜的（虽然不那么精确的）算法。
 - en: 'Play It Again: Retrying Requests'
+  id: totrans-80
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 重播：重试请求
 - en: When a request receives an error response, or doesn’t receive a response at
     all, it should just try again, right? Well, kinda. Retrying makes sense, but it’s
     a lot more nuanced than that.
+  id: totrans-81
   prefs: []
   type: TYPE_NORMAL
+  zh: 当请求收到错误响应或根本没有收到响应时，应该再次尝试，对吧？嗯，有点像。重试是有道理的，但事情比这更复杂。
 - en: 'Take this snippet for example, a version of which I’ve found in a production
     system:'
+  id: totrans-82
   prefs: []
   type: TYPE_NORMAL
+  zh: 以这个片段为例，我在一个生产系统中找到了这样一个版本：
 - en: '[PRE3]'
+  id: totrans-83
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE3]'
 - en: It seems seductively straightforward, doesn’t it? It *will* repeat failed requests,
     but that’s also *exactly* what it will do. So when this logic was deployed to
     a few hundred servers and the service to which it was issuing requests went down,
     the entire system went with it. A review of the service metrics, shown in [Figure 9-2](#image_ch09_retry_storm),
     revealed this.
+  id: totrans-84
   prefs: []
   type: TYPE_NORMAL
+  zh: 看起来很诱人和直接，不是吗？它*会*重复失败的请求，但也*确实*会这样做。所以当这个逻辑部署到数百台服务器，并且向其中一个服务发出请求时失败时，整个系统都崩溃了。回顾服务指标，如[图
+    9-2](#image_ch09_retry_storm)所示。
 - en: '![cngo 0902](Images/cngo_0902.png)'
+  id: totrans-85
   prefs: []
   type: TYPE_IMG
+  zh: '![cngo 0902](Images/cngo_0902.png)'
 - en: Figure 9-2\. The anatomy of a “retry storm”
+  id: totrans-86
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 9-2\. “重试风暴”的解剖学
 - en: It seems that when the downstream service failed, our service—every single instance
     of it—entered its retry loop, making *thousands* of requests per second and bringing
     the network to its knees so severely that we were forced to essentially restart
     the entire system.
+  id: totrans-87
   prefs: []
   type: TYPE_NORMAL
+  zh: 看起来当下游服务失败时，我们的服务——每个实例——都进入了其重试循环，每秒发出*成千上万*的请求，严重使网络瘫痪，以至于我们不得不基本上重新启动整个系统。
 - en: This is actually a very common kind of cascading failure known as a *retry storm*.
     In a retry storm, well-meaning logic intended to add resilience to a component,
     acts against the larger system. Very often, even when the conditions that caused
     the downstream service to go down are resolved, it can’t come back up because
     it’s instantly brought under too much load.
+  id: totrans-88
   prefs: []
   type: TYPE_NORMAL
+  zh: 这实际上是一种非常常见的级联故障，被称为*重试风暴*。在重试风暴中，本意是增加组件的弹性的逻辑，反而对更大的系统产生了不利影响。很多时候，即使导致下游服务停机的条件得到解决，它也无法重新启动，因为立即承受了过多的负载。
 - en: But, retries are a good thing, right?
+  id: totrans-89
   prefs: []
   type: TYPE_NORMAL
+  zh: 但是，重试是好事，对吧？
 - en: Yes, but whenever you implement retry logic, you should always include a *backoff
     algorithm*, which we’ll conveniently discuss in the next section.
+  id: totrans-90
   prefs: []
   type: TYPE_NORMAL
+  zh: 是的，但无论何时实现重试逻辑，都应始终包含*退避算法*，我们将在下一节方便地讨论它。
 - en: Backoff Algorithms
+  id: totrans-91
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 退避算法
 - en: When a request to a downstream service fails for any reason, “best” practice
     is to retry the request. But how long should you wait? If you wait too long, important
     work may be delayed. Too little and you risk overwhelming the target, the network,
     or both.
+  id: totrans-92
   prefs: []
   type: TYPE_NORMAL
+  zh: 当由于任何原因而导致对下游服务的请求失败时，“最佳”实践是重试该请求。但应等待多长时间呢？如果等待时间过长，可能会延迟重要工作。如果时间太短，则可能会使目标或网络过载，甚至两者兼而有之。
 - en: The common solution is to implement a backoff algorithm that introduces a delay
     between retries to reduce the frequency of attempts to a safe and acceptable rate.
+  id: totrans-93
   prefs: []
   type: TYPE_NORMAL
+  zh: 通常的解决方案是实现一个退避算法，介绍一个延迟以减少尝试的频率，使其保持在安全和可接受的速率。
 - en: 'There are a variety of backoff algorithms available, the simplest of which
     is to include a short, fixed-duration pause between retries, as follows:'
+  id: totrans-94
   prefs: []
   type: TYPE_NORMAL
+  zh: 有各种各样的退避算法可供选择，其中最简单的是在重试之间包含一个短暂的固定时长暂停，如下所示：
 - en: '[PRE4]'
+  id: totrans-95
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE4]'
 - en: In the previous snippet, `SendRequest` is used to issue a request, returning
     string and error values. However, if `err` isn’t `nil`, the code enters a loop,
     sleeping for two seconds before retrying, repeating indefinitely until it receives
     a nonerror response.
+  id: totrans-96
   prefs: []
   type: TYPE_NORMAL
+  zh: 在前面的代码片段中，`SendRequest`用于发出请求，返回字符串和错误值。然而，如果`err`不是`nil`，则代码进入循环，在收到非错误响应之前每两秒重试一次，无限重复。
 - en: In [Figure 9-3](#image_ch09_backoffs_1), we illustrate the number of requests
     generated by 1,000 simulated instances using this method.^([10](ch09.xhtml#idm45983622826936))
     As you can see, while the fixed-delay approach might reduce the request count
     compared to having no backoff at all, the overall number of requests is still
     quite consistently high.
+  id: totrans-97
   prefs: []
   type: TYPE_NORMAL
+  zh: 在[图 9-3](#image_ch09_backoffs_1)中，我们展示了使用这种方法模拟的 1,000 个实例生成的请求数量。^([10](ch09.xhtml#idm45983622826936))
+    正如你所见，尽管固定延迟方法相较于没有任何退避的情况可以减少请求计数，但总体请求数量仍然相当高。
 - en: '![cngo 0903](Images/cngo_0903.png)'
+  id: totrans-98
   prefs: []
   type: TYPE_IMG
+  zh: '![cngo 0903](Images/cngo_0903.png)'
 - en: Figure 9-3\. Requests/second of 1,000 simulated instances using a two-second
     retry delay
+  id: totrans-99
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 9-3\. 使用两秒重试延迟的 1,000 个模拟实例的每秒请求量
 - en: A fixed-duration backoff delay might work fine if you have a very small number
     of retrying instances, but it doesn’t scale very well, since a sufficient number
     of requestors can still overwhelm the network.
+  id: totrans-100
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果您只有极少量的重试实例，固定时长的退避延迟可能会工作得很好，但随着足够数量的请求者仍然有可能使网络不堪重负，这种方法并不适合扩展。
 - en: However, we can’t always assume that any given service will have a small enough
     number of instances not to overwhelm the network with retries, or that our service
     will even be the only one retrying. For this reason, many backoff algorithms implement
     an *exponential backoff*, in which the durations of the delays between retries
     roughly doubles with each attempt up to some fixed maximum.
+  id: totrans-101
   prefs: []
   type: TYPE_NORMAL
+  zh: 然而，我们不能总是假设任何给定服务的实例数量足够小，以至于不会因重试而使网络超负荷，也不能假设我们的服务是唯一进行重试的服务。因此，许多退避算法实现了*指数退避*，其中重试之间的延迟持续时间大致每次尝试时加倍，直到某个固定的最大值。
 - en: 'A very common (but flawed, as you’ll soon see) exponential backoff implementation
     might look something like the following:'
+  id: totrans-102
   prefs: []
   type: TYPE_NORMAL
+  zh: 一个非常常见（但有缺陷，您很快就会看到）的指数退避实现可能看起来像以下代码片段：
 - en: '[PRE5]'
+  id: totrans-103
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE5]'
 - en: In this snippet, we specify a starting duration, `base`, and a fixed maximum
     duration, `cap`. In the loop, the value of `backoff` starts at `base` and doubles
     each iteration to a maximum value of `cap`.
+  id: totrans-104
   prefs: []
   type: TYPE_NORMAL
+  zh: 在此代码片段中，我们指定了起始时长`base`和固定的最大时长`cap`。在循环中，`backoff`的值从`base`开始，每次迭代加倍，直到达到`cap`的最大值。
 - en: You would think that this logic would help to mitigate the network load and
     retry request burden on downstream services. Simulating this implementation for
     1,000 nodes, however, tells another story, illustrated in [Figure 9-4](#image_ch09_backoffs_2).
+  id: totrans-105
   prefs: []
   type: TYPE_NORMAL
+  zh: 这种逻辑可能会让人觉得能够减轻网络负载和重试请求对下游服务的负担。然而，对 1,000 个节点进行模拟实现却讲述了另一个故事，详见[图 9-4](#image_ch09_backoffs_2)。
 - en: '![cngo 0904](Images/cngo_0904.png)'
+  id: totrans-106
   prefs: []
   type: TYPE_IMG
+  zh: '![cngo 0904](Images/cngo_0904.png)'
 - en: Figure 9-4\. Requests/second of 1,000 simulated instances using an exponential
     backoff
+  id: totrans-107
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 9-4\. 使用指数退避的 1,000 个模拟实例的每秒请求量
 - en: It would seem that having 1,000 nodes with exactly the same retry schedule still
     isn’t optimal, since the retries are now clustering, possibly generating enough
     load in the process to cause problems. So, in practice, pure exponential backoff
     doesn’t necessarily help as much we’d like.
+  id: totrans-108
   prefs: []
   type: TYPE_NORMAL
+  zh: 看起来即使有 1,000 个节点的重试计划完全相同也并不是最佳选择，因为重试现在可能会聚集，可能在过程中生成足够的负载以引起问题。因此，在实践中，纯指数退避并不一定会像我们希望的那样有所帮助。
 - en: 'It would seem that we need some way to spread the spikes out so that the retries
     occur at a roughly constant rate. The solution is to include an element of randomness,
     called *jitter*. Adding jitter to our previous backoff function results in something
     like the snippet here:'
+  id: totrans-109
   prefs: []
   type: TYPE_NORMAL
+  zh: 看起来我们需要一种方法来分散这些峰值，以便重试以大致恒定的速率发生。解决方案是添加一个称为*jitter*的随机元素。将我们之前的退避函数加入 jitter
+    后，得到的代码片段如下所示：
 - en: '[PRE6]'
+  id: totrans-110
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE6]'
 - en: Simulating running this code on 1,000 nodes produces the pattern presented in
     [Figure 9-5](#image_ch09_backoffs_3).
+  id: totrans-111
   prefs: []
   type: TYPE_NORMAL
+  zh: 在 1,000 个节点上运行此代码的模拟产生了 [图 9-5](#image_ch09_backoffs_3) 中呈现的模式。
 - en: '![cngo 0905](Images/cngo_0905.png)'
+  id: totrans-112
   prefs: []
   type: TYPE_IMG
+  zh: '![cngo 0905](Images/cngo_0905.png)'
 - en: Figure 9-5\. Requests/second of 1,000 simulated instances using an exponential
     backoff with jitter
+  id: totrans-113
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 9-5\. 使用指数退避和抖动的 1,000 个模拟实例的请求/秒
 - en: Warning
+  id: totrans-114
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 警告
 - en: The `rand` package’s top-level functions produce a deterministic sequence of
     values each time the program is run. If you don’t use the `rand.Seed` function
     to provide a new seed value, they behave as if seeded by `rand.Seed(1)` and always
     produce the same “random” sequence of numbers.
+  id: totrans-115
   prefs: []
   type: TYPE_NORMAL
+  zh: '`rand` 包的顶级函数每次程序运行时产生确定性的值序列。如果不使用 `rand.Seed` 函数提供一个新的种子值，它们的行为就像由 `rand.Seed(1)`
+    预先设定种子，并且总是产生相同的“随机”数序列。'
 - en: When we use exponential backoff with jitter, the number of retries decreases
     over a short interval—so as not to overstress services that are trying to come
     up—and spreads them out over time so that they occur at an approximately constant
     rate.
+  id: totrans-116
   prefs: []
   type: TYPE_NORMAL
+  zh: 当我们使用指数退避和抖动时，重试次数会在一个较短的间隔内减少，以免过度压力正在尝试上线的服务，并且会将它们分散在时间上，使其以大致恒定的速率发生。
 - en: Who would have thought there was more to retrying requests than retrying requests?
+  id: totrans-117
   prefs: []
   type: TYPE_NORMAL
+  zh: 谁会想到重试请求还有更多的内容呢？
 - en: Circuit Breaking
+  id: totrans-118
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 断路器模式
 - en: We first introduced the Circuit Breaker pattern in [Chapter 4](ch04.xhtml#chapter_4)
     as a function that degrades potentially failing method calls as a way to prevent
     larger or cascading failures. That definition still holds, and because we’re not
     going to extend or change it much, we won’t dig into it in *too* much detail here.
+  id: totrans-119
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们在 [第四章](ch04.xhtml#chapter_4) 中首次介绍了断路器模式，作为降低可能失败的方法调用的功能，以防止更大或级联的故障。该定义仍然有效，因为我们不打算过多扩展或更改它，所以我们不会在这里过于详细地讨论它。
 - en: To review, the Circuit Breaker pattern tracks the number of consecutive failed
     requests made to a downstream component. If the failure count passes a certain
     threshold, the circuit is “opened,” and all attempts to issue additional requests
     fail immediately (or return some defined fallback). After a waiting period, the
     circuit automatically “closes,” resuming its normal state and allowing requests
     to be made normally.
+  id: totrans-120
   prefs: []
   type: TYPE_NORMAL
+  zh: 总结一下，断路器模式跟踪对下游组件发出的连续失败请求的数量。如果失败计数超过某个阈值，则“打开”断路器，并且所有尝试发出额外请求的操作立即失败（或返回一些定义好的备用）。在等待一段时间后，断路器会自动“关闭”，恢复其正常状态，并允许正常发出请求。
 - en: Tip
+  id: totrans-121
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 提示
 - en: Not all resilience patterns are defensive.
+  id: totrans-122
   prefs: []
   type: TYPE_NORMAL
+  zh: 不是所有的弹性模式都是防御性的。
 - en: Sometimes it pays to be a good neighbor.
+  id: totrans-123
   prefs: []
   type: TYPE_NORMAL
+  zh: 有时做一个好邻居是值得的。
 - en: A properly applied Circuit Breaker pattern can make the difference between system
     recovery and cascading failure. In addition to the obvious benefits of not wasting
     resources or clogging the network with doomed requests, a circuit breaker (particularly
     one with a backoff function) can give a malfunctioning service enough room to
     recover, allowing it to come back up and restore correct service.
+  id: totrans-124
   prefs: []
   type: TYPE_NORMAL
+  zh: 正确应用的断路器模式可以使系统恢复和级联故障之间产生巨大差异。除了显而易见地节省资源或阻塞网络以免被注定的请求之外，一个断路器（特别是带有退避功能的断路器）可以为发生故障的服务提供足够的空间来恢复，使其能够重新上线并恢复正确的服务。
 - en: The Circuit Breaker pattern was covered in some detail in [Chapter 4](ch04.xhtml#chapter_4),
     so that’s all we’re going to say about it here. Take a look at [“Circuit Breaker”](ch04.xhtml#section_ch04_circuit_breaker)
     for more background and code examples. The addition of jitter to the example’s
     backoff function is left as an exercise for the reader.^([11](ch09.xhtml#idm45983622584440))
+  id: totrans-125
   prefs: []
   type: TYPE_NORMAL
+  zh: 断路器模式在 [第四章](ch04.xhtml#chapter_4) 中有详细介绍，因此在这里我们只会简单提一下。查看 [“断路器”](ch04.xhtml#section_ch04_circuit_breaker)
+    获取更多背景和代码示例。将抖动添加到示例的退避函数中留给读者作为练习^([11](ch09.xhtml#idm45983622584440))。
 - en: Timeouts
+  id: totrans-126
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 超时
 - en: The importance of timeouts isn’t always appreciated. However, the ability for
     a client to recognize when a request is unlikely to be satisfied allows the client
     to release resources that it—and any upstream requestors it might be acting on
     behalf of—might otherwise hold on to. This holds just as true for a service, which
     may find itself holding onto requests until long after a client has given up.
+  id: totrans-127
   prefs: []
   type: TYPE_NORMAL
+  zh: 并非总是能够充分认识到超时的重要性。然而，客户端能够识别出请求不太可能被满足的能力，允许客户端释放它可能持有的资源，以及它可能代表的任何上游请求者。对于一个服务来说，这同样适用，它可能会发现自己持有请求，直到客户端放弃之后很久。
 - en: For example, imagine a basic service that queries a database. If that database
     should suddenly slow so that queries take a few seconds to complete, requests
     to the service—each holding onto a database connection—could accumulate, eventually
     depleting the connection pool. If the database is shared, it could even cause
     other services to fail, resulting in a cascading failure.
+  id: totrans-128
   prefs: []
   type: TYPE_NORMAL
+  zh: 例如，想象一个查询数据库的基本服务。如果该数据库突然变慢，导致查询需要几秒钟才能完成，那么服务的请求——每个请求保持一个数据库连接——可能会累积，最终耗尽连接池。如果数据库是共享的，甚至可能导致其他服务失败，从而导致级联失败。
 - en: If the service had timed out instead of holding on to the database, it could
     have degraded service instead of failing outright.
+  id: totrans-129
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果服务超时而不是继续持有数据库，它可能会降级服务而不是直接失败。
 - en: In other words, if you think you’re going to fail, fail fast.
+  id: totrans-130
   prefs: []
   type: TYPE_NORMAL
+  zh: 换句话说，如果你认为你将会失败，那就快速失败。
 - en: Using Context for service-side timeouts
+  id: totrans-131
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 使用上下文进行服务端超时控制
 - en: We first introduced `context.Context` back in [Chapter 4](ch04.xhtml#chapter_4)
     as Go’s idiomatic means of carrying deadlines and cancellation signals between
     processes.^([12](ch09.xhtml#idm45983622576120)) If you’d like a refresher, or
     just want to put yourself in the right frame of mind before continuing, go ahead
     and take a look at [“The Context Package”](ch04.xhtml#section_ch04_context).
+  id: totrans-132
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们首次在[第4章](ch04.xhtml#chapter_4)介绍了`context.Context`作为Go在进程之间传递截止日期和取消信号的惯用方式。^([12](ch09.xhtml#idm45983622576120))
+    如果你想要回顾一下，或者只是想让自己在继续之前进入正确的思维状态，请看看[“上下文包”](ch04.xhtml#section_ch04_context)。
 - en: You might also recall that later in the same chapter, in [“Timeout”](ch04.xhtml#section_ch04_timeout),
     we covered the *Timeout* pattern, which uses `Context` to not only allow a process
     to stop waiting for an answer once it’s clear that a result may not be coming,
     but to also notify other functions with derived `Context`s to stop working and
     release any resources that they might also be holding on to.
+  id: totrans-133
   prefs: []
   type: TYPE_NORMAL
+  zh: 你可能还记得，同一章节的后面，在[“超时”](ch04.xhtml#section_ch04_timeout)一节中，我们介绍了*超时*模式，它使用`Context`不仅允许一个进程在明确得出结果不会到来时停止等待答案，还通知其他函数使用衍生的`Context`停止工作并释放它们可能持有的任何资源。
 - en: This ability to cancel not just local functions, but subfunctions, is so powerful
     that it’s generally considered good form for functions to accept a `Context` value
     if they have the potential to run longer than a caller might want to wait, which
     is almost always true if the call traverses a network.
+  id: totrans-134
   prefs: []
   type: TYPE_NORMAL
+  zh: 这种不仅可以取消本地函数，还可以取消子函数的能力非常强大，以至于通常认为，如果函数可能运行的时间比调用者想要等待的时间长，那么接受`Context`值是一种良好的做法，这几乎总是正确的，如果调用穿越网络。
 - en: For this reason, there are many excellent samples of `Context`-accepting functions
     scattered throughout Go’s standard library. Many of these can be found in the
     `sql` package, which includes `Context`-accepting versions of many of its functions.
     For example, the `DB` struct’s `QueryRow` method has an equivalent `QueryRowContext`
     that accepts a `Context` value.
+  id: totrans-135
   prefs: []
   type: TYPE_NORMAL
+  zh: 因此，在Go标准库中分散的许多优秀的`Context`接受函数示例。这些示例可以在包括`sql`包中找到，它包含了许多接受`Context`的函数的版本。例如，`DB`结构体的`QueryRow`方法有一个等效的`QueryRowContext`，接受一个`Context`值。
 - en: 'A function that uses this technique to provide the username of a user based
     on an ID value might look something like the following:'
+  id: totrans-136
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用这种技术提供基于ID值的用户名称的函数可能看起来像以下的样子：
 - en: '[PRE7]'
+  id: totrans-137
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE7]'
 - en: The `UserName` function accepts a `context.Context` and an `id` integer, but
     it also creates its own derived `Context` with a rather long timeout. This approach
     provides a default timeout that automatically releases any open connections after
     15 seconds—longer than many clients are likely to be willing to wait—while also
     being responsive to cancellation signals from the caller.
+  id: totrans-138
   prefs: []
   type: TYPE_NORMAL
+  zh: '`UserName`函数接受一个`context.Context`和一个整数`id`，但它还创建了自己的衍生`Context`，具有相当长的超时时间。这种方法提供了一个默认超时，自动在15秒后释放任何打开的连接——比许多客户端愿意等待的时间长——同时还能响应来自调用者的取消信号。'
 - en: 'The responsiveness to outside cancellation signals can be quite useful. The
     `http` framework provides yet another excellent example of this, as demonstrated
     in the following `UserGetHandler` HTTP handler function:'
+  id: totrans-139
   prefs: []
   type: TYPE_NORMAL
+  zh: 对外部取消信号的响应非常有用。`http`框架提供了另一个很好的例子，正如在以下的`UserGetHandler` HTTP处理函数中演示的那样：
 - en: '[PRE8]'
+  id: totrans-140
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE8]'
 - en: In `UserGetHandler`, the first thing we do is retrieve the request’s `Context`
     via its `Context` method. Conveniently, this `Context` is canceled when the client’s
     connection closes, when the request is canceled (with HTTP/2), or when the `ServeHTTP`
     method returns.
+  id: totrans-141
   prefs: []
   type: TYPE_NORMAL
+  zh: 在`UserGetHandler`中，我们首先通过其`Context`方法获取请求的`Context`。方便的是，当客户端连接关闭、请求被取消（使用HTTP/2）或`ServeHTTP`方法返回时，这个`Context`就会被取消。
 - en: From this we create a derived context, applying our own explicit timeout, which
     will cancel the `Context` after 10 seconds, no matter what.
+  id: totrans-142
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们从这里创建一个衍生的上下文，应用我们自己的显式超时，这将在10秒后无论如何都会取消`Context`。
 - en: 'Because the derived context is passed to the `UserName` function, we are able
     to draw a direct causative line between closing the HTTP request and closing the
     database connection: if the request’s `Context` closes, all derived `Context`s
     close as well, ultimately ensuring that all open resources are released as well
     in a loosely coupled manner.'
+  id: totrans-143
   prefs: []
   type: TYPE_NORMAL
+  zh: 由于衍生的上下文被传递给`UserName`函数，我们能够在关闭HTTP请求和关闭数据库连接之间划出直接因果关系：如果请求的`Context`关闭，所有衍生的`Context`也会关闭，最终以一种松耦合的方式确保所有打开的资源也被释放。
 - en: Timing out HTTP/REST client calls
+  id: totrans-144
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 超时HTTP/REST客户端调用
 - en: 'Back in [“A Possible Pitfall of Convenience Functions”](ch08.xhtml#sidebar_ch08_convenience_functions),
     we presented one of the pitfalls of the `http` “convenience functions” like `http.Get`
     and `http.Post`: that they use the default timeout. Unfortunately, the default
     timeout value is `0`, which Go interprets as “no timeout.”'
+  id: totrans-145
   prefs: []
   type: TYPE_NORMAL
+  zh: 回顾起[“便利函数可能存在的陷阱”](ch08.xhtml#sidebar_ch08_convenience_functions)，我们曾经介绍过`http`“便利函数”如`http.Get`和`http.Post`的一个陷阱：它们使用默认超时时间。不幸的是，默认的超时时间值为`0`，这在Go语言中被解释为“没有超时”。
 - en: 'The mechanism we presented at the time for setting timeouts for client methods
     was to create a custom `Client` value with a nonzero `Timeout` value, as follows:'
+  id: totrans-146
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们在此前提到的为客户端方法设置超时机制的机制是创建一个带有非零超时值的自定义`Client`值，如下所示：
 - en: '[PRE9]'
+  id: totrans-147
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE9]'
 - en: This works perfectly fine, and in fact, will cancel a request in exactly the
     same way as if its `Context` is canceled. But what if you want to use an existing
     or derived `Context` value? For that you’ll need access to the underlying `Context`,
     which you can get by using `http.NewRequestWithContext`, the `Context`-accepting
     equivalent of `http.NewRequest`, which allows a programmer to specify a `Context`
     that controls the entire lifetime of the request and its response.
+  id: totrans-148
   prefs: []
   type: TYPE_NORMAL
+  zh: 这个方法运行得非常好，实际上，将会以与其`Context`被取消时完全相同的方式取消请求。但是如果您想要使用现有或衍生的`Context`值呢？为此，您需要访问底层的`Context`，可以通过使用`http.NewRequestWithContext`来获得，这是`http.NewRequest`接受`Context`的等效版本，允许程序员指定控制请求及其响应整个生命周期的`Context`。
 - en: 'This isn’t as much of a divergence as it might seem. In fact, looking at the
     source code for the `Get` method on the `http.Client` shows that under the covers,
     it’s just using `NewRequest`:'
+  id: totrans-149
   prefs: []
   type: TYPE_NORMAL
+  zh: 这并不像看上去的那么大的偏离。事实上，查看`http.Client`上的`Get`方法的源代码会发现，在底层它只是使用`NewRequest`：
 - en: '[PRE10]'
+  id: totrans-150
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE10]'
 - en: As you can see, the standard `Get` method calls `NewRequest` to create a `*Request`
     value, passing it the method name and URL (the last parameter accepts an optional
     `io.Reader` for the request body, which we don’t need here). A call to the `Do`
     function executes the request proper.
+  id: totrans-151
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如您所见，标准的`Get`方法调用`NewRequest`创建一个`*Request`值，传递了方法名和URL（最后一个参数接受可选的`io.Reader`作为请求体，但在这里我们不需要）`Do`函数执行实际的请求。
 - en: Not counting an error check and the return, the entire method consists of just
     one call. It would seem that if we wanted to implement similar functionality that
     also accepts a `Context` value, we could do so without much hassle.
+  id: totrans-152
   prefs: []
   type: TYPE_NORMAL
+  zh: 不计算错误检查和返回，整个方法只包含一个调用。看起来，如果我们想要实现类似的接受`Context`值的功能，我们可以轻松地做到。
 - en: 'One way to do this might be to implement a `GetContext` function that accepts
     a `Context` value:'
+  id: totrans-153
   prefs: []
   type: TYPE_NORMAL
+  zh: 实现这个的一种方法可能是实现一个接受`Context`值的`GetContext`函数：
 - en: '[PRE11]'
+  id: totrans-154
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE11]'
 - en: Our new `GetContext` function is functionally identical to the canonical `Get`,
     except that it also accepts a `Context` value, which it uses to call `http.NewRequestWithContext`
     instead of `http.NewRequest`.
+  id: totrans-155
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们的新`GetContext`函数在功能上与规范的`Get`完全相同，只是它还接受一个`Context`值，用于调用`http.NewRequestWithContext`而不是`http.NewRequest`。
 - en: 'Using our new `ClientContext` would be very similar to using a standard `http.Client`
     value, except instead of calling `client.Get` we’d call `client.GetContext` (and
     pass along a `Context` value, of course):'
+  id: totrans-156
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用我们的新`ClientContext`与使用标准的`http.Client`值非常相似，只不过我们不是调用`client.Get`，而是调用`client.GetContext`（当然要传递`Context`值）：
 - en: '[PRE12]'
+  id: totrans-157
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE12]'
 - en: 'But does it work? It’s not a *proper* test with a testing library, but we can
     manually kick the tires by setting the deadline to `0` and running it:'
+  id: totrans-158
   prefs: []
   type: TYPE_NORMAL
+  zh: 但它有效吗？这不是一个 *正确* 的测试，因为没有测试库，但我们可以通过将截止日期设置为 `0` 并运行它来手动试探：
 - en: '[PRE13]'
+  id: totrans-159
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE13]'
 - en: And it would seem that it does! Excellent.
+  id: totrans-160
   prefs: []
   type: TYPE_NORMAL
+  zh: 看起来它确实能工作！太棒了。
 - en: Timing out gRPC client calls
+  id: totrans-161
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: gRPC 客户端调用超时
 - en: Just like `http.Client`, gRPC clients default to “no timeout,” but also allow
     timeouts to be explicitly set.
+  id: totrans-162
   prefs: []
   type: TYPE_NORMAL
+  zh: 就像 `http.Client` 一样，gRPC 客户端默认为“无超时”，但也允许显式设置超时。
 - en: As we saw in [“Implementing the gRPC client”](ch08.xhtml#section_ch08_impl_grpc_client),
     gRPC clients typically use the `grpc.Dial` function to establish a connection
     to a client, and that a list of `grpc.DialOption` values—constructed via functions
     like `grpc.WithInsecure` and `grpc.WithBlock`—can be passed to it to configure
     how that connection is set up.
+  id: totrans-163
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如我们在 [“实现 gRPC 客户端”](ch08.xhtml#section_ch08_impl_grpc_client) 中看到的那样，gRPC
+    客户端通常使用 `grpc.Dial` 函数来建立与客户端的连接，并且可以通过像 `grpc.WithInsecure` 和 `grpc.WithBlock`
+    这样的函数构造 `grpc.DialOption` 值列表将其传递给它以配置连接的设置方式。
 - en: 'Among these options is `grpc.WithTimeout`, which can be used to configure a
     client dialing timeout:'
+  id: totrans-164
   prefs: []
   type: TYPE_NORMAL
+  zh: 其中一种选项是 `grpc.WithTimeout`，可用于配置客户端拨号超时：
 - en: '[PRE14]'
+  id: totrans-165
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE14]'
 - en: However, while `grpc.WithTimeout` might seem convenient on the face of it, it’s
     actually been deprecated for some time, largely because its mechanism is inconsistent
     (and redundant) with the preferred `Context` timeout method. We show it here for
     the sake of completion.
+  id: totrans-166
   prefs: []
   type: TYPE_NORMAL
+  zh: 然而，虽然 `grpc.WithTimeout` 在表面上看起来可能很方便，但实际上它已经被弃用了相当长的时间，主要是因为其机制与首选的 `Context`
+    超时方法不一致（并且是多余的）。我们在这里展示它只是为了完整性的缘故。
 - en: Warning
+  id: totrans-167
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 警告
 - en: The `grpc.WithTimeout` option is deprecated and will eventually be removed.
     Use `grpc.DialContext` and `context.WithTimeout` instead.
+  id: totrans-168
   prefs: []
   type: TYPE_NORMAL
+  zh: '`grpc.WithTimeout` 选项已被弃用，并将最终移除。请改用 `grpc.DialContext` 和 `context.WithTimeout`。'
 - en: 'Instead, the preferred method of setting a gRPC dialing timeout is the very
     convenient (for us) `grpc.DialContext` function, which allows us to use (or reuse)
     a `context.Context` value. This is actually doubly useful, because gRPC service
     methods accept a `Context` value anyway, so there really isn’t even any additional
     work to be done:'
+  id: totrans-169
   prefs: []
   type: TYPE_NORMAL
+  zh: 相反，设置 gRPC 拨号超时的首选方法是非常方便的（对我们而言）`grpc.DialContext` 函数，它允许我们使用（或重用）`context.Context`
+    值。这实际上是双重有用的，因为 gRPC 服务方法本来就接受 `Context` 值，所以实际上根本没有额外的工作要做：
 - en: '[PRE15]'
+  id: totrans-170
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE15]'
 - en: As advertised, `TimeoutKeyValueGet` uses `grpc.DialContext`—to which we pass
     a `context.Context` value with a 5-second timeout—instead of `grpc.Dial`. The
     `opts` list is otherwise identical except, obviously, that it no longer includes
     `grpc.WithTimeout`.
+  id: totrans-171
   prefs: []
   type: TYPE_NORMAL
+  zh: 如广告所述，`TimeoutKeyValueGet` 使用 `grpc.DialContext` ——我们向其传递了一个带有 5 秒超时的 `context.Context`
+    值——而不是 `grpc.Dial`。除了显然不再包括 `grpc.WithTimeout` 外，`opts` 列表在其他方面是相同的。
 - en: Note the `client.Get` method call. As we mentioned previously, gRPC service
     methods accept a `Context` parameter, so we simply reuse the existing one. Importantly,
     reusing the same `Context` value will constrain both operations under the same
     timeout calculation—a `Context` will time out regardless of how it’s used—so be
     sure to take that into consideration when planning your timeout values.
+  id: totrans-172
   prefs: []
   type: TYPE_NORMAL
+  zh: 请注意 `client.Get` 方法调用。如前所述，gRPC 服务方法接受 `Context` 参数，因此我们只需重用现有的 `Context`。重要的是，重用相同的
+    `Context` 值将在相同的超时计算下限制两个操作——`Context` 将超时，无论它如何使用——因此在计划超时值时务必考虑到这一点。
 - en: Idempotence
+  id: totrans-173
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 幂等性
 - en: As we discussed at the top of [Chapter 4](ch04.xhtml#chapter_4), cloud native
     applications by definition exist in and are subject to all of the idiosyncrasies
     of a networked world. It’s a plain fact of life that networks—all networks—are
     unreliable, and messages sent across them don’t always arrive at their destination
     on time (or at all).
+  id: totrans-174
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如我们在 [第 4 章](ch04.xhtml#chapter_4) 顶部讨论的那样，云原生应用基本上存在于并受网络世界的所有特殊性影响。网络——所有网络——都是不可靠的，消息发送到达目的地的时间（或根本不到达）并不总是准时。
 - en: What’s more, if you send a message but don’t get a response, you have no way
     to know what happened. Did the message get lost on its way to the recipient? Did
     the recipient get the message, and the response get lost? Maybe everything is
     working fine, but the round trip is just taking a little longer than usual?
+  id: totrans-175
   prefs: []
   type: TYPE_NORMAL
+  zh: 更重要的是，如果发送了消息却没有收到响应，那么你无法知道发生了什么。消息在传递到接收者时丢失了吗？接收者接收到消息了，但响应丢失了吗？也许一切都运行良好，只是往返时间比平常长一点？
 - en: In such a situation, the only option is to send the message again. But it’s
     not enough to cross your fingers and hope for the best. It’s important to plan
     for this inevitability by making it safe to resend messages by designing the functions
     for *idempotence*.
+  id: totrans-176
   prefs: []
   type: TYPE_NORMAL
+  zh: 在这种情况下，唯一的选择是重新发送消息。但仅仅指望运气是不够的。通过设计函数以实现*幂等性*，计划处理这种必然性非常重要。
 - en: You might recall that we briefly introduced the concept of idempotence in [“What
     Is Idempotence and Why Does It Matter?”](ch05.xhtml#section_ch05_idempotence),
     in which we defined an idempotent operation as one that has the same effect after
@@ -916,246 +1257,336 @@
     it also happens to be an important property of any cloud native API that guarantees
     that any communication can be safely repeated (see [“The Origins of Idempotence
     on the Web”](#sidebar_ch09_origins_of_idempotence) for a bit on that history).
+  id: totrans-177
   prefs: []
   type: TYPE_NORMAL
+  zh: 你可能记得我们在 [“什么是幂等性以及其重要性？”](ch05.xhtml#section_ch05_idempotence) 简要介绍了幂等性的概念，其中我们将幂等操作定义为多次应用与单次应用具有相同效果的操作。正如HTTP的设计者所了解的那样，这也是任何云原生API的重要属性，保证任何通信可以安全重复执行（请参阅
+    [“Web上幂等性的起源”](#sidebar_ch09_origins_of_idempotence) 以了解相关历史）。
 - en: The actual means of achieving idempotence will vary from service to service,
     but there are some consistent patterns that we’ll review in the remainder of this
     section.
+  id: totrans-178
   prefs: []
   type: TYPE_NORMAL
+  zh: 实现幂等性的具体方法因服务而异，但在本节的其余部分我们将审查一些一致的模式。
 - en: How do I make my service idempotent?
+  id: totrans-179
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 如何使我的服务幂等？
 - en: Idempotence isn’t baked into the logic of any particular framework. Even in
     HTTP—and by extension, REST—idempotence is a matter of convention and isn’t explicitly
     enforced. There’s nothing stopping you from—by oversight or on purpose—implementing
     a nonidempotent GET if you really want to.^([16](ch09.xhtml#idm45983621554584))
+  id: totrans-180
   prefs: []
   type: TYPE_NORMAL
+  zh: 幂等性并没有内建到任何特定框架的逻辑中。即使在HTTP——以及由此推广的REST中——幂等性也是一种约定，而非明确强制执行的规范。如果真的希望，没有什么能阻止你实现一个非幂等的GET请求，不管是出于疏忽还是故意。^([16](ch09.xhtml#idm45983621554584))
 - en: 'One of the reasons that idempotence is sometimes so tricky is because it relies
     on logic built into the core application, rather than at the REST or gRPC API
     layer. For example, if back in [Chapter 5](ch05.xhtml#chapter_5) we had wanted
     to make our key-value store consistent with traditional CRUD (create, read, update,
     and delete) operations (and therefore *not* idempotent) we might have done something
     like this:'
+  id: totrans-181
   prefs: []
   type: TYPE_NORMAL
+  zh: 幂等性有时如此棘手的原因之一是因为它依赖于内建到核心应用程序中的逻辑，而不是在REST或gRPC API层。例如，如果在[第5章](ch05.xhtml#chapter_5)中，我们希望使我们的键值存储与传统的CRUD（创建、读取、更新和删除）操作一致（因此*不*是幂等的），我们可能会做如下操作：
 - en: '[PRE16]'
+  id: totrans-182
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE16]'
 - en: 'This CRUD-like service implementation may be entirely well-meaning, but if
     any of these methods have to be repeated the result would be an error. What’s
     more, there’s also a fair amount of logic involved in checking against the current
     state which wouldn’t be necessary in an equivalent idempotent implementation like
     the following:'
+  id: totrans-183
   prefs: []
   type: TYPE_NORMAL
+  zh: 这种类似CRUD的服务实现可能完全出于善意，但如果这些方法中的任何一个必须重复执行，则会导致错误。更重要的是，在检查当前状态时涉及的逻辑量也相当大，在等效的幂等性实现中则是多余的，例如下面的实现：
 - en: '[PRE17]'
+  id: totrans-184
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE17]'
 - en: This version is a *lot* simpler, in more than one way. First, we no longer need
     separate “create” and “update” operations, so we can combine these into a single
     `Set` function. Also, not having to check the current state with each operation
     reduces the logic in each method, a benefit that continues to pay dividends as
     the service increases in complexity.
+  id: totrans-185
   prefs: []
   type: TYPE_NORMAL
+  zh: 这个版本要简单得多，不仅仅是一种方式。首先，我们不再需要单独的“创建”和“更新”操作，因此可以将它们合并为单个`Set`函数。此外，不再需要在每个操作中检查当前状态，这减少了每种方法中的逻辑，随着服务复杂度的增加，这一好处将继续产生回报。
 - en: Finally, if an operation has to be repeated, it’s no big deal. For both the
     `Set` and `Delete` functions, multiple identical calls will have the same result.
     They are idempotent.
+  id: totrans-186
   prefs: []
   type: TYPE_NORMAL
+  zh: 最后，如果一个操作需要重复执行，这没有什么大不了的。对于`Set`和`Delete`函数，多次相同的调用将产生相同的结果。它们是幂等的。
 - en: What about scalar operations?
+  id: totrans-187
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 标量操作怎么样？
 - en: “So,” you might say, “that’s all well and good for operations that are either
     *done* or *not done*, but what about more complex operations? Operations on scalar
     values, for example?”
+  id: totrans-188
   prefs: []
   type: TYPE_NORMAL
+  zh: “因此”，你可能会说，“对于那些只能*完成*或*未完成*的操作来说这都很好，但对于更复杂的操作怎么办？例如标量值的操作？”
 - en: 'That’s a fair question. After all, it’s one thing to PUT a thing in a place:
     it’s either been PUT, or it hasn’t. All you have to do is not return an error
     for re-PUTs. Fine.'
+  id: totrans-189
   prefs: []
   type: TYPE_NORMAL
+  zh: 这是一个公平的问题。毕竟，把一件东西放在一个地方是一回事：它要么已经被放置了，要么没有。你只需不返回重新放置的错误。好吧。
 - en: 'But what about an operation like “add $500 to account 12345”? Such a request
     might carry a JSON payload that looks something like the following:'
+  id: totrans-190
   prefs: []
   type: TYPE_NORMAL
+  zh: 但是像“向帐户 12345 添加 $500”这样的操作呢？这样的请求可能携带一个 JSON 负载，看起来像以下内容：
 - en: '[PRE18]'
+  id: totrans-191
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE18]'
 - en: Repeated applications of this operation would lead to an extra $500 going to
     account 12345, and while the owner of the account might not mind so much, the
     bank probably would.
+  id: totrans-192
   prefs: []
   type: TYPE_NORMAL
+  zh: 重复执行此操作将导致额外的 $500 存入帐户 12345，尽管帐户所有者可能不太介意，但银行可能会。
 - en: 'But consider what happens when we add a `transactionID` value to our JSON payload:'
+  id: totrans-193
   prefs: []
   type: TYPE_NORMAL
+  zh: 但是考虑一下，当我们向我们的 JSON 负载添加 `transactionID` 值时会发生什么：
 - en: '[PRE19]'
+  id: totrans-194
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE19]'
 - en: It may require some more bookkeeping, but this approach provides a workable
     solution to our dilemma. By tracking `transactionID` values, the recipient can
     safely identify and reject duplicate transactions. Idempotence achieved!
+  id: totrans-195
   prefs: []
   type: TYPE_NORMAL
+  zh: 这可能需要一些更多的簿记工作，但这种方法为我们的困境提供了可行的解决方案。通过跟踪 `transactionID` 值，接收方可以安全地识别并拒绝重复的交易。达到幂等性！
 - en: Service Redundancy
+  id: totrans-196
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 服务冗余
 - en: Redundancy—the duplication of critical components or functions of a system with
     the intention of increasing reliability of the system—is often the first line
     of defense when it comes to increasing resilience in the face of failure.
+  id: totrans-197
   prefs: []
   type: TYPE_NORMAL
+  zh: 冗余——系统关键组件或功能的重复，旨在提高系统的可靠性——通常是面对故障时增加韧性的第一道防线。
 - en: 'We’ve already discussed one particular kind of redundancy—messaging redundancy,
     also known as “retries”—in [“Play It Again: Retrying Requests”](#section_ch09_retries).
     In this section, however, we’ll consider the value of replicating critical system
     components so that if any one fails, one or more others are there to pick up the
     slack.'
+  id: totrans-198
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们已经讨论过一种特定类型的冗余——消息冗余，也称为“重试”——在 [“再玩一次：重试请求”](#section_ch09_retries) 中。然而，在本节中，我们将考虑复制关键系统组件的价值，以便如果任何一个组件失败，一个或多个其他组件可以接管其工作。
 - en: In a public cloud, this would mean deploying your component to multiple server
     instances, ideally across multiple zones or even across multiple regions. In a
     container orchestration platform like Kubernetes, this may even just be a matter
     of setting your replica count to a value greater than one.
+  id: totrans-199
   prefs: []
   type: TYPE_NORMAL
+  zh: 在公共云中，这意味着将您的组件部署到多个服务器实例，理想情况下跨多个区域甚至多个地区。在像 Kubernetes 这样的容器编排平台上，这甚至可能只是将副本数量设置为大于一的值。
 - en: As interesting as this subject is, however, we won’t actually spend too much
     time on it. Service replication is an architectural subject that’s been thoroughly
     covered in many other sources.^([17](ch09.xhtml#idm45983621184232)) This is supposed
     to be a Go book, after all. But still, we’d be remiss to have an entire chapter
     about resilience and not even mention it.
+  id: totrans-200
   prefs: []
   type: TYPE_NORMAL
+  zh: 尽管这个主题很有趣，我们实际上不会在其上花费太多时间。服务复制是一个已经在许多其他来源中彻底讨论过的架构主题。^([17](ch09.xhtml#idm45983621184232))
+    毕竟，这应该是一本 Go 语言的书。但是，如果我们在关于韧性的整章中甚至不提到它，我们会感到遗憾的。
 - en: Designing for Redundancy
+  id: totrans-201
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 冗余设计
 - en: The effort involved in designing a system so that its functions can be replicated
     across multiple instances can yield significant dividends. But exactly how much?
     Well…a lot. You can feel free to take a look at the following box if you’re interested
     in the math, but if you don’t, you can just trust me on this one.
+  id: totrans-202
   prefs: []
   type: TYPE_NORMAL
+  zh: 设计一个系统，使其功能能够在多个实例之间复制的努力可能会带来显著的回报。但具体来说有多少呢？嗯...很多。如果你对数学感兴趣，可以随意查看下面的内容，但如果你不感兴趣，你可以相信我。
 - en: Autoscaling
+  id: totrans-203
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 自动缩放
 - en: Very often, the amount of load that a service is subjected to varies over time.
     The textbook example is the user-facing web service where load increases during
     the day and decreases at night. If such a service is built to handle the peak
     load, it’s wasting time and money at night. If it’s built only to handle the nighttime
     load, it will be overburdened in the daytime.
+  id: totrans-204
   prefs: []
   type: TYPE_NORMAL
+  zh: 通常情况下，服务所受的负载量随时间变化而变化。典型的例子是用户面向的 Web 服务，白天负载增加，夜间减少。如果这样的服务建立在处理高峰负载的基础上，晚上就会浪费时间和金钱。如果只建立在处理夜间负载的基础上，白天就会过度负荷。
 - en: Autoscaling is a technique that builds on the idea of load balancing by automatically
     adding or removing resources—be they cloud server instances or Kubernetes pods—to
     dynamically adjust capacity to meet current demand. This ensures that your service
     can meet a variety of traffic patterns, anticipated or otherwise.
+  id: totrans-205
   prefs: []
   type: TYPE_NORMAL
+  zh: 自动缩放是一种建立在负载均衡思想基础上的技术，通过自动添加或删除资源——无论是云服务器实例还是 Kubernetes Pod——来动态调整容量，以满足当前需求的各种流量模式，无论是预期的还是意外的。
 - en: As an added bonus, applying autoscaling to your cluster can save money by right-sizing
     resources according to service requirements.
+  id: totrans-206
   prefs: []
   type: TYPE_NORMAL
+  zh: 作为额外的奖励，将自动缩放应用到您的集群可以根据服务需求调整资源大小，从而节省成本。
 - en: All major cloud providers provide a mechanism for scaling server instances,
     and most of their managed services implicitly or explicitly support autoscaling.
     Container orchestration platforms like Kubernetes also include support for autoscaling,
     both for the number of pods (horizontal autoscaling) and their CPU and memory
     limits (vertical autoscaling).
+  id: totrans-207
   prefs: []
   type: TYPE_NORMAL
+  zh: 所有主要的云提供商都提供了扩展服务器实例的机制，并且它们的大多数托管服务都隐含或显式支持自动缩放。像 Kubernetes 这样的容器编排平台也包括支持自动缩放的功能，无论是
+    Pod 数量（水平自动缩放）还是它们的 CPU 和内存限制（垂直自动缩放）。
 - en: 'Autoscaling mechanics vary considerably between cloud providers and orchestration
     platforms, so a detailed discussion of how to gather metrics and configure things
     like predictive autoscaling is beyond the scope of this book. However, some key
     points to remember:'
+  id: totrans-208
   prefs: []
   type: TYPE_NORMAL
+  zh: 自动缩放机制在云提供商和编排平台之间差异很大，因此详细讨论如何收集指标和配置预测性自动缩放等内容超出了本书的范围。然而，有几个关键点需要记住：
 - en: Set reasonable maximums, so that unusually large spikes in demand (or, heaven
     forbid, cascade failures) don’t completely blow your budget. The throttling and
     load shedding techniques that we discussed in [“Preventing Overload”](#section_ch09_preventing_overload)
     are also useful here.
+  id: totrans-209
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 设置合理的最大限制，以防止需求出现异常大的峰值（或者更糟的是，级联故障）完全超出预算。我们在[“防止过载”](#section_ch09_preventing_overload)中讨论的限流和负载放弃技术在这里也很有用。
 - en: Minimize startup times. If you’re using server instances, bake machine images
     beforehand to minimize configuration time at startup. This is less of an issue
     on Kubernetes, but container images should still be kept small and startup times
     reasonably short.
+  id: totrans-210
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 减少启动时间。如果您使用服务器实例，请预先制作机器镜像，以减少启动时的配置时间。这在 Kubernetes 上不是很严重的问题，但容器镜像仍应保持较小并且启动时间合理短。
 - en: No matter how fast your startup, scaling takes a nonzero amount of time. Your
     service should have *some* wiggle room without having to scale.
+  id: totrans-211
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 无论您的启动有多快，缩放都需要一定的时间。您的服务应该有一些余地，而不必进行缩放。
 - en: 'As we discussed in [“Scaling Postponed: Efficiency”](ch07.xhtml#section_ch07_efficiency),
     the best kind of scaling is the kind that never needs to happen.'
+  id: totrans-212
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 正如我们在[“延迟扩展：效率”](ch07.xhtml#section_ch07_efficiency)中讨论的那样，最好的扩展是永远不需要发生的扩展。
 - en: Healthy Health Checks
+  id: totrans-213
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 健康的健康检查
 - en: In [“Service Redundancy”](#section_ch09_redundancy), we briefly discussed the
     value of redundancy—the duplication of critical components or functions of a system
     with the intention of increasing overall system reliability—and its value for
     improving the resilience of a system.
+  id: totrans-214
   prefs: []
   type: TYPE_NORMAL
+  zh: 在[“服务冗余”](#section_ch09_redundancy)中，我们简要讨论了冗余的价值——系统关键组件或功能的复制，旨在提高整体系统的可靠性——以及它对提高系统韧性的价值。
 - en: Multiple service instances means having a load-balancing mechanism—a service
     mesh or dedicated load balancer—but what happens when a service instance goes
     bad? Certainly, we don’t want the load balancer to continue sending traffic its
     way. So what do we do?
+  id: totrans-215
   prefs: []
   type: TYPE_NORMAL
+  zh: 多个服务实例意味着需要负载均衡机制——服务网格或专用负载均衡器——但当服务实例出现问题时会发生什么？当然，我们不希望负载均衡器继续向其发送流量。那么我们该怎么办？
 - en: Enter the *health check*. In its simplest and most common form, a health check
     is implemented as an API endpoint that clients—load balancers, as well as monitoring
     services, service registries, etc.—can use to ask a service instance if it’s alive
     and healthy.
+  id: totrans-216
   prefs: []
   type: TYPE_NORMAL
+  zh: 进入*健康检查*。在其最简单和最常见的形式中，健康检查被实现为一个 API 端点，客户端——负载均衡器，以及监控服务、服务注册表等——可以使用该端点询问服务实例是否活着且健康。
 - en: 'For example, a service might provide an HTTP endpoint (`/health` and `/healthz`
     are common naming choices) that returns a `200 OK` if the replica is healthy,
     and a `503 Service Unavailable` when it’s not. More sophisticated implementations
     can even return different status codes for different states: HashiCorp’s Consul
     service registry interprets any `2XX` status as a success, a `429 Too Many Requests`
     as a warning, and anything else as a failure.'
+  id: totrans-217
   prefs: []
   type: TYPE_NORMAL
 - en: Having an endpoint that can tell a client when a service instance is healthy
     (or not) sounds great and all, but it invites the question of what, exactly, does
     it mean for an instance to be “healthy”?
+  id: totrans-218
   prefs: []
   type: TYPE_NORMAL
 - en: Tip
+  id: totrans-219
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
 - en: 'Health checks are like bloom filters. A failing health check means a service
     isn’t up, but a health check passing means the service is *probably* “healthy.”
     (Credit: Cindy Sridharan^([20](ch09.xhtml#idm45983621034232)))'
+  id: totrans-220
   prefs: []
   type: TYPE_NORMAL
 - en: What Does It Mean for an Instance to Be “Healthy”?
+  id: totrans-221
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
 - en: We use the word “healthy” in the context of services and service instances,
     but what exactly do we mean when we say that? Well, as is so often the case, there’s
     a simple answer and a complex answer. Probably a lot of answers in between, too.
+  id: totrans-222
   prefs: []
   type: TYPE_NORMAL
 - en: We’ll start with the simple answer. Reusing an existing definition, an instance
     is considered “healthy” when it’s “available.” That is, when it’s able to provide
     correct service.
+  id: totrans-223
   prefs: []
   type: TYPE_NORMAL
 - en: Unfortunately, it isn’t always so clear cut. What if the instance itself is
@@ -1163,6 +1594,7 @@
     a health check even make that distinction? If so, should the load balancer behave
     differently in each case? Should an instance be reaped and replaced if it’s not
     the one at fault, particularly if all service replicas are affected?
+  id: totrans-224
   prefs: []
   type: TYPE_NORMAL
 - en: 'Unfortunately, there aren’t any easy answers to these questions, so instead
@@ -1170,33 +1602,40 @@
     approaches to health checking and their associated advantages and disadvantages.
     Your own implementations will depend on the needs of your service and your load-balancing
     behavior.'
+  id: totrans-225
   prefs: []
   type: TYPE_NORMAL
 - en: The Three Types of Health Checks
+  id: totrans-226
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
 - en: 'When a service instance fails, it’s usually because of one of the following:'
+  id: totrans-227
   prefs: []
   type: TYPE_NORMAL
 - en: A local failure like an application error or resource—CPU, memory, database
     connections, etc.—depletion.
+  id: totrans-228
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: A remote failure in some dependency—a database or other downstream service—that
     affects the functioning of the service.
+  id: totrans-229
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: These two broad categories of failures give rise to three (yes, three) health
     checking strategies, each with its own fun little pros and cons.
+  id: totrans-230
   prefs: []
   type: TYPE_NORMAL
 - en: '*Liveness checks* do little more than return a “success” signal. They make
     no additional attempt to determine the status of the service, and say nothing
     about the service except that it’s listening and reachable. But, then again, sometimes
     this is enough. We’ll talk more about liveness checks in [“Liveness checks”](#section_ch09_check_liveness).'
+  id: totrans-231
   prefs: []
   type: TYPE_NORMAL
 - en: '*Shallow health checks* go further than liveness checks by verifying that the
@@ -1204,6 +1643,7 @@
     local resources, so they’re unlikely to fail on many instances simultaneously,
     but they can’t say for certain whether a particular request service instance will
     be successful. We’ll wade into shallow health checks in [“Shallow health checks”](#section_ch09_check_shallow).'
+  id: totrans-232
   prefs: []
   type: TYPE_NORMAL
 - en: '*Deep health checks* provide a much better understanding of instance health,
@@ -1211,9 +1651,11 @@
     which also exercises downstream resources like databases. While thorough, they
     can be expensive, and are susceptible to false positives. We’ll dig into deep
     health checks in [“Deep health checks”](#section_ch09_check_deep).'
+  id: totrans-233
   prefs: []
   type: TYPE_NORMAL
 - en: Liveness checks
+  id: totrans-234
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -1221,70 +1663,87 @@
     this might seem trivial to the point of uselessness—after all, what is the value
     of a health check that doesn’t say anything about health—liveness probes actually
     can provide some useful information by confirming:'
+  id: totrans-235
   prefs: []
   type: TYPE_NORMAL
 - en: That the service instance is listening and accepting new connections on the
     expected port
+  id: totrans-236
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: That the instance is reachable over the network
+  id: totrans-237
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: That any firewall, security group, or other configurations are correctly defined
+  id: totrans-238
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: This simplicity comes with a predictable cost, of course. The absence of any
     active health checking logic makes liveness checks of limited use when it comes
     to evaluating whether a service instance can actually perform its function.
+  id: totrans-239
   prefs: []
   type: TYPE_NORMAL
 - en: 'Liveness probes are also dead easy to implement. Using the `net/http` package,
     we can do the following:'
+  id: totrans-240
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE20]'
+  id: totrans-241
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE20]'
 - en: The previous snippet shows how little work can go into a liveness check. In
     it, we create and register a `/healthz` endpoint that does nothing but return
     a `200 OK` (and the text `OK`, just to be thorough).
+  id: totrans-242
   prefs: []
   type: TYPE_NORMAL
 - en: Warning
+  id: totrans-243
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
 - en: If you’re using the `gorilla/mux` package, any registered middleware (like the
     load shedding function from [“Load shedding”](#section_ch09_load_shedding)) can
     affect your health checks!
+  id: totrans-244
   prefs: []
   type: TYPE_NORMAL
 - en: Shallow health checks
+  id: totrans-245
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: Shallow health checks go further than liveness checks by verifying that the
     service instance is *likely* to be able to function, but stop short of investigating
     in any way that might exercise a database or other downstream dependency.
+  id: totrans-246
   prefs: []
   type: TYPE_NORMAL
 - en: 'Shallow health checks can evaluate any number of conditions that could adversely
     affect the service, including (but certainly not limited to):'
+  id: totrans-247
   prefs: []
   type: TYPE_NORMAL
 - en: The availability of key local resources (memory, CPU, database connections)
+  id: totrans-248
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: The ability to read or write local data, which checks disk space, permissions,
     and for hardware malfunctions such as disk failure
+  id: totrans-249
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: The presence of support processes, like monitoring or updater processes
+  id: totrans-250
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -1293,18 +1752,23 @@
     However, shallow checks are prone to false positives: if your service is down
     because of some issue involving an external resource, a shallow check will miss
     it. What you gain in specificity, you also sacrifice in sensitivity.'
+  id: totrans-251
   prefs: []
   type: TYPE_NORMAL
 - en: 'A shallow health check might look something like the following example, which
     tests the service’s ability to read and write to and from local disk:'
+  id: totrans-252
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE21]'
+  id: totrans-253
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE21]'
 - en: This simultaneously checks for available disk space, write permissions, and
     malfunctioning hardware, which can be a very useful thing to test, particularly
     if the service needs to write to an on-disk cache or other transient files.
+  id: totrans-254
   prefs: []
   type: TYPE_NORMAL
 - en: An observant reader might notice that it writes to the default directory to
@@ -1312,9 +1776,11 @@
     This might be a useful thing to test as well, but if you want to test for the
     ability to write to disk on Linux you’ll need to specify a different directory,
     or this becomes a very different test.
+  id: totrans-255
   prefs: []
   type: TYPE_NORMAL
 - en: Deep health checks
+  id: totrans-256
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -1322,51 +1788,63 @@
     its adjacent systems. This provides much better understanding of instance health
     by potentially identifying issues with dependencies, like invalid credentials,
     the loss of connectivity to data stores, or other unexpected networking issues.
+  id: totrans-257
   prefs: []
   type: TYPE_NORMAL
 - en: However, while thorough, deep health checks can be quite expensive. They can
     take a long time and place a burden on dependencies, particularly if you’re running
     too many of them, or running them too often.
+  id: totrans-258
   prefs: []
   type: TYPE_NORMAL
 - en: Tip
+  id: totrans-259
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
 - en: 'Don’t try to test *every* dependency in your health checks: focus on the ones
     that are required for the service to operate.'
+  id: totrans-260
   prefs: []
   type: TYPE_NORMAL
 - en: Tip
+  id: totrans-261
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
 - en: When testing multiple downstream dependencies, evaluate them concurrently if
     possible.
+  id: totrans-262
   prefs: []
   type: TYPE_NORMAL
 - en: What’s more, because the failure of a dependency will be reported as a failure
     of the instance, deep checks are especially susceptible to false positives. Combined
     with the lower specificity compared to a shallow check—issues with dependencies
     will be felt by the entire fleet—and you have the potential for a cascading failure.
+  id: totrans-263
   prefs: []
   type: TYPE_NORMAL
 - en: If you’re using deep health checks, you should take advantage of strategies
     like circuit breaking (which we covered in [“Circuit Breaking”](#image_ch09_circuit_breaking))
     where you can, and your load balancer should “fail open” (which we’ll discuss
     in [“Failing Open”](#section_ch09_failing_open)) whenever possible.
+  id: totrans-264
   prefs: []
   type: TYPE_NORMAL
 - en: 'Here we have a trivial example of a possible deep health check that evaluates
     a database by calling a hypothetical service’s `GetUser` function:'
+  id: totrans-265
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE22]'
+  id: totrans-266
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE22]'
 - en: Ideally, a dependency test should execute an actual system function, but also
     be lightweight to the greatest reasonable degree. In this example, the `GetUser`
     function triggers a database query that satisfies both of these criteria.^([22](ch09.xhtml#idm45983620664920))
+  id: totrans-267
   prefs: []
   type: TYPE_NORMAL
 - en: “Real” queries are generally preferable to just pinging the database for two
@@ -1375,9 +1853,11 @@
     health. The previous example actually does this—albeit in a very binary fashion—by
     using `Context` to set a hard timeout value, but you could choose to include more
     sophisticated logic instead.
+  id: totrans-268
   prefs: []
   type: TYPE_NORMAL
 - en: Failing Open
+  id: totrans-269
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
@@ -1386,20 +1866,24 @@
     perhaps, regularly). Depending on how your load balancer is configured, you might
     find yourself with zero instances serving traffic, possibly causing failures rippling
     across your system.
+  id: totrans-270
   prefs: []
   type: TYPE_NORMAL
 - en: Fortunately, some load balancers handle this quite cleverly by “failing open.”
     If a load balancer that fails open has *no* healthy targets—that is, if *all*
     of its targets’ health checks are failing—it will route traffic to all of its
     targets.
+  id: totrans-271
   prefs: []
   type: TYPE_NORMAL
 - en: This is slightly counterintuitive behavior, but it makes deep health checks
     somewhat safer to use by allowing traffic to continue to flow even when a downstream
     dependency may be having a bad day.
+  id: totrans-272
   prefs: []
   type: TYPE_NORMAL
 - en: Summary
+  id: totrans-273
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -1409,6 +1893,7 @@
     still turned out a fair bit longer than I intended, but I’m quite satisfied with
     the outcome. It’s a reasonable compromise between too little information and too
     much, and between operational background and actual Go implementations.
+  id: totrans-274
   prefs: []
   type: TYPE_NORMAL
 - en: 'We reviewed what it means for a system to fail, and how complex systems fail
@@ -1416,6 +1901,7 @@
     nefarious, yet common, failure mode: cascading failures. In a cascade failure,
     a system’s own attempts to recover hasten its collapse. We covered common measures
     of preventing cascading failures on the server side: throttling and load shedding.'
+  id: totrans-275
   prefs: []
   type: TYPE_NORMAL
 - en: Retries in the face of errors can contribute a lot to a service’s resilience,
@@ -1424,10 +1910,12 @@
     side as well, including circuit breakers, timeouts, and especially exponential
     backoff algorithms. There were several pretty graphs involved. I spent a lot of
     time on the graphs.
+  id: totrans-276
   prefs: []
   type: TYPE_NORMAL
 - en: All of this led to conversations about service redundancy, how it affects reliability
     (with a little math thrown in, for fun), and when and how to best leverage autoscaling.
+  id: totrans-277
   prefs: []
   type: TYPE_NORMAL
 - en: Of course, you can’t talk about autoscaling without talking about resource “health.”
@@ -1435,98 +1923,122 @@
     and how that translated into health checks. We covered the three kinds of health
     checks and weighed their pros and cons, paying particular attention to their relative
     sensitivity/specificity tradeoffs.
+  id: totrans-278
   prefs: []
   type: TYPE_NORMAL
 - en: 'In [Chapter 10](ch10.xhtml#chapter_10) we’ll take a break from the operational
     topics for a bit and wade into the subject of manageability: the art and science
     of changing the tires on a moving car.'
+  id: totrans-279
   prefs: []
   type: TYPE_NORMAL
 - en: ^([1](ch09.xhtml#idm45983623944264-marker)) Lamport, Leslie. *DEC SRC Bulletin
     Board*, 28 May 1987\. [*https://oreil.ly/nD85V*](https://oreil.ly/nD85V).
+  id: totrans-280
   prefs: []
   type: TYPE_NORMAL
 - en: ^([2](ch09.xhtml#idm45983623938904-marker)) Summary of the Amazon DynamoDB Service
     Disruption and Related Impacts in the US-East Region. Amazon AWS, September 2015\.
     [*https://oreil.ly/Y1P5S*](https://oreil.ly/Y1P5S).
+  id: totrans-281
   prefs: []
   type: TYPE_NORMAL
 - en: ^([3](ch09.xhtml#idm45983623929384-marker)) Cook, Richard I. “How Complex Systems
     Fail.” 1998\. [*https://oreil.ly/WyJ4Q*](https://oreil.ly/WyJ4Q).
+  id: totrans-282
   prefs: []
   type: TYPE_NORMAL
 - en: ^([4](ch09.xhtml#idm45983623919016-marker)) If you’re interested in a complete
     academic treatment, I highly recommend [*Reliability and Availability Engineering*](https://oreil.ly/tfKr1)
     by Kishor S. Trivedi and Andrea Bobbio (Cambridge University Press).
+  id: totrans-283
   prefs: []
   type: TYPE_NORMAL
 - en: ^([5](ch09.xhtml#idm45983623900600-marker)) Importantly, many faults are only
     evident in retrospect.
+  id: totrans-284
   prefs: []
   type: TYPE_NORMAL
 - en: ^([6](ch09.xhtml#idm45983623894792-marker)) See? We eventually got there.
+  id: totrans-285
   prefs: []
   type: TYPE_NORMAL
 - en: ^([7](ch09.xhtml#idm45983623892568-marker)) Go on, ask me how I know this.
+  id: totrans-286
   prefs: []
   type: TYPE_NORMAL
 - en: ^([8](ch09.xhtml#idm45983623867528-marker)) Especially if the service is available
     on the open sewer that is the public internet.
+  id: totrans-287
   prefs: []
   type: TYPE_NORMAL
 - en: ^([9](ch09.xhtml#idm45983623725192-marker)) Wikipedia contributors. “Token bucket.”
     *Wikipedia, The Free Encyclopedia*, 5 Jun. 2019\. [*https://oreil.ly/vkOov*](https://oreil.ly/vkOov).
+  id: totrans-288
   prefs: []
   type: TYPE_NORMAL
 - en: ^([10](ch09.xhtml#idm45983622826936-marker)) The code used to simulate all data
     in this section is available in [the associated GitHub repository](https://oreil.ly/m61X7).
+  id: totrans-289
   prefs: []
   type: TYPE_NORMAL
 - en: ^([11](ch09.xhtml#idm45983622584440-marker)) Doing that here felt redundant,
     but I’ll admit that I may have gotten a bit lazy.
+  id: totrans-290
   prefs: []
   type: TYPE_NORMAL
 - en: ^([12](ch09.xhtml#idm45983622576120-marker)) And, technically, request-scoped
     values, but the correctness of this functionality is debatable.
+  id: totrans-291
   prefs: []
   type: TYPE_NORMAL
 - en: ^([13](ch09.xhtml#idm45983621566664-marker)) Fielding, R., et al. “Hypertext
     Transfer Protocol — HTTP/1.1,” Proposed Standard, RFC 2068, June 1997\. [*https://oreil.ly/28rcs*](https://oreil.ly/28rcs).
+  id: totrans-292
   prefs: []
   type: TYPE_NORMAL
 - en: ^([14](ch09.xhtml#idm45983621564248-marker)) Berners-Lee, T., et al. “Hypertext
     Transfer Protocol — HTTP/1.0,” Informational, RFC 1945, May 1996\. [*https://oreil.ly/zN7uo*](https://oreil.ly/zN7uo).
+  id: totrans-293
   prefs: []
   type: TYPE_NORMAL
 - en: ^([15](ch09.xhtml#idm45983621558600-marker)) Fielding, Roy Thomas. “Architectural
     Styles and the Design of Network-Based Software Architectures.” *UC Irvine*, 2000,
     pp. 76–106\. [*https://oreil.ly/swjbd*](https://oreil.ly/swjbd).
+  id: totrans-294
   prefs: []
   type: TYPE_NORMAL
 - en: ^([16](ch09.xhtml#idm45983621554584-marker)) You monster.
+  id: totrans-295
   prefs: []
   type: TYPE_NORMAL
 - en: '^([17](ch09.xhtml#idm45983621184232-marker)) [*Building Secure and Reliable
     Systems: Best Practices for Designing, Implementing, and Maintaining Systems*](https://oreil.ly/YPKyr)
     by Heather Adkins—and a host of other authors—is one excellent example.'
+  id: totrans-296
   prefs: []
   type: TYPE_NORMAL
 - en: ^([18](ch09.xhtml#idm45983621169368-marker)) Brace yourself. We’re going in.
+  id: totrans-297
   prefs: []
   type: TYPE_NORMAL
 - en: ^([19](ch09.xhtml#idm45983621111896-marker)) This assumes that the failure rates
     of the components are absolutely independent, which is very unlikely in the real
     world. Treat as you would spherical cows in a vacuum.
+  id: totrans-298
   prefs: []
   type: TYPE_NORMAL
 - en: ^([20](ch09.xhtml#idm45983621034232-marker)) Sridharan, Cindy (@copyconstruct).
     “Health checks are like bloom filters…” 5 Aug 2018, 3:21 AM. Tweet. [*https://oreil.ly/Qpw3d*](https://oreil.ly/Qpw3d).
+  id: totrans-299
   prefs: []
   type: TYPE_NORMAL
 - en: ^([21](ch09.xhtml#idm45983620923448-marker)) Though I’ve seen it happen.
+  id: totrans-300
   prefs: []
   type: TYPE_NORMAL
 - en: ^([22](ch09.xhtml#idm45983620664920-marker)) It’s an imaginary function, so
     let’s just agree that that’s true.
+  id: totrans-301
   prefs: []
   type: TYPE_NORMAL
