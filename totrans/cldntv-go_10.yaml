@@ -993,11 +993,13 @@
   id: totrans-135
   prefs: []
   type: TYPE_NORMAL
+  zh: 你可能还记得我们在 [“分片”](ch04.xhtml#section_ch04_sharding) 中详细讨论过垂直分片。如果你对垂直分片的理论或实现不清楚，请随时回顾那一部分。
 - en: 'Memory Leaks Can…fatal error: runtime: out of memory'
   id: totrans-136
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 内存泄漏可能导致…致命错误：运行时：内存不足
 - en: Memory leaks are a class of bugs in which memory is not released even after
     it’s no longer needed. These bugs can be quite subtle and often plague languages
     like C++ in which memory is manually managed. But while garbage collection certainly
@@ -1008,22 +1010,28 @@
   id: totrans-137
   prefs: []
   type: TYPE_NORMAL
+  zh: 内存泄漏是一类 bug，即使在不再需要内存时也没有被释放。这些 bug 可能非常隐晦，并且经常困扰像 C++ 这样需要手动管理内存的语言。尽管垃圾收集确实通过试图回收程序不再使用的对象所占用的内存来帮助，但像
+    Go 这样的垃圾收集语言并不免于内存泄漏。数据结构仍然可能无限增长，未解决的 goroutine 仍然可能累积，甚至未停止的 `time.Ticker` 值也可能失控。
 - en: In this section we’ll review a few common causes of memory leaks particular
     to Go, and how to resolve them.
   id: totrans-138
   prefs: []
   type: TYPE_NORMAL
+  zh: 在本节中，我们将回顾一些特定于 Go 语言的内存泄漏的常见原因，以及如何解决它们。
 - en: Leaking goroutines
   id: totrans-139
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 泄漏的 goroutine
 - en: I’m not aware of any actual data on the subject,^([12](ch07.xhtml#idm45983629004872))
     but based purely on my own personal experience, I strongly suspect that goroutines
     are the single largest source of memory leaks in Go.
   id: totrans-140
   prefs: []
   type: TYPE_NORMAL
+  zh: 我并不知道关于这个问题的任何实际数据，^([12](ch07.xhtml#idm45983629004872)) 但基于我个人的经验，我非常怀疑 goroutine
+    是 Go 中内存泄漏的主要来源之一。
 - en: Whenever a goroutine is executed, it’s initially allocated a small memory stack—2048
     bytes—that can be dynamically adjusted up or down as it runs to suit the needs
     of the process. The precise maximum stack size depends on a lot of things,^([13](ch07.xhtml#idm45983629003416))
@@ -1031,12 +1039,16 @@
   id: totrans-141
   prefs: []
   type: TYPE_NORMAL
+  zh: 每当执行一个 goroutine 时，它最初会分配一个小的内存堆栈 —— 2048 字节，可以根据其运行时的需求动态调整大小。确切的最大堆栈大小取决于许多因素，^([13](ch07.xhtml#idm45983629003416))
+    但它基本上反映了可用物理内存的量。
 - en: 'Normally, when a goroutine returns, its stack is either deallocated or set
     aside for recycling.^([14](ch07.xhtml#idm45983629000568)) Whether by design or
     by accident, however, not every goroutine actually returns. For example:'
   id: totrans-142
   prefs: []
   type: TYPE_NORMAL
+  zh: 通常情况下，当 goroutine 返回时，其堆栈要么被释放，要么被设置为待回收状态。^([14](ch07.xhtml#idm45983629000568))
+    然而，无论是设计上的还是意外的，实际上并不是每个 goroutine 都会返回。例如：
 - en: '[PRE12]'
   id: totrans-143
   prefs: []
@@ -1051,18 +1063,22 @@
   id: totrans-144
   prefs: []
   type: TYPE_NORMAL
+  zh: 在前面的示例中，`leaky` 函数创建一个通道并执行一个 goroutine 从该通道读取。`leaky` 函数返回时没有错误，但是如果你仔细观察，你会发现从未向
+    `ch` 发送任何值，因此该 goroutine 永远不会返回，其堆栈也永远不会被释放。甚至会有一些副作用：因为 goroutine 引用了 `ch`，垃圾收集器无法清理该值。
 - en: So we now have a bona fide memory leak. If such a function is called regularly
     the total amount of memory consumed will slowly increase over time until it’s
     completely exhausted.
   id: totrans-145
   prefs: []
   type: TYPE_NORMAL
+  zh: 所以现在我们确实有一个真正的内存泄漏。如果这样的函数经常被调用，消耗的内存总量将会随着时间的推移而慢慢增加，直到完全耗尽。
 - en: This is a contrived example, but there are good reasons why a programmer might
     want to create long-running goroutines, so it’s usually quite hard to know whether
     such a process was created intentionally.
   id: totrans-146
   prefs: []
   type: TYPE_NORMAL
+  zh: 这是一个人为构建的例子，但有很多原因使程序员可能希望创建长时间运行的 goroutine，因此通常很难知道这样的过程是否是故意创建的。
 - en: 'So what do we do about this? Dave Cheney offers some excellent advice here:
     “You should never start a goroutine without knowing how it will stop….Every time
     you use the `go` keyword in your program to launch a goroutine, you must know
@@ -1071,6 +1087,8 @@
   id: totrans-147
   prefs: []
   type: TYPE_NORMAL
+  zh: 那么我们该怎么办？Dave Cheney 在这里提供了一些很好的建议：“在不知道 goroutine 如何结束时，你绝对不应该启动 goroutine…每次在程序中使用
+    `go` 关键字启动 goroutine 时，你必须知道该 goroutine 如何以及何时退出。如果你不知道答案，那就可能会导致内存泄漏。”^([15](ch07.xhtml#idm45983628941816))
 - en: This may seem like obvious, even trivial advice, but it’s incredibly important.
     It’s all too easy to write functions that leak goroutines, and those leaks can
     be a pain to identify and find.
@@ -1710,6 +1728,7 @@
   id: totrans-237
   prefs: []
   type: TYPE_NORMAL
+  zh: 首先，有更多的移动部件需要你深入了解，这就需要相当多的前期规划和测试。例如，如果处理函数中出现错误会发生什么？请求会怎么样？它会被转发到其他目标，还是可能被发送到死信队列以供进一步处理？
 - en: Do not underestimate the significance of this increase in complexity! Replacing
     in-process interactions with distributed, fully managed components tends to introduce
     a variety of problems and failure cases that simply don’t exist in the former.
@@ -1718,6 +1737,7 @@
   id: totrans-238
   prefs: []
   type: TYPE_NORMAL
+  zh: 不要低估这种复杂性增加的重要性！用分布式、完全托管的组件替换进程内交互，往往会引入各种问题和故障情况，在前者中根本不存在。你很可能已经把一个相对简单的问题变成了一个极其复杂的问题。复杂性会导致失败；简单性则能实现扩展。
 - en: Second, with all of these different components, there’s a need for more sophisticated
     distributed monitoring than you’d need with a monolith or small microservices
     system. Due to the fact that FaaS relies heavily on the cloud provider, this may
@@ -1725,6 +1745,7 @@
   id: totrans-239
   prefs: []
   type: TYPE_NORMAL
+  zh: 其次，由于所有这些不同的组件，需要比单体或小型微服务系统更复杂的分布式监控。由于FaaS极大地依赖云提供商，这可能会有挑战，或者至少会显得尴尬。
 - en: Finally, the ephemeral nature of FaaS means that ALL state, even short-lived
     optimizations like caches, has to be externalized to a database, an external cache
     (like Redis), or network file/object store (like S3). Again, this can be argued
@@ -1732,17 +1753,20 @@
   id: totrans-240
   prefs: []
   type: TYPE_NORMAL
+  zh: 最后，FaaS的短暂性意味着所有状态，甚至像缓存这样的短期优化，都必须外部化到数据库、外部缓存（如Redis）或网络文件/对象存储（如S3）。同样，可以争论这是一件好事，但这确实增加了前期的复杂性。
 - en: Summary
   id: totrans-241
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 摘要
 - en: This was a very difficult chapter to write, not because there isn’t much to
     say, but because scalability is such a huge topic with so many different things
     I could have drilled down into. Every one of these battled in my brain for weeks.
   id: totrans-242
   prefs: []
   type: TYPE_NORMAL
+  zh: 写这一章非常困难，不是因为没有太多可以说的，而是因为可扩展性是一个如此庞大的主题，涉及到许多不同的内容我可以深入探讨。每一个这些内容在我的脑海中激烈地较量了好几个星期。
 - en: I even ended up throwing away some perfectly good architecture content that,
     in retrospect, simply wasn’t appropriate for this book. Fortunately, I was able
     to salvage a whole other chunk of work about messaging that ended up getting moved
@@ -1750,6 +1774,7 @@
   id: totrans-243
   prefs: []
   type: TYPE_NORMAL
+  zh: 我甚至最终放弃了一些完全不错的架构内容，回过头来看，它们对本书来说简直不合适。幸运的是，我能够挽救一大块关于消息传递的工作，最终移入了[第8章](ch08.xhtml#chapter_8)。我想它在那里更加合适。
 - en: In those weeks, I spent a lot of time thinking about what scalability really
     is, and about the role that efficiency plays in it. Ultimately, I think that the
     decision to spend so much time on programmatic—rather than infrastructural—solutions
@@ -1757,44 +1782,53 @@
   id: totrans-244
   prefs: []
   type: TYPE_NORMAL
+  zh: 在那几周里，我花了大量时间思考可扩展性的真正含义，以及效率在其中所起的作用。最终，我认为决定在解决扩展问题时花费大量时间在编程方案上——而不是基础设施方案上——是正确的。
 - en: 'All told, I think the end result is a good one. We certainly covered a lot
     of ground:'
   id: totrans-245
   prefs: []
   type: TYPE_NORMAL
+  zh: 总而言之，我认为最终的结果是不错的。我们确实涵盖了很多内容：
 - en: We reviewed the different axes of scaling, and how scaling out is often the
     best long-term strategy.
   id: totrans-246
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们审查了扩展的不同方向，以及扩展出去通常是最佳的长期策略。
 - en: We discussed state and statelessness, and why application state is essentially
     “anti-scalability.”
   id: totrans-247
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们讨论了状态和无状态，以及应用状态为何是“反可扩展性”的本质。
 - en: We learned a few strategies for efficient in-memory caching and for avoiding
     memory leaks.
   id: totrans-248
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们学到了一些高效的内存缓存策略，以及避免内存泄漏的方法。
 - en: We compared and contrasted monolithic, microservice, and serverless architectures.
   id: totrans-249
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 我们比较并对比了单片、微服务和无服务器架构。
 - en: That’s quite a lot, and although I wish I’d been able to drill down in some
     more detail, I’m pleased to have been able to touch on the things I did.
   id: totrans-250
   prefs: []
   type: TYPE_NORMAL
+  zh: 那确实很多，虽然我希望能更详细地深入探讨一些问题，但我很高兴至少能触及到我所触及的内容。
 - en: '^([1](ch07.xhtml#idm45983630129928-marker)) Kanat-Alexander, Max. *Code Simplicity:
     The Science of Software Design*. O’Reilly Media, 23 March 2012.'
   id: totrans-251
   prefs: []
   type: TYPE_NORMAL
+  zh: '^([1](ch07.xhtml#idm45983630129928-marker)) Kanat-Alexander, Max. *Code Simplicity:
+    The Science of Software Design*. O’Reilly Media, 2012年3月23日。'
 - en: ^([2](ch07.xhtml#idm45983630123800-marker)) Honestly, if we had autoscaling
     in place I probably wouldn’t even remember that this happened.
   id: totrans-252
