@@ -1,14 +1,19 @@
 - en: Chapter 3\. Conquering Efficiency
+  id: totrans-0
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 第3章 征服效率
 - en: It’s action time! In [Chapter 1](ch01.html#ch-efficiency-matters), we learned
     that software efficiency matters. In [Chapter 2](ch02.html#ch-go), we studied
     the Go programming language—its basics and advanced features. Next, we discussed
     Go’s capabilities of being easy to read and write. Finally, we mentioned that
     it could also be an effective language for writing efficient code.
+  id: totrans-1
   prefs: []
   type: TYPE_NORMAL
+  zh: 是时候行动了！在[第1章](ch01.html#ch-efficiency-matters)中，我们了解到软件效率很重要。在[第2章](ch02.html#ch-go)中，我们学习了
+    Go 编程语言——它的基础和高级特性。接下来，我们讨论了 Go 语言易读易写的能力。最后，我们提到它还可以是编写高效代码的有效语言。
 - en: 'Undoubtedly, achieving better efficiency in your program does not come without
     work. In some cases, the functionality you try to improve is already well optimized,
     so further optimization without system redesign might take a lot of time and only
@@ -17,32 +22,46 @@
     the program’s efficiency in only a few hours of developer time. The true skill
     here as an engineer is to know, ideally after a short amount of research, which
     situation you are currently in:'
+  id: totrans-2
   prefs: []
   type: TYPE_NORMAL
+  zh: 毫无疑问，提高程序效率并非易事。在某些情况下，你试图改进的功能已经经过良好优化，因此在不重新设计系统的情况下，进一步优化可能需要大量时间，并且只能产生边际差异。然而，也许还有其他情况，当前的实现非常低效。消除浪费的工作实例可以在几小时的开发时间内显著提高程序的效率。作为工程师真正的技能在于，在短时间的研究后，最好知道你目前处于哪种情况：
 - en: Do you need to improve anything on the performance side?
+  id: totrans-3
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 你是否需要在性能方面做出改进？
 - en: If yes, is there a potential for the removal of wasted cycles?
+  id: totrans-4
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 如果是的话，是否有可能去除浪费周期？
 - en: How much work is needed to reduce the latency of function X?
+  id: totrans-5
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 需要多少工作来减少函数 X 的延迟？
 - en: Are there any suspicious overallocations?
+  id: totrans-6
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 是否存在可疑的过度分配？
 - en: Should you stop overusing network bandwidth and sacrifice memory space instead?
+  id: totrans-7
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 应该停止过度使用网络带宽而牺牲内存空间吗？
 - en: This chapter will teach you the tools and methodologies to help you answer these
     questions effectively.
+  id: totrans-8
   prefs: []
   type: TYPE_NORMAL
+  zh: 本章将教会你工具和方法，帮助你有效地回答这些问题。
 - en: If you are struggling with these skills, don’t worry! It’s normal. The efficiency
     topic is not trivial. Despite the demand, this space is still not mastered by
     many, and even major software players sometimes make poor decisions. It’s surprising
@@ -57,8 +76,11 @@
     outstanding, but they used the same techniques you are about to learn. The only
     difference is that our job might be a bit easier—hopefully, you don’t need to
     reverse engineer the binary written in C++ code on the way!
+  id: totrans-9
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果你在这些技能上有困难，不要担心！这是正常的。效率话题并不简单。尽管需求大，但许多人仍未掌握，甚至一些主要的软件开发者有时也会做出糟糕的决策。令人惊讶的是，看起来高质量的软件经常在没有明显效率问题的情况下发布。例如，2021年初，一位用户[优化了流行游戏《侠盗猎车手在线》的加载时间，从六分钟缩短到两分钟](https://oreil.ly/ast0m)，而没有访问源代码！正如在[第1章](ch01.html#ch-efficiency-matters)中提到的，该游戏耗资惊人的约1.4亿美元，并花费了几年时间进行开发。然而，它却存在明显的效率瓶颈，其简单的
+    JSON 解析算法和重复数据删除逻辑大大降低了游戏加载时间，影响了游戏体验。这个人的工作非常出色，但他们使用的是你即将学习的相同技术。唯一的区别在于，我们的工作可能稍微容易一些——希望你不需要在路上逆向工程用C++编写的二进制代码！
 - en: In the preceding example, the company behind the game missed the apparent waste
     of computation impacting the game’s loading performance. It’s unlikely that the
     company didn’t have the resources to get an expert to optimize this part. Instead,
@@ -68,12 +90,16 @@
     of the game. It did the job, yes, but for example, my friends and I were never
     fans of the game because of the loading time. I would argue that without this
     silly “waste,” success might have been even bigger.
+  id: totrans-10
   prefs: []
   type: TYPE_NORMAL
+  zh: 在前面的例子中，游戏背后的公司错过了影响游戏加载性能的明显计算浪费。公司不可能没有资源找专家来优化这部分，而是基于特定的权衡决定，优化不值得投资，因为可能有更高优先级的开发任务。最终，可以说这样的低效并没有阻止游戏的成功。它确实完成了任务，但是例如，我和我的朋友们从来不是游戏的粉丝，因为加载时间太长。我认为，如果没有这种愚蠢的“浪费”，成功可能会更大。
 - en: Laziness or Deliberate Efficiency Descoping?
+  id: totrans-11
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 懒惰还是故意的效率降低？
 - en: There are other amusing examples of situations where a certain aspect of software
     efficiency could be descoped given certain circumstances. For instance, there
     is [the amusing story about missile software developers](https://oreil.ly/mJ8Mi)
@@ -81,8 +107,10 @@
     at the end of the application run. Similarly, we hear [the story about “deliberate”
     memory leaks in low-latency trading software](https://oreil.ly/PgzHQ) that is
     expected to run only for very short durations.
+  id: totrans-12
   prefs: []
   type: TYPE_NORMAL
+  zh: 还有其他有趣的例子，说明在特定情况下，软件效率的某些方面可能会被降低。例如，有[有趣的关于导弹软件开发者的故事](https://oreil.ly/mJ8Mi)，他们决定接受某些内存泄漏，因为导弹在应用程序运行结束时将被销毁。同样，我们听说过关于低延迟交易软件中的“故意”内存泄漏的故事，预计只会运行很短的时间。
 - en: You could say that the examples where the efficiency work was avoided and nothing
     tragically bad happened were pragmatic approaches. In the end, extra knowledge
     and work needed to fix leaks or slowdowns were avoided. Potentially yes, but what
@@ -92,15 +120,19 @@
     didn’t fully understand the small effort needed? What if they didn’t know how
     to optimize the problematic parts of the software? Would they make better decisions
     otherwise? Take less risk? I would argue yes.
+  id: totrans-13
   prefs: []
   type: TYPE_NORMAL
+  zh: 可以说，避免效率工作的例子，并没有发生什么悲剧性的事情，都是务实的方法。最终，避免了额外的知识和工作来修复泄漏或减慢速度。潜在地，是的，但是如果这些决策不是数据驱动的呢？我们不知道，但是这些决策可能是出于懒惰和无知，没有任何有效的数据点表明修复确实需要太多的努力。如果每个例子中的开发人员不完全理解所需的小努力呢？如果他们不知道如何优化软件的问题部分呢？否则，他们会做出更好的决策吗？减少风险吗？我认为会的。
 - en: In this chapter, I will introduce the topic of optimizations, starting with
     explaining the definition and initial approach in [“Beyond Waste, Optimization
     Is a Zero-Sum Game”](#ch-conq-opt). In the next section, [“Optimization Challenges”](#ch-conq-challenges),
     we will summarize the challenges we have to overcome while attempting to improve
     the efficiency of our software.
+  id: totrans-14
   prefs: []
   type: TYPE_NORMAL
+  zh: 在本章中，我将介绍优化的主题，首先解释定义并从[“超越浪费，优化是一个零和游戏”](#ch-conq-opt)的初步方法开始。在接下来的一节中，[“优化挑战”](#ch-conq-challenges)，我们将总结在试图提高软件效率时必须克服的挑战。
 - en: In [“Understand Your Goals”](#ch-conq-perf-goal), we will try to tame our software’s
     tendency and temptation to maximize optimization effort by setting clear efficiency
     goals. We need only to be fast or efficient “enough.” This is why setting the
@@ -111,28 +143,38 @@
     will teach you a professional flow for handling performance issues you or someone
     else has reported. You will learn that the optimization process could be your
     last resort.
+  id: totrans-15
   prefs: []
   type: TYPE_NORMAL
+  zh: 在[“理解你的目标”](#ch-conq-perf-goal)中，我们将尝试通过设定明确的效率目标来驯服软件倾向和诱惑以最大化优化工作。我们只需要足够快或足够高效。这就是为什么从一开始就设定正确的性能要求如此重要。接下来，在[“资源感知效率要求”](#ch-conq-req)，我将提出一个任何人都可以遵循的模板和实用的过程。最后，这些效率要求将在[“遇到效率问题了？保持冷静！”](#ch-conq-issue-handling)中发挥作用，我将教你如何处理你或其他人报告的性能问题的专业流程。你会了解到，优化过程可能是你的最后一招。
 - en: 'In [“Optimization Design Levels”](#ch-conq-opt-levels), I will explain how
     to divide and isolate your optimization effort for easier conquering. Finally,
     in [“Efficiency-Aware Development Flow”](#ch-conq-eff-flow), we will combine all
     the pieces into a unified optimization process I always use and want to recommend
     to you: reliable flow, which applies to any software or design level.'
+  id: totrans-16
   prefs: []
   type: TYPE_NORMAL
+  zh: 在[“优化设计层次”](#ch-conq-opt-levels)中，我将解释如何分割和隔离你的优化工作，以便更容易地征服。最后，在[“效率感知开发流程”](#ch-conq-eff-flow)，我们将把所有的片段合并成一个我始终使用并希望推荐给你的统一优化流程：可靠的流程，适用于任何软件或设计层次。
 - en: There is a lot of learning ahead of us, so let’s start understanding what optimization
     means.
+  id: totrans-17
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们有很多学习的内容要开始理解优化的含义。
 - en: Beyond Waste, Optimization Is a Zero-Sum Game
+  id: totrans-18
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 超越浪费，优化是一个零和游戏。
 - en: It is not a secret that one of many weapons in our arsenal to overcome efficiency
     issues is an effort called “optimization.” But what does optimization mean, exactly?
     What’s the best way to think about it and master it?
+  id: totrans-19
   prefs: []
   type: TYPE_NORMAL
+  zh: 没有秘密，我们在克服效率问题时的武器之一就是被称为“优化”的努力。但是，“优化”到底意味着什么？如何最好地思考它并掌握它呢？
 - en: Optimization is not exclusively reserved for software efficiency topics. We
     also tend to optimize many things in our life, sometimes unconsciously. For example,
     if we cook a lot, we probably have salt in a well-accessible place. If our goal
@@ -143,8 +185,10 @@
     are meant to improve our life toward a specific goal. Sometimes we need a significant
     change. On the other hand, minor incremental improvements are often enough as
     they are magnified through repetition for a more substantial impact.
+  id: totrans-20
   prefs: []
   type: TYPE_NORMAL
+  zh: 优化不仅仅局限于软件效率主题。我们在生活中也倾向于优化许多事物，有时是无意识的。例如，如果我们经常烹饪，我们可能会把盐放在一个易于取用的地方。如果我们的目标是增重，我们会摄入更多的卡路里。如果我们早晨出行，我们会在前一天晚上打包和准备好。如果我们通勤，我们倾向于利用那段时间听有声书。如果通勤到办公室令人痛苦，我们会考虑搬到靠近更好的交通系统的地方。所有这些都是旨在朝着特定目标改善我们生活的优化技术。有时我们需要进行重大改变。另一方面，通过重复获得的小幅增量改进通常足以产生更大的影响。
 - en: In engineering, the word “optimization” has its roots in [mathematics](https://oreil.ly/a11ou),
     which means finding the best solution from all possible solutions for a problem
     constrained by a set of rules. Typically in computer science, however, we use
@@ -152,43 +196,54 @@
     execution for a specific aspect. For instance, we can optimize our program to
     load a file faster or decrease peak memory utilization while serving a request
     on a web server.
+  id: totrans-21
   prefs: []
   type: TYPE_NORMAL
+  zh: 在工程领域，“优化”一词源于[数学](https://oreil.ly/a11ou)，意味着在一组规则约束下，从所有可能的解决方案中找到最佳解决方案。然而，在计算机科学中，我们通常使用“优化”来描述改进系统或程序执行特定方面的行为。例如，我们可以优化我们的程序以更快地加载文件，或者在Web服务器上服务请求时减少内存利用率的峰值。
 - en: We Can Optimize for Anything
+  id: totrans-22
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 我们可以为任何事情进行优化。
 - en: Generally, optimization does not necessarily need to improve our program’s efficiency
     characteristics if that is not our goal. For example, if we aim to improve security,
     maintainability, or code size, we can optimize for that too. Yet, in this book,
     when we talk about optimizations, they will be on an efficiency background (improving
     resource consumption or speed).
+  id: totrans-23
   prefs: []
   type: TYPE_NORMAL
 - en: The goal of efficiency optimization should be to modify code (generally without
     changing its functionality^([1](ch03.html#idm45606836661792))) so that its execution
     is either overall more efficient or at least more efficient in the categories
     we care about (and worse in others).
+  id: totrans-24
   prefs: []
   type: TYPE_NORMAL
 - en: 'The important part is that, from a high-level view, we can perform the optimization
     by doing either of two things (or both):'
+  id: totrans-25
   prefs: []
   type: TYPE_NORMAL
 - en: We can eliminate “wasted” resource consumption.
+  id: totrans-26
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: We can trade one resource consumption for another or deliberately sacrifice
     other software qualities (so-called trade-off).
+  id: totrans-27
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Let me explain the difference between these two by describing the first type
     of change—reducing so-called waste.
+  id: totrans-28
   prefs: []
   type: TYPE_NORMAL
 - en: Reasonable Optimizations
+  id: totrans-29
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
@@ -202,36 +257,43 @@
     time, etc. Such waste might have been introduced as a deliberate simplification,
     by accident, tech debt, oversight, or just unawareness of better approaches. For
     example:'
+  id: totrans-30
   prefs: []
   type: TYPE_NORMAL
 - en: We might have accidentally left some debugging code that introduces massive
     latency in the heavily used function (e.g., `fmt.Println` statements).
+  id: totrans-31
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: We performed an unnecessary, expensive check because the caller has already
     verified the input.
+  id: totrans-32
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: We forgot to stop certain goroutines (a concurrency paradigm we will explain
     in detail in [“Go Runtime Scheduler”](ch04.html#ch-hw-concurrency)), which are
     no longer required, yet still running, which wastes our memory and CPU time.^([2](ch03.html#idm45606836647264))
+  id: totrans-33
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: We used a nonoptimized function from a third-party library, when an optimized
     one exists in a different, well-maintained library that does the same thing faster.
+  id: totrans-34
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: We saved the same piece of data a couple of times on disk, while it could be
     just reused and stored once.
+  id: totrans-35
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Our algorithm might have performed checks too many times when it could have
     done less for free (e.g., naive search versus binary search on sorted data).
+  id: totrans-36
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -242,49 +304,67 @@
     or portability. Such elimination makes our software, overall, more efficient.
     Looking closer, you might be surprised at how much waste every program has. It
     just waits for us to notice it and take it back!
+  id: totrans-37
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果我们的程序执行或者消耗特定资源的操作是一种“浪费”，那么如果通过消除它，我们不会牺牲其他任何东西，那么这种消除就是合理的。这里的“任何东西”指的是我们特别关心的任何东西，比如额外的CPU时间，其他资源消耗，或者与可读性、灵活性或可移植性无关的特性。这样的消除会使我们的软件整体上更加高效。仔细观察，你会惊讶地发现每个程序都存在多少浪费。它只是等待我们注意到并消除它！
 - en: 'Our program’s optimization by reducing “waste” is a simple yet effective technique.
     In this book, we will call it a reasonable optimization, and I suggest doing it
     every time you notice such waste, even if you don’t have time to benchmark it
     afterward. Yes. You heard me right. It should be part of coding hygiene. Note
     that to treat it as “reasonable” optimization, it has to be obvious. As the developer,
     you need to be sure that:'
+  id: totrans-38
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们的程序通过减少“浪费”进行优化是一种简单而有效的技术。在本书中，我们将其称为合理的优化，并建议每次发现这种浪费时都这样做，即使之后没有时间来进行基准测试。是的，你没听错。这应该是编码卫生的一部分。请注意，要将其视为“合理”的优化，必须显而易见。作为开发者，你需要确信：
 - en: Such optimization eliminates some additional work of the program.
+  id: totrans-39
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 这种优化消除了程序的一些额外工作。
 - en: It does not sacrifice any other meaningful software quality or functionality,
     especially readability.
+  id: totrans-40
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: 它不会牺牲任何其他有意义的软件质量或功能，特别是可读性。
 - en: Look for the things that might be “obviously” unnecessary. Eliminating such
     unnecessary work is easily obtainable and does no harm (otherwise, it’s not waste).
+  id: totrans-41
   prefs: []
   type: TYPE_NORMAL
+  zh: 寻找那些可能“显然”不必要的东西。消除这种不必要的工作是很容易做到的，并且不会有任何害处（否则就不是浪费）。
 - en: Be Mindful of Readability
+  id: totrans-42
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 要注意可读性
 - en: The first thing that usually gets impacted by any code modification is readability.
     If reducing some obvious waste meaningfully reduces readability, or you need to
     spend a few hours experimenting on readable abstractions for it, it is not a reasonable
     optimization.
+  id: totrans-43
   prefs: []
   type: TYPE_NORMAL
+  zh: 任何代码修改通常首先受到可读性的影响。如果显而易见的减少浪费会显著降低可读性，或者你需要花几个小时来尝试可读的抽象，那么这就不是一个合理的优化。
 - en: That’s fine. We can deal with that later, and we will talk about it in [“Deliberate
     Optimizations”](#ch-conq-opt-deliberate). If it impacts readability, we need data
     to prove it’s worth it.
+  id: totrans-44
   prefs: []
   type: TYPE_NORMAL
+  zh: 没问题。我们可以稍后处理这个问题，并且我们会在[“深思熟虑的优化”](#ch-conq-opt-deliberate)中详细讨论它。如果影响了可读性，我们需要数据证明这样做是值得的。
 - en: Cutting “waste” is also an effective mental model. Like humans who are rewarded
     for being [intelligently lazy](https://oreil.ly/u8IDm), we also want to maximize
     the value our program brings with minimum runtime work.
+  id: totrans-45
   prefs: []
   type: TYPE_NORMAL
+  zh: 削减“浪费”也是一种有效的思维模式。就像那些因为变得[聪明懒惰](https://oreil.ly/u8IDm)而受到奖励的人类一样，我们也希望在最少的运行时间内最大化程序所带来的价值。
 - en: One would say that reasonable optimization is an example of the anti-pattern
     often called “premature optimization” that [many have been warned against](https://oreil.ly/drziD).
     And I cannot agree more that reducing obvious waste like this is a premature optimization
@@ -292,27 +372,34 @@
     sure that such premature optimization deals no harm, other than a little extra
     work, let’s acknowledge that it is premature optimization but is reasonable, still
     do it, and move on.
+  id: totrans-46
   prefs: []
   type: TYPE_NORMAL
+  zh: 有人会说，合理的优化是被称为“过早优化”的反模式的一个例子，[许多人都受到过警告](https://oreil.ly/drziD)。我不得不同意减少这种显而易见的浪费确实是一种过早优化，因为我们没有评估和测量其影响。但我认为，如果我们确信这种过早优化不会带来任何害处，除了多做一点工作外，让我们承认它是过早优化，但仍然是合理的，我们继续进行并前进。
 - en: If we go back to our commute to work example, if we notice we have a few stones
     in our shoes, of course we pick them out so we can walk without pain. We don’t
     need to assess, measure, or compare if removing the stones improved our commute
     time or not. Getting rid of stones will help us somehow, and it’s not harmful
     to do so (we don’t need to take stones with us every time we go)! :)
+  id: totrans-47
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果我们回到通勤上班的例子，如果我们注意到鞋里有几块石头，当然我们会把它们拿出来，这样我们就可以不再感到疼痛了。我们不需要评估、测量或比较去确认移除石头是否提高了我们的通勤时间。去掉石头会在某种程度上帮助我们，这样做也没有害处（我们不需要每次出门都带石头）！:)
 - en: If you are dealing with something which is the noise, you don’t deal with that
     right away because the payoff of investing time and energy is very small. But
     if you are walking through your codebase and you notice an opportunity for notable
     improvement (say 10% or 12%), of course, you reach down and pick it up.
+  id: totrans-48
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: ''
+  id: totrans-49
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: Scott Meyers, [“Things That Matter”](https://oreil.ly/T9VFz)
+  id: totrans-50
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
@@ -322,15 +409,18 @@
     so don’t guess here. If you are guessing, it means the optimization is not obvious.
     You will learn what’s reasonable with experience, and we will practice this together
     in Chapters [10](ch10.html#ch-opt) and [11](ch11.html#ch-opt2).
+  id: totrans-51
   prefs: []
   type: TYPE_NORMAL
 - en: Reasonable optimizations yield consistent performance improvements and often
     simplify or make our code more readable. However, we might want to take a more
     deliberate approach for bigger efficiency impacts, where the result might be less
     obvious, as explained in the next section.
+  id: totrans-52
   prefs: []
   type: TYPE_NORMAL
 - en: Deliberate Optimizations
+  id: totrans-53
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
@@ -339,12 +429,14 @@
     This means we have a situation where we cannot eliminate a certain operation that
     uses resource A (e.g., memory) without using more resource B (e.g., CPU time)
     or other quality (e.g., readability, portability, or correctness).
+  id: totrans-54
   prefs: []
   type: TYPE_NORMAL
 - en: The optimizations that are not obvious or require us to make a certain trade-off
     can be called *deliberate*^([4](ch03.html#idm45606836617440)) since we have to
     spend a little bit more time on them. We can understand the trade-off, measure
     or assess it, and decide to keep it or throw it away.
+  id: totrans-55
   prefs: []
   type: TYPE_NORMAL
 - en: Deliberate optimizations are not worse in any way. On the contrary, they often
@@ -358,6 +450,7 @@
     program’s overall efficiency, but it can improve the efficiency of a particular
     resource usage that we care about at the moment. Depending on the situation, the
     sacrifice might be worth it.
+  id: totrans-56
   prefs: []
   type: TYPE_NORMAL
 - en: However, the implication of having certain sacrifices means we have to perform
@@ -366,6 +459,7 @@
     The reason for this is simple. First, we have to be sure that we understand what
     we sacrifice and whether the impact is not too big. Unfortunately, humans are
     quite bad at estimating such impacts.
+  id: totrans-57
   prefs: []
   type: TYPE_NORMAL
 - en: For example, a common way to reduce network bandwidth and disk usage is to compress
@@ -373,13 +467,16 @@
     us to decompress (decode) when receiving or reading the data. The potential balance
     of the resources used by our software before and after introducing compression
     can be seen in [Figure 3-1](#img-opt-sum).
+  id: totrans-58
   prefs: []
   type: TYPE_NORMAL
 - en: '![efgo 0301](assets/efgo_0301.png)'
+  id: totrans-59
   prefs: []
   type: TYPE_IMG
 - en: Figure 3-1\. Potential impact on latency and resource usage if we compress the
     data before sending it over the network and saving it on disk
+  id: totrans-60
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
@@ -390,6 +487,7 @@
     of messages to send over the network and disk writes might improve the total latency
     of such an operation. All of the compression algorithms require some extra buffers,
     so additional memory usage is also expected.
+  id: totrans-61
   prefs: []
   type: TYPE_NORMAL
 - en: To sum up, there are strong implications for categorizing optimization reasonably
@@ -401,14 +499,17 @@
     This is when we get into a zero-sum game, and we must take a deliberate look at
     these problems. In this book and practice, you will learn what situations you
     are in and how to predict these consequences.
+  id: totrans-62
   prefs: []
   type: TYPE_NORMAL
 - en: Before we bring the two types of optimizations into our development flow, let’s
     discuss the efficiency optimization challenges we must be aware of. We will go
     through the most important ones in the next section.
+  id: totrans-63
   prefs: []
   type: TYPE_NORMAL
 - en: Optimization Challenges
+  id: totrans-64
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -419,10 +520,12 @@
     developer after some practice. Knowing about the optimization obstacles should
     give us a good indication of what we should focus on to improve. Let’s go through
     some fundamental problems:'
+  id: totrans-65
   prefs: []
   type: TYPE_NORMAL
 - en: Programmers are bad at estimating what part is responsible for the performance
     problem.
+  id: totrans-66
   prefs: []
   type: TYPE_NORMAL
 - en: We are really bad at guessing which part of the program consumes the most resources
@@ -432,9 +535,11 @@
     it performs. Since any optimization is time-consuming, we want to focus on that
     critical 20% of operations, not some noise. Fortunately, there are tools and methods
     for estimating this, which we will touch on in [Chapter 9](ch09.html#ch-observability3).
+  id: totrans-67
   prefs: []
   type: TYPE_NORMAL
 - en: Programmers are notoriously bad at estimating exact resource consumption.
+  id: totrans-68
   prefs: []
   type: TYPE_NORMAL
 - en: Similarly, we often make wrong assumptions on whether certain optimizations
@@ -442,9 +547,11 @@
     this book). Yet, it’s best to *never trust your judgment*, and always measure
     and verify all numbers after deliberate optimizations (discussed in depth in [Chapter 7](ch07.html#ch-observability2)).
     There are just too many layers in software executions with many unknowns and variables.
+  id: totrans-69
   prefs: []
   type: TYPE_NORMAL
 - en: Maintaining efficiency over time is hard.
+  id: totrans-70
   prefs: []
   type: TYPE_NORMAL
 - en: The complex software execution layers mentioned previously are constantly changing
@@ -454,9 +561,11 @@
     against regressions. There are ways to automate or at least structure the benchmarking
     and verification process for the efficiency of our program, because things change
     every day, as discussed in [Chapter 6](ch06.html#ch-observability).
+  id: totrans-71
   prefs: []
   type: TYPE_NORMAL
 - en: Reliable verification of current performance is very difficult.
+  id: totrans-72
   prefs: []
   type: TYPE_NORMAL
 - en: 'As we will learn in [“Efficiency-Aware Development Flow”](#ch-conq-eff-flow),
@@ -466,9 +575,11 @@
     enough, external factors like noisy neighbors, lack of warm-up phase, wrong data
     sets, or microbenchmark accidental compiler optimizations. This is why we will
     spend some time on this topic in [“Reliability of Experiments”](ch07.html#ch-obs-rel).'
+  id: totrans-73
   prefs: []
   type: TYPE_NORMAL
 - en: Optimizing can easily impact other software qualities.
+  id: totrans-74
   prefs: []
   type: TYPE_NORMAL
 - en: 'Solid software is great at many qualities: functionality, compatibility, usability,
@@ -477,9 +588,11 @@
     process. The importance of each can differ depending on your use cases. However,
     there are safe minimums of each software quality to be maintained for your program
     to be useful. This might be challenging when you add more features and optimization.'
+  id: totrans-75
   prefs: []
   type: TYPE_NORMAL
 - en: Specifically, in Go we don’t have strict control over memory management.
+  id: totrans-76
   prefs: []
   type: TYPE_NORMAL
 - en: As we learned in [“Go Runtime”](ch02.html#ch-go-runtime), Go is garbage-collected
@@ -489,9 +602,11 @@
     can get tricky since the memory release model is eventual. Usually, the solution
     is simply to allocate less. We will go through memory management in [“Do We Have
     a Memory Problem?”](ch05.html#ch-hw-memory).
+  id: totrans-77
   prefs: []
   type: TYPE_NORMAL
 - en: When is our program efficient “enough”?
+  id: totrans-78
   prefs: []
   type: TYPE_NORMAL
 - en: In the end, all optimizations are never fully free. They require a bigger or
@@ -502,6 +617,7 @@
     we trade the consumption of resource X for resource Y? Is such conversion useful
     for us? The answer might be “no.” And if “yes,” how much efficiency improvement
     is enough?
+  id: totrans-79
   prefs: []
   type: TYPE_NORMAL
 - en: Regarding the last point, this is why it’s extremely important to know your
@@ -509,9 +625,11 @@
     during the development? It can vary depending on what you build. In the next section,
     I will propose a pragmatic way of stating performance requirements for a piece
     of software.
+  id: totrans-80
   prefs: []
   type: TYPE_NORMAL
 - en: Understand Your Goals
+  id: totrans-81
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -524,14 +642,17 @@
     code, loop unrolling, bit-fielding, superscalar and vectorizing) it can be an
     unending source of time-consuming implementation and bug hunting. Be cautious
     and wary of the cost of optimizing your code.
+  id: totrans-82
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: ''
+  id: totrans-83
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: Paul Hsieh, [“Programming Optimization”](https://oreil.ly/PQ4pk)
+  id: totrans-84
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
@@ -542,14 +663,17 @@
     or “optimal” (as that might be simply impossible or feasible) but rather suboptimal
     enough. But what does “enough” mean for us? When do you stop? What if there isn’t
     a need to even start optimizing?
+  id: totrans-85
   prefs: []
   type: TYPE_NORMAL
 - en: 'One answer is to optimize when stakeholders (or users) ask for better efficiency
     in the software we develop until they are happy. But unfortunately, this is usually
     very difficult for a few reasons:'
+  id: totrans-86
   prefs: []
   type: TYPE_NORMAL
 - en: '[XY problem](https://oreil.ly/AolRQ).'
+  id: totrans-87
   prefs: []
   type: TYPE_NORMAL
 - en: Stakeholders often ask for better efficiency, whereas a better solution is elsewhere.
@@ -558,9 +682,11 @@
     to use logging or tracing systems for such data instead of making the metric system
     faster.^([6](ch03.html#idm45606836566448)) As a result, we can’t always trust
     the initial user requests, especially around efficiency.
+  id: totrans-88
   prefs: []
   type: TYPE_NORMAL
 - en: Efficiency is not a zero-sum game.
+  id: totrans-89
   prefs: []
   type: TYPE_NORMAL
 - en: Ideally, we need to see the big picture of all efficiency goals. As we learned
@@ -571,9 +697,11 @@
     a single software that satisfies both the user who needs a latency-sensitive real-time
     event-capturing solution and the user who needs ultra-low memory used during such
     an operation.
+  id: totrans-90
   prefs: []
   type: TYPE_NORMAL
 - en: Stakeholders might not understand the optimization cost.
+  id: totrans-91
   prefs: []
   type: TYPE_NORMAL
 - en: Everything costs, especially optimization effort and maintaining highly optimized
@@ -581,17 +709,21 @@
     can be.^([7](ch03.html#idm45606836561456)) At some point, however, the benefit
     we gain from optimization versus the cost of finding and developing such optimization
     is impractical. Let’s expand on the last point.
+  id: totrans-92
   prefs: []
   type: TYPE_NORMAL
 - en: '[Figure 3-2](#img-opt-cost) shows a typical correlation between the efficiency
     of the software and different costs.'
+  id: totrans-93
   prefs: []
   type: TYPE_NORMAL
 - en: '![efgo 0302](assets/efgo_0302.png)'
+  id: totrans-94
   prefs: []
   type: TYPE_IMG
 - en: Figure 3-2\. Beyond the “sweet spot,” the cost of gaining higher efficiency
     might be extremely high
+  id: totrans-95
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
@@ -602,6 +734,7 @@
     opportunities. We might need to spend exponentially more of the expensive developer
     time, and need to introduce clever, nonportable tricks, dedicated machine code,
     dedicated operating systems, or even specialized hardware.'
+  id: totrans-96
   prefs: []
   type: TYPE_NORMAL
 - en: In many cases, optimizations beyond the sweet spot aren’t worth it, and it might
@@ -611,12 +744,14 @@
     and the more investment is worth putting into it. On the other hand, if you plan
     to use your program only a few short times, your sweet spot might be at the beginning
     of this diagram, with very poor efficiency.
+  id: totrans-97
   prefs: []
   type: TYPE_NORMAL
 - en: The problem is that users and stakeholders will not be aware of this. While
     ideally, product owners help us find that out, it’s often the developer’s role
     to advise the level of those different costs, using tools we will learn in Chapters
     [6](ch06.html#ch-observability) and [7](ch07.html#ch-observability2).
+  id: totrans-98
   prefs: []
   type: TYPE_NORMAL
 - en: However, whatever numbers we agree on, the best idea to solve the “when is enough”
@@ -625,9 +760,11 @@
     I will introduce the lightweight formula for them. Then in [“Acquiring and Assessing
     Efficiency Goals”](#ch-conq-acquiring-raer), we will discuss how to acquire and
     assess those efficiency requirements.
+  id: totrans-99
   prefs: []
   type: TYPE_NORMAL
 - en: Efficiency Requirements Should Be Formalized
+  id: totrans-100
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
@@ -642,17 +779,20 @@
     get formal approval on the FR document, and it becomes your “contract” between
     both parties. Having this is extremely important, especially when you are compensated
     for building the software:'
+  id: totrans-101
   prefs: []
   type: TYPE_NORMAL
 - en: FR tells developers what they should focus on. It tells you what inputs should
     be valid and what things a user can configure. It dictates what you should focus
     on. Are you spending your time on something stakeholders paid for?
+  id: totrans-102
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: It’s easier to integrate with software with a clear FR. For example, stakeholders
     might want to design or order further system pieces that will be compatible with
     your software. They can start doing this before your software is even finished!
+  id: totrans-103
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -660,6 +800,7 @@
     is helpful, as people tend to forget things, and it’s easy to miscommunicate.
     That’s why you write it all down and ask stakeholders for review. Maybe you misheard
     something?
+  id: totrans-104
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -670,17 +811,20 @@
     (e.g., Python version) and some dependencies (GPU on the machine). When you want
     others to use it effectively, you have to mention your software’s functional requirements
     and goals.
+  id: totrans-105
   prefs: []
   type: TYPE_NORMAL
 - en: Defining and agreeing on functional requirements is well adopted in the software
     industry. Even if a bit bureaucratic, developers tend to like those specifications
     because it makes their life easier—requirements are then more stable and specific.
+  id: totrans-106
   prefs: []
   type: TYPE_NORMAL
 - en: Probably you know where I am going with this. Surprisingly, we often neglect
     to define similar requirements focused on the more nonfunctional aspects of the
     software we are expected to build, for example, describing a required efficiency
     and speed of the desired functionality.^([8](ch03.html#idm45606836534640))
+  id: totrans-107
   prefs: []
   type: TYPE_NORMAL
 - en: 'Such efficiency requirements are typically part of the [nonfunctional requirement
@@ -689,15 +833,18 @@
     software should have: portability, maintainability, extensibility, accessibility,
     operability, fault tolerance and reliability, compliance, documentation, execution
     efficiency, and so on. The list is long.'
+  id: totrans-108
   prefs: []
   type: TYPE_NORMAL
 - en: The NFR name can be in some way misleading since many qualities, including efficiency,
     massively impact our software functionality. As we learned in [Chapter 1](ch01.html#ch-efficiency-matters),
     efficiency and speed are critical for user experience.
+  id: totrans-109
   prefs: []
   type: TYPE_NORMAL
 - en: 'In reality, NFRs are not very popular to use during software development, based
     on my experience and research. I found multiple reasons:'
+  id: totrans-110
   prefs: []
   type: TYPE_NORMAL
 - en: Conventional NFR specification is considered bureaucratic and full of boilerplate.
@@ -705,6 +852,7 @@
     for every software will look obvious and more or less similar. Of course, all
     software should be readable, maintainable, as fast as possible using minimum resources,
     and usable. This is not helpful.
+  id: totrans-111
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -712,6 +860,7 @@
     most popular [ISO/IEC 25010:2011 standard](https://oreil.ly/IzqJo) costs around
     $200 to read. It has a staggering 34 pages, and hasn’t been changed since the
     last revision in 2017.
+  id: totrans-112
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -719,6 +868,7 @@
     ISO/IEC 25010 standard previously mentioned specifies [13 product characteristics
     with 42 subcharacteristics in total](https://oreil.ly/0MMcb). It is hard to understand
     and takes too much time to gather and walk through.
+  id: totrans-113
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -729,10 +879,12 @@
     fit it into a bigger system, configure it, and provide the operating system and
     hardware for that workload. When developers are not in the domain of running their
     software on “production,” it’s hard for them to talk about runtime efficiency.
+  id: totrans-114
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: The SRE Domain
+  id: totrans-115
   prefs:
   - PREF_IND
   - PREF_H1
@@ -741,6 +893,7 @@
     is a role focused on marrying these two domains: software development and operators/administrators.
     Such engineers have experience running and building their software on a large
     scale. With more hands-on experience, it’s easier to talk about efficiency requirements.'
+  id: totrans-116
   prefs:
   - PREF_IND
   type: TYPE_NORMAL
@@ -749,6 +902,7 @@
     to feel humiliated when setting efficiency or speed goals. This is why we sometimes
     unconsciously refrain from agreeing to quantifiable performance goals. It can
     be uncomfortable, and that’s normal.
+  id: totrans-117
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -757,44 +911,54 @@
     and speed of the requested software and will be a starting point for some contracts
     between consumers and the development team. Having such efficiency requirements
     on top of functional ones up front is enormously helpful because:'
+  id: totrans-118
   prefs: []
   type: TYPE_NORMAL
 - en: We know exactly how fast or resource efficient our software has to be.
+  id: totrans-119
   prefs: []
   type: TYPE_NORMAL
 - en: For instance, let’s say we agree that a certain operation should use 1 GB of
     memory, 2 CPU seconds, and take 2 minutes at maximum. If our tests show that it
     takes 2 GB of memory and 1 CPU second for 1 minute, then there is no point in
     optimizing latency.
+  id: totrans-120
   prefs: []
   type: TYPE_NORMAL
 - en: We know if we have room for a trade-off or not.
+  id: totrans-121
   prefs: []
   type: TYPE_NORMAL
 - en: In the preceding example, we can precalculate or compress things to improve
     memory efficiency. We still have 1 CPU second to spare, and we can be slower for
     1 minute.
+  id: totrans-122
   prefs: []
   type: TYPE_NORMAL
 - en: Without official requirements, users will implicitly assume some efficiency
     expectations.
+  id: totrans-123
   prefs: []
   type: TYPE_NORMAL
 - en: For example, maybe our program was accidentally very fast for a certain input.
     Users can assume this is by design, and they will depend on the fact in the future,
     or for other parts of the systems. This can lead to poor user experience and surprises.^([9](ch03.html#idm45606836510192))
+  id: totrans-124
   prefs: []
   type: TYPE_NORMAL
 - en: It’s easier to use your software in a bigger system.
+  id: totrans-125
   prefs: []
   type: TYPE_NORMAL
 - en: More often than not, your software will be a dependency on another piece of
     software and form a bigger system. Even a basic efficiency requirements document
     can tell system architects what to expect from the component. It can help enormously
     with further system performance assessments and capacity planning tasks.
+  id: totrans-126
   prefs: []
   type: TYPE_NORMAL
 - en: It’s easier to provide operational support.
+  id: totrans-127
   prefs: []
   type: TYPE_NORMAL
 - en: When users do not know what performance to expect from your software, you will
@@ -802,15 +966,18 @@
     the user on what is acceptable efficiency and what’s not. Instead, with clear
     efficiency requirements, it is easier to tell if your software was underutilized
     or not, and as a result, the issue might be on the user side.
+  id: totrans-128
   prefs: []
   type: TYPE_NORMAL
 - en: Let’s summarize our situation. We know efficiency requirements can be enormously
     useful. On the other hand, we also know they can be tedious and full of boilerplate.
     So let’s explore some options and see if we can find some balance between the
     requirement gathering effort and the value it brings.
+  id: totrans-129
   prefs: []
   type: TYPE_NORMAL
 - en: Resource-Aware Efficiency Requirements
+  id: totrans-130
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
@@ -820,52 +987,65 @@
     What is the perfect set of information someone could put into some Resource-Aware
     Efficiency Requirements (RAER) document? Something that will be more specific
     and actionable than “I want this program to run adequately snappy.”
+  id: totrans-131
   prefs: []
   type: TYPE_NORMAL
 - en: In [Example 3-1](#code-opt-raer), you can see an example of a data-driven, minimal
     RAER for a single operation in some software.
+  id: totrans-132
   prefs: []
   type: TYPE_NORMAL
 - en: Example 3-1\. The example RAER entry
+  id: totrans-133
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
 - en: '[PRE0]'
+  id: totrans-134
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE0]'
 - en: 'Ideally, this RAER is a set of records with efficiency requirements for certain
     operations. In principle, a single record should have information like:'
+  id: totrans-135
   prefs: []
   type: TYPE_NORMAL
 - en: The operation, API, method, or function it relates to.
+  id: totrans-136
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: The size and shape dataset we operate on, e.g., input or data stored (if any).
+  id: totrans-137
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Maximum latency of the operation.
+  id: totrans-138
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: The resource consumption budget for this operation on that dataset, e.g., memory,
     disk, network bandwidth, etc.
+  id: totrans-139
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: 'Now, there is bad news and good news. The bad news is that, strictly speaking,
     such records are unrealistic to gather for all small operations. This is because:'
+  id: totrans-140
   prefs: []
   type: TYPE_NORMAL
 - en: There are potentially hundreds of different operations that run during the software
     execution.
+  id: totrans-141
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: 'There is an almost infinite number of dataset shapes and sizes (e.g., imagine
     an SQL query being an input, and stored SQL data being a dataset: we have a near-infinite
     amount of option permutations).'
+  id: totrans-142
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -874,6 +1054,7 @@
     common, but what about the space and bandwidth of individual CPU caches, memory
     bus bandwidth, number of TCP sockets taken, file descriptors used, and thousands
     of other elements? Do we have to specify all that can be used?
+  id: totrans-143
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -883,11 +1064,13 @@
     permutations of valid inputs and expected outputs? No, we only define a couple
     of basic characteristics around boundaries (e.g., information has to be a positive
     integer). Let’s look at how we can simplify the level of details of the RAER entry:'
+  id: totrans-144
   prefs: []
   type: TYPE_NORMAL
 - en: Focus on the most utilized and expensive operations our software does first.
     These will impact the software resource usage the most. We will discuss benchmarking
     and profiling that will help you with this later in this book.
+  id: totrans-145
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -900,6 +1083,7 @@
     a limit to overall scalability, e.g., we could fit more processes on a single
     machine if our operation would use fewer TCP sockets or disk IOPS. Add them only
     if they matter.
+  id: totrans-146
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -907,6 +1091,7 @@
     only on important categories of inputs and datasets. If we pick edge cases, we
     have a high chance of providing resource requirements for the worst- and best-case
     datasets. That is an enormous win already.
+  id: totrans-147
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -916,21 +1101,26 @@
     Complexity with Big O Notation”](ch07.html#ch-hw-algo-bigo)). Even with some approximation,
     it’s quite an effective method. Our RAER for the operation `/rules` in [Example 3-1](#code-opt-raer)
     could then be described, as seen in [Example 3-2](#code-opt-raer-func).
+  id: totrans-148
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Example 3-2\. The example RAER entry with complexities or throughput instead
     of absolute numbers
+  id: totrans-149
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
 - en: '[PRE1]'
+  id: totrans-150
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE1]'
 - en: Overall, I would even propose to include the RAER in the functional requirement
     (FR) document mentioned previously. Put it in another section called “Efficiency
     Requirements.” After all, without rational speed and efficiency, our software
     can’t be called fully functional, can it?
+  id: totrans-151
   prefs: []
   type: TYPE_NORMAL
 - en: To sum up, in this section we defined the Resource-Aware Efficiency Requirements
@@ -939,13 +1129,16 @@
     and optimization techniques we learn in this book. Therefore, I want to encourage
     you to understand the performance you aim for, ideally before you start developing
     your software and optimizing or adding more features to it.
+  id: totrans-152
   prefs: []
   type: TYPE_NORMAL
 - en: Let’s explain how we can possess or create such RAERs ourselves for the system,
     application, or function we aim to provide.
+  id: totrans-153
   prefs: []
   type: TYPE_NORMAL
 - en: Acquiring and Assessing Efficiency Goals
+  id: totrans-154
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
@@ -955,12 +1148,14 @@
     on top of functional requirements. They should also make sure the requirements
     are possible to fulfill. If they don’t gather the RAER, don’t hesitate to ask
     them to provide such information. It’s often their job to give it.
+  id: totrans-155
   prefs: []
   type: TYPE_NORMAL
 - en: Unfortunately, in most cases, there are no specific efficiency requirements,
     especially in smaller companies, community-driven projects, or, obviously, your
     personal projects. In those cases, we need to acquire the efficiency goals ourselves.
     How do we start?
+  id: totrans-156
   prefs: []
   type: TYPE_NORMAL
 - en: This task is, again, similar to functional goals. We need to bring value to
@@ -973,12 +1168,14 @@
     which is not trivial if the stakeholders are not from the engineering space. For
     example, the “I want this application to run fast” statement has to be translated
     into specifics.
+  id: totrans-157
   prefs: []
   type: TYPE_NORMAL
 - en: If the stakeholder can’t give the latency numbers they might expect from your
     software, just pick a number. It can be high for a start, which is great for you,
     but it will make your life easier later. Perhaps this will trigger discussions
     on the stakeholder side on the implications of that number.
+  id: totrans-158
   prefs: []
   type: TYPE_NORMAL
 - en: Very often, there are multiple personas of the system users too. For example,
@@ -989,9 +1186,11 @@
     (or loss if the computation cost of running our software is too large). In this
     typical software as a service (SaaS) example, we have not one but two sources
     of input for our RAER.
+  id: totrans-159
   prefs: []
   type: TYPE_NORMAL
 - en: Dogfooding
+  id: totrans-160
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -1000,6 +1199,7 @@
     perspective is much easier. That is only one of the reasons why using the software
     you create is a [good practice](https://oreil.ly/xBgef). This approach is often
     called “eating your own dog food” (dogfooding).
+  id: totrans-161
   prefs: []
   type: TYPE_NORMAL
 - en: Unfortunately, even if a user is willing to define the RAER, the reality is
@@ -1010,18 +1210,22 @@
     some RAER is given, we need to perform our own diligence and define or assess
     the RAER from an achievability perspective. This book will teach you all that
     is required to accomplish this task.
+  id: totrans-162
   prefs: []
   type: TYPE_NORMAL
 - en: In the meantime, let’s go through one example of the RAER definition process.
+  id: totrans-163
   prefs: []
   type: TYPE_NORMAL
 - en: Example of Defining RAER
+  id: totrans-164
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
 - en: Defining and assessing complex RAERs can get complicated. However, starting
     with potentially trivial yet clear requirements is reasonable if you have to do
     it from scratch.
+  id: totrans-165
   prefs: []
   type: TYPE_NORMAL
 - en: Setting these requirements boils down to the user perspective. We need to find
@@ -1030,6 +1234,7 @@
     on top of a set of images in JPEG format. In RAER, we can now treat such image
     transforming as an *operation*, and the set of image files and chosen enhancement
     as our *input*.
+  id: totrans-166
   prefs: []
   type: TYPE_NORMAL
 - en: The second item in our RAER is the latency of our operation. It is better to
@@ -1037,6 +1242,7 @@
     tell us that there are limits on how quickly we can apply the enhancement to images
     (especially if large and many). But how can we find a reasonable latency number
     requirement that would work for potential users and make it possible for our software?
+  id: totrans-167
   prefs: []
   type: TYPE_NORMAL
 - en: It’s not easy to agree on a single number, especially when we are new to the
@@ -1045,9 +1251,11 @@
     hard to find the middle ground here. Yet as mentioned in [“Efficiency Requirements
     Should Be Formalized”](#ch-conq-req-formal), I would encourage you to try defining
     one number, as it would make your software much easier to assess!
+  id: totrans-168
   prefs: []
   type: TYPE_NORMAL
 - en: Defining Efficiency Requirements Is Like Negotiating Salary
+  id: totrans-169
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -1058,12 +1266,14 @@
     to set meaningful goals for such work. What works in salary negotiating works
     when defining RAER: don’t set too high expectations, look at other competitors,
     negotiate, and have trial periods!'
+  id: totrans-170
   prefs: []
   type: TYPE_NORMAL
 - en: One way to define RAER details like latency or resource consumption is to check
     the competition. Competitors are already stuck in some kind of limits and framework
     for stating their efficiency guarantees. You don’t need to set those as your numbers,
     but they can give you some clue of what’s possible or what customers want.
+  id: totrans-171
   prefs: []
   type: TYPE_NORMAL
 - en: While useful, checking competition is often not enough. Eventually, we have
@@ -1073,6 +1283,7 @@
     us a good start on what’s achievable with little effort. For example, let’s assume
     for our problem that we want to read an image in JPEG format from disk (SSD),
     decode it to memory, apply enhancement, encode it back, and write it to disk.
+  id: totrans-172
   prefs: []
   type: TYPE_NORMAL
 - en: With the algorithm, we can start discussing its potential efficiency. However,
@@ -1080,12 +1291,15 @@
     of Experiments”](ch07.html#ch-obs-rel), efficiency depends on many factors! It’s
     tough to measure it on an existing system, not to mention forecasting it just
     from the unimplemented algorithm.
+  id: totrans-173
   prefs: []
   type: TYPE_NORMAL
 - en: This is where the complexity analysis with napkin math comes into play!
+  id: totrans-174
   prefs: []
   type: TYPE_NORMAL
 - en: Napkin Math
+  id: totrans-175
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -1096,6 +1310,7 @@
     1 ms.^([10](ch03.html#idm45606836385424)) With that, we could calculate how long
     it takes to read and write 4 MB of sequential data. Then we can go from there
     and calculate overall latency if we make a few reads in our system, etc.
+  id: totrans-176
   prefs: []
   type: TYPE_NORMAL
 - en: Napkin math is only an estimate, so we need to treat it with a grain of salt.
@@ -1103,11 +1318,13 @@
     calculation is always a fantastic test on whether our guesses and initial system
     ideas are correct. It gives early feedback worth our time, especially around common
     efficiency requirements like latency, memory, or CPU usage.
+  id: totrans-177
   prefs: []
   type: TYPE_NORMAL
 - en: We will discuss both complexity analysis and napkin math in detail in [“Complexity
     Analysis”](ch07.html#ch-hw-complexity), but let’s quickly define the initial RAER
     for our example JPEG enhancement problem space.
+  id: totrans-178
   prefs: []
   type: TYPE_NORMAL
 - en: Complexity allows us to represent efficiency as the function of the latency
@@ -1120,6 +1337,7 @@
     different, and we don’t use concurrency. This means our latency will potentially
     be a function of *x* * *N*, where *x* is the latency of the biggest image, and
     *N* is the number of images in the set.
+  id: totrans-179
   prefs: []
   type: TYPE_NORMAL
 - en: 'Given the worst-case input of an 8K image in JPEG format, we can try to estimate
@@ -1134,9 +1352,11 @@
     represent color in [YCbCr format](https://oreil.ly/lWiTf). That means approx 100
     million unsigned 8-byte integers. We can then find out both the potential runtime
     and space complexities:'
+  id: totrans-180
   prefs: []
   type: TYPE_NORMAL
 - en: Runtime
+  id: totrans-181
   prefs: []
   type: TYPE_NORMAL
 - en: We need to fetch each element from memory (~5 ns for a sequential read from
@@ -1144,27 +1364,32 @@
     so 1 second. As a result of this quick math, we now know that without applying
     any enhancements or more tricky algorithms, such an operation for the single image
     will be no faster than 1s + 0.5s, so 1.5 seconds.
+  id: totrans-182
   prefs: []
   type: TYPE_NORMAL
 - en: Since napkin math is only an estimate, plus we did not account for the actual
     enhancing operation, it would be safe to assume we are wrong up to three times.
     This means we could use 5 seconds as the initial latency requirement for a single
     image to be safe, so 5 * *N* seconds for *N* images.
+  id: totrans-183
   prefs: []
   type: TYPE_NORMAL
 - en: Space
+  id: totrans-184
   prefs: []
   type: TYPE_NORMAL
 - en: For the naive algorithm that reads the whole image to memory, storing that image
     will probably be the operation that allocates the most memory. With the mentioned
     three `uint8` numbers per pixel, we have 33 million * 3 * 8 bytes, so a maximum
     of 755 MB of memory usage.
+  id: totrans-185
   prefs: []
   type: TYPE_NORMAL
 - en: We assumed typical cases and unoptimized algorithms, so we expect to be able
     to improve those initial numbers. But it might as well be fine for the user to
     wait 50 seconds for 10 images and use 1 GB of memory on each image. Knowing those
     numbers allows descoping efficiency work when possible!
+  id: totrans-186
   prefs: []
   type: TYPE_NORMAL
 - en: To be more confident of the calculations we did, or if you are stuck in napkin
@@ -1173,22 +1398,27 @@
     for reading, decoding, encoding, and saving 8K images using the standard Go `jpeg`
     library. [Example 3-3](#bench-enhance) shows the summarization of the benchmark
     results.
+  id: totrans-187
   prefs: []
   type: TYPE_NORMAL
 - en: Example 3-3\. Go microbenchmark results of reading, decoding, encoding, and
     saving an 8K JPEG file
+  id: totrans-188
   prefs:
   - PREF_H5
   type: TYPE_NORMAL
 - en: '[PRE2]'
+  id: totrans-189
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE2]'
 - en: It turns out that our runtime calculations were quite accurate. It takes 1.56
     seconds on average to perform a basic operation on an 8K image! However, the allocated
     memory is over three times better than we thought. Closer inspection of the [`YCbCr
     struct's comment`](https://oreil.ly/lm3T4) reveals that this type stores on `Y`
     sample per pixel, but each `Cb` and `Cr` sample can span over one or more pixels,
     which might explain the difference.
+  id: totrans-190
   prefs: []
   type: TYPE_NORMAL
 - en: Acquiring and assessing RAERs seems complex, but I recommend doing the exercise
@@ -1197,14 +1427,17 @@
     rough algorithm we have in mind. The same process can also be used to tell if
     there is room for more easy-to-achieve optimization, as described in [“Optimization
     Design Levels”](#ch-conq-opt-levels).
+  id: totrans-191
   prefs: []
   type: TYPE_NORMAL
 - en: With the ability to obtain, define, and assess your RAER, we can finally attempt
     to conquer some efficiency issues! In the next section, we will discuss steps
     I would recommend to handle such sometimes stressful situations professionally.
+  id: totrans-192
   prefs: []
   type: TYPE_NORMAL
 - en: Got an Efficiency Problem? Keep Calm!
+  id: totrans-193
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -1213,6 +1446,7 @@
     it to others, and immediately someone reported performance issues. Maybe it can’t
     run fast enough on other people’s machines. Perhaps it uses an unexpected amount
     of RAM with other users’ datasets.
+  id: totrans-194
   prefs: []
   type: TYPE_NORMAL
 - en: When facing efficiency issues in the program we build, manage, or are responsible
@@ -1224,6 +1458,7 @@
     us) must understand that the topic of efficiency is challenging. On top of that,
     inefficient or buggy code happens every day, even for the most experienced developers.
     Therefore, there should be no shame in making mistakes.
+  id: totrans-195
   prefs: []
   type: TYPE_NORMAL
 - en: Why do I write about emotions in a programming book? Because psychological safety
@@ -1234,9 +1469,11 @@
     we kill innovation and productivity, and introduce anxiety, toxicity, and stress.
     Those feelings can further prevent you from making a professional, reasonable
     decision on how to proceed with the reported efficiency issues or any other problems.
+  id: totrans-196
   prefs: []
   type: TYPE_NORMAL
 - en: Blameless Culture Matters
+  id: totrans-197
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -1247,6 +1484,7 @@
     of the incident to prevent it. Furthermore, the blameless approach enables us
     to be honest about facts while respecting others, so everyone feels safe to escalate
     issues without fear.
+  id: totrans-198
   prefs: []
   type: TYPE_NORMAL
 - en: We should stop worrying too much, and with a clear mind, we should follow a
@@ -1255,42 +1493,52 @@
     by optimization. The potential flow for the developer I propose is presented in
     [Figure 3-3](#img-issue-handling). Note that the optimization step is not on the
     list yet!
+  id: totrans-199
   prefs: []
   type: TYPE_NORMAL
 - en: '![efgo 0303](assets/efgo_0303.png)'
+  id: totrans-200
   prefs: []
   type: TYPE_IMG
 - en: Figure 3-3\. Recommended flow for efficiency issue triaging
+  id: totrans-201
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
 - en: 'Here, we outline six steps to do when an efficiency issue is reported:'
+  id: totrans-202
   prefs: []
   type: TYPE_NORMAL
 - en: 'Step 1: An efficiency issue was reported on our bug tracker.'
+  id: totrans-203
   prefs: []
   type: TYPE_NORMAL
 - en: The whole process starts when someone reports an efficiency issue for the software
     we are responsible for. If more than one issue was reported, always begin the
     process shown in [Figure 3-3](#img-issue-handling) for every single issue (divide
     and conquer).
+  id: totrans-204
   prefs: []
   type: TYPE_NORMAL
 - en: Note that going through this process and putting things through a bug tracker
     should be your habit, even for small personal projects. How else would you remember
     in detail all the things you want to improve?
+  id: totrans-205
   prefs: []
   type: TYPE_NORMAL
 - en: 'Step 2: Check for duplicates.'
+  id: totrans-206
   prefs: []
   type: TYPE_NORMAL
 - en: This might be trivial, but try to be organized. Combine multiple issues for
     a single, focused conversation. Save time. Unfortunately, we are not yet at the
     stage where automation (e.g., artificial intelligence) can reliably find duplicates
     for us.
+  id: totrans-207
   prefs: []
   type: TYPE_NORMAL
 - en: 'Step 3: Validate the circumstances against functional requirements.'
+  id: totrans-208
   prefs: []
   type: TYPE_NORMAL
 - en: In this step, we have to ensure that the efficiency issue reporter used supported
@@ -1299,14 +1547,17 @@
     similar use cases, users often try to “abuse” our software to do something it
     was never meant to do. Sometimes they are lucky, and things work. Sometimes it
     ends with crashes, unexpected resource usage, or slowdowns.^([12](ch03.html#idm45606836314240))
+  id: totrans-209
   prefs: []
   type: TYPE_NORMAL
 - en: Similarly, we should do the same if the agreed prerequisites are not matched.
     For example, the unsupported, malformed request was sent, or the software was
     deployed on a machine without the required GPU resource.
+  id: totrans-210
   prefs: []
   type: TYPE_NORMAL
 - en: 'Step 4: Validate the situation against RAERs.'
+  id: totrans-211
   prefs: []
   type: TYPE_NORMAL
 - en: Some expectations toward speed and efficiency cannot or do not need to be satisfied.
@@ -1314,14 +1565,17 @@
     Efficiency Requirements”](#ch-conq-req) is invaluable. If the reported observation
     (e.g., response latency for the valid request) is still within the agreed-on software
     performance numbers, we should communicate that fact and move on.^([13](ch03.html#idm45606836310064))
+  id: totrans-212
   prefs: []
   type: TYPE_NORMAL
 - en: Similarly, when the issue author deployed our software with an HDD disk where
     SSD was required, or the program was running on a machine with lower CPU cores
     than stated in the formal agreement, we should politely close such a bug report.
+  id: totrans-213
   prefs: []
   type: TYPE_NORMAL
 - en: Functional or Efficiency Requirements Can Change!
+  id: totrans-214
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -1329,9 +1583,11 @@
     not predict certain corner cases. As a result, the specification might need to
     be revised to match reality. Requirements and demands evolve, and so should performance
     specifications and expectations.
+  id: totrans-215
   prefs: []
   type: TYPE_NORMAL
 - en: 'Step 5: Acknowledge the issue, note it for prioritization, and move on.'
+  id: totrans-216
   prefs: []
   type: TYPE_NORMAL
 - en: Yes, you read it right. After you check the impact and all the previous steps,
@@ -1339,6 +1595,7 @@
     problem at the current moment. There might be more important things that need
     our attention—maybe an important, overdue feature or another efficiency issue
     in a different part of the code.
+  id: totrans-217
   prefs: []
   type: TYPE_NORMAL
 - en: The world is not perfect. We can’t solve everything. Exercise your assertiveness.
@@ -1351,9 +1608,11 @@
     great starting point later. Communicate clearly that you will prioritize this
     issue with the team in the next prioritization session for the potential optimization
     effort.
+  id: totrans-218
   prefs: []
   type: TYPE_NORMAL
 - en: 'Step 6: Done, issue was triaged.'
+  id: totrans-219
   prefs: []
   type: TYPE_NORMAL
 - en: Congratulations, the issue is handled. It’s either closed or open. If it’s open
@@ -1361,9 +1620,11 @@
     with the team. Once we plan to tackle a specific issue, the efficiency flow in
     [“Efficiency-Aware Development Flow”](#ch-conq-eff-flow) will tell you how to
     do it effectively. Fear not. It might be easier than you think!
+  id: totrans-220
   prefs: []
   type: TYPE_NORMAL
 - en: This Flow Is Applicable for Both SaaS and Externally Installed Software
+  id: totrans-221
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -1371,15 +1632,18 @@
     by the user on their laptop, smartphone, or servers (sometimes called “on-premise”
     installation), as well as when it’s managed by our company “as a service” (software
     as a service—SaaS). We developers should still try to triage all issues systematically.
+  id: totrans-222
   prefs: []
   type: TYPE_NORMAL
 - en: We divided optimizations into reasonable and deliberate. Let’s not hesitate
     and make the next division. To simplify and isolate the problem of software efficiency
     optimizations, we can divide it into levels, which we can then design and optimize
     in isolation. We will discuss those in the next section.
+  id: totrans-223
   prefs: []
   type: TYPE_NORMAL
 - en: Optimization Design Levels
+  id: totrans-224
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -1387,26 +1651,32 @@
     day (we will use this example a couple of times in this chapter!). If such a commute
     makes you unhappy because it takes a considerable effort and is too long, it might
     make sense to optimize it. There are, however, so many levels we can do this on:'
+  id: totrans-225
   prefs: []
   type: TYPE_NORMAL
 - en: We can start small, by buying more comfortable shoes for walking distances.
+  id: totrans-226
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: We could buy an electric scooter or a car if that helps.
+  id: totrans-227
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: We could plan the journey so it takes less time or distance to travel.
+  id: totrans-228
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: We could buy an ebook reader and invest in a book-reading hobby to not waste
     time.
+  id: totrans-229
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Finally, we could move closer to the workplace or even change jobs.
+  id: totrans-230
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -1414,6 +1684,7 @@
     optimization takes some investment, trade-off (buying a car costs money), and
     effort. Ideally, we want to minimize the effort while maximizing value and making
     a difference.
+  id: totrans-231
   prefs: []
   type: TYPE_NORMAL
 - en: 'There is another crucial aspect of those levels: optimizations from one level
@@ -1425,6 +1696,7 @@
     effort and investment in previous optimizations are now less valuable (if not
     fully wasted). This is the same in the engineering field. We should be aware of
     where we spend our optimization effort and when.'
+  id: totrans-232
   prefs: []
   type: TYPE_NORMAL
 - en: When studying computer science, one of the students’ first encounters with optimization
@@ -1435,27 +1707,33 @@
     we have many more areas and variables we can optimize to improve our software
     efficiency. To appropriately talk about the performance, there are more levels
     that software depends on.
+  id: totrans-233
   prefs: []
   type: TYPE_NORMAL
 - en: '[Figure 3-4](#img-opt-levels) presents the levels that take a significant part
     in software execution. This list of levels is inspired by Jon Louis Bentley’s
     list made in 1982,^([14](ch03.html#idm45606836284512)) and it’s still very accurate.'
+  id: totrans-234
   prefs: []
   type: TYPE_NORMAL
 - en: '![efgo 0304](assets/efgo_0304.png)'
+  id: totrans-235
   prefs: []
   type: TYPE_IMG
 - en: Figure 3-4\. Levels that take part in software execution. We can provide optimization
     in each of these in isolation.
+  id: totrans-236
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
 - en: 'This book outlines five optimization design levels, each with its optimization
     approaches and verification strategies. So let’s dig into them, from the highest
     to the lowest:'
+  id: totrans-237
   prefs: []
   type: TYPE_NORMAL
 - en: System level
+  id: totrans-238
   prefs: []
   type: TYPE_NORMAL
 - en: In most cases, our software is part of some bigger system. Maybe it’s one of
@@ -1464,6 +1742,7 @@
     software component that encapsulates certain functionality behind the method,
     interface, or other APIs (e.g., network API or file format) to be interchanged
     and modified more easily.
+  id: totrans-239
   prefs: []
   type: TYPE_NORMAL
 - en: Each Go application, even the smallest, is an executable module that imports
@@ -1472,13 +1751,16 @@
     are linked together, who calls which component, and how often. We could say we
     are designing algorithms that work across modules and APIs, which are our data
     structures.
+  id: totrans-240
   prefs: []
   type: TYPE_NORMAL
 - en: It is nontrivial work that requires multiple-team efforts and good architecture
     design up front. But, on the other hand, it often brings enormous efficiency improvements.
+  id: totrans-241
   prefs: []
   type: TYPE_NORMAL
 - en: Intramodule algorithm and data structure level
+  id: totrans-242
   prefs: []
   type: TYPE_NORMAL
 - en: 'Given a problem to solve, its input data, and expected output, the module developer
@@ -1487,6 +1769,7 @@
     problem (e.g., produce correct output). You have probably heard about many popular
     ones: binary search, quicksort, merge sort, map-reduce, and others, but any custom
     set of steps your program does can be called an algorithm.'
+  id: totrans-243
   prefs: []
   type: TYPE_NORMAL
 - en: 'The second element is *data structures*, often implied by a chosen algorithm.
@@ -1495,9 +1778,11 @@
     stacks, queues, others, mixes, or custom ones. A solid choice of the algorithms
     within your module is extremely important. They have to be revised for your specific
     goals (e.g., request latency) and the input characteristics.'
+  id: totrans-244
   prefs: []
   type: TYPE_NORMAL
 - en: Implementation (code) level
+  id: totrans-245
   prefs: []
   type: TYPE_NORMAL
 - en: Algorithms in the module do not exist until they are written in code, compilable
@@ -1508,11 +1793,13 @@
     in a higher-level language (e.g., Go) that implements a specific algorithm, and
     producing a more efficient program in any aspect we want (e.g., latency) that
     uses the same algorithm and yields the same, correct output.
+  id: totrans-246
   prefs: []
   type: TYPE_NORMAL
 - en: Typically, we optimize on both algorithm and code levels together. In other
     cases, settling on one algorithm and focusing only on code optimizations is easier.
     You will see both approaches in Chapters [10](ch10.html#ch-opt) and [11](ch11.html#ch-opt2).
+  id: totrans-247
   prefs: []
   type: TYPE_NORMAL
 - en: Some previous materials consider the compilation step as an individual level.
@@ -1520,9 +1807,11 @@
     ones. There is a deep synergy between your implementation and how the compiler
     will translate it to machine code. As developers, we have to understand this relationship.
     We will explore Go compiler implications more in [“Understanding Go Compiler”](ch04.html#ch-hw-compilation).
+  id: totrans-248
   prefs: []
   type: TYPE_NORMAL
 - en: Operating system level
+  id: totrans-249
   prefs: []
   type: TYPE_NORMAL
 - en: These days, our software is never executed directly on the machine hardware
@@ -1531,6 +1820,7 @@
     other essential services, like memory and IO management, device access, and more.
     On top of that, we have additional virtualization layers (virtual machines, containers)
     that we can put in the operating system bucket, especially in cloud-native environments.
+  id: totrans-250
   prefs: []
   type: TYPE_NORMAL
 - en: All those layers pose some overhead that can be optimized by those who control
@@ -1540,9 +1830,11 @@
     higher levels. We will go through them in [Chapter 4](ch04.html#ch-hardware),
     mainly focusing on Unix operating systems and popular virtualization techniques.
     I assume in this book that device drivers and firmware also fit into this category.
+  id: totrans-251
   prefs: []
   type: TYPE_NORMAL
 - en: Hardware level
+  id: totrans-252
   prefs: []
   type: TYPE_NORMAL
 - en: 'Finally, at some point, a set of instructions translated from our code is executed
@@ -1558,6 +1850,7 @@
     may impact our software efficiency optimization processes. We will explore this
     topic briefly in Chapters [4](ch04.html#ch-hardware) and [5](ch05.html#ch-hardware2),
     together with the mechanisms Go employs to tackle these issues.'
+  id: totrans-253
   prefs: []
   type: TYPE_NORMAL
 - en: What are the practical benefits of dividing our problem space into levels? First
@@ -1565,6 +1858,7 @@
     application speed, it is often possible to achieve speedups with factors of 10
     to 20 at any of the mentioned levels, if not more. This is also similar to my
     experience.
+  id: totrans-254
   prefs: []
   type: TYPE_NORMAL
 - en: The good news is that this implies the possibility of focusing our optimizations
@@ -1574,6 +1868,7 @@
     sacrifices in development time, readability, and maintainability (our sweet spot
     from [Figure 3-2](#img-opt-cost)). So you might have to look at another level
     to gain more.
+  id: totrans-255
   prefs: []
   type: TYPE_NORMAL
 - en: The bad news is that you might be unable to change certain levels. For example,
@@ -1581,20 +1876,24 @@
     operating system, or hardware. Similarly, system administrators won’t be able
     to change the algorithm the software is using. Instead, they can replace systems
     and configure or tune them.
+  id: totrans-256
   prefs: []
   type: TYPE_NORMAL
 - en: Beware of the Optimization Biases!
+  id: totrans-257
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
 - en: It is sometimes funny (and scary!) how different engineering groups within a
     single company come up with highly distinct solutions to the same efficiency problems.
+  id: totrans-258
   prefs: []
   type: TYPE_NORMAL
 - en: If the group has more system administrators or DevOps engineers, the solution
     is often to switch to another system, software, or operating system or try to
     “tune” them. In contrast, the software engineering group will mostly iterate on
     the same codebase, optimizing system, algorithm, or code levels.
+  id: totrans-259
   prefs: []
   type: TYPE_NORMAL
 - en: This bias comes from the experience of changing each level, but it can have
@@ -1604,15 +1903,18 @@
     a simple code-level optimization might be excessive. Or another way around, trying
     to optimize the efficiency of the system designed for different purposes on the
     code level might not be sufficient.
+  id: totrans-260
   prefs: []
   type: TYPE_NORMAL
 - en: We discussed what optimization is, and we mentioned how to set performance goals,
     handle efficiency issues, and the design levels we operate in. Now it’s time to
     hook everything together and combine this knowledge into the complete development
     cycle.
+  id: totrans-261
   prefs: []
   type: TYPE_NORMAL
 - en: Efficiency-Aware Development Flow
+  id: totrans-262
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -1620,14 +1922,17 @@
     life should be the overall organization of the programming project and producing
     correct and maintainable code. Furthermore, in many contexts, the cleanly designed
     program is often efficient enough for the application at hand.
+  id: totrans-263
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: ''
+  id: totrans-264
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: Jon Louis Bentley, *Writing Efficient Programs*
+  id: totrans-265
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
@@ -1638,17 +1943,21 @@
     is to get this work done effectively, so a pragmatic approach is necessary. How
     might developing a working but efficient code look from a high-level point of
     view?
+  id: totrans-266
   prefs: []
   type: TYPE_NORMAL
 - en: We can simplify the development process into nine steps, as presented in [Figure 3-5](#img-opt-flow).
     For lack of a better term, let’s call it the *TFBO* flow—test, fix, benchmark,
     and optimize.
+  id: totrans-267
   prefs: []
   type: TYPE_NORMAL
 - en: '![efgo 0305](assets/efgo_0305.png)'
+  id: totrans-268
   prefs: []
   type: TYPE_IMG
 - en: Figure 3-5\. Efficiency-aware development flow
+  id: totrans-269
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
@@ -1660,23 +1969,28 @@
     software written in any language, not only Go. It is also applicable for all levels
     mentioned in [“Optimization Design Levels”](#ch-conq-opt-levels). Let’s go through
     the nine TFBO steps.
+  id: totrans-270
   prefs: []
   type: TYPE_NORMAL
 - en: Functionality Phase
+  id: totrans-271
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
 - en: It is far, far easier to make a correct program fast than it is to make a fast
     program correct.
+  id: totrans-272
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: ''
+  id: totrans-273
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: 'H. Sutter and A. Alexandrescu, [*C++ Coding Standards: 101 Rules, Guidelines,
     and Best Practices*](https://oreil.ly/hq0zw) (Addison-Wesley, 2004)'
+  id: totrans-274
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
@@ -1687,9 +2001,11 @@
     ideally in written form. Especially when you are starting your journey as a software
     engineer, focus on one thing at a time. With practice, we can add more reasonable
     optimizations early on.
+  id: totrans-275
   prefs: []
   type: TYPE_NORMAL
 - en: 1\. Test functionality first
+  id: totrans-276
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -1699,19 +2015,23 @@
     a new program. This development paradigm is called test-driven development (TDD).
     It is mainly focused on code reliability and feature delivery velocity efficiency.
     In a strict form, on the code level, it mandates a specific flow:'
+  id: totrans-277
   prefs: []
   type: TYPE_NORMAL
 - en: Write a test (or extend an existing one) that expects the feature to be implemented.
+  id: totrans-278
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: Make sure to run all tests and see the new tests failing for expected reasons.
     If you don’t see the failure or other failures, fix those tests first.
+  id: totrans-279
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: Iterate with the smallest possible changes until all tests pass and the code
     is clean.
+  id: totrans-280
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
@@ -1723,25 +2043,30 @@
     worked before. TDD ensures you don’t run into those questions at the end of your
     work, enormously improving reliability. It also reduces implementation time, allowing
     safe code modifications and giving you feedback early.
+  id: totrans-281
   prefs: []
   type: TYPE_NORMAL
 - en: 'Furthermore, what if the functionality we wanted to implement is already done
     and we didn’t notice? Writing a test first would reveal that quickly, saving us
     time. Spoiler alert: we will use the same principles for benchmark-driven optimization
     in step 4 later!'
+  id: totrans-282
   prefs: []
   type: TYPE_NORMAL
 - en: The TDD can be easily understood as a code-level practice, but what if you design
     or optimize algorithms and systems? The answer is that the flow remains the same,
     but our testing strategy must be applied on a different level, e.g., validating
     system design.
+  id: totrans-283
   prefs: []
   type: TYPE_NORMAL
 - en: Let’s say we implemented a test or performed an assessment on what is currently
     designed or implemented. What’s next?
+  id: totrans-284
   prefs: []
   type: TYPE_NORMAL
 - en: 2\. Do we pass the functional tests?
+  id: totrans-285
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -1751,6 +2076,7 @@
     fulfilling the specification? Great, we can jump to step 4\. However, if tests
     fail or the functionality assessment shows some functionality gap, it’s time to
     go to step 3 and fix this situation.
+  id: totrans-286
   prefs: []
   type: TYPE_NORMAL
 - en: The problem is when you don’t have those functional requirements stated anywhere.
@@ -1758,13 +2084,16 @@
     this is why asking for functional requirements or defining them on your own is
     so important. Even the simplest bullet-point list of goals, written in the project
     README, is better than nothing.
+  id: totrans-287
   prefs: []
   type: TYPE_NORMAL
 - en: Now, let’s explore what to do if the current state of our software doesn’t pass
     functional verification.
+  id: totrans-288
   prefs: []
   type: TYPE_NORMAL
 - en: 3\. If the tests fail, we have to fix, implement, or design the missing parts
+  id: totrans-289
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -1777,6 +2106,7 @@
     if parsing integers here will be too slow unless it’s obvious. Just do whatever
     makes sense from a functional and readability standpoint. We don’t validate efficiency
     yet, so let’s forget about deliberate optimizations for now.
+  id: totrans-290
   prefs: []
   type: TYPE_NORMAL
 - en: As you might have noticed in [Figure 3-5](#img-opt-flow), steps 1, 2, and 3
@@ -1787,6 +2117,7 @@
     precise feedback tools like GPS, we can end up sailing to the wrong place and
     only realizing it after weeks have gone by. This is why it’s beneficial to validate
     our sailing position in short intervals for early feedback!
+  id: totrans-291
   prefs: []
   type: TYPE_NORMAL
 - en: This is the same for our code. We don’t want to work for months only to learn
@@ -1797,34 +2128,41 @@
     cycle engineers have found over the years. All modern methodologies like [extreme
     programming](https://oreil.ly/rhx8W), Scrum, Kanban, and other [Agile](https://oreil.ly/sKZUA)
     techniques are built on a small iterations premise.
+  id: totrans-292
   prefs: []
   type: TYPE_NORMAL
 - en: After potentially hundreds of iterations, we might have software or design that
     fulfills, in step 2, the functional requirements we have set for ourselves for
     this development session. Finally, it’s time to ensure our software is fast and
     efficient enough! Let’s look at that in the next section.
+  id: totrans-293
   prefs: []
   type: TYPE_NORMAL
 - en: Efficiency Phase
+  id: totrans-294
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
 - en: Once we are happy with the functional aspects of our software, it’s time to
     ensure it matches the expected resource consumption and speed.
+  id: totrans-295
   prefs: []
   type: TYPE_NORMAL
 - en: Splitting phases and isolating them from each other seems like a burden at first
     glance, but it will organize your developer workflow better. It gives us deep
     focus, ruling our early unknowns and mistakes, and helps us avoid expensive focus
     context switches.
+  id: totrans-296
   prefs: []
   type: TYPE_NORMAL
 - en: Let’s start our efficiency phase by performing the initial (baseline) efficiency
     validation in step 4\. Then, who knows, maybe our software is efficient enough
     without any changes!
+  id: totrans-297
   prefs: []
   type: TYPE_NORMAL
 - en: 4\. Efficiency assessment
+  id: totrans-298
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -1832,12 +2170,14 @@
     toward efficiency space. We can define an equivalent of the TDD method explained
     in step 1\. Let’s call it benchmark-driven optimization (BDO). In practice, step
     4 looks like this process at the code level:'
+  id: totrans-299
   prefs: []
   type: TYPE_NORMAL
 - en: Write benchmarks (or extend existing ones) for all the operations from the efficiency
     requirements we want to compare against. Do it even if you know that the current
     implementation is not efficient yet. We will need that work later. It is not trivial,
     and we will discuss this aspect in detail in [Chapter 8](ch08.html#ch-benchmarking).
+  id: totrans-300
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
@@ -1845,14 +2185,17 @@
     operations. In practice, this takes too much time, so focus on one part of the
     program (e.g., one operation) you want to check and run benchmarks only for that.
     Save the results for later. This will be our baseline.
+  id: totrans-301
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: Similar to step 1, the higher-level assessment might require different tools.
     Equipped with results from benchmarks or assessments, let’s go to step 5.
+  id: totrans-302
   prefs: []
   type: TYPE_NORMAL
 - en: 5\. Are we within RAERs?
+  id: totrans-303
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -1860,27 +2203,32 @@
     For example, is our latency within the acceptable norm for the current implementation?
     Is the amount of resources our operation consumes within what we agreed? If yes,
     then no optimization is needed!
+  id: totrans-304
   prefs: []
   type: TYPE_NORMAL
 - en: Again, similar to step 2, we have to establish requirements or rough goals for
     efficiency. Otherwise, we have zero ideas if the numbers we see are acceptable
     or not. Again, refer to [“Acquiring and Assessing Efficiency Goals”](#ch-conq-acquiring-raer)
     on how to define RAERs.
+  id: totrans-305
   prefs: []
   type: TYPE_NORMAL
 - en: With this comparison, we should have a clear answer. Are we within acceptable
     thresholds? If yes, we can jump straight to the release process in step 9\. If
     not, there is exciting optimization logic ahead of us in steps 6, 7, and 8\. Let’s
     walk through those now.
+  id: totrans-306
   prefs: []
   type: TYPE_NORMAL
 - en: 6\. Find the main bottleneck
+  id: totrans-307
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: Here we must address the first challenge mentioned in [“Optimization Challenges”](#ch-conq-challenges).
     We are typically bad at guessing which part of the operation causes the biggest
     bottleneck; unfortunately, that’s where our optimization should focus first.
+  id: totrans-308
   prefs: []
   type: TYPE_NORMAL
 - en: The word *bottleneck* describes a place where most consumption of specific resources
@@ -1888,18 +2236,22 @@
     memory leak, or a function executed millions of times during a single operation.
     A single program usually has only a few of these bottlenecks. To perform effective
     optimization, we must first understand the bottleneck’s consequences.
+  id: totrans-309
   prefs: []
   type: TYPE_NORMAL
 - en: As part of this process, we need first to understand the underlying root cause
     of the problem we found in step 5\. We will discuss the best tools for this job
     in [Chapter 9](ch09.html#ch-observability3).
+  id: totrans-310
   prefs: []
   type: TYPE_NORMAL
 - en: Let’s say we found the set of functions executed the most or another part of
     a program that consumes the most resources. What’s next?
+  id: totrans-311
   prefs: []
   type: TYPE_NORMAL
 - en: 7\. Choice of level
+  id: totrans-312
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -1907,39 +2259,48 @@
     make the code more efficient? Perhaps we could improve the algorithm? Or maybe
     optimize on the system level? In extreme cases, we might also want to optimize
     the operating system or hardware!
+  id: totrans-313
   prefs: []
   type: TYPE_NORMAL
 - en: The choice depends on what’s more pragmatic at the moment and where we are in
     our efficiency spectrum in [Figure 3-1](#img-opt-sum). The important part is to
     stick to single-level optimization at one optimization iteration. Similar to the
     functionality phase, make short iterations and small corrections.
+  id: totrans-314
   prefs: []
   type: TYPE_NORMAL
 - en: Once we know the level we want to make more efficient or faster, we are ready
     to perform optimization!
+  id: totrans-315
   prefs: []
   type: TYPE_NORMAL
 - en: 8\. Optimize!
+  id: totrans-316
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: 'This is what everyone was waiting for. Finally, after all that effort, we know:'
+  id: totrans-317
   prefs: []
   type: TYPE_NORMAL
 - en: What place in the code or design to optimize for the most impact.
+  id: totrans-318
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: What to optimize for—what resource consumption is too large.
+  id: totrans-319
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: How much sacrifice we can make on other resources because we have RAER. There
     will be trade-offs.
+  id: totrans-320
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: On what level we are optimizing.
+  id: totrans-321
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -1950,29 +2311,35 @@
     that can be eliminated, either for free or by doing other work using another resource.
     I will introduce some patterns in [Chapter 11](ch11.html#ch-opt2) and show examples
     in [Chapter 10](ch10.html#ch-opt).
+  id: totrans-322
   prefs: []
   type: TYPE_NORMAL
 - en: 'Let’s say we found some ideas for improvement. This is when you should implement
     it or design it (depending on the level). But what’s next? We cannot just release
     our optimization like this simply because:'
+  id: totrans-323
   prefs: []
   type: TYPE_NORMAL
 - en: We don’t know that we did not introduce functional issues (bugs).
+  id: totrans-324
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: We don’t know if we improved any performance.
+  id: totrans-325
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: This is why we have to perform the full cycle now (no exceptions!). It’s critical
     to go to step 1 and test the optimized code or design. If there are problems,
     we must fix them or revert optimization (steps 2 and 3).
+  id: totrans-326
   prefs: []
   type: TYPE_NORMAL
 - en: It is tempting to ignore the functional testing phase when iterating on optimizations.
     For example, what can go wrong if you only reduce one allocation by reusing some
     memory?
+  id: totrans-327
   prefs: []
   type: TYPE_NORMAL
 - en: I often caught myself doing this, and it was a painful mistake. Unfortunately,
@@ -1980,6 +2347,7 @@
     it is hard to find what caused it. Usually, you have to revert all and start from
     scratch. Therefore, I encourage you to run a scoped unit test every time after
     the optimization attempt.
+  id: totrans-328
   prefs: []
   type: TYPE_NORMAL
 - en: Once we gain confidence that our optimization did not break any basic functionality,
@@ -1987,6 +2355,7 @@
     It’s important to run *the same* benchmark, ensuring that nothing changes except
     the optimization you did (step 4). This allows us to reduce unknowns and iterate
     on our optimization in small parts.
+  id: totrans-329
   prefs: []
   type: TYPE_NORMAL
 - en: With the results from this recent step 4, compare it with the baseline made
@@ -1994,6 +2363,7 @@
     anything or introduced performance regression. Again, don’t assume anything. Let
     the data speak for itself! Go has amazing tools for that, which we will discuss
     in [Chapter 8](ch08.html#ch-benchmarking).
+  id: totrans-330
   prefs: []
   type: TYPE_NORMAL
 - en: If the new optimization doesn’t have a better efficiency result, we simply try
@@ -2001,13 +2371,16 @@
     we save our work and go to step 5 to check if it’s enough. If not, we have to
     make another iteration. It’s often useful to build another optimization on what
     we already did. Maybe there is something more to improve!
+  id: totrans-331
   prefs: []
   type: TYPE_NORMAL
 - en: We repeat this cycle, and after a few (or hundreds), we hopefully have acceptable
     results in step 5\. In this case, we can move to step 9 and enjoy our work!
+  id: totrans-332
   prefs: []
   type: TYPE_NORMAL
 - en: 9\. Release and enjoy!
+  id: totrans-333
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -2016,9 +2389,11 @@
     The process might feel bureaucratic, but it’s easy to build an instinct for it
     and follow it naturally. Of course, you might already be using this flow without
     noticing!
+  id: totrans-334
   prefs: []
   type: TYPE_NORMAL
 - en: Summary
+  id: totrans-335
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -2026,6 +2401,7 @@
     certain patterns exist that help to navigate this process systematically and effectively.
     For example, the TFBO flow was immensely helpful for me to keep my efficiency-aware
     development pragmatic and effective.
+  id: totrans-336
   prefs: []
   type: TYPE_NORMAL
 - en: Some of the frameworks incorporated in the TFBO, like test-driven development
@@ -2033,6 +2409,7 @@
     to the saying, [“Give me six hours to chop a tree, I will spend four hours sharpening
     an axe”](https://oreil.ly/qNPId), you will notice that spending time on a proper
     test and benchmark will save you tons of effort in the long term!
+  id: totrans-337
   prefs: []
   type: TYPE_NORMAL
 - en: The main takeaways are that we can divide optimizations into reasonable and
@@ -2041,6 +2418,7 @@
     Next, we mentioned what to do when an efficiency problem occurs and what optimizations
     levels there are. Finally, we discussed TFBO flow, which guides us through the
     practical development process.
+  id: totrans-338
   prefs: []
   type: TYPE_NORMAL
 - en: To sum up, finding optimization can be considered a problem-solving skill. Noticing
@@ -2049,6 +2427,7 @@
     of seeing past patterns that were not efficient enough and how they were improved.
     Through this book, we will exercise those skills and uncover many tools that can
     help us in this journey.
+  id: totrans-339
   prefs: []
   type: TYPE_NORMAL
 - en: Yet before that, there are important things to learn about modern computer architecture.
@@ -2057,22 +2436,26 @@
     them effectively and apply them in unique contexts without understanding the mechanisms
     that make those optimizations effective. In the next chapter, we will discuss
     how Go interacts with the key resources in typical computer architecture.
+  id: totrans-340
   prefs: []
   type: TYPE_NORMAL
 - en: ^([1](ch03.html#idm45606836661792-marker)) There might be exceptions. There
     might be domains where it’s acceptable to approximate results. Sometimes we can
     (and should) also drop nice-to-have features if they block the critical efficiency
     characteristics we want.
+  id: totrans-341
   prefs: []
   type: TYPE_NORMAL
 - en: ^([2](ch03.html#idm45606836647264-marker)) Situations where resources are not
     cleaned after each periodic functionality due to leftover concurrent routine are
     often referred to as memory leaks.
+  id: totrans-342
   prefs: []
   type: TYPE_NORMAL
 - en: ^([3](ch03.html#idm45606836619040-marker)) Zero-sum game comes from game and
     economic theory. It describes a situation where one player can only win X if other
     players in total lost exactly X.
+  id: totrans-343
   prefs: []
   type: TYPE_NORMAL
 - en: ^([4](ch03.html#idm45606836617440-marker)) I got inspired for dividing optimizations
@@ -2081,6 +2464,7 @@
     category. I don’t see a value in splitting classes further since there is a fuzzy
     borderline between deliberate and dangerous that depends on the situation and
     personal taste.
+  id: totrans-344
   prefs: []
   type: TYPE_NORMAL
 - en: ^([5](ch03.html#idm45606836572944-marker)) No one said challenging ourselves
@@ -2088,6 +2472,7 @@
     [Advent of Code](https://oreil.ly/zT0Bl) is a great way to learn or even compete!
     This is, however, different than the situation where we are paid to develop functional
     software effectively.
+  id: totrans-345
   prefs: []
   type: TYPE_NORMAL
 - en: ^([6](ch03.html#idm45606836566448-marker)) I experienced this a lot while maintaining
@@ -2097,6 +2482,7 @@
     a bespoke time-series database that assumed storing aggregated samples over time.
     If the ingested series were labeled with unique values, Prometheus slowly but
     surely began to use many resources (we call it a high-cardinality situation).
+  id: totrans-346
   prefs: []
   type: TYPE_NORMAL
 - en: ^([7](ch03.html#idm45606836561456-marker)) Just imagine, with all the resources
@@ -2104,37 +2490,45 @@
     physics. And once we are there, we could spend decades on research that pushes
     boundaries with things beyond the current physics we know. But, practically speaking,
     we might never find the “true” limit in our lifetime.
+  id: totrans-347
   prefs: []
   type: TYPE_NORMAL
 - en: ^([8](ch03.html#idm45606836534640-marker)) I was never explicitly asked to create
     a nonfunctional specification, and the same with [people around me](https://oreil.ly/Ui2tu).
+  id: totrans-348
   prefs: []
   type: TYPE_NORMAL
 - en: ^([9](ch03.html#idm45606836510192-marker)) Funnily enough, with enough program
     users, even with a formal performance and reliability contract, all your system’s
     observable behaviors will depend on somebody. This is known as [Hyrum’s Law](https://oreil.ly/UcrQo).
+  id: totrans-349
   prefs: []
   type: TYPE_NORMAL
 - en: ^([10](ch03.html#idm45606836385424-marker)) We use napkin math more often in
     this book and during optimizations, so I prepared a small cheat sheet for latency
     assumptions in [Appendix A](app01.html#appendix-napkin-math).
+  id: totrans-350
   prefs: []
   type: TYPE_NORMAL
 - en: ^([11](ch03.html#idm45606836367744-marker)) We will discuss benchmarks in detail
     in [Chapter 7](ch07.html#ch-observability2).
+  id: totrans-351
   prefs: []
   type: TYPE_NORMAL
 - en: ^([12](ch03.html#idm45606836314240-marker)) For example, see the instance of
     the XY problem mentioned in [“Understand Your Goals”](#ch-conq-perf-goal).
+  id: totrans-352
   prefs: []
   type: TYPE_NORMAL
 - en: ^([13](ch03.html#idm45606836310064-marker)) The reporter of the issue can obviously
     negotiate a change in the specification with the product owner if they think it’s
     important enough or they want to pay additionally, etc.
+  id: totrans-353
   prefs: []
   type: TYPE_NORMAL
 - en: ^([14](ch03.html#idm45606836284512-marker)) Jon Louis Bentley, *Writing Efficient
     Programs* (Prentice Hall, 1982).
+  id: totrans-354
   prefs: []
   type: TYPE_NORMAL
 - en: ^([15](ch03.html#idm45606836251792-marker)) Raj Reddy and Allen Newell’s “Multiplicative
@@ -2143,16 +2537,19 @@
     design level. What’s even more exciting is the fact that for hierarchical systems,
     the speedups from different levels multiplies, which offers massive potential
     for performance boost when optimizing.
+  id: totrans-355
   prefs: []
   type: TYPE_NORMAL
 - en: ^([16](ch03.html#idm45606836249888-marker)) This is a quite powerful thought.
     For example, imagine you have your application returning a result in 10 m. Reducing
     it to 1 m by optimizing on one level (e.g., an algorithm) is a game changer.
+  id: totrans-356
   prefs: []
   type: TYPE_NORMAL
 - en: ^([17](ch03.html#idm45606836194960-marker)) Ideally, we would have functionality
     checks for every code stroke or event of the saved code file. The earlier the
     feedback loop, the better. The main blocker for this is the time required to perform
     all tests and their reliability.
+  id: totrans-357
   prefs: []
   type: TYPE_NORMAL
