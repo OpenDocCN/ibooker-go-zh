@@ -1,38 +1,51 @@
 - en: Chapter 11\. Observability
+  id: totrans-0
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 第11章 可观测性
 - en: Data is not information, information is not knowledge, knowledge is not understanding,
     understanding is not wisdom.^([1](ch11.xhtml#idm45983615999816))
+  id: totrans-1
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: 数据不是信息，信息不是知识，知识不是理解，理解不是智慧。^([1](ch11.xhtml#idm45983615999816))
 - en: ''
+  id: totrans-2
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: 'Clifford Stoll, High-Tech Heretic: Reflections of a Computer Contrarian'
+  id: totrans-3
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
+  zh: 克利福德·斯托尔，《高科技异端：一位计算机反对派的反思》
 - en: “Cloud native” is still a pretty new concept, even for computing. As far as
     [I can tell](https://oreil.ly/sPxg7), the term “cloud native” only started entering
     our vocabulary just after the founding of the Cloud Native Computing Foundation
     in the middle of 2015.^([2](ch11.xhtml#idm45983615994840))
+  id: totrans-4
   prefs: []
   type: TYPE_NORMAL
+  zh: “云原生”即使对于计算来说也是一个相当新的概念。就我所知，这个术语“云原生”是在2015年中期云原生计算基金会成立之后才开始进入我们的词汇表的。^([2](ch11.xhtml#idm45983615994840))
 - en: As an industry, we’re largely still trying to figure out exactly what “cloud
     native” means, and with each of the major public cloud providers regularly launching
     new services—each seeming to offer more abstraction than the last—even what little
     agreement we have is shifting over time.
+  id: totrans-5
   prefs: []
   type: TYPE_NORMAL
+  zh: 作为一个行业，我们仍在努力弄清楚“云原生”究竟意味着什么，而每个主要公共云提供商都定期推出新服务——每一个看起来都比上一个提供更多抽象层，即使是我们所达成的一点共识也在随着时间而变化。
 - en: 'One thing is clear, though: the functions (and failures) of the network and
     hardware layers are being increasingly abstracted and replaced with API calls
     and events. Every day we move closer to a world of software-defined *everything*.
     All of our problems are becoming software problems.'
+  id: totrans-6
   prefs: []
   type: TYPE_NORMAL
+  zh: 不过有一点是明确的：网络和硬件层面的功能（和故障）越来越被抽象化并且被API调用和事件所替代。每天我们都在向一个全软件定义的*一切*的世界迈进。我们面临的所有问题都变成了软件问题。
 - en: While we certainly sacrifice a fair share of control over the platforms our
     software runs on, we win *big* in overall manageability and reliability,^([3](ch11.xhtml#idm45983615991304))
     allowing us to focus our limited time and attention on our software. However,
@@ -40,8 +53,10 @@
     and the interactions between them. No amount of fancy frameworks or protocols
     can solve the problem of bad software. As I said way back in [Chapter 1](ch01.xhtml#chapter_1),
     a kludgy application in Kubernetes is still kludgy.
+  id: totrans-7
   prefs: []
   type: TYPE_NORMAL
+  zh: 虽然我们肯定会在我们的软件运行的平台上牺牲相当一部分控制权，但我们在整体可管理性和可靠性方面获得了*巨大的*胜利，^([3](ch11.xhtml#idm45983615991304))使我们能够将有限的时间和注意力集中在我们的软件上。然而，这也意味着我们大多数的失败现在都源自我们自己的服务及其之间的交互。任何花哨的框架或协议都无法解决糟糕软件的问题。就像我在[第一章](ch01.xhtml#chapter_1)中所说的那样，Kubernetes中的一个笨拙的应用仍然是笨拙的。
 - en: Things are complicated in this brave new software-defined, highly distributed
     world. The software is complicated, the platforms are complicated, together they’re
     *really* complicated, and more often than not we have no idea what’s going on.
@@ -50,22 +65,30 @@
     techniques simply aren’t up to the task. Clearly, we need something new. Not just
     a new technology, or even a new set of techniques, but an entirely new way of
     thinking about how we understand our systems.
+  id: totrans-8
   prefs: []
   type: TYPE_NORMAL
+  zh: 在这个全新的软件定义、高度分布式的世界里，事情变得复杂起来。软件复杂，平台复杂，它们在一起就*真的*很复杂，我们往往不知道发生了什么。了解我们服务的可见性比以往任何时候都更为重要，而我们*唯一知道的*是现有的监控工具和技术根本无法胜任这项任务。显然，我们需要一些新的东西。不仅仅是新技术，甚至不仅仅是一套新的技术，而是一种全新的思考我们如何理解我们的系统的方式。
 - en: What Is Observability?
+  id: totrans-9
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 什么是可观测性？
 - en: Observability is the subject of an awful lot of buzz right now. It’s kind of
     a big deal. But what is observability, actually? How is it different from (and
     how is it like) traditional monitoring and alerting with logs and metrics and
     tracing? Most importantly, how do we “do observability”?
+  id: totrans-10
   prefs: []
   type: TYPE_NORMAL
+  zh: 可观测性现在是一个非常热门的话题。这是一件大事。但是可观测性到底是什么？它与传统的监控、日志、度量和追踪有什么不同（又有什么相似）？最重要的是，我们如何“实现可观测性”？
 - en: Observability isn’t just marketing hype, although it’s easy to think that based
     on all the attention it’s getting.
+  id: totrans-11
   prefs: []
   type: TYPE_NORMAL
+  zh: 可观测性不仅仅是营销炒作，尽管基于它吸引了如此多的关注很容易这样认为。
 - en: It’s actually pretty simple. Observability is a system property, no different
     than resilience or manageability, that reflects how well a system’s internal states
     can be inferred from knowledge of its external outputs. A system can be considered
@@ -73,15 +96,19 @@
     about it with minimal prior knowledge and without having to reinstrument or build
     new code. An observable system lets you ask it questions that you haven’t thought
     of yet.
+  id: totrans-12
   prefs: []
   type: TYPE_NORMAL
+  zh: 实际上，这相当简单。可观测性是一个系统属性，与弹性或可管理性没有什么不同，它反映了一个系统的内部状态能够从其外部输出的知识中推断出来的程度。当能够快速而一致地对其提出新问题，而无需大量先前知识或重新仪器化或编写新代码时，可以认为一个系统是*可观测的*。一个可观测的系统能让你提出你之前没想过的问题。
 - en: Ultimately, observability is more than tooling, despite what some vendors may
     try to tell you (and sell you). You can’t “buy observability” any more than you
     can “buy reliability.” No tooling will make your system observable just because
     you’re using it any more than a hammer will by itself make a bridge structurally
     sound. The tools can get you partway there, but it’s up to you to apply them correctly.
+  id: totrans-13
   prefs: []
   type: TYPE_NORMAL
+  zh: 最终，可观测性远远超出了工具的范畴，尽管有些供应商可能试图告诉你（并向你出售）。你无法“购买可观测性”就像你无法“购买可靠性”一样。任何工具都不会仅仅因为你使用它就使你的系统可观测，就像仅仅用锤子不会使桥梁结构安全一样。工具可以帮助你部分实现目标，但如何正确应用它们则取决于你自己。
 - en: This is much easier said than done, of course. Building observability into a
     complex system demands moving past searching for “known unknowns,” and embracing
     the fact that we often can’t even fully understand its state at a given snapshot
@@ -89,150 +116,208 @@
     system is pretty much impossible. The first step to achieving observability is
     to stop looking for specific, expected failure modes—the “known unknowns”—as if
     this isn’t the case.
+  id: totrans-14
   prefs: []
   type: TYPE_NORMAL
+  zh: 这当然比说起来容易得多。在复杂系统中构建可观测性要求我们超越寻找“已知未知”的阶段，并接受我们常常甚至无法完全理解其在特定时间点的状态的事实。在复杂系统中理解*所有可能的*故障（或非故障）状态几乎是不可能的。实现可观测性的第一步是停止寻找特定的、预期的故障模式——“已知未知”，好像这不是事实一样。
 - en: Why Do We Need Observability?
+  id: totrans-15
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 为什么我们需要可观测性？
 - en: Observability is the natural evolution of traditional monitoring, driven by
     the new challenges introduced by cloud native architectures.
+  id: totrans-16
   prefs: []
   type: TYPE_NORMAL
+  zh: 可观测性是传统监控的自然演变，受到云原生架构引入的新挑战的驱动。
 - en: The first of these is simply the pure scale of many modern cloud native systems,
     which increasingly have too much *stuff* for our limited human brains with their
     limited human attention spans to handle. All of the data generated by multiple
     concurrently operating interconnected systems provides more things than we can
     reasonably watch, more data than we can reasonably process, and more correlations
     than we can reasonably make.
+  id: totrans-17
   prefs: []
   type: TYPE_NORMAL
+  zh: 首先是现代许多云原生系统的纯粹规模，这些系统越来越复杂，对我们有限的人类大脑和有限的人类注意力范围来说，有太多*东西*是难以处理的。多个并发运行的互连系统生成的所有数据，提供了比我们可以合理监视的更多事物，比我们可以合理处理的更多数据，以及比我们可以合理进行的更多相关性。
 - en: More importantly, however, is that the nature of cloud native systems is fundamentally
     different from the more traditional architectures of not-so-long-ago. Their environmental
     and functional requirements are different, the way they function—and the way they
     fail—is different, and the guarantees they need to provide are different.
+  id: totrans-18
   prefs: []
   type: TYPE_NORMAL
+  zh: 然而，更重要的是，云原生系统的性质与不久前的传统架构根本不同。它们的环境和功能要求不同，它们的功能方式——以及它们的故障方式——也不同，它们需要提供的保证也不同。
 - en: How do you monitor distributed systems given the ephemerality of modern applications
     and the environments in which they reside? How can you pinpoint a defect in a
     single component within the complex web of a highly distributed system? These
     are the problems that “observability” seeks to address.
+  id: totrans-19
   prefs: []
   type: TYPE_NORMAL
+  zh: 在现代应用程序的短暂性和其所在环境的复杂性中，如何监控分布式系统？如何在高度分布式系统的复杂网络中定位单个组件的缺陷？这些都是“可观测性”试图解决的问题。
 - en: How Is Observability Different from “Traditional” Monitoring?
+  id: totrans-20
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 可观测性与“传统”监控有何不同？
 - en: On its face, the line between monitoring and observability seems fuzzy. After
     all, both are about being able to ask questions of a system. The difference is
     in the types of questions that are and can be asked.
+  id: totrans-21
   prefs: []
   type: TYPE_NORMAL
+  zh: 表面上，监控和可观测性之间的界限似乎模糊不清。毕竟，两者都是关于能够询问系统的问题。不同之处在于可以和能够被问到的问题类型。
 - en: Traditionally, monitoring focuses on asking questions in the hope of identifying
     or predicting some expected or previously observed failure modes. In other words,
     it centers on “known unknowns.” The assumption is that the system is expected
     to behave—and therefore fail—in a specific, predictable way. When a new failure
     mode is discovered—usually the hard way—its symptoms are added to the monitoring
     suite, and the process begins again.
+  id: totrans-22
   prefs: []
   type: TYPE_NORMAL
+  zh: 传统上，监控侧重于通过提问来识别或预测某些已知的或以前观察到的故障模式。换句话说，它集中在“已知未知”。假设系统按预期行为运行，因此预计会以特定且可预测的方式失败。当发现新的故障模式时（通常是通过艰难的方式），其症状会被添加到监控套件中，然后整个过程重新开始。
 - en: This approach works well enough when a system is fairly simple, but it has some
     problems. First, asking a new question of a system often means writing and shipping
     new code. This isn’t flexible, it definitely isn’t scalable, and it’s super annoying.
+  id: totrans-23
   prefs: []
   type: TYPE_NORMAL
+  zh: 当系统比较简单时，这种方法效果还不错，但也存在一些问题。首先，要向系统提出新问题通常意味着编写和部署新代码。这种方法不够灵活，显然不可扩展，而且非常令人恼火。
 - en: Second, at a certain level of complexity the number of “unknown unknowns” in
     a system starts to overwhelm the number of “known unknowns.” Failures are more
     often unpredicted, less often predictable, and are nearly always the outcome of
     many things going wrong. Monitoring for every possible failure mode becomes effectively
     impossible.
+  id: totrans-24
   prefs: []
   type: TYPE_NORMAL
+  zh: 其次，在系统复杂度达到一定水平时，“未知未知”的数量开始超过“已知未知”的数量。故障更难预测，更不容易预测，并且几乎总是由于多个问题同时出现而导致。实际上，对每种可能的故障模式进行监控变得几乎不可能。
 - en: Monitoring is something you *do to a system* to find out it isn’t working. Observability
     techniques, on the other hand, emphasize understanding a system by allowing you
     to correlate events and behaviors. Observability is a *property a system has*
     that lets you ask why it isn’t working.
+  id: totrans-25
   prefs: []
   type: TYPE_NORMAL
+  zh: 监控是对系统*执行的*一种操作，以确定它是否工作。另一方面，可观测性技术强调通过允许您相关事件和行为来理解系统。可观测性是系统拥有的一种*属性*，使您能够询问为什么它不工作。
 - en: The “Three Pillars of Observability”
+  id: totrans-26
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: '*“可观测性的三大支柱”*'
 - en: 'The *Three Pillars of Observability* is the collective name by which the three
     most common (and foundational) tools in the observability kit—logging, metrics,
     and tracing—are sometimes referred. These three parts are, in the order that we’ll
     be discussing them:'
+  id: totrans-27
   prefs: []
   type: TYPE_NORMAL
+  zh: '*可观测性的三大支柱*是指可观测性工具包中最常见（也是最基础）的三种工具：日志记录、度量指标和追踪。我们将按照以下顺序依次讨论这三部分：'
 - en: Tracing
+  id: totrans-28
   prefs: []
   type: TYPE_NORMAL
+  zh: 追踪
 - en: Tracing (or *distributed tracing*) follows a request as it propagates through
     a (typically distributed) system, allowing the entire end-to-end request flow
     to be reconstructed as a [directed acyclic graph](https://oreil.ly/exjvV) (DAG)
     called a *trace*. Analysis of these traces can provide insight into how a system’s
     components interact, making it possible to pinpoint failures and performance issues.
+  id: totrans-29
   prefs: []
   type: TYPE_NORMAL
+  zh: 追踪（或*分布式追踪*）跟随请求在（通常是分布式的）系统中传播，允许重建整个端到端的请求流程作为一个称为*追踪*的有向无环图（DAG）。分析这些追踪可以提供关于系统组件如何相互交互的见解，从而能够精确定位故障和性能问题。
 - en: Tracing will be discussed in more detail in [“Tracing”](#section_ch11_tracing).
+  id: totrans-30
   prefs: []
   type: TYPE_NORMAL
+  zh: 追踪将在[“追踪”](#section_ch11_tracing)一节中详细讨论。
 - en: Metrics
+  id: totrans-31
   prefs: []
   type: TYPE_NORMAL
+  zh: 度量指标
 - en: Metrics involves the collection of numerical data points representing the state
     of various aspects of a system at specific points in time. Collections of data
     points, representing observations of the same subject at various times, are particularly
     useful for visualization and mathematical analysis, and can be used to highlight
     trends, identify anomalies, and predict future behavior.
+  id: totrans-32
   prefs: []
   type: TYPE_NORMAL
+  zh: 度量指标涉及收集代表系统各个方面在特定时间点状态的数值数据点。收集的数据点，代表对同一主题在不同时间观察的观察结果，对于可视化和数学分析特别有用，并且可以用于突出趋势、识别异常并预测未来的行为。
 - en: We’ll discuss more about metrics in [“Metrics”](#section_ch11_metrics).
+  id: totrans-33
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们将在[“度量指标”](#section_ch11_metrics)一节中详细讨论度量指标。
 - en: Logging
+  id: totrans-34
   prefs: []
   type: TYPE_NORMAL
+  zh: 日志记录
 - en: Logging is the process of appending records of noteworthy events to an immutable
     record—the log—for later review or analysis. A log can take a variety of forms,
     from a continuously appended file on disk to a full-text search engine like [Elasticsearch](https://oreil.ly/Hf4Pn).
     Logs provides valuable, context-rich insight into application-specific events
     emitted by processes. However, it’s important that log entries are properly structured;
     not doing so can sharply limit their utility.
+  id: totrans-35
   prefs: []
   type: TYPE_NORMAL
+  zh: 日志记录是将显著事件记录附加到不可变记录——日志——以供以后查看或分析的过程。日志可以采用多种形式，从磁盘上持续追加的文件到像[Elasticsearch](https://oreil.ly/Hf4Pn)这样的全文搜索引擎。日志为应用程序特定进程发出的事件提供了宝贵的、上下文丰富的洞察力。然而，重要的是要正确结构化日志条目；不这样做会极大地限制它们的实用性。
 - en: We’ll dive into logging in more detail in [“Logging”](#section_ch11_logging).
+  id: totrans-36
   prefs: []
   type: TYPE_NORMAL
+  zh: 我们将在[“Logging”](#section_ch11_logging)更详细地讨论日志记录。
 - en: While each of these methods is useful on its own, a truly observable system
     will interweave them so that each can reference the others. For example, metrics
     might be used to track down a subset of misbehaving traces, and those traces might
     highlight logs that could help to find the underlying cause of the behavior.
+  id: totrans-37
   prefs: []
   type: TYPE_NORMAL
+  zh: 尽管这些方法各自有用，但真正可观测的系统将它们交织在一起，以便每个方法都可以引用其他方法。例如，度量可能用于跟踪一组行为异常的跟踪，而这些跟踪可能会突显可以帮助找出行为背后原因的日志记录。
 - en: If you take nothing else away from this chapter, remember that observability
     is *just a system property*, like resilience or manageability, and that no tooling,
     framework, or vendor can “give you” observability. The so-called “Three Pillars”
     are just techniques that can be used to build in that property.
+  id: totrans-38
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果本章中只记住一件事，请记住可观测性*仅仅是一个系统属性*，就像弹性或可管理性一样，并且没有工具、框架或供应商能“赋予”你可观测性。所谓的“三大支柱”只是可用于构建这种属性的技术。
 - en: OpenTelemetry
+  id: totrans-39
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: OpenTelemetry
 - en: As of the time of writing, OpenTelemetry (or “OTel,” as the cool kids are calling
     it^([4](ch11.xhtml#idm45983615927544))) is one of about four dozen “Sandbox” member
     projects of the Cloud Native Computing Foundation, and arguably one of the most
     interesting projects in the entire CNCF project catalog.
+  id: totrans-40
   prefs: []
   type: TYPE_NORMAL
+  zh: 截至撰写时，OpenTelemetry（或“OTel”，正如时髦的孩子们称呼它^([4](ch11.xhtml#idm45983615927544))）是云原生计算基金会“沙盒”成员项目中的大约四十几个项目之一，也可以说是整个
+    CNCF 项目目录中最有趣的项目之一。
 - en: Unlike most CNCF projects, OpenTelemetry isn’t a service, *per se*. Rather,
     it’s an effort to standardize how telemetry data—traces, metrics, and (eventually)
     logs—are expressed, collected, and transferred. Its [multiple repositories](https://oreil.ly/GpGD5)
     include a collection of specifications, along with APIs and reference implementations
     in various languages, [including Go](https://oreil.ly/vSO7k).^([5](ch11.xhtml#idm45983615924216))
+  id: totrans-41
   prefs: []
   type: TYPE_NORMAL
+  zh: 与大多数 CNCF 项目不同，OpenTelemetry 并不是一个服务* per se*。相反，它是一种努力，旨在标准化遥测数据——跟踪、度量和（最终）日志的表达方式、收集方式和传输方式。其[多个仓库](https://oreil.ly/GpGD5)包括一系列规范，以及各种语言的
+    API 和参考实现，[包括 Go](https://oreil.ly/vSO7k)^([5](ch11.xhtml#idm45983615924216))。
 - en: 'The instrumentation space is a crowded one, with perhaps dozens of vendors
     and tools that have come and gone over the years, each with their own unique implementations.
     OpenTelemetry seeks to unify this space—and all of the vendors and tools within
@@ -241,8 +326,11 @@
     to standardize before. In fact, OpenTelemetry is the merger of two such earlier
     projects: OpenTracing and OpenCensus, which it unifies and extends into a single
     set of vendor-neutral standards.'
+  id: totrans-42
   prefs: []
   type: TYPE_NORMAL
+  zh: 仪表空间竞争激烈，多年来可能涌现出几十家供应商和工具，每家都有其独特的实现方式。OpenTelemetry 旨在统一这一领域——以及其中的所有供应商和工具——围绕一个单一的供应商中立规范，标准化遥测数据如何收集并发送到后端平台。此前也有过其他标准化尝试。事实上，OpenTelemetry
+    是两个早期项目的合并：OpenTracing 和 OpenCensus，它将它们统一并扩展为一个供应商中立标准集合。
 - en: In this chapter, we’ll review each of the “three pillars,” their core concepts,
     and how to use OpenTelemetry to instrument your code and forward the resulting
     telemetry to a backend of your choice. However, it’s important to note that OpenTelemetry
@@ -251,181 +339,263 @@
     introduction. At the time of this writing, there weren’t any comprehensive resources
     available about OpenTelemetry, but I’ve gathered what I can from examples and
     a handful of articles (and a fair amount of digging through the source code).
+  id: totrans-43
   prefs: []
   type: TYPE_NORMAL
+  zh: 在本章中，我们将回顾每个“三大支柱”，它们的核心概念，以及如何使用 OpenTelemetry 为您的代码添加仪表，并将结果遥测转发到您选择的后端。然而，重要的是要注意，OpenTelemetry
+    是一个涉及面广泛的主题，值得一本书来充分展示，但我会尽力提供足够的覆盖面，至少使其成为一个实用的介绍。在撰写本文时，并没有关于 OpenTelemetry
+    的全面资源，但我已从示例和少量文章（以及大量的源代码研究）中收集了我能获取的信息。
 - en: Note
+  id: totrans-44
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: As I was writing this chapter, I learned that Charity Majors^([6](ch11.xhtml#idm45983615919256))
     and Liz Fong-Jones were hard at work on [*Observability Engineering*](https://oreil.ly/FZw86),
     planned for release by O’Reilly Media in January 2022.
+  id: totrans-45
   prefs: []
   type: TYPE_NORMAL
+  zh: 在撰写本章时，我了解到 Charity Majors^([6](ch11.xhtml#idm45983615919256)) 和 Liz Fong-Jones
+    正在努力撰写 [*Observability Engineering*](https://oreil.ly/FZw86)，预计将由 O’Reilly Media
+    在 2022 年 1 月发布。
 - en: The OpenTelemetry Components
+  id: totrans-46
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: OpenTelemetry 组件
 - en: OpenTelemetry extends and unifies earlier attempts at creating telemetry standards,
     in part by including abstractions and extension points in the SDK where you can
     insert your own implementations. This makes it possible to, for example, implement
     custom exporters that can interface with a vendor of your choice.
+  id: totrans-47
   prefs: []
   type: TYPE_NORMAL
+  zh: OpenTelemetry 扩展和统一了早期尝试创建遥测标准的努力，部分通过在 SDK 中包括抽象和扩展点，您可以插入自己的实现。例如，可以实现自定义导出器，与您选择的供应商进行接口。
 - en: 'To accomplish this level of modularity, OpenTelemetry was designed with the
     following core components:'
+  id: totrans-48
   prefs: []
   type: TYPE_NORMAL
+  zh: 为了实现这种模块化水平，OpenTelemetry 设计了以下核心组件：
 - en: Specifications
+  id: totrans-49
   prefs: []
   type: TYPE_NORMAL
+  zh: 规范
 - en: The OpenTelemetry specifications describe the requirements and expectations
     for all OpenTelemetry APIs, SDKs, and data protocols.
+  id: totrans-50
   prefs: []
   type: TYPE_NORMAL
+  zh: '[OpenTelemetry 规范](https://oreil.ly/6Ld8Y)描述了所有 OpenTelemetry API、SDK 和数据协议的需求和期望。'
 - en: API
+  id: totrans-51
   prefs: []
   type: TYPE_NORMAL
+  zh: API
 - en: Language-specific interfaces and implementations based on the specifications
     that can be used to add OpenTelemetry to an application.
+  id: totrans-52
   prefs: []
   type: TYPE_NORMAL
+  zh: 基于规范的特定语言接口和实现，可以用于将 OpenTelemetry 添加到应用程序中。
 - en: SDK
+  id: totrans-53
   prefs: []
   type: TYPE_NORMAL
+  zh: SDK
 - en: The concrete OpenTelemetry implementations that sit between the APIs and the
     Exporters, providing functionality like (for example) state tracking and batching
     data for transmission. An SDK also offers a number of configuration options for
     behaviors like request filtering and transaction sampling.
+  id: totrans-54
   prefs: []
   type: TYPE_NORMAL
+  zh: 具体的 OpenTelemetry 实现，位于 API 和导出器之间，提供功能如状态跟踪和批处理数据以供传输。SDK 还提供了多种配置选项，如请求过滤和事务采样。
 - en: Exporters
+  id: totrans-55
   prefs: []
   type: TYPE_NORMAL
+  zh: 导出器
 - en: In-process SDK plug-ins that are capable of sending data to a specific destination,
     which may be local (such as a log file or `stdout`), or remote (such as [Jaeger](https://oreil.ly/uMAfg),
     or a commercial solution like [Honeycomb](https://oreil.ly/cBlnX) or [Lightstep](https://oreil.ly/KScdI)).
     Exporters decouple the instrumentation from the backend, making it possible to
     change destinations without having to reinstrument your code.
+  id: totrans-56
   prefs: []
   type: TYPE_NORMAL
+  zh: 进程内 SDK 插件，能够将数据发送到特定的目的地，可以是本地（如日志文件或 `stdout`），也可以是远程（如 [Jaeger](https://oreil.ly/uMAfg)，或商业解决方案如
+    [Honeycomb](https://oreil.ly/cBlnX) 或 [Lightstep](https://oreil.ly/KScdI)）。导出器将仪表化与后端解耦，使得可以更改目的地而无需重新仪表化代码。
 - en: Collector
+  id: totrans-57
   prefs: []
   type: TYPE_NORMAL
+  zh: 收集器
 - en: An optional, but very useful, vendor-agnostic service that can receive and process
     telemetry data before forwarding it to one or more destinations. It can be run
     either as a sidecar process alongside your application or as a standalone proxy
     elsewhere, providing greater flexibility for sending the application telemetry.
     This can be particularly useful in the kind of tightly controlled environments
     that are common in the enterprise.
+  id: totrans-58
   prefs: []
   type: TYPE_NORMAL
+  zh: 一个可选但非常有用的与供应商无关的服务，可以在转发遥测数据到一个或多个目的地之前接收和处理遥测数据。它可以作为一个旁路进程与您的应用程序一起运行，也可以作为一个独立的代理在其他地方运行，从而为发送应用程序遥测提供更大的灵活性。这在企业常见的严格控制环境中特别有用。
 - en: You may have noticed the absence of an OpenTelemetry backend. Well, there isn’t
     one. OpenTelemetry is only concerned with the collection, processing, and sending
     of telemetry data, and relies on you to provide a telemetry backend to receive
     and store the data.
+  id: totrans-59
   prefs: []
   type: TYPE_NORMAL
+  zh: 您可能已经注意到了OpenTelemetry后端的缺失。嗯，并没有后端。OpenTelemetry仅关注遥测数据的收集、处理和发送，并依赖于您提供遥测后端来接收和存储数据。
 - en: There are other components as well, but the above can be considered to be OpenTelemetry’s
     core components. The relationships between them are illustrated in [Figure 11-1](#img_ch11_otel_components).
+  id: totrans-60
   prefs: []
   type: TYPE_NORMAL
+  zh: 还有其他组件，但上述内容可以被认为是OpenTelemetry的核心组件。它们之间的关系在[图 11-1](#img_ch11_otel_components)中有所说明。
 - en: '![cngo 1101](Images/cngo_1101.png)'
+  id: totrans-61
   prefs: []
   type: TYPE_IMG
+  zh: '![cngo 1101](Images/cngo_1101.png)'
 - en: Figure 11-1\. A high-level view of OpenTelemetry’s core components for data
     instrumentation (API), processing (SDK), and exporting (exporter and collectors);
     you have to bring your own backend
+  id: totrans-62
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 11-1\. OpenTelemetry用于数据仪器化（API）、处理（SDK）和导出（导出器和收集器）的核心组件的高级视图；您需要自行提供后端
 - en: Finally, broad language support is a central aim of the project. As of the time
     of this writing, OpenTelemetry provides APIs and SDKs for Go, Python, Java, Ruby,
     Erlang, PHP, JavaScript, .NET, Rust, C++, and Swift.
+  id: totrans-63
   prefs: []
   type: TYPE_NORMAL
+  zh: 最后，项目的核心目标是广泛的语言支持。截至本文撰写时，OpenTelemetry为Go、Python、Java、Ruby、Erlang、PHP、JavaScript、.NET、Rust、C++和Swift提供了API和SDK。
 - en: Tracing
+  id: totrans-64
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
+  zh: 追踪
 - en: Throughout this book, we’ve spent a lot of time talking about the benefits of
     microservices architectures and distributed systems. But the unfortunate reality—as
     I’m sure has already become clear—is that such architectures also introduce a
     variety of new and “interesting” problems.
+  id: totrans-65
   prefs: []
   type: TYPE_NORMAL
+  zh: 在本书的整个过程中，我们花了大量时间讨论微服务架构和分布式系统的好处。但不幸的现实——正如您可能已经清楚的那样——是这些架构也引入了各种新的和“有趣”的问题。
 - en: It’s been said that fixing an outage in a distributed system can feel like solving
     a murder mystery, which is a glib way of saying that when *something* isn’t working,
     *somewhere* in the system, it’s often a challenge just knowing where to start
     looking for the source of the problem before you can find and fix it.
+  id: totrans-66
   prefs: []
   type: TYPE_NORMAL
+  zh: 有人说，在分布式系统中修复故障感觉就像解决一起谋杀案一样，这是一种轻率的说法，意思是当*某件事*不起作用时，*系统*的某个地方通常是一个挑战，因为您往往不知道从哪里开始查找问题的源头，然后才能找到并修复它。
 - en: This is exactly the kind of problem that *tracing* was invented to solve. By
     tracking requests as they propagate through the system—even across process, network,
     and security boundaries—tracing can help you to (for example) pinpoint component
     failures, identify performance bottlenecks, and analyze service dependencies.
+  id: totrans-67
   prefs: []
   type: TYPE_NORMAL
+  zh: 这正是*追踪*被发明来解决的问题类型。通过跟踪请求在系统中的传播——甚至跨进程、网络和安全边界——追踪可以帮助您（例如）精确定位组件故障、识别性能瓶颈，并分析服务依赖关系。
 - en: Tip
+  id: totrans-68
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 提示
 - en: Tracing is usually discussed in the context of distributed systems, but a complex
     monolithic application can also benefit from tracing, especially if it contends
     for resources like network, disk, or mutexes.
+  id: totrans-69
   prefs: []
   type: TYPE_NORMAL
+  zh: 追踪通常是在分布式系统的背景下讨论的，但复杂的单体应用程序也可以通过追踪获益，特别是如果它与网络、磁盘或互斥等资源竞争。
 - en: In this section, we’ll go into more depth on tracing, its core concepts, and
     how to use OpenTelemetry to instrument your code and forward the resulting telemetry
     to a backend of your choice.
+  id: totrans-70
   prefs: []
   type: TYPE_NORMAL
+  zh: 在本节中，我们将深入探讨追踪（tracing），其核心概念以及如何使用OpenTelemetry来为您的代码进行仪器化，并将生成的遥测数据转发到您选择的后端。
 - en: Unfortunately, the constraints of time and space permit us to only dig so far
     into this topic. But if you’d like to learn more about tracing, you might be interested
     in [*Distributed Tracing in Practice*](https://oreil.ly/vzJMP) by Austin Parker,
     Daniel Spoonhower, Jonathan Mace, Ben Sigelman, and Rebecca Isaacs (O’Reilly).
+  id: totrans-71
   prefs: []
   type: TYPE_NORMAL
+  zh: 不幸的是，时间和空间的限制只允许我们深入这个话题。但如果您想了解更多关于追踪的内容，您可能会对[*实际中的分布式跟踪*](https://oreil.ly/vzJMP)（由Austin
+    Parker、Daniel Spoonhower、Jonathan Mace、Ben Sigelman和Rebecca Isaacs编写，O’Reilly出版）感兴趣。
 - en: Tracing Concepts
+  id: totrans-72
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 追踪概念
 - en: 'When discussing tracing, there are two fundamental concepts you need to know
     about, *spans* and *traces*:'
+  id: totrans-73
   prefs: []
   type: TYPE_NORMAL
+  zh: 在讨论追踪时，有两个基本概念您需要了解，*span* 和 *trace*：
 - en: Spans
+  id: totrans-74
   prefs: []
   type: TYPE_NORMAL
+  zh: span
 - en: A span describes a unit of work performed by a request, such as a fork in the
     execution flow or hop across the network, as it propagates through a system. Each
     span has an associated name, a start time, and a duration. They can be (and typically
     are) nested and ordered to model causal relationships.
+  id: totrans-75
   prefs: []
   type: TYPE_NORMAL
+  zh: span描述了在系统中执行的请求的工作单元，例如执行流程中的分支或跨网络的跳跃。每个span都有一个关联的名称、开始时间和持续时间。它们可以（并通常是）嵌套和有序以建模因果关系。
 - en: Traces
+  id: totrans-76
   prefs: []
   type: TYPE_NORMAL
+  zh: 跟踪
 - en: A trace represents all of the events—individually represented as spans—that
     make up a request as it flows through a system. A trace may be thought of as a
     directed acyclic graph (DAG) of spans, or more concretely as a “stack trace” in
     which each span represents the work done by one component.
+  id: totrans-77
   prefs: []
   type: TYPE_NORMAL
+  zh: 一个追踪代表了系统中请求流经的所有事件——每个事件都以跨度的形式表示。一个追踪可以被视为跨度的有向无环图（DAG），或者更具体地说是一个“堆栈跟踪”，其中每个跨度代表一个组件执行的工作。
 - en: This relationship between a request trace and spans is illustrated in [Figure 11-2](#img_ch11_spans_traces),
     in which we see two different representations of the same request as it flows
     through five different services to generate five spans.
+  id: totrans-78
   prefs: []
   type: TYPE_NORMAL
+  zh: 这种请求追踪与跨度之间的关系在[图 11-2](#img_ch11_spans_traces)中有所体现，我们可以看到同一请求在流经五个不同服务时的两种不同表示形式，生成了五个跨度。
 - en: '![cngo 1102](Images/cngo_1102.png)'
+  id: totrans-79
   prefs: []
   type: TYPE_IMG
+  zh: '![cngo 1102](Images/cngo_1102.png)'
 - en: Figure 11-2\. Two representations of a trace of a request as it traverses five
     services, resulting in five spans; the full traces are visualized as a DAG (left),
     and as a bar diagram (right) with a time axis illustrating start times and durations
+  id: totrans-80
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 图 11-2\. 显示请求的追踪在五个服务中穿越时的两种表示方式，产生了五个跨度；完整的追踪可视化为DAG（左侧），并以时间轴为基础的条形图（右侧），显示了开始时间和持续时间。
 - en: When a request begins in the first (edge) service, it creates the first span—the
     *root span*—which will form the first node in the span trace. The root span is
     automatically assigned a globally unique trace ID, which is passed along with
@@ -433,15 +603,19 @@
     creates a new span with the provided trace ID, perhaps choosing to insert or otherwise
     enrich the metadata associated with the request, before sending the trace ID along
     again with the next request.
+  id: totrans-81
   prefs: []
   type: TYPE_NORMAL
+  zh: 当一个请求从第一个（边缘）服务开始时，它创建了第一个跨度——*根跨度*，它将形成跨度追踪中的第一个节点。根跨度会自动分配一个全局唯一的追踪ID，该ID会随着请求生命周期中的每一次跳转一起传递。下一个仪器化点会使用提供的追踪ID创建一个新的跨度，也许会选择插入或以其他方式丰富与请求相关的元数据，然后再次发送带有追踪ID的请求。
 - en: Each hop along the flow is represented as one span. When the execution flow
     reaches the instrumented point at one of these services, a record is emitted with
     any metadata. These records are usually asynchronously logged to disk before being
     submitted out of band to a collector, which can then reconstruct the flow of execution
     based on different records emitted by different parts of the system.
+  id: totrans-82
   prefs: []
   type: TYPE_NORMAL
+  zh: 沿着流程的每个跳转都表示为一个跨度。当执行流程到达这些服务中的一个仪器化点时，将发出一条记录并带有任何元数据。这些记录通常是异步记录到磁盘，然后以带外方式提交到收集器，收集器可以根据系统不同部分发出的不同记录重建执行流程。
 - en: '[Figure 11-2](#img_ch11_spans_traces) demonstrates the two most common ways
     of illustrating a trace containing five spans, lettered A through E in the order
     that they were created. On the left side, the trace is represented in DAG form;
@@ -449,20 +623,26 @@
     for the last service E. On the right, the same data is illustrated as a bar diagram
     with a time axis, in which the position and length of the bars reflect the start
     times and durations, respectively.'
+  id: totrans-83
   prefs: []
   type: TYPE_NORMAL
+  zh: '[图 11-2](#img_ch11_spans_traces)展示了两种最常见的表示包含五个跨度的追踪的方式，这些跨度按照创建顺序标记为A到E。左侧显示追踪以DAG形式表示；根跨度A从时间0开始，持续350ms，直到最后一个服务E返回响应。右侧则以时间轴为基础的条形图形式呈现相同数据，其中条的位置和长度反映了开始时间和持续时间。'
 - en: Tracing with OpenTelemetry
+  id: totrans-84
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
+  zh: 使用 OpenTelemetry 进行跟踪
 - en: 'Using OpenTelemetry to instrument your code includes two phases: configuration
     and instrumentation. This is true whether you’re instrumenting for tracing or
     metrics (or both), although the specifics change slightly between the two. For
     both tracing and metric instrumentation, the configuration phase is executed exactly
     once in a program, usually in the `main` function, and includes the following
     steps:'
+  id: totrans-85
   prefs: []
   type: TYPE_NORMAL
+  zh: 使用 OpenTelemetry 对代码进行仪器化包括两个阶段：配置和仪器化。无论您是为跟踪还是指标进行仪器化（或两者都是），这都是真实的，尽管两者之间的具体细节略有不同。对于跟踪和度量仪器化，配置阶段在程序中只执行一次，通常在`main`函数中，并包括以下步骤：
 - en: The first step is to retrieve and configure the appropriate exporters for your
     target backends. Tracing exporters implement the `SpanExporter` interface (which
     in OpenTelemetry v0.17.0 is located in the `go.opentelemetry.io/otel/sdk/export/trace`
@@ -470,348 +650,512 @@
     exporters”](#section_ch11_tracing_creating_the_exporters), several stock exporters
     are included with OpenTelemetry, but custom implementations exist for many telemetry
     backends.
+  id: totrans-86
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 第一步是检索并配置适合目标后端的适当导出器。跟踪导出器实现了`SpanExporter`接口（在 OpenTelemetry v0.17.0 中位于`go.opentelemetry.io/otel/sdk/export/trace`包中，通常别名为`export`）。正如我们将在[“创建跟踪导出器”](#section_ch11_tracing_creating_the_exporters)中讨论的那样，OpenTelemetry
+    包含了几种现成的导出器，但也存在用于许多遥测后端的自定义实现。
 - en: Before instrumenting your code for tracing, the exporters—and any other appropriate
     configuration options—are passed to the SDK to create the “tracer provider,” which,
     as we’ll show in [“Creating a tracer provider”](#section_ch11_tracing_create_provider),
     will serve as the main entry point for the OpenTelemetry tracing API for the lifetime
     of your program.
+  id: totrans-87
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 在为跟踪工具化您的代码之前，将导出器和任何其他适当的配置选项传递给 SDK，以创建“跟踪提供程序”。正如我们将在[“创建跟踪提供程序”](#section_ch11_tracing_create_provider)中展示的那样，它将作为您的程序生命周期中
+    OpenTelemetry 跟踪 API 的主要入口点。
 - en: Once you’ve created your tracer provider, it’s a good practice to set it as
     your “global” tracer provider. As we’ll see in [“Setting the global tracer provider”](#section_ch11_tracing_set_global_tracerprovider),
     this makes it discoverable via the `otel.GetTracerProvider` function, which allows
     libraries and other dependencies that also use the OpenTelemetry API to more easily
     discover the SDK and emit telemetry data.
+  id: totrans-88
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 创建了跟踪提供程序之后，将其设置为“全局”跟踪提供程序是一种良好的做法。正如我们将在[“设置全局跟踪提供程序”](#section_ch11_tracing_set_global_tracerprovider)中看到的那样，这使得它可以通过`otel.GetTracerProvider`函数发现，这样使用
+    OpenTelemetry API 的库和其他依赖项可以更轻松地发现 SDK 并发出遥测数据。
 - en: 'Once the configuration is complete, instrumenting your code requires only a
     few small steps:'
+  id: totrans-89
   prefs: []
   type: TYPE_NORMAL
+  zh: 配置完成后，仅需几个简单的步骤即可为您的代码进行工具化：
 - en: Before you can instrument an operation, you first have to obtain a `Tracer`,
     which has the central role of keeping track of trace and span information, from
     the (usually global) tracer provider. We’ll discuss this in more detail in [“Obtaining
     a tracer”](#section_ch11_tracing_obtain_tracer).
+  id: totrans-90
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 在对操作进行工具化之前，首先必须从（通常是全局的）跟踪提供程序获取`Tracer`，它在跟踪和跨度信息的跟踪中起着核心作用。我们将在[“获取跟踪器”](#section_ch11_tracing_obtain_tracer)中详细讨论这一点。
 - en: Once you have a handle to your `Tracer` you can use it to create and start the
     `Span` value that is the actual value that you’ll use to instrument your code.
     We’ll cover this in some detail in [“Starting and ending spans”](#section_ch11_tracing_starting_and_ending_spans).
+  id: totrans-91
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 一旦您获得了您的`Tracer`句柄，您可以使用它创建和启动`Span`值，这是您用于工具化代码的实际值。我们将在[“开始和结束跨度”](#section_ch11_tracing_starting_and_ending_spans)中详细介绍这一点。
 - en: Finally, you can also choose to add metadata to your spans, including human-readable,
     timestamped messages called *events*, and key/value pairs called *attributes*.
     We’ll cover span metadata in [“Setting span metadata”](#section_ch11_tracing_span_metadata).
+  id: totrans-92
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
+  zh: 最后，您还可以选择为您的跨度添加元数据，包括人类可读的、时间戳的消息称为*事件*，以及称为*属性*的键/值对。我们将在[“设置跨度元数据”](#section_ch11_tracing_span_metadata)中介绍跨度元数据。
 - en: Creating the tracing exporters
+  id: totrans-93
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 创建跟踪导出器
 - en: The first thing you have to do when using OpenTelemetry is create and configure
     your exporters. Tracing exporters implement the `SpanExporter` interface, which
     in OpenTelemetry v0.17.0 lives in the `go.opentelemetry.io/otel/sdk/export/trace`
     package, which is often aliased to `export` to reduce package naming collisions.
+  id: totrans-94
   prefs: []
   type: TYPE_NORMAL
+  zh: 当您使用 OpenTelemetry 时，首先必须做的事情是创建和配置您的导出器。跟踪导出器实现了`SpanExporter`接口，在 OpenTelemetry
+    v0.17.0 中位于`go.opentelemetry.io/otel/sdk/export/trace`包中，通常别名为`export`以减少包命名冲突。
 - en: You may recall from [“The OpenTelemetry Components”](#section_ch11_otel_components)
     that OpenTelemetry exporters are in-process plug-ins that know how to convert
     metric or trace data and send it to a particular destination. This destination
     may be local (`stdout` or a log file) or remote (such as Jaeger, or a commercial
     solution like Honeycomb or Lightstep).
+  id: totrans-95
   prefs: []
   type: TYPE_NORMAL
+  zh: 您可能还记得从[“OpenTelemetry 组件”](#section_ch11_otel_components)中，OpenTelemetry 导出器是知道如何转换指标或跟踪数据并将其发送到特定目的地的进程内插件。此目的地可以是本地（如`stdout`或日志文件）或远程（如
+    Jaeger 或像 Honeycomb 或 Lightstep 这样的商业解决方案）。
 - en: If you want to do anything worthwhile with the instrumentation data you collect,
     you’ll need at least one exporter. One is usually enough, but you can define as
     many as you like, should you have the need. Exporters are instantiated and configured
     once at program startup, before being passed to the OpenTelemetry SDK. This will
     be covered in more detail in [“Creating a tracer provider”](#section_ch11_tracing_create_provider).
+  id: totrans-96
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果你想对收集到的仪器化数据进行有意义的操作，至少需要一个导出器。通常一个足够了，但如果需要的话，你可以定义任意多个。这些导出器在程序启动时配置并实例化一次，然后传递给
+    OpenTelemetry SDK。这一点将在[“创建跟踪提供者”](#section_ch11_tracing_create_provider)中详细讨论。
 - en: OpenTelemetry comes with a number of included exporters for both tracing and
     metrics. Two of these are demonstrated in the following.
+  id: totrans-97
   prefs: []
   type: TYPE_NORMAL
+  zh: OpenTelemetry 包含了多个用于追踪和度量的内置导出器。以下演示了其中两个。
 - en: The Console Exporter
+  id: totrans-98
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
+  zh: 控制台导出器
 - en: OpenTelemetry’s Console Exporter allows you to write telemetry data as JSON
     to standard output. This is very handy for debugging or writing to log files.
     The Console Exporter is noteworthy in that it can also be used to export metric
     telemetry, as we’ll see in [“Metrics”](#section_ch11_metrics).
+  id: totrans-99
   prefs: []
   type: TYPE_NORMAL
+  zh: OpenTelemetry 的控制台导出器允许将遥测数据以 JSON 格式写入标准输出。这在调试或写入日志文件时非常方便。控制台导出器还可以用于导出度量遥测数据，如我们将在[“度量”](#section_ch11_metrics)中看到的那样。
 - en: Creating an instance of the Console Exporter is just a matter of calling `stdout.NewExporter`,
     which in OpenTelemetry v0.17.0 lives in the `go.opentelemetry.io/otel/exporters/stdout`
     package.
+  id: totrans-100
   prefs: []
   type: TYPE_NORMAL
+  zh: 创建控制台导出器的实例只需调用 `stdout.NewExporter`，在 OpenTelemetry v0.17.0 中，它位于 `go.opentelemetry.io/otel/exporters/stdout`
+    包中。
 - en: 'Like most exporters’ creation functions, `stdout.NewExporter`, is a variadic
     function that can accept zero or more configuration options. We demonstrate with
     one of these—the option to “pretty-print” its JSON output—here:'
+  id: totrans-101
   prefs: []
   type: TYPE_NORMAL
+  zh: 类似大多数导出器创建函数，`stdout.NewExporter` 也是一个可变函数，可以接受零个或多个配置选项。我们在这里展示了其中一个选项——“漂亮打印”其
+    JSON 输出的选项：
 - en: '[PRE0]'
+  id: totrans-102
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE0]'
 - en: 'In the preceding snippet, we use the `stdout.NewExporter` function, which returns
     both our exporter and an `error` value. We’ll see what its output looks like when
     we run our example in [“Putting It All Together: Tracing”](#section_ch11_tracing_all_together).'
+  id: totrans-103
   prefs: []
   type: TYPE_NORMAL
+  zh: 在上述代码片段中，我们使用了 `stdout.NewExporter` 函数，它返回导出器及一个 `error` 值。我们将在[“将所有内容整合起来：跟踪”](#section_ch11_tracing_all_together)中查看运行示例时它的输出。
 - en: Note
+  id: totrans-104
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: For more information about the Console Exporter, please refer to its page in
     the [relevant OpenTelemetry documentation](https://oreil.ly/PEfAI).
+  id: totrans-105
   prefs: []
   type: TYPE_NORMAL
+  zh: 欲了解更多关于控制台导出器的信息，请参阅[相关的 OpenTelemetry 文档页面](https://oreil.ly/PEfAI)。
 - en: The Jaeger Exporter
+  id: totrans-106
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
+  zh: Jaeger 导出器
 - en: The Console Exporter may be useful for logging and debugging, but OpenTelemetry
     also includes a number of exporters designed to forward data to specialized backends,
     such as the Jaeger Exporter.
+  id: totrans-107
   prefs: []
   type: TYPE_NORMAL
+  zh: 控制台导出器可能对日志记录和调试很有用，但 OpenTelemetry 还包括了许多专门用于将数据转发到特定后端的导出器，例如 Jaeger 导出器。
 - en: 'The Jaeger Exporter (as its name suggests) knows how to encode tracing telemetry
     data to the [Jaeger](https://oreil.ly/uMAfg) distributed tracing system. You can
     retrieve an exporter value using the `jaeger.NewRawExporter` function, as shown
     here:'
+  id: totrans-108
   prefs: []
   type: TYPE_NORMAL
+  zh: Jaeger 导出器（如其名称所示）知道如何将跟踪遥测数据编码到 [Jaeger](https://oreil.ly/uMAfg) 分布式跟踪系统。你可以使用
+    `jaeger.NewRawExporter` 函数检索导出器值，如下所示：
 - en: '[PRE1]'
+  id: totrans-109
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE1]'
 - en: In OpenTelemetry v0.17.0, the Jaeger Exporter can be found in the `go.opentelemetry.io/otel/exporter/trace/jaeger`
     package.
+  id: totrans-110
   prefs: []
   type: TYPE_NORMAL
+  zh: 在 OpenTelemetry v0.17.0 中，Jaeger 导出器可以在 `go.opentelemetry.io/otel/exporter/trace/jaeger`
+    包中找到。
 - en: You may have noticed that `jaeger.NewRawExporter` works a lot like `stdout.NewExporter`
     in that it’s a variadic function that accepts zero or more configuration options,
     returning an `export.SpanExporter` (the Jaeger Exporter) and an `error` value.
+  id: totrans-111
   prefs: []
   type: TYPE_NORMAL
+  zh: 你可能注意到 `jaeger.NewRawExporter` 和 `stdout.NewExporter` 非常相似，它们都是接受零个或多个配置选项的可变函数，返回一个
+    `export.SpanExporter`（Jaeger 导出器）和一个 `error` 值。
 - en: 'The options passed to `jaeger.NewRawExporter` are:'
+  id: totrans-112
   prefs: []
   type: TYPE_NORMAL
+  zh: 传递给 `jaeger.NewRawExporter` 的选项包括：
 - en: '`jaeger.WithCollectorEndpoint`, which is used to define the URL that points
     to the target Jaeger process’s HTTP collector endpoint'
+  id: totrans-113
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '`jaeger.WithCollectorEndpoint` 用于定义指向目标 Jaeger 进程的 HTTP 收集器端点的 URL。'
 - en: '`jaeger.WithProcess`, which allows you to set information about the exporting
     process, in this case the service’s name'
+  id: totrans-114
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
+  zh: '`jaeger.WithProcess` 允许你设置关于导出过程的信息，比如服务的名称。'
 - en: There are quite a few other configuration options available, but only two are
     used for the sake of brevity. If you’re interested in more detail, please refer
     to its page in the [relevant OpenTelemetry documentation](https://oreil.ly/dOpd5).
+  id: totrans-115
   prefs: []
   type: TYPE_NORMAL
+  zh: 还有很多其他配置选项可用，但为了简洁起见，仅使用两个。如果您有兴趣了解更多细节，请参阅[相关OpenTelemetry文档](https://oreil.ly/dOpd5)中的页面。
 - en: Creating a tracer provider
+  id: totrans-116
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 创建跟踪提供程序
 - en: In order to generate traces, you first have to create and initialize a *tracer
     provider*, represented in OpenTelemetry by the `TracerProvider` type. In OpenTelemetry
     v0.17.0, it lives in the `go.opentelemetry.io/otel/sdk/trace` package, which is
     usually aliased to `sdktrace` to avoid naming collisions.
+  id: totrans-117
   prefs: []
   type: TYPE_NORMAL
+  zh: 要生成跟踪数据，您首先需要创建和初始化一个*跟踪提供程序*，在OpenTelemetry中由`TracerProvider`类型表示。在OpenTelemetry
+    v0.17.0中，它位于`go.opentelemetry.io/otel/sdk/trace`包中，通常被别名为`sdktrace`以避免命名冲突。
 - en: A `TracerProvider` is a stateful value that serves as the main entry point for
     the OpenTelemetry tracing API, including, as we’ll see in the next section, providing
     access to the `Tracer` that in turn serves as the provider for new `Span` values.
+  id: totrans-118
   prefs: []
   type: TYPE_NORMAL
+  zh: '`TracerProvider`是一个有状态值，作为OpenTelemetry跟踪API的主要入口点，包括提供访问`Tracer`的能力，后者又用作新`Span`值的提供程序，我们将在下一节中看到。'
 - en: 'To create a tracer provider, we use the `sdktrace.NewTracerProvider` function:'
+  id: totrans-119
   prefs: []
   type: TYPE_NORMAL
+  zh: 要创建一个跟踪提供程序，我们使用`sdktrace.NewTracerProvider`函数：
 - en: '[PRE2]'
+  id: totrans-120
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE2]'
 - en: In this example, the two exporters that we created in [“Creating the tracing
     exporters”](#section_ch11_tracing_creating_the_exporters)—`stdExporter` and `jaegerExporter`—are
     provided to `sdktrace.NewTracerProvider`, instructing the SDK to use them for
     exporting telemetry data.
+  id: totrans-121
   prefs: []
   type: TYPE_NORMAL
+  zh: 在本例中，我们在[“创建跟踪导出器”](#section_ch11_tracing_creating_the_exporters)中创建的两个导出器——`stdExporter`和`jaegerExporter`——提供给`sdktrace.NewTracerProvider`，指示SDK使用它们来导出遥测数据。
 - en: There are several other options that can be provided to `sdktrace.NewTracerProvider`,
     including defining a `Batcher` or a `SpanProcessor`. These are (reluctantly) beyond
     the scope of this book, but more information on these can be found in the [OpenTelemetry
     SDK Specification](https://oreil.ly/BaL9M).
+  id: totrans-122
   prefs: []
   type: TYPE_NORMAL
+  zh: 还有一些其他选项可以提供给`sdktrace.NewTracerProvider`，包括定义`Batcher`或`SpanProcessor`。这些（不情愿地）超出了本书的范围，但更多关于这些的信息可以在[OpenTelemetry
+    SDK规范](https://oreil.ly/BaL9M)中找到。
 - en: Setting the global tracer provider
+  id: totrans-123
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 设置全局跟踪提供程序
 - en: Once you’ve created your tracer provider, it’s generally a good practice to
     set it as your global tracer provider via the `SetTracerProvider` function. In
     OpenTelemetry v0.17.0, this and all of OpenTelemetry’s global options live in
     the `go.opentelemetry.io/otel` package.
+  id: totrans-124
   prefs: []
   type: TYPE_NORMAL
+  zh: 一旦创建了跟踪提供程序，通常最好通过`SetTracerProvider`函数将其设置为全局跟踪提供程序。在OpenTelemetry v0.17.0中，这和所有OpenTelemetry的全局选项位于`go.opentelemetry.io/otel`包中。
 - en: 'Here we set the global tracer provider to be the value of `tp`, which we created
     in the previous section:'
+  id: totrans-125
   prefs: []
   type: TYPE_NORMAL
+  zh: 在这里，我们将全局跟踪提供程序设置为`tp`的值，我们在前一节中创建了它：
 - en: '[PRE3]'
+  id: totrans-126
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE3]'
 - en: 'Setting the global tracer provider makes it discoverable via the `otel.GetTracerProvider`
     function. This allows libraries and other dependencies that use the OpenTelemetry
     API to more easily discover the SDK and emit telemetry data:'
+  id: totrans-127
   prefs: []
   type: TYPE_NORMAL
+  zh: 设置全局跟踪提供程序使其可以通过`otel.GetTracerProvider`函数发现。这允许使用OpenTelemetry API的库和其他依赖项更轻松地发现SDK并发出遥测数据：
 - en: '[PRE4]'
+  id: totrans-128
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE4]'
 - en: Warning
+  id: totrans-129
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 警告
 - en: If you don’t explicitly set a global tracer provider, `otel.GetTracerProvider`
     will return a no-op `TracerProvider` implementation that returns a no-op `Tracer`
     that provides no-op `Span` values.
+  id: totrans-130
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果您没有显式设置全局跟踪提供程序，`otel.GetTracerProvider`将返回一个无操作的`TracerProvider`实现，它返回一个提供无操作`Span`值的无操作`Tracer`。
 - en: Obtaining a tracer
+  id: totrans-131
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 获取跟踪器
 - en: 'In OpenTelemetry, a `Tracer` is a specialized type that keeps track of trace
     and span information, including what span is currently active. Before you can
     instrument an operation you first have to use a (usually global) tracer provider’s
     `Tracer` method to obtain a `trace.Tracer` value:'
+  id: totrans-132
   prefs: []
   type: TYPE_NORMAL
+  zh: 在OpenTelemetry中，`Tracer`是一种专门的类型，用于跟踪和跨度信息，包括当前活动的跨度是什么。在您可以检测操作之前，必须首先使用（通常是全局的）跟踪提供程序的`Tracer`方法来获取一个`trace.Tracer`值：
 - en: '[PRE5]'
+  id: totrans-133
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE5]'
 - en: TracerProvider’s `Tracer` method accepts a string parameter to set its name.
     By convention, Tracers are named after the component they are instrumenting, usually
     a library or a package.
+  id: totrans-134
   prefs: []
   type: TYPE_NORMAL
+  zh: '`TracerProvider`的`Tracer`方法接受一个字符串参数来设置其名称。按照惯例，Tracers的命名通常是根据它们所检测的组件命名，通常是一个库或一个包。'
 - en: Now that you have your tracer, your next step will be to use it to create and
     start a new `Span` instance.
+  id: totrans-135
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在您拥有了您的跟踪器，您的下一步将是使用它来创建和启动一个新的`Span`实例。
 - en: Starting and ending spans
+  id: totrans-136
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 开始和结束span
 - en: Once you have a handle to a `Tracer`, you can use it to create and start new
     `Span` values representing named and timed operations within a traced workflow.
     In other words, a `Span` value represents the equivalent of one step in a stack
     trace.
+  id: totrans-137
   prefs: []
   type: TYPE_NORMAL
+  zh: 一旦你获取到 `Tracer` 的句柄，你可以使用它来创建和启动新的 `Span` 值，代表在被追踪的工作流中命名和计时的操作步骤。换句话说，`Span`
+    值表示堆栈跟踪中的一步。
 - en: 'In OpenTelemetry v0.17.0, both the `Span` and `Tracer` interfaces can be found
     in the `go.opentelemetry.io/otel/trace`. Their relationship can be deduced by
     a quick review of Tracer’s definition code:'
+  id: totrans-138
   prefs: []
   type: TYPE_NORMAL
+  zh: 在 OpenTelemetry v0.17.0 中，`Span` 和 `Tracer` 接口都可以在 `go.opentelemetry.io/otel/trace`
+    中找到。通过快速审查 `Tracer` 的定义代码，可以推断出它们的关系：
 - en: '[PRE6]'
+  id: totrans-139
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE6]'
 - en: 'Yes, that’s really all there is. Tracer’s only method, `Start`, accepts three
     parameters: a `context.Context` value, which is the mechanism that `Tracer` uses
     to keep track of spans; the name of the new span, which by convention is usually
     the name of the function or component being evaluated; and zero or more span configuration
     options.'
+  id: totrans-140
   prefs: []
   type: TYPE_NORMAL
+  zh: 是的，确实就是这样。`Tracer` 的唯一方法 `Start` 接受三个参数：一个 `context.Context` 值，这是 `Tracer` 用于跟踪跨度的机制；新跨度的名称，按照惯例通常是正在评估的函数或组件的名称；以及零个或多个跨度配置选项。
 - en: Note
+  id: totrans-141
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: Unfortunately, a discussion of the available span configurations is beyond the
     scope of this book, but if you’re interested, more detail is available in the
     [relevant Go Documentation](https://oreil.ly/ksmfV).
+  id: totrans-142
   prefs: []
   type: TYPE_NORMAL
+  zh: 不幸的是，本书的范围不包括对可用跨度配置的讨论，但如果您感兴趣，可以在[相关的 Go 文档](https://oreil.ly/ksmfV)中找到更多细节。
 - en: Importantly, `Start` returns not just the new `Span`, but also a `context.Context`.
     This is a new `Context` instance derived from the one that was passed in. As we’ll
     see shortly, this is important when we want to create child `Span` values.
+  id: totrans-143
   prefs: []
   type: TYPE_NORMAL
+  zh: 重要的是，`Start` 不仅返回新的 `Span`，还返回一个 `context.Context`。这是一个新的 `Context` 实例，派生自传入的
+    `Context`。正如我们马上将看到的那样，这在我们想要创建子 `Span` 值时非常重要。
 - en: 'Now that you have all of the pieces in place, you can begin instrumenting our
     code. To do this, you request a `Span` value from your `Tracer` via its `Start`
     method, as shown in the following:'
+  id: totrans-144
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在，所有的部件都就位了，您可以开始仪表化我们的代码。为此，您通过其 `Start` 方法从您的 `Tracer` 请求一个 `Span` 值，如下所示：
 - en: '[PRE7]'
+  id: totrans-145
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE7]'
 - en: In this snippet we use Tracer’s `Start` method to create and start a new `Span`,
     which returns a derived context and our `Span` value. It’s important to note that
     we ensure that the `Span` is ended by calling it in a `defer`, so that `SomeFunction`
     is entirely captured in the root `Span`.
+  id: totrans-146
   prefs: []
   type: TYPE_NORMAL
+  zh: 在这个片段中，我们使用 `Tracer` 的 `Start` 方法来创建和启动一个新的 `Span`，返回一个派生的上下文和我们的 `Span` 值。重要的是要注意，我们确保通过在
+    `defer` 中调用它来结束 `Span`，以便 `SomeFunction` 完全被根 `Span` 捕获。
 - en: 'Of course, we’ll also want to instrument `SomeFunction`. Since it receives
     the derived context we got from the original `Start`, it can now use that `Context`
     to create its own subspan:'
+  id: totrans-147
   prefs: []
   type: TYPE_NORMAL
+  zh: 当然，我们还希望对 `SomeFunction` 进行仪表化。由于它接收从原始 `Start` 得到的派生上下文，现在它可以使用该 `Context`
+    来创建自己的子跨度：
 - en: '[PRE8]'
+  id: totrans-148
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE8]'
 - en: The only differences between `main` and `SomeFunction` are the names of the
     spans and the `Context` values. It’s significant that `SomeFunction` uses the
     `Context` value derived from the original `Start` call in `main`.
+  id: totrans-149
   prefs: []
   type: TYPE_NORMAL
+  zh: '`main` 和 `SomeFunction` 之间的唯一区别在于跨度的名称和 `Context` 值。`SomeFunction` 使用从 `main`
+    中原始 `Start` 调用派生的 `Context` 值，这一点非常重要。'
 - en: Setting span metadata
+  id: totrans-150
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
+  zh: 设置跨度元数据
 - en: Now that you have a `Span`, what do you do with it?
+  id: totrans-151
   prefs: []
   type: TYPE_NORMAL
+  zh: 现在您有了一个 `Span`，您该怎么处理它呢？
 - en: If you do nothing at all, that’s okay. As long as you’ve remembered to `End`
     your `Span` (preferably in a `defer` statement) a minimal timeline for your function
     will be collected.
+  id: totrans-152
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果你什么都不做，那没关系。只要记得在函数中以 `defer` 语句结束你的 `Span`，就能收集到函数的最小时间线。
 - en: 'However, the value of your span can be enhanced with the addition of two types
     of metadata: *attributes* and *events*.'
+  id: totrans-153
   prefs: []
   type: TYPE_NORMAL
+  zh: 然而，通过添加两种类型的元数据，*属性* 和 *事件*，可以增强您的跨度值。
 - en: Attributes
+  id: totrans-154
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
+  zh: 属性
 - en: Attributes are key/value pairs that are associated with spans. They can be used
     later for aggregating, filtering, and grouping traces.
+  id: totrans-155
   prefs: []
   type: TYPE_NORMAL
+  zh: 属性是与跨度相关联的键/值对。它们可以稍后用于聚合、过滤和分组跟踪。
 - en: 'If known ahead of time, attributes can be added when a span is created by passing
     them as option parameters to the `tr.Start` method using the `WithAttributes`
     function:'
+  id: totrans-156
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果事先已知，可以通过将它们作为选项参数传递给 `tr.Start` 方法并使用 `WithAttributes` 函数，在创建跨度时添加属性：
 - en: '[PRE9]'
+  id: totrans-157
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE9]'
 - en: 'Here we call `tr.Start` to start a new span, passing it our active `context.Context`
     value and a name. But `Start` is also a variadic function that can accept zero
     or more options, so we opt to use the `WithAttributes` function to pass two string
     attributes: `hello=world` and `foo=far`.'
+  id: totrans-158
   prefs: []
   type: TYPE_NORMAL
 - en: The `WithAttributes` function accepts a `label.KeyValue` type, from OpenTelemetry’s
@@ -819,57 +1163,74 @@
     the various type methods, such as `label.String` as above. Methods exist for all
     Go types (and more). See [the label package’s documentation](https://oreil.ly/AVkTG)
     for more information.
+  id: totrans-159
   prefs: []
   type: TYPE_NORMAL
 - en: 'Attributes don’t have to be added at span creation time. They can be added
     later in a span’s lifecycle as well, as long as the span hasn’t yet been completed:'
+  id: totrans-160
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE10]'
+  id: totrans-161
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE10]'
 - en: Events
+  id: totrans-162
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
 - en: An *event* is a timestamped, human-readable message on a span that represents
     *something* happening during the span’s lifetime.
+  id: totrans-163
   prefs: []
   type: TYPE_NORMAL
 - en: 'For example, if your function requires exclusive access to a resource that’s
     under a mutex, you might find it useful to add events when you acquire and release
     the lock:'
+  id: totrans-164
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE11]'
+  id: totrans-165
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE11]'
 - en: 'If you like, you can even add attributes to your events:'
+  id: totrans-166
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE12]'
+  id: totrans-167
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE12]'
 - en: Autoinstrumentation
+  id: totrans-168
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: Autoinstrumentation, broadly, refers to instrumentation code that you didn’t
     write. This is a useful feature that can spare you from a fair amount of unnecessary
     bookkeeping.
+  id: totrans-169
   prefs: []
   type: TYPE_NORMAL
 - en: OpenTelemetry supports autoinstrumentation through various wrappers and helper
     functions around many popular frameworks and libraries, including ones that we
     cover in this book, like `net/http`, `gorilla/mux`, and `grpc`.
+  id: totrans-170
   prefs: []
   type: TYPE_NORMAL
 - en: While using these functionalities doesn’t free you from having to configure
     OpenTelemetry at startup, they do remove some of the effort associated with having
     to manage your traces.
+  id: totrans-171
   prefs: []
   type: TYPE_NORMAL
 - en: Autoinstrumenting net/http and gorilla/mux
+  id: totrans-172
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
@@ -877,121 +1238,173 @@
     library and `gorilla/mux`, both of which we first covered in [Chapter 5](ch05.xhtml#chapter_5)
     in the context of building a RESTful web service, is provided by the `go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp`
     package.
+  id: totrans-173
   prefs: []
   type: TYPE_NORMAL
 - en: 'Its use is refreshingly minimalist. Take, for example, this standard idiom
     in `net/http` for registering a handler function to the default mux^([8](ch11.xhtml#idm45983615038696))
     and starting the HTTP server:'
+  id: totrans-174
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE13]'
+  id: totrans-175
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE13]'
 - en: 'In OpenTelemetry, a handler function can be autoinstrumented by passing it
     to the `otelhttp.NewHandler` function, the signature for which is shown here:'
+  id: totrans-176
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE14]'
+  id: totrans-177
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE14]'
 - en: The `otelhttp.NewHandler` function accepts and returns a handler function. It
     works by wrapping the passed handler function in a second handler function that
     creates a span with the provided name and options, so that the original handler
     acts like middleware within the returned span-handling function.
+  id: totrans-178
   prefs: []
   type: TYPE_NORMAL
 - en: 'A typical application of the `otelhttp.NewHandler` function is shown in the
     following:'
+  id: totrans-179
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE15]'
+  id: totrans-180
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE15]'
 - en: You’ll notice that we have to cast the handler function to a `http.HandlerFunc`
     before passing it to `otelhttp.NewHandler`. This wasn’t necessary before because
     `http.HandleFunc` performs this operation automatically before itself calling
     `http.Handle`.
+  id: totrans-181
   prefs: []
   type: TYPE_NORMAL
+  zh: 在将其传递给 `otelhttp.NewHandler` 之前，我们必须将处理函数强制转换为 `http.HandlerFunc`。这在之前是不必要的，因为
+    `http.HandleFunc` 在调用 `http.Handle` 之前会自动执行此操作。
 - en: 'If you’re using `gorilla/mux`, the change is almost the same, except that you’re
     using the `gorilla` mux instead of the default mux:'
+  id: totrans-182
   prefs: []
   type: TYPE_NORMAL
+  zh: 如果您正在使用 `gorilla/mux`，则更改几乎相同，只是您使用 `gorilla` mux 而不是默认的 mux：
 - en: '[PRE16]'
+  id: totrans-183
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE16]'
 - en: You’ll need to repeat this for each handler function you want to instrument,
     but either way the total amount of code necessary to instrument your entire service
     is pretty minimal.
+  id: totrans-184
   prefs: []
   type: TYPE_NORMAL
+  zh: 您需要为要进行仪表化的每个处理程序函数重复此操作，但无论如何，仪表化整个服务所需的代码总量都非常少。
 - en: Autoinstrumenting gRPC
+  id: totrans-185
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
+  zh: 自动仪表化 gRPC
 - en: In OpenTelemetry 0.17.0, autoinstrumentation support for gRPC, which we introduced
     in [Chapter 8](ch08.xhtml#chapter_8) in the context of loosely coupled data interchange,
     is provided by the `go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc`
     package.^([9](ch11.xhtml#idm45983614810104))
+  id: totrans-186
   prefs: []
   type: TYPE_NORMAL
+  zh: 在 OpenTelemetry 0.17.0 中，我们在 [第8章](ch08.xhtml#chapter_8) 中引入了 gRPC 的自动仪表化支持，用于松耦合数据交换的上下文中，由
+    `go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc`
+    包提供。^([9](ch11.xhtml#idm45983614810104))
 - en: Just like autoinstrumentation for `net/http`, autoinstrumentation for gRPC is
     very minimalist, leveraging *gRPC interceptors*. We haven’t talked about gRPC
     interceptors at all yet, and unfortunately a full treatment of gRPC interceptors
     is beyond the scope of this book. They can be described as the gRPC equivalent
     to middleware in `gorilla/mux`, which we leveraged in [“Load shedding”](ch09.xhtml#section_ch09_load_shedding)
     to implement automatic load shedding.
+  id: totrans-187
   prefs: []
   type: TYPE_NORMAL
+  zh: 就像对于 `net/http` 的自动仪表化一样，gRPC 的自动仪表化非常简约，利用了 *gRPC 拦截器*。我们还没有详细讨论过 gRPC 拦截器，不幸的是，本书不涵盖完整的
+    gRPC 拦截器内容。它们可以被描述为与 `gorilla/mux` 中间件的 gRPC 等效物，我们在 [“负载管理”](ch09.xhtml#section_ch09_load_shedding)
+    中使用它来实现自动负载管理。
 - en: As their name implies, gRPC interceptors can intercept gRPC requests and responses
     to, for example, inject information into the request, update the response before
     it’s returned to the client, or to implement a cross-cutting functionality like
     authorization, logging, or caching.
+  id: totrans-188
   prefs: []
   type: TYPE_NORMAL
+  zh: 正如它们的名称所暗示的那样，gRPC 拦截器可以拦截 gRPC 请求和响应，例如，在请求中注入信息，在将响应返回给客户端之前更新响应，或者实现像授权、日志记录或缓存等横切功能。
 - en: Note
+  id: totrans-189
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
+  zh: 注意
 - en: 'If you’d like to learn a little more about gRPC interceptors, the article [“Interceptors
     in gRPC-Web” on the gRPC blog](https://oreil.ly/R0MGm) offers a good introduction
     to the subject. For a more in-depth coverage, you might want to invest in a copy
     of [*gRPC: Up and Running*](https://oreil.ly/N50q7) by Kasun Indrasiri and Danesh
     Kuruppu (O’Reilly).'
+  id: totrans-190
   prefs: []
   type: TYPE_NORMAL
+  zh: '如果您想进一步了解 gRPC 拦截器，gRPC 博客上的文章 [“gRPC-Web 中的拦截器”](https://oreil.ly/R0MGm) 提供了一个很好的介绍。如果您希望深入了解，您可能需要投资购买
+    Kasun Indrasiri 和 Danesh Kuruppu（O’Reilly）的 [*gRPC: Up and Running*](https://oreil.ly/N50q7)。'
 - en: 'Taking a look at a slice of the original service code from [“Implementing the
     gRPC service”](ch08.xhtml#section_ch08_implementing_grpc_service), you can see
     two of the operative functions:'
+  id: totrans-191
   prefs: []
   type: TYPE_NORMAL
+  zh: 查看 [“实现 gRPC 服务”](ch08.xhtml#section_ch08_implementing_grpc_service) 的原始服务代码片段，您可以看到两个操作函数：
 - en: '[PRE17]'
+  id: totrans-192
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE17]'
 - en: In the above snippet, we create a new gRPC server, and pass that along to our
     autogenerated code package to register it.
+  id: totrans-193
   prefs: []
   type: TYPE_NORMAL
+  zh: 在上面的片段中，我们创建了一个新的 gRPC 服务器，并将其传递给我们的自动生成的代码包来注册它。
 - en: Interceptors can be added to a gRPC server using the `grpc.UnaryInterceptor`
     and/or `grpc.StreamInterceptor`, the former of which is used to intercept unary
     (standard request–response) service methods, and the latter of which is used for
     intercepting streaming methods.
+  id: totrans-194
   prefs: []
   type: TYPE_NORMAL
+  zh: 拦截器可以使用 `grpc.UnaryInterceptor` 和/或 `grpc.StreamInterceptor` 添加到 gRPC 服务器，前者用于拦截一元（标准请求-响应）服务方法，后者用于拦截流方法。
 - en: 'To autoinstrument your gRPC server, you use one or both of these functions
     to add one or more off-the-shelf OpenTelemetry interceptors, depending on the
     types of requests your service handles:'
+  id: totrans-195
   prefs: []
   type: TYPE_NORMAL
+  zh: 要对您的 gRPC 服务器进行自动仪表化，您可以使用这两个函数中的一个或两个来添加一个或多个现成的 OpenTelemetry 拦截器，具体取决于您的服务处理的请求类型：
 - en: '[PRE18]'
+  id: totrans-196
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE18]'
 - en: While the service we built in [Chapter 8](ch08.xhtml#chapter_8) uses exclusively
     unary methods, the preceding snippet adds interceptors for both unary and stream
     methods for the sake of demonstration.
+  id: totrans-197
   prefs: []
   type: TYPE_NORMAL
+  zh: 虽然我们在 [第8章](ch08.xhtml#chapter_8) 中构建的服务仅使用单一方法，但前面的片段为演示目的添加了一元和流方法的拦截器。
 - en: Getting the current span from context
+  id: totrans-198
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
@@ -999,16 +1412,21 @@
     be created for each request. While convenient, this also means that you don’t
     have your current `Span` immediately on hand for you to enhance with application-specific
     attribute and event metadata. So, what do you do?
+  id: totrans-199
   prefs: []
   type: TYPE_NORMAL
 - en: 'Fear not! Since your application framework has conveniently placed the span
     data inside the current context, the data is easily retrievable:'
+  id: totrans-200
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE19]'
+  id: totrans-201
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE19]'
 - en: 'Putting It All Together: Tracing'
+  id: totrans-202
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
@@ -1016,6 +1434,7 @@
     small web service. Because we’re going to instrument this service with tracing,
     the ideal service would make a whole lot of function calls, but would still be
     pretty small.
+  id: totrans-203
   prefs: []
   type: TYPE_NORMAL
 - en: 'We’re going to build a Fibonacci service. Its requirements are very minimal:
@@ -1023,218 +1442,278 @@
     can be requested using parameter `n` on the GET query string. For example, to
     request the sixth Fibonacci number, you should be able to `curl` the service as:
     `http://localhost:3000?n=6`.'
+  id: totrans-204
   prefs: []
   type: TYPE_NORMAL
 - en: 'To do this, we’ll use a total of three functions. Starting from the inside
     and working our way out, these are:'
+  id: totrans-205
   prefs: []
   type: TYPE_NORMAL
 - en: The service API
+  id: totrans-206
   prefs: []
   type: TYPE_NORMAL
 - en: This will do the Fibonacci computation proper—at the request of the service
     handler—by recursively calling itself, with each call generating its own span.
+  id: totrans-207
   prefs: []
   type: TYPE_NORMAL
 - en: The service handler
+  id: totrans-208
   prefs: []
   type: TYPE_NORMAL
 - en: This is an HTTP handler function as defined by the `net/http` package, which
     will be used just like in [“Building an HTTP Server with net/http”](ch05.xhtml#section_ch05_server_with_nethttp)
     to receive the client request, call the service API, and return the result in
     the response.
+  id: totrans-209
   prefs: []
   type: TYPE_NORMAL
 - en: The main function
+  id: totrans-210
   prefs: []
   type: TYPE_NORMAL
 - en: In the `main` function, the OpenTelemetry exporters are created and registered,
     the service handler function is provided to the HTTP framework, and the HTTP server
     is started.
+  id: totrans-211
   prefs: []
   type: TYPE_NORMAL
 - en: The Fibonacci service API
+  id: totrans-212
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: The service API at the very core of the service is where the actual computation
     is performed. In this case, it’s a concurrent implementation of the Fibonacci
     method to calculate the *n*th Fibonacci number.
+  id: totrans-213
   prefs: []
   type: TYPE_NORMAL
 - en: 'Just like any good service API, this function doesn’t know (or care) how it’s
     being used, so it has no knowledge of HTTP requests or responses:'
+  id: totrans-214
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE20]'
+  id: totrans-215
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE20]'
 - en: In this example, the `Fibonacci` function doesn’t know how it’s being used,
     but it *does* know about the OpenTelemetry package. Autoinstrumentation can only
     trace what it wraps. Anything within the API will need to instrument itself.
+  id: totrans-216
   prefs: []
   type: TYPE_NORMAL
 - en: This function’s use of `otel.GetTracerProvider` ensures that it’ll get the global
     `TracerProvider`, assuming that it was configured by the consumer. If no global
     tracer provider has been set, these calls will be no-ops.
+  id: totrans-217
   prefs: []
   type: TYPE_NORMAL
 - en: Tip
+  id: totrans-218
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
 - en: For extra credit, take a minute to add support for `Context` cancellation to
     the `Fibonacci` function.
+  id: totrans-219
   prefs: []
   type: TYPE_NORMAL
 - en: The Fibonacci service handler
+  id: totrans-220
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: This is an HTTP handler function as defined by the `net/http` package.
+  id: totrans-221
   prefs: []
   type: TYPE_NORMAL
 - en: 'It’ll be used in our service just like in [“Building an HTTP Server with net/http”](ch05.xhtml#section_ch05_server_with_nethttp):
     to receive the client request, call the service API, and return the result in
     the response:'
+  id: totrans-222
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE21]'
+  id: totrans-223
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE21]'
 - en: Note that it doesn’t have to create or end a `Span`; autoinstrumentation will
     do that for us.
+  id: totrans-224
   prefs: []
   type: TYPE_NORMAL
 - en: It *does*, however, set some attributes on the current span. To do this, it
     uses `trace.SpanFromContext` to retrieve the current span from the request context.
     Once it has the span, it’s free to add whatever metadata it likes.
+  id: totrans-225
   prefs: []
   type: TYPE_NORMAL
 - en: Warning
+  id: totrans-226
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
 - en: The `trace.SpanFromContext` function will return `nil` if it can’t find a `Span`
     associated with the `Context` passed to it.
+  id: totrans-227
   prefs: []
   type: TYPE_NORMAL
 - en: The service Main function
+  id: totrans-228
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: 'At this point, all of the hard work has been done. All we have left to do is
     configure OpenTelemetry, register the handler function with the default HTTP mux,
     and start the service:'
+  id: totrans-229
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE22]'
+  id: totrans-230
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE22]'
 - en: As you can see, the majority of the main method is dedicated to creating our
     (console and Jaeger) exporters and configuring the tracer provider as we did in
     [“Creating the tracing exporters”](#section_ch11_tracing_creating_the_exporters).
     Note the value of `jaegerEndpoint`, which assumes that you’ll have a local Jaeger
     service running. We’ll do that in the next step.
+  id: totrans-231
   prefs: []
   type: TYPE_NORMAL
 - en: The last two lines are spent autoinstrumenting and registering the handler function
     and starting the HTTP service, just as we did in [“Autoinstrumentation”](#section_ch11_tracing_autoinstrumentation).
+  id: totrans-232
   prefs: []
   type: TYPE_NORMAL
 - en: Starting your services
+  id: totrans-233
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: Before we continue, we’ll want to start a Jaeger service to receive the telemetry
     data provided by the Jaeger exporter that we included. For a little more background
     on Jaeger, see [“What Is Jaeger?”](#sidebar_ch11_what_is_jaeger).
+  id: totrans-234
   prefs: []
   type: TYPE_NORMAL
 - en: 'If you have Docker installed, you can start a Jaeger service with the following
     command:'
+  id: totrans-235
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE23]'
+  id: totrans-236
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE23]'
 - en: Once the service is up and running, you’ll be able to access its web interface
     by browsing to `http://localhost:16686`. Obviously, there won’t be any data there
     yet, though.
+  id: totrans-237
   prefs: []
   type: TYPE_NORMAL
 - en: 'Now for the fun part: start your service by running its main function:'
+  id: totrans-238
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE24]'
+  id: totrans-239
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE24]'
 - en: Your terminal should pause. As usual, you can stop the service with a Ctrl-C.
+  id: totrans-240
   prefs: []
   type: TYPE_NORMAL
 - en: 'Finally, in another terminal, you can now send a request to the service:'
+  id: totrans-241
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE25]'
+  id: totrans-242
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE25]'
 - en: After a short pause, you should be rewarded with a result. In this case, 13.
+  id: totrans-243
   prefs: []
   type: TYPE_NORMAL
 - en: Be careful with the value of `n`. If you make it `n` too large, it might take
     the service a long time to respond, or even crash.
+  id: totrans-244
   prefs: []
   type: TYPE_NORMAL
 - en: Console exporter output
+  id: totrans-245
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: 'Now that you’ve issued a request to your service, take a look at the terminal
     you used to start your service. You should see several JSON blocks that resemble
     the following:'
+  id: totrans-246
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE26]'
+  id: totrans-247
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE26]'
 - en: These JSON objects are the output of the Console Exporter (which, remember,
     we’ve configured to pretty-print). There should be one per span, which is quite
     a few.
+  id: totrans-248
   prefs: []
   type: TYPE_NORMAL
 - en: 'The preceding example (which has been pruned slightly) is from the root span.
     As you can see, it includes quite a few interesting bits of data, including its
     start and end times, and its trace and span IDs. It even includes the two attributes
     that we explicitly set: the input value `n`, and the result of our query.'
+  id: totrans-249
   prefs: []
   type: TYPE_NORMAL
 - en: Viewing your results in Jaeger
+  id: totrans-250
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: Now that you’ve generated your trace and sent it to Jaeger, it’s time to visualize
     it. Jaeger just happens to provide a slick web UI for exactly that purpose!
+  id: totrans-251
   prefs: []
   type: TYPE_NORMAL
 - en: To check it out, browse to `http://localhost:16686` with your favorite web browser.
     Select Fibonacci in the Service dropdown, and click the Find traces button. You
     should be presented with output similar to that shown in [Figure 11-3](#img_ch11_jaeger_screenshot1).
+  id: totrans-252
   prefs: []
   type: TYPE_NORMAL
 - en: Each bar in the visualization represents a single span. You can even view a
     specific span’s data by clicking on it, which reveals the same data that was contained
     in the (quite verbose) console output that you saw in [“Console exporter output”](#section_ch11_tracing_console_exporter_output).
+  id: totrans-253
   prefs: []
   type: TYPE_NORMAL
 - en: '![cngo 1103](Images/cngo_1103.png)'
+  id: totrans-254
   prefs: []
   type: TYPE_IMG
 - en: Figure 11-3\. Screenshot of the Jaeger interface, displaying the results of
     a concurrent Fibonacci call
+  id: totrans-255
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
 - en: Metrics
+  id: totrans-256
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -1246,6 +1725,7 @@
     bounce rate, cart abandonment). Of course, these are just a handful of trivial
     examples. For a complex system, the *cardinality* can range into the many thousands,
     or even millions.
+  id: totrans-257
   prefs: []
   type: TYPE_NORMAL
 - en: A metric data point, representing one observation of a particular aspect of
@@ -1253,6 +1733,7 @@
     *sample*. Each sample has a name, a value, and a millisecond-precision timestamp.
     Also—at least in modern systems like [Prometheus](https://prometheus.io)—a set
     of key-value pairs called *labels*.
+  id: totrans-258
   prefs: []
   type: TYPE_NORMAL
 - en: By itself, a single sample is of limited use, but a sequence of successive samples
@@ -1260,13 +1741,16 @@
     in [Figure 11-4](#img_ch11_time_series), collecting samples as a time series allows
     metrics to be easily visualized by plotting the data points on a graph, in turn
     making it easier to see trends or to observe anomalies or outliers.
+  id: totrans-259
   prefs: []
   type: TYPE_NORMAL
 - en: '![cngo 1104](Images/cngo_1104.png)'
+  id: totrans-260
   prefs: []
   type: TYPE_IMG
 - en: Figure 11-4\. Arranging samples as a time series allows them to be graphically
     visualized
+  id: totrans-261
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
@@ -1277,6 +1761,7 @@
     this way, it becomes obvious that traffic to the instance spikes each weekday.
     Interestingly, November 25–27—the days spanning the day before to the day after
     Thanksgiving in the United States—are the exceptions.
+  id: totrans-262
   prefs: []
   type: TYPE_NORMAL
 - en: 'The true power of metrics, however, isn’t its ability to be visually represented
@@ -1284,15 +1769,18 @@
     to mathematical modeling. For example, you might use trend analysis to detect
     anomalies or predict future states, which in turn can inform decisions or trigger
     alerts.'
+  id: totrans-263
   prefs: []
   type: TYPE_NORMAL
 - en: Push Versus Pull Metric Collection
+  id: totrans-264
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
 - en: 'There are two primary architectures in the universe of metrics: push-based
     and pull-based (so called because of the relationship between the components being
     monitored and the collector backend).'
+  id: totrans-265
   prefs: []
   type: TYPE_NORMAL
 - en: 'In push-based metrics, monitored components “push” their data to a central
@@ -1301,14 +1789,17 @@
     components (or by sidecar services deployed for this purpose, also confusingly
     called “exporters”; see [“Prometheus Exporters”](#sidebar_ch11_prometheus_exporters)).
     Both approaches are illustrated in [Figure 11-5](#img_ch11_push_vs_pull).'
+  id: totrans-266
   prefs: []
   type: TYPE_NORMAL
 - en: '![cngo 1105](Images/cngo_1105.png)'
+  id: totrans-267
   prefs: []
   type: TYPE_IMG
 - en: Figure 11-5\. Push-based metrics (left) send telemetry directly to a central
     collector backend; pull-based metrics (right) are actively scraped by the collector
     from exposed metric endpoints
+  id: totrans-268
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
@@ -1316,9 +1807,11 @@
     a very limited list of some arguments for and against each approach. Unfortunately,
     there are bounteous arguments, many quite nuanced—far too nuanced to delve into
     here—so we’ll have to be content with some of the common ones.
+  id: totrans-269
   prefs: []
   type: TYPE_NORMAL
 - en: Push-based metric collection
+  id: totrans-270
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -1327,6 +1820,7 @@
     like Ganglia, Graphite, and StatsD, tend to be the most common (even default)
     approach, perhaps in part because the push model tends to be quite a bit easier
     to reason about.
+  id: totrans-271
   prefs: []
   type: TYPE_NORMAL
 - en: Push messages are typically unidirectional, being emitted by the monitored components
@@ -1336,6 +1830,7 @@
     a metrics endpoint accessible to the collector. It’s also easier to use the push
     model to monitor highly ephemeral components such as short-lived containers or
     serverless functions.
+  id: totrans-272
   prefs: []
   type: TYPE_NORMAL
 - en: There are some downsides to the push model, though. First, you need to know
@@ -1344,9 +1839,11 @@
     lookups or service discovery (which may add unacceptable latency). Scaling can
     also sometimes be an issue, in that it’s entirely possible for a large number
     of components to effectively DDoS your collector backend.
+  id: totrans-273
   prefs: []
   type: TYPE_NORMAL
 - en: Pull-based metric collection
+  id: totrans-274
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -1354,6 +1851,7 @@
     configurable cadence) scrapes a metric endpoint exposed by a component, or by
     a proxy deployed for this purpose. Perhaps the best-known example of a pull-based
     system is [Prometheus](https://prometheus.io).
+  id: totrans-275
   prefs: []
   type: TYPE_NORMAL
 - en: The pull approach offers some notable advantages. Exposing a metric endpoint
@@ -1361,6 +1859,7 @@
     all of the benefits of loose coupling. For example, it becomes easier to monitor
     a service during development, or even manually inspect a component’s health with
     a web browser. It’s also much easier for a pull model to tell if a target is down.
+  id: totrans-276
   prefs: []
   type: TYPE_NORMAL
 - en: However, the pull approach has a discovery issue of its own, in that the collector
@@ -1373,9 +1872,11 @@
     target). Finally, pull-based collection can make it somewhat harder to monitor
     very short-lived ephemeral things like serverless functions, necessitating a solution
     like the push gateway.
+  id: totrans-277
   prefs: []
   type: TYPE_NORMAL
 - en: But which is better?
+  id: totrans-278
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -1383,6 +1884,7 @@
     another, it’s common for people to wonder which is better.^([11](ch11.xhtml#idm45983613739800))
     That’s a hard question, and as is often the case when comparing technical methodologies,
     the answer is a resounding “it depends.”
+  id: totrans-279
   prefs: []
   type: TYPE_NORMAL
 - en: Of course, that’s never stopped a sufficiently motivated programmer from stridently
@@ -1390,37 +1892,44 @@
     is the one that satisfies the requirements of your system. Of course (and quite
     unsatisfyingly) that could be both. We technical types abhor ambiguity, yet it
     stubbornly insists on existing anyway.
+  id: totrans-280
   prefs: []
   type: TYPE_NORMAL
 - en: 'So, I will close this section with the words of Brian Brazil, a core developer
     of Prometheus:'
+  id: totrans-281
   prefs: []
   type: TYPE_NORMAL
 - en: From an engineering standpoint, in reality, the question of push versus pull
     largely doesn’t matter. In either case, there’s advantages and disadvantages,
     and with engineering effort, you can work around both cases.^([12](ch11.xhtml#idm45983613735976))
+  id: totrans-282
   prefs:
   - PREF_BQ
   type: TYPE_NORMAL
 - en: Metrics with OpenTelemetry
+  id: totrans-283
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
 - en: As of the time of writing, the OpenTelemetry metrics API is still in alpha,
     so it still has a few rough spots to be ironed out and a few inconsistencies with
     the tracing API that are yet to be resolved.
+  id: totrans-284
   prefs: []
   type: TYPE_NORMAL
 - en: That being said, the considerable private and community support behind OpenTelemetry,
     coupled with its quite impressive rate of development, make it appropriate not
     just for inclusion in this book, but as the most likely candidate to become the
     gold standard for metric telemetry for the next several years at least.
+  id: totrans-285
   prefs: []
   type: TYPE_NORMAL
 - en: 'For the most part, OpenTelemetry metrics work a lot like traces, but are different
     enough to possibly cause some confusion. For both tracing and metric instrumentation,
     the configuration phase is executed exactly once in a program, usually in the
     `main` function, and includes the following steps:'
+  id: totrans-286
   prefs: []
   type: TYPE_NORMAL
 - en: The first step is to create and configure the appropriate exporter for the target
@@ -1429,6 +1938,7 @@
     package. As we’ll discuss in [“Creating the metric exporters”](#section_ch11_metrics_creating_the_exporters),
     several stock exporters are included with OpenTelemetry, but unlike trace exporters,
     you can currently only use one metric exporter at a time.
+  id: totrans-287
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
@@ -1439,6 +1949,7 @@
     the meter exporter discoverable via the `otel.GetMeterProvider` function, which
     allows libraries and other dependencies that use the OpenTelemetry API to more
     easily access the SDK and emit telemetry data.
+  id: totrans-288
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
@@ -1446,16 +1957,19 @@
     to expose a metric endpoint that it can pull from. You’ll see how the Prometheus
     exporter leverages Go’s standard `http` package to do this in [“Exposing the metrics
     endpoint”](#section_ch11_metrics_expose_endpoint).
+  id: totrans-289
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: 'Once the configuration is complete, instrumenting your code requires only a
     few small steps:'
+  id: totrans-290
   prefs: []
   type: TYPE_NORMAL
 - en: Before you can instrument an operation, you first have to obtain a `Meter`,
     the structure through which all metric collection is configured and reported,
     from the meter provider. We’ll discuss this in more detail in [“Obtaining a meter”](#section_ch11_metrics_obtain_meter).
+  id: totrans-291
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
@@ -1463,10 +1977,12 @@
     are two ways this can be done, either by explicitly recording measurements, or
     by creating *observers* that can autonomously and asynchronously collect data.
     Both of these approaches are covered in [“Metric instruments”](#section_ch11_metrics_instruments).
+  id: totrans-292
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: Creating the metric exporters
+  id: totrans-293
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -1474,94 +1990,116 @@
     for metrics is create and configure your exporters. Metric exporters implement
     the `metric.Exporter` interface, which in OpenTelemetry v0.17.0 lives in the `go.opentelemetry.io/otel/sdk/export/metric`
     package.
+  id: totrans-294
   prefs: []
   type: TYPE_NORMAL
 - en: The way that you create metric exporters varies a little between implementations,
     but it’s typical for an exporter to have a `NewExportPipeline` builder function,
     at least in the standard OpenTelemetry packages.
+  id: totrans-295
   prefs: []
   type: TYPE_NORMAL
 - en: 'To get an instance of the Prometheus exporter, for example, you would use the
     `NewExportPipeline` function from the `go.opentelemetry.io/otel/exporters/metric/prometheus`
     package:'
+  id: totrans-296
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE27]'
+  id: totrans-297
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE27]'
 - en: The above snippet creates the exporter and configures it according the directions
     specified by the passed `prometheus.Config` value. Any behaviors not overridden
     by the `Config` will use the recommended options.
+  id: totrans-298
   prefs: []
   type: TYPE_NORMAL
 - en: The `prometheus.Config` parameter also allows you to specify a variety of custom
     behaviors. Unfortunately, the specifics are beyond the scope of this book, but
     if you’re interested the [exporter Config code](https://oreil.ly/fKIzt) and the
     code for [the Prometheus Go client](https://oreil.ly/biCJn) are fairly straightforward.
+  id: totrans-299
   prefs: []
   type: TYPE_NORMAL
 - en: Setting the global meter provider
+  id: totrans-300
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: Where OpenTelemetry tracing has the “tracer provider” that provides `Tracer`
     values, OpenTelemetry metrics has the *meter provider*, which provides the `Meter`
     values through which all metric collection is configured and reported.
+  id: totrans-301
   prefs: []
   type: TYPE_NORMAL
 - en: 'You may recall that when working with tracing exporters, defining the global
     tracer provider requires two steps: creating and configuring a tracer provider
     instance, and then setting that instance as the global tracer provider.'
+  id: totrans-302
   prefs: []
   type: TYPE_NORMAL
 - en: 'The meter provider works a little differently: rather than using one or more
     exporters to create and define a provider (as is the case with the `TracerProvider`),
     a meter provider is typically retrieved *from* the metric exporter, and then passed
     directly to the `otel.SetMeterProvider` function:'
+  id: totrans-303
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE28]'
+  id: totrans-304
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE28]'
 - en: An unfortunate consequence of this design is that you’re limited to using only
     one metric exporter at a time, since the meter provider is provided by the exporter
     instead of the other way around. Obviously, this is a significant deviation from
     how the tracing API works, and I expect it to change as the OpenTracing metrics
     API moves into beta.
+  id: totrans-305
   prefs: []
   type: TYPE_NORMAL
 - en: Tip
+  id: totrans-306
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
 - en: There’s also a `prometheus.InstallNewPipeline` convenience function that can
     be used instead of explicitly calling the `prometheus.NewExportPipeline` and `otel.SetMeterProvider`
     functions.
+  id: totrans-307
   prefs: []
   type: TYPE_NORMAL
 - en: Exposing the metrics endpoint
+  id: totrans-308
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: Because Prometheus is pull-based, any telemetry data we want to send it must
     be exposed through an HTTP endpoint that the collector can scrape.
+  id: totrans-309
   prefs: []
   type: TYPE_NORMAL
 - en: To do this, we can make use of Go’s standard `http` package, which, as we’ve
     shown several times in this book, requires minimal configuration, and is rather
     straightforward to use.
+  id: totrans-310
   prefs: []
   type: TYPE_NORMAL
 - en: 'To review what we first introduced in [“Building an HTTP Server with net/http”](ch05.xhtml#section_ch05_server_with_nethttp),
     starting a minimal HTTP server in Go requires at least two calls:'
+  id: totrans-311
   prefs: []
   type: TYPE_NORMAL
 - en: '`http.Handle` to register a handler function that implements the `http.Handler`
     interface'
+  id: totrans-312
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: '`http.ListenAndServe` to start the server listening'
+  id: totrans-313
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -1569,63 +2107,80 @@
     it implements the `http.Handler` interface, which allows it to be passed directly
     to `http.Handle` to act as a handler function for the metric endpoint! See the
     following:'
+  id: totrans-314
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE29]'
+  id: totrans-315
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE29]'
 - en: In this example, we pass the Prometheus exporter directly into `http.Handle`
     to register it as the handler for the pattern “/metrics.” It’s hard to get more
     convenient than that.
+  id: totrans-316
   prefs: []
   type: TYPE_NORMAL
 - en: Note
+  id: totrans-317
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
 - en: Ultimately, the name of your metrics endpoint is up to you, but
+  id: totrans-318
   prefs: []
   type: TYPE_NORMAL
 - en: '`metrics` is the most common choice. It’s also where Prometheus looks by default.'
+  id: totrans-319
   prefs: []
   type: TYPE_NORMAL
 - en: Obtaining a meter
+  id: totrans-320
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: Before you can instrument an operation, you first have to obtain a `Meter` value
     from a `MeterProvider`.
+  id: totrans-321
   prefs: []
   type: TYPE_NORMAL
 - en: As you’ll see in [“Metric instruments”](#section_ch11_metrics_instruments),
     the `metric.Meter` type, which lives in the `go.opentelemetry.io/otel/metric`
     package, is the means by which all metric collection is configured and reported,
     either as record batches of synchronous measurements or asynchronous observations.
+  id: totrans-322
   prefs: []
   type: TYPE_NORMAL
 - en: 'You can retrieve a `Meter` value as follows:'
+  id: totrans-323
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE30]'
+  id: totrans-324
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE30]'
 - en: You may have noticed that snippet looks almost exactly like the expression used
     to get a `Tracer` back in [“Obtaining a tracer”](#section_ch11_tracing_obtain_tracer).
     In fact, `otel.GetMeterProvider` is exactly equivalent to `otel.GetTracerProvider`,
     and works pretty much the same way.
+  id: totrans-325
   prefs: []
   type: TYPE_NORMAL
 - en: The `otel.GetMeterProvider` function returns the registered global meter provider.
     If none is registered then a default meter provider is returned that forwards
     the `Meter` interface to the first registered `Meter` value.
+  id: totrans-326
   prefs: []
   type: TYPE_NORMAL
 - en: The provider’s `Meter` method returns an instance of the `metric.Meter` type.
     It accepts a string parameter representing the instrumentation name, which by
     convention is named after the library or package it’s instrumenting.
+  id: totrans-327
   prefs: []
   type: TYPE_NORMAL
 - en: Metric instruments
+  id: totrans-328
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -1633,35 +2188,42 @@
     make measurements and to instrument your code. However, just as there are several
     different types of metrics, there are several types of instruments. The type of
     instrument you use will depend on the type of measurement you’re making.
+  id: totrans-329
   prefs: []
   type: TYPE_NORMAL
 - en: All told, there are 12 *kinds* of instruments available, each with some combination
     of *synchronicity*, *accumulation* behavior, and data type.
+  id: totrans-330
   prefs: []
   type: TYPE_NORMAL
 - en: 'The first of these properties, *synchronicity*, determines how an instrument
     collects and transmits data:'
+  id: totrans-331
   prefs: []
   type: TYPE_NORMAL
 - en: '*Synchronous instruments* are explicitly called by the user to record a metric,
     as we’ll see in [“Synchronous instruments”](#section_ch11_metrics_instruments_synchronous).'
+  id: totrans-332
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: '*Asynchronous instruments*, also called *observers*, can monitor a specific
     property and are asynchronously called by the SDK during collection. We’ll demonstrate
     in [“Asynchronous instruments”](#section_ch11_metrics_instruments_asynchronous).'
+  id: totrans-333
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: 'Second, each instrument has an *accumulation* behavior that describes how it
     tracks the acquisition of new data:'
+  id: totrans-334
   prefs: []
   type: TYPE_NORMAL
 - en: '*Additive* instruments are used to track a sum that can go arbitrarily up or
     down, like a gauge. They’re typically used for measured values like temperatures
     or current memory usage, but also “counts” that can go up and down, like the number
     of concurrent requests.'
+  id: totrans-335
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -1669,6 +2231,7 @@
     values that can only increase (or be reset to zero on restart), like a counter.
     Additive monotonic values are often used for metrics like the number of requests
     served, tasks completed, or errors.'
+  id: totrans-336
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -1676,6 +2239,7 @@
     A grouping instrument samples observations (usually things like request durations
     or response sizes) and counts them in configurable buckets. It also provides a
     sum of all observed values.'
+  id: totrans-337
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -1683,76 +2247,95 @@
     either `float64` or `int64` input values, for a total of 12 kinds of instruments.
     Each has an associated type in the `go.opentelemetry.io/otel/metric` package,
     summarized in [Table 11-1](#table_ch11_metrics_instruments).
+  id: totrans-338
   prefs: []
   type: TYPE_NORMAL
 - en: Table 11-1\. The 12 kinds of OpenTelemetry metric instruments, by synchronicity
     and accumulation behavior.
+  id: totrans-339
   prefs: []
   type: TYPE_NORMAL
 - en: '|  | Synchronous | Asynchronous |'
+  id: totrans-340
   prefs: []
   type: TYPE_TB
 - en: '| --- | --- | --- |'
+  id: totrans-341
   prefs: []
   type: TYPE_TB
 - en: '| **Additive** | `Float64UpDownCounter, Int64UpDownCounter` | `Float64UpDownSumObserver,
     Int64UpDownSumObserver` |'
+  id: totrans-342
   prefs: []
   type: TYPE_TB
 - en: '| **Additive, Monotonic** | `Float64Counter, Int64Counter` | `Float64SumObserver,
     Int64SumObserver` |'
+  id: totrans-343
   prefs: []
   type: TYPE_TB
 - en: '| **Grouping** | `Float64ValueRecorder, Int64ValueRecorder` | `Float64ValueObserver,
     Int64ValueObserver` |'
+  id: totrans-344
   prefs: []
   type: TYPE_TB
 - en: 'Each of the 12 types has an associated constructor function on the `metric.Meter`
     type, all with a similar signature. For example, the `NewInt64Counter` method
     looks like the following:'
+  id: totrans-345
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE31]'
+  id: totrans-346
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE31]'
 - en: All 12 constructor methods accept the name of the metric as a `string`, and
     zero or more `metric.InstrumentOption` values, just like the `NewInt64Counter`
     method. Similarly, each returns an instrument value of the appropriate type with
     the given name and options, and can return an error if the name is empty or otherwise
     invalid, or if the instrument is duplicate registered.
+  id: totrans-347
   prefs: []
   type: TYPE_NORMAL
 - en: 'For example, a function that uses the `NewInt64Counter` method to get a new
     `metric.Int64Counter` from a `metric.Meter` value looks something like the following:'
+  id: totrans-348
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE32]'
+  id: totrans-349
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE32]'
 - en: Note how we retain a reference to the instrument in the form of the `requests`
     global variable. For reasons I’ll discuss shortly, this is generally specific
     to synchronous instruments.
+  id: totrans-350
   prefs: []
   type: TYPE_NORMAL
 - en: 'But while the `metric.Int64Counter` happens to be a synchronous instrument,
     the takeaway here is that synchronous and asynchronous instruments are both obtained
     in the same way: via the corresponding `Metric` constructor method. How they’re
     used, however, differs significantly, as we’ll see in the subsequent sections.'
+  id: totrans-351
   prefs: []
   type: TYPE_NORMAL
 - en: Synchronous instruments
+  id: totrans-352
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
 - en: The initial steps to using a synchronous instrument—retrieving a meter from
     the meter provider and creating an instrument—are largely the same for both synchronous
     and asynchronous instruments. We saw these in the previous section.
+  id: totrans-353
   prefs: []
   type: TYPE_NORMAL
 - en: However, using synchronous instruments differs from using asynchronous instruments
     in that they’re explicitly exercised in your code logic when recording a metric,
     which means you have to be able to refer to your instrument after it’s been created.
     That’s why the above example uses a global `requests` variable.
+  id: totrans-354
   prefs: []
   type: TYPE_NORMAL
 - en: 'Perhaps the most common application is to record individual events by incrementing
@@ -1760,22 +2343,28 @@
     for this. The following example uses the `requests` value that we created in the
     previous example by adding a call to `requests.Add` to the API’s `Fibonacci` function
     that was originally defined in [“The Fibonacci service API”](#section_ch11_tracing_service_api):'
+  id: totrans-355
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE33]'
+  id: totrans-356
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE33]'
 - en: 'As you can see, the `requests.Add` method—which is safe for concurrent use—accepts
     three parameters:'
+  id: totrans-357
   prefs: []
   type: TYPE_NORMAL
 - en: The first parameter is the current context in the form of a `context.Context`
     value. This is common for all of the synchronous instrument methods.
+  id: totrans-358
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: The second parameter is the number to increment by. In this case, each call
     to `Fibonacci` increases the call counter by one.
+  id: totrans-359
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
@@ -1783,54 +2372,66 @@
     labels to associate with the data points. This increases the cardinality of the
     metrics, which, as discussed in [“Cardinality”](#sidebar_ch11_cardinality), is
     incredibly useful.
+  id: totrans-360
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Tip
+  id: totrans-361
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
 - en: Data labels are a powerful tool that allow you to describe data beyond which
     service or instance emitted it. They can allow you to ask questions of your data
     that you hadn’t thought of before.
+  id: totrans-362
   prefs: []
   type: TYPE_NORMAL
 - en: 'It’s also possible to group multiple metrics and report them as a batch. This
     works slightly differently than the `Add` method you saw in the previous example,
     though. Specifically, for each metric in the batch, you need to:'
+  id: totrans-363
   prefs: []
   type: TYPE_NORMAL
 - en: Collect the value or values you want to record.
+  id: totrans-364
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: Pass each value to its appropriate instrument’s `Measurement` method, which
     returns a `metric.Measurement` value that wraps your metric and provides some
     supporting metadata.
+  id: totrans-365
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: Pass all of the `metric.Measurement` values to the `meter.RecordBatch`, which
     atomically records the entire batch of measurements.
+  id: totrans-366
   prefs:
   - PREF_OL
   type: TYPE_NORMAL
 - en: 'These steps are demonstrated in the following example, in which we use the
     `runtime` package to retrieve two values—the amount of memory and the number of
     goroutines used by the process—and emit them to the metrics collector:'
+  id: totrans-367
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE34]'
+  id: totrans-368
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE34]'
 - en: 'When run as a goroutine, the `updateMetrics` function executes in two parts:
     an initial setup, and an infinite loop in which it generates and records measurements.'
+  id: totrans-369
   prefs: []
   type: TYPE_NORMAL
 - en: In the set-up phase, it retrieves the `Meter`, defines some metric labels, and
     creates the instruments. All of these values are created exactly once and are
     reused in the loop. Note that in addition to types, the instruments are created
     with names and descriptions indicating the metrics they’re instrumenting.
+  id: totrans-370
   prefs: []
   type: TYPE_NORMAL
 - en: Inside the loop, we first use the `runtime.ReadMemStats` and `runtime.NumGoroutine`
@@ -1838,14 +2439,17 @@
     and the number of running goroutines, respectively). With those values, we use
     the instruments’ `Measurement` methods to generate `metrics.Measurement` values
     for each metric.
+  id: totrans-371
   prefs: []
   type: TYPE_NORMAL
 - en: With our `Measurement` values in hand, we pass them into the `meter.RecordBatch`
     method—which also accepts the current `context.Context` and any labels that we
     want to attach to the metrics—to officially record them.
+  id: totrans-372
   prefs: []
   type: TYPE_NORMAL
 - en: Asynchronous instruments
+  id: totrans-373
   prefs:
   - PREF_H4
   type: TYPE_NORMAL
@@ -1853,50 +2457,63 @@
     setup to measure a particular property, and are subsequently called by the SDK
     during collection. This is especially useful when you have a value you want to
     monitor without managing your own background recording process.
+  id: totrans-374
   prefs: []
   type: TYPE_NORMAL
 - en: 'Just like synchronous instruments, asynchronous instruments are created from
     a constructor method attached to a `metric.Meter` instance. In total, there are
     six such functions: a `float64` and `int64` version for each of the three accumulation
     behaviors. All six have a very similar signature, of which the following is representative:'
+  id: totrans-375
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE35]'
+  id: totrans-376
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE35]'
 - en: As you can see, the `NewInt64UpDownSumObserver` accepts the name of the metric
     as a `string`, something called a `Int64ObserverFunc`, and zero or more instrument
     options (such as the metric description). Although it returns the observer value,
     this isn’t actually used all that often, though it can return a non-`nil` error
     if the name is empty, duplicate registered, or otherwise invalid.
+  id: totrans-377
   prefs: []
   type: TYPE_NORMAL
 - en: 'The second parameter—the *callback function*—is the heart of any asynchronous
     instrument. Callback functions are asynchronously called by the SDK upon data
     collection. There are two kinds, one each for `int64` and `float64`, but they
     look, feel, and work essentially the same:'
+  id: totrans-378
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE36]'
+  id: totrans-379
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE36]'
 - en: When called by the SDK, the callback functions receive the current `context.Context`,
     and either a `metric.Float64ObserverResult` (for `float64` observers) or `metric.Int64ObserverResult`
     (for `int64` observers). Both result types have an `Observe` method, which you
     use to report your results.
+  id: totrans-380
   prefs: []
   type: TYPE_NORMAL
 - en: 'This is a lot of little details, but they come together fairly seamlessly.
     The following function does exactly that, defining two observers:'
+  id: totrans-381
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE37]'
+  id: totrans-382
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE37]'
 - en: When called by `main`, the `buildRuntimeObservers` function defines two asynchronous
     instruments—`memory_usage_bytes` and `num_goroutines`—each with a callback function
     that works exactly like the data collection in the `updateMetrics` function that
     we defined in [“Synchronous instruments”](#section_ch11_metrics_instruments_synchronous).
+  id: totrans-383
   prefs: []
   type: TYPE_NORMAL
 - en: In `updateMetrics`, however, we used an infinite loop to synchronously report
@@ -1904,108 +2521,139 @@
     only less work to set up and manage, but has fewer moving parts to worry about
     later, since there isn’t anything else to do once the observers (and their callback
     functions) are defined and the SDK takes over.
+  id: totrans-384
   prefs: []
   type: TYPE_NORMAL
 - en: 'Putting It All Together: Metrics'
+  id: totrans-385
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
 - en: 'Now that we have an idea what metrics we’re going to collect and how, we can
     use them to extend the Fibonacci web service that we put together in [“Putting
     It All Together: Tracing”](#section_ch11_tracing_all_together).'
+  id: totrans-386
   prefs: []
   type: TYPE_NORMAL
 - en: 'The functionality of the service will remain unchanged. As before, it will
     be able to accept an `HTTP GET` request, in which the *n*th Fibonacci number can
     be requested using parameter `n` on the `GET` query string. For example, to request
     the sixth Fibonacci number, you should be able to `curl` the service as: `http://localhost:3000?n=6`.'
+  id: totrans-387
   prefs: []
   type: TYPE_NORMAL
 - en: 'The specific changes we’ll be making, and the metrics that we’ll be collecting,
     are as follows:'
+  id: totrans-388
   prefs: []
   type: TYPE_NORMAL
 - en: Synchronously recording the API request count by adding the `buildRequestsCounter`
     function to `main` and instrumenting the `Fibonacci` function in the service API
     as we described in [“Synchronous instruments”](#section_ch11_metrics_instruments_synchronous)
+  id: totrans-389
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Asynchronously recording the processes’ memory used, and number of active goroutines,
     by adding the `buildRuntimeObservers` described in [“Asynchronous instruments”](#section_ch11_metrics_instruments_asynchronous)
     to the `main` function
+  id: totrans-390
   prefs:
   - PREF_UL
   type: TYPE_NORMAL
 - en: Starting your services
+  id: totrans-391
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: 'Once again, start your service by running its main function:'
+  id: totrans-392
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE38]'
+  id: totrans-393
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE38]'
 - en: As before, your terminal should pause. You can stop the service with a Ctrl-C.
+  id: totrans-394
   prefs: []
   type: TYPE_NORMAL
 - en: 'Next, you’ll start the Prometheus server. But before you do, you’ll need to
     create a minimal configuration file for it. Prometheus has a [ton of available
     configuration options](https://oreil.ly/h8A7f), but the following should be perfectly
     sufficient. Copy and paste it into a file named `prometheus.yml`:'
+  id: totrans-395
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE39]'
+  id: totrans-396
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE39]'
 - en: This configuration defines a single target named `fibonacci` that lives at `host.docker.internal:3000`
     and will be scraped every five seconds (down from the default of every minute).
+  id: totrans-397
   prefs: []
   type: TYPE_NORMAL
 - en: 'Once you’ve created the file `prometheus.yml`, you can start Prometheus. The
     easiest way to do this is a container using Docker:'
+  id: totrans-398
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE40]'
+  id: totrans-399
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE40]'
 - en: Warning
+  id: totrans-400
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
 - en: If you’re using Linux for development, you’ll need to add the parameter `--add-host=host.docker.internal:host-gateway`
     to the above command. *But do not use this in production*.
+  id: totrans-401
   prefs: []
   type: TYPE_NORMAL
 - en: 'Now that your services are both running, you can send a request to the service:'
+  id: totrans-402
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE41]'
+  id: totrans-403
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE41]'
 - en: Behind the scenes, OpenTelemetry has just recorded a value for the number of
     requests (recursive and otherwise) made to its `Fibonacci` function.
+  id: totrans-404
   prefs: []
   type: TYPE_NORMAL
 - en: Metric endpoint output
+  id: totrans-405
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: 'Now that your service is running, you can always examine its exposed metrics
     directly with a standard curl to its `/metrics` endpoint:'
+  id: totrans-406
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE42]'
+  id: totrans-407
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE42]'
 - en: 'As you can see, all three of the metrics you’re recording—as well as their
     types, descriptions, labels, and values—are listed here. Don’t be confused if
     the value of `container_id` is empty: that just means you’re not running in a
     container.'
+  id: totrans-408
   prefs: []
   type: TYPE_NORMAL
 - en: Viewing your results in Prometheus
+  id: totrans-409
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -2014,6 +2662,7 @@
     Again, Prometheus isn’t a full-fledged graphing solution (you’ll want to use something
     like [Grafana](https://grafana.com) for that), but it does offer a simple interface
     for executing arbitrary queries.
+  id: totrans-410
   prefs: []
   type: TYPE_NORMAL
 - en: You can access this interface by browsing to `localhost:9090`. You should be
@@ -2021,21 +2670,26 @@
     your metric over time, enter its name in the search field, hit enter, and click
     the “graph” tab. You should be presented with something like the screenshot in
     [Figure 11-6](#img_ch11_prom_screenshot).
+  id: totrans-411
   prefs: []
   type: TYPE_NORMAL
 - en: '![cngo 1106](Images/cngo_1106.png)'
+  id: totrans-412
   prefs: []
   type: TYPE_IMG
 - en: Figure 11-6\. Screenshot of the Prometheus interface, displaying the value of
     the `fibonacci_requests_total` metric after three calls to the Fibonacci service
+  id: totrans-413
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
 - en: Now that you’re collecting data, take a moment to run a few more queries and
     see how the graph changes. Maybe even look at some other metrics. Enjoy!
+  id: totrans-414
   prefs: []
   type: TYPE_NORMAL
 - en: Logging
+  id: totrans-415
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
@@ -2043,15 +2697,18 @@
     recording—emitted by an application over time. Traditionally, logs were stored
     as append-only files, but these days, a log is just as likely to take the form
     of some kind of searchable data store.
+  id: totrans-416
   prefs: []
   type: TYPE_NORMAL
 - en: So, what’s there to say about logging, other than that it’s a really good idea
     that’s been around as long as electronic computing has? It’s the OG of observability
     methods.
+  id: totrans-417
   prefs: []
   type: TYPE_NORMAL
 - en: There’s actually quite a bit to say, largely because it’s really, really easy
     to do logging in a way that makes your life harder than it needs to be.
+  id: totrans-418
   prefs: []
   type: TYPE_NORMAL
 - en: Of the Three Pillars of Observability, logs are by far the easiest to generate.
@@ -2059,6 +2716,7 @@
     simplest form it’s as easy as adding a `print` statement to your code. This makes
     logs really good at providing lots and lots of context-rich data about what a
     component is doing or experiencing.
+  id: totrans-419
   prefs: []
   type: TYPE_NORMAL
 - en: But this free-form aspect to logging cuts both ways. While it’s possible (and
@@ -2066,6 +2724,7 @@
     logs are difficult to extract usable information from, especially at scale. To
     get the most out of logging, events should be structured, and that structure doesn’t
     come for free. It has to be intentionally considered and implemented.
+  id: totrans-420
   prefs: []
   type: TYPE_NORMAL
 - en: 'Another, particularly underappreciated, pitfall of logging is that generating
@@ -2074,19 +2733,23 @@
     more, this pressure tends to scale linearly with load: `N` users each doing `M`
     things translates to `N*M` log events being emitted, with potentially disastrous
     consequences for scalability.'
+  id: totrans-421
   prefs: []
   type: TYPE_NORMAL
 - en: Finally, for logs to be meaningfully useful, they have to be processed and stored
     in a way that makes them accessible. Anybody who’s ever had to manage logs at
     scale can tell you that it’s notoriously operationally burdensome to self-manage
     and self-host, and absurdly expensive to have somebody else manage and host.
+  id: totrans-422
   prefs: []
   type: TYPE_NORMAL
 - en: In the remainder of this section, we’ll first discuss some high-level practices
     for logging at scale, followed by how to implement them in Go.
+  id: totrans-423
   prefs: []
   type: TYPE_NORMAL
 - en: Better Logging Practices
+  id: totrans-424
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
@@ -2095,44 +2758,53 @@
     your logs after you. Awkward logging issues, like having to navigate unstructured
     logs or higher-than-expected resource consumption, which are annoying in small
     deployments, become major roadblocks at scale.
+  id: totrans-425
   prefs: []
   type: TYPE_NORMAL
 - en: As you’ll see, for this reason and others, the best practices around logging
     tend to focus on maximizing the quality, and minimizing the quantity, of logging
     data generated and retained.
+  id: totrans-426
   prefs: []
   type: TYPE_NORMAL
 - en: Warning
+  id: totrans-427
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
 - en: It goes without saying that you shouldn’t log sensitive business data or personally
     identifiable information.
+  id: totrans-428
   prefs: []
   type: TYPE_NORMAL
 - en: Treat logs as streams of events
+  id: totrans-429
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: How many times have you looked at log output and been confronted with an inscrutable
     stream of consciousness? How useful was it? Better than nothing, maybe, but probably
     not by much.
+  id: totrans-430
   prefs: []
   type: TYPE_NORMAL
 - en: Logs shouldn’t be treated as data sinks to be written to and forgotten until
     something is literally on fire, and they definitely shouldn’t be a garbage dump
     where you send random thoughts and observations.
+  id: totrans-431
   prefs: []
   type: TYPE_NORMAL
 - en: Instead, as we saw back in [Chapter 6](ch06.xhtml#chapter_6), logs should be
     treated as a *stream of events*, and should be written, unbuffered, directly to
     `stdout` and `stderr`. Though seemingly simple (and perhaps somewhat counterintuitive),
     this small change in perspective provides a great deal of freedom.
+  id: totrans-432
   prefs: []
   type: TYPE_NORMAL
 - en: By moving the responsibility for log management out of the application code,
     it’s freed from concerns about implementation trivialities like routing or storage
     of its log events, allowing the executor to decide what happens to them.
+  id: totrans-433
   prefs: []
   type: TYPE_NORMAL
 - en: This approach provides quite a lot of freedom for how you manage and consume
@@ -2140,46 +2812,59 @@
     them directly to a local terminal. In production, the execution environment can
     capture and redirect log events to a log indexing system like ELK or Splunk for
     review and analysis, or perhaps a data warehouse for long-term storage.
+  id: totrans-434
   prefs: []
   type: TYPE_NORMAL
 - en: Treat logs as streams of events, and write each event, unbuffered, directly
     to `stdout` and `stderr`.
+  id: totrans-435
   prefs: []
   type: TYPE_NORMAL
 - en: Structure events for parsing
+  id: totrans-436
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: Logging, in its simplest and most primitive form, is technically possible using
     nothing more than `fmt.Println` statements. The result, however, would be a set
     of unformatted strings of questionable utility.
+  id: totrans-437
   prefs: []
   type: TYPE_NORMAL
 - en: Fortunately, it’s more common for programmers to use Go’s standard `log` library,
     which is conveniently located and easy to use, and generates helpful timestamps.
     But how useful would a terabyte or so of log events formatted like the following
     be?
+  id: totrans-438
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE43]'
+  id: totrans-439
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE43]'
 - en: Certainly, it’s better than nothing, but you’re still confronted with a mostly
     unstructured string, albeit an unstructured string with a timestamp. You still
     have to parse the arbitrary text to extract the meaningful bits.
+  id: totrans-440
   prefs: []
   type: TYPE_NORMAL
 - en: Compare that to the equivalent messages outputted by a structured logger:^([13](ch11.xhtml#idm45983612468360))
+  id: totrans-441
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE44]'
+  id: totrans-442
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE44]'
 - en: 'The above log structure places all of the key elements into properties of a
     JavaScript object, each with:'
+  id: totrans-443
   prefs: []
   type: TYPE_NORMAL
 - en: '`time`'
+  id: totrans-444
   prefs: []
   type: TYPE_NORMAL
 - en: A timestamp, which is a piece of contextual information that’s critical for
@@ -2187,54 +2872,66 @@
     format that’s far less computationally expensive to extract meaning from than
     the first, barely structured example. When you’re processing billions of log events,
     little things add up.
+  id: totrans-445
   prefs: []
   type: TYPE_NORMAL
 - en: '`level`'
+  id: totrans-446
   prefs: []
   type: TYPE_NORMAL
 - en: A log level, which is a label that indicates the level of importance for the
     log event. Frequently used levels include `INFO`, `WARN`, and `ERROR`. These are
     also key for filtering out low-priority messages that might not be relevant in
     production.
+  id: totrans-447
   prefs: []
   type: TYPE_NORMAL
 - en: One or more contextual elements
+  id: totrans-448
   prefs: []
   type: TYPE_NORMAL
 - en: These contain background information that provides insight into the state of
     the application at the time of the message. The *entire point* of a log event
     is to express this context information.
+  id: totrans-449
   prefs: []
   type: TYPE_NORMAL
 - en: In short, the structured log form is easier, faster, and cheaper to extract
     meaning from, and the results are far easier to search, filter, and aggregate.
+  id: totrans-450
   prefs: []
   type: TYPE_NORMAL
 - en: Structure your logs for parsing by computers, not for reading by humans.
+  id: totrans-451
   prefs: []
   type: TYPE_NORMAL
 - en: Less is (way) more
+  id: totrans-452
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: Logging isn’t free. In fact, it’s very expensive.
+  id: totrans-453
   prefs: []
   type: TYPE_NORMAL
 - en: Imagine you have a service deployed to a server running in AWS. Nothing fancy,
     just a standard server with a standard, general-purpose disk capable of a sustained
     throughput of 16 MiB/second.
+  id: totrans-454
   prefs: []
   type: TYPE_NORMAL
 - en: Let’s say that your service likes to be thorough, so it fastidiously logs events
     acknowledging each request, response, database call, calculation status, and various
     other bits of information, totaling sixteen 1024-byte events for each request
     the service handles. It’s a little verbose, but nothing too unusual so far.
+  id: totrans-455
   prefs: []
   type: TYPE_NORMAL
 - en: But this adds up. In a scenario in which the service handles 512 requests per
     second—a perfectly reasonable number for a highly concurrent service—your service
     would produce 8192 events/second. At 16 KiB per event, that’s a total of 8 MiB/second
     of log events, or *half of your disk’s I/O capacity*. That’s quite a burden.
+  id: totrans-456
   prefs: []
   type: TYPE_NORMAL
 - en: What if we skip writing to disk and forward events straight to a log-hosting
@@ -2245,15 +2942,18 @@
     8 MiB/s—about 1 TiB every day and a half—comes to almost $250,000/year for a single
     instance. Fifty such instances would run more than $12 million dollars in data
     transfer costs alone.
+  id: totrans-457
   prefs: []
   type: TYPE_NORMAL
 - en: Obviously, this example doesn’t take into account fluctuations in load due to
     hour of day or day of week. But it clearly illustrates that logging can get very
     expensive very quickly, so log only what’s useful, and be sure to limit log generation
     in production by using severity thresholds. A “warning” threshold is common.
+  id: totrans-458
   prefs: []
   type: TYPE_NORMAL
 - en: Dynamic sampling
+  id: totrans-459
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
@@ -2265,163 +2965,212 @@
     of an outage, which means you have to waste precious incident time turning debug
     logs on just long enough for you find the problem. Oh, and don’t forget to turn
     them off afterwards.
+  id: totrans-460
   prefs: []
   type: TYPE_NORMAL
 - en: However, by *dynamically sampling* your logs—recording some proportion of events
     and dropping the rest—you can still have your debug logs—but not too many—available
     in production, which can help drive down the time to recovery during an incident.
+  id: totrans-461
   prefs: []
   type: TYPE_NORMAL
 - en: Having some debug logs in production can be *really* useful when things are
     on fire.
+  id: totrans-462
   prefs: []
   type: TYPE_NORMAL
 - en: Logging with Go’s Standard log Package
+  id: totrans-463
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
 - en: Go includes a standard logging package, appropriately named `log`, that provides
     some basic logging features. While it’s very bare bones, it still has just about
     everything you need to put together a basic logging strategy.
+  id: totrans-464
   prefs: []
   type: TYPE_NORMAL
 - en: Besides importing the `log` package, using it doesn’t require any kind of setup.
+  id: totrans-465
   prefs: []
   type: TYPE_NORMAL
 - en: 'Its most basic functions can be leveraged with a selection of functions very
     similar to the various `fmt` print functions you may be familiar with:'
+  id: totrans-466
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE45]'
+  id: totrans-467
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE45]'
 - en: 'You may have noticed what is perhaps the most glaring omission from the `log`
     package: that it doesn’t support logging levels. However, what it lacks in functionality,
     it makes up for in simplicity and ease of use.'
+  id: totrans-468
   prefs: []
   type: TYPE_NORMAL
 - en: 'Here’s the most basic logging example:'
+  id: totrans-469
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE46]'
+  id: totrans-470
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE46]'
 - en: 'When run, it provides the following output:'
+  id: totrans-471
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE47]'
+  id: totrans-472
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE47]'
 - en: As you can see, the `log.Print` function—like all of the `log` logging functions—adds
     a timestamp to its messages without any additional configuration.
+  id: totrans-473
   prefs: []
   type: TYPE_NORMAL
 - en: The special logging functions
+  id: totrans-474
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: Although `log` sadly doesn’t support log levels, it does offer some other interesting
     features. Namely, a class of convenience functions that couple outputting log
     events with another useful action.
+  id: totrans-475
   prefs: []
   type: TYPE_NORMAL
 - en: 'The first of these is the `log.Fatal` functions. There are three of these,
     each corresponding to a different `log.PrintX` function, and each equivalent to
     calling its corresponding print function followed by a call to `os.Exit(1)`:'
+  id: totrans-476
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE48]'
+  id: totrans-477
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE48]'
 - en: 'Similarly, `log` offers a series of `log.Panic` functions, which are equivalent
     to calling its corresponding `log.PrintX` followed by a call to `panic`:'
+  id: totrans-478
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE49]'
+  id: totrans-479
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE49]'
 - en: Both of these sets of functions are useful, but they’re not used nearly as often
     as the `log.Print` functions, typically in error handling where it makes sense
     to report the error and halt.
+  id: totrans-480
   prefs: []
   type: TYPE_NORMAL
 - en: Logging to a custom writer
+  id: totrans-481
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: By default, the `log` package prints to `stderr`, but what if you want to redirect
     that output elsewhere? The `log.SetOutput` function allows you to do exactly that
     by letting you specify a custom `io.Writer` to write to.
+  id: totrans-482
   prefs: []
   type: TYPE_NORMAL
 - en: This allows you to, for example, send your logs to a file if you want to. As
     we mention in [“Less is (way) more”](#section_ch11_less_is_way_more), writing
     logs to files generally isn’t advisable, but it can be useful under certain circumstances.
+  id: totrans-483
   prefs: []
   type: TYPE_NORMAL
 - en: 'This is demonstrated in the following using `os.OpenFile` to open the target
     file, and using `log.SetOutput` to define it as the log writer:'
+  id: totrans-484
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE50]'
+  id: totrans-485
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE50]'
 - en: 'When run, the following is written to the file `log.txt`:'
+  id: totrans-486
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE51]'
+  id: totrans-487
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE51]'
 - en: The fact that `log.SetOutput` accepts an interface means that a wide variety
     of destinations can be supported just by satisfying the `io.Writer` contract.
     You could even, if you so desired, create an `io.Writer` implementation that forwards
     to a log processor like Logstash or a message broker like Kafka. The possibilities
     are unlimited.
+  id: totrans-488
   prefs: []
   type: TYPE_NORMAL
 - en: Log flags
+  id: totrans-489
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: The `log` package also allows you to use constants to enrich log messages with
     additional context information, such as the filename, line number, date, and time.
+  id: totrans-490
   prefs: []
   type: TYPE_NORMAL
 - en: 'For example, adding the following line to our above “Hello, World”:'
+  id: totrans-491
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE52]'
+  id: totrans-492
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE52]'
 - en: 'Will result in a log output like the following:'
+  id: totrans-493
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE53]'
+  id: totrans-494
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE53]'
 - en: As you can see, it includes the date in the local time zone (`log.Ldate`), the
     time in the local time zone (`log.Ltime`), and the final file name element and
     line number of the `log` call (`log.Lshortfile`).
+  id: totrans-495
   prefs: []
   type: TYPE_NORMAL
 - en: We don’t get any say over the order in which the log parts appear or the format
     in which they are presented, but if you want that kind of flexibility, you probably
     want to use another logging framework, such as Zap.
+  id: totrans-496
   prefs: []
   type: TYPE_NORMAL
 - en: The Zap Logging Package
+  id: totrans-497
   prefs:
   - PREF_H2
   type: TYPE_NORMAL
 - en: Of the Three Pillars of Observability, logging is the one that’s least supported
     by OpenTelemetry. Which is to say that it isn’t supported at all, at least at
     the time of this writing (though it will be incorporated in time).
+  id: totrans-498
   prefs: []
   type: TYPE_NORMAL
 - en: 'So, for now, rather than discuss the OpenTelemetry Logging API, we’ll cover
     another excellent library: [Zap](https://oreil.ly/fjMls), a JSON-formatted logger
     designed to allocate memory as infrequently as possible, and to use reflection
     and string formatting as little as possible.'
+  id: totrans-499
   prefs: []
   type: TYPE_NORMAL
 - en: Zap is currently one of the two most popular Go logging packages, alongside
@@ -2431,42 +3180,54 @@
     it has a “structured first” philosophy which, as I asserted in [“Structure events
     for parsing”](#section_ch11_logging_structure_events), is incredibly desirable.
     Finally, Logrus is now in maintenance mode, and isn’t introducing any new features.
+  id: totrans-500
   prefs: []
   type: TYPE_NORMAL
 - en: How fast is Zap, exactly? It’s really fast. For a minimalist example, [Table 11-2](#table_ch11_zap_benchmarks_no_context)
     shows comparisons of benchmarks between several common structured logging packages,
     without including any context or `printf`-style templating.
+  id: totrans-501
   prefs: []
   type: TYPE_NORMAL
 - en: Table 11-2\. Relative benchmarks of structured logging packages for a message
     with no context or `printf`-style templating.
+  id: totrans-502
   prefs: []
   type: TYPE_NORMAL
 - en: '| Package | Time | Time % to Zap | Objects Allocated |'
+  id: totrans-503
   prefs: []
   type: TYPE_TB
 - en: '| --- | --- | --- | --- |'
+  id: totrans-504
   prefs: []
   type: TYPE_TB
 - en: '| **Zap** | 118 ns/op | +0% | 0 allocs/op |'
+  id: totrans-505
   prefs: []
   type: TYPE_TB
 - en: '| **Zap (sugared)** | 191 ns/op | +62% | 2 allocs/op |'
+  id: totrans-506
   prefs: []
   type: TYPE_TB
 - en: '| **Zerolog** | 93 ns/op | -21% | 0 allocs/op |'
+  id: totrans-507
   prefs: []
   type: TYPE_TB
 - en: '| **Go-kit** | 280 ns/op | +137% | 11 allocs/op |'
+  id: totrans-508
   prefs: []
   type: TYPE_TB
 - en: '| **Standard library** | 499 ns/op | +323% | 2 allocs/op |'
+  id: totrans-509
   prefs: []
   type: TYPE_TB
 - en: '| **Logrus** | 3129 ns/op | +2552% | 24 allocs/op |'
+  id: totrans-510
   prefs: []
   type: TYPE_TB
 - en: '| **Log15** | 3887 ns/op | +3194% | 23 allocs/op |'
+  id: totrans-511
   prefs: []
   type: TYPE_TB
 - en: These numbers were developed using [Zap’s own benchmarking suite](https://oreil.ly/uGbA7),
@@ -2474,74 +3235,96 @@
     any benchmarking, take these numbers with a grain of salt. The two standouts here
     are Go’s own standard `log` library, which had a runtime about triple Zap’s standard
     logger, and Logrus, which took a very significant 25 times Zap’s time.
+  id: totrans-512
   prefs: []
   type: TYPE_NORMAL
 - en: But we’re supposed to use context fields, aren’t we? What does Zap look like
     then? Well, those results are even more striking.
+  id: totrans-513
   prefs: []
   type: TYPE_NORMAL
 - en: Table 11-3\. Relative benchmarks of structured logging packages for a message
     with 10 context fields.
+  id: totrans-514
   prefs: []
   type: TYPE_NORMAL
 - en: '| Package | Time | Time % to Zap | Objects Allocated |'
+  id: totrans-515
   prefs: []
   type: TYPE_TB
 - en: '| --- | --- | --- | --- |'
+  id: totrans-516
   prefs: []
   type: TYPE_TB
 - en: '| **Zap** | 862 ns/op | +0% | 5 allocs/op |'
+  id: totrans-517
   prefs: []
   type: TYPE_TB
 - en: '| **Zap (sugared)** | 1250 ns/op | +45% | 11 allocs/op |'
+  id: totrans-518
   prefs: []
   type: TYPE_TB
 - en: '| **Zerolog** | 4021 ns/op | +366% | 76 allocs/op |'
+  id: totrans-519
   prefs: []
   type: TYPE_TB
 - en: '| **Go-kit** | 4542 ns/op | +427% | 105 allocs/op |'
+  id: totrans-520
   prefs: []
   type: TYPE_TB
 - en: '| **Logrus** | 29501 ns/op | +3322% | 125 allocs/op |'
+  id: totrans-521
   prefs: []
   type: TYPE_TB
 - en: '| **Log15** | 29906 ns/op | +3369% | 122 allocs/op |'
+  id: totrans-522
   prefs: []
   type: TYPE_TB
 - en: Zap’s lead over Logrus has extended to a (very impressive) factor of 33X; the
     standard `log` library isn’t included in this table because it doesn’t even support
     context fields.
+  id: totrans-523
   prefs: []
   type: TYPE_NORMAL
 - en: Alright then, so how do we use it?
+  id: totrans-524
   prefs: []
   type: TYPE_NORMAL
 - en: Creating a Zap logger
+  id: totrans-525
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: The first step to logging with Zap is to create a `zap.Logger` value.
+  id: totrans-526
   prefs: []
   type: TYPE_NORMAL
 - en: 'Of course, before you do that, you first need to import the Zap package, as
     follows:'
+  id: totrans-527
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE54]'
+  id: totrans-528
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE54]'
 - en: 'Once you’ve imported Zap, you can build your `zap.Logger` instance. Zap allows
     you to configure several aspects of your logging behavior, but the most straightforward
     way to build a `zap.Logger` is to use Zap’s opinionated preset constructor functions—`zap.NewExample`,
     `zap.NewProduction`, and `zap.NewDevelopment`—each of which build a logger via
     a single function call:'
+  id: totrans-529
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE55]'
+  id: totrans-530
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE55]'
 - en: Typically, this will be done in an `init` function and the `zap.Logger` value
     maintained globally. Zap loggers are safe for concurrent use.
+  id: totrans-531
   prefs: []
   type: TYPE_NORMAL
 - en: The three available presets are usually perfectly fine for small projects, but
@@ -2549,74 +3332,96 @@
     the `zap.Config` struct for exactly this purpose, and while the specifics are
     beyond the scope of this book, the [Zap documentation](https://oreil.ly/q1mHb)
     describes its use in some detail.
+  id: totrans-532
   prefs: []
   type: TYPE_NORMAL
 - en: Writing logs with Zap
+  id: totrans-533
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: One of the more unique aspects of Zap is that every logger actually has two
     easily interchangeable forms—standard and “sugared”—that vary somewhat in efficiency
     and usability.
+  id: totrans-534
   prefs: []
   type: TYPE_NORMAL
 - en: 'The standard `zap.Logger` implementation emphasizes performance and type safety.
     It’s slightly faster than the `SugaredLogger` and allocates far less, but it only
     supports structured logging which does make it a little more awkward to use:'
+  id: totrans-535
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE56]'
+  id: totrans-536
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE56]'
 - en: 'The output of which will look something like the following:'
+  id: totrans-537
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE57]'
+  id: totrans-538
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE57]'
 - en: In contexts where performance is good but not absolutely critical (which is
     most of the time, probably) you can use the `SugaredLogger`, which is easily obtainable
     from a standard logger via its `Sugar` method.
+  id: totrans-539
   prefs: []
   type: TYPE_NORMAL
 - en: The `SugaredLogger` still provides structured logging, but its functions for
     doing so are loosely typed, as opposed to the standard logger’s strong context
     typing. Despite using runtime reflection behind the scenes, its performance is
     still very good.
+  id: totrans-540
   prefs: []
   type: TYPE_NORMAL
 - en: The `SugaredLogger` even includes `printf`-style logging methods, for convenience.
     (Remember, though, that when it comes to logging, context is king.)
+  id: totrans-541
   prefs: []
   type: TYPE_NORMAL
 - en: 'All of these features are demonstrated in the following:'
+  id: totrans-542
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE58]'
+  id: totrans-543
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE58]'
 - en: 'The output of which will look something like the following:'
+  id: totrans-544
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE59]'
+  id: totrans-545
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE59]'
 - en: Tip
+  id: totrans-546
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
 - en: Don’t create a new `Logger` for every function. Instead, create a global instance,
     or use the `zap.L` or `zap.S` functions to get Zap’s global standard or sugared
     loggers, respectively.
+  id: totrans-547
   prefs: []
   type: TYPE_NORMAL
 - en: Using dynamic sampling in Zap
+  id: totrans-548
   prefs:
   - PREF_H3
   type: TYPE_NORMAL
 - en: You may recall from [“Dynamic sampling”](#section_ch11_logging_dynamic_sampling)
     that dynamic sampling is a technique in which incoming log entries are sampled
     by capping recorded events to some maximum number per unit of time.
+  id: totrans-549
   prefs: []
   type: TYPE_NORMAL
 - en: If done broadly, this technique can be used to manage the CPU and I/O load of
@@ -2624,86 +3429,110 @@
     a particular class of otherwise high-volume and low-fidelity events, such as debug
     logs, dynamic sampling can ensure their availability for production troubleshooting
     without consuming too much storage.
+  id: totrans-550
   prefs: []
   type: TYPE_NORMAL
 - en: 'Zap supports dynamic sampling, which is configurable using the `zap.SamplingConfig`
     structure, shown here:'
+  id: totrans-551
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE60]'
+  id: totrans-552
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE60]'
 - en: Using `zap.SamplingConfig` allows you to define the number of initial events
     with the same level and message permitted each second (`Initial`), after which
     only every *n*th message (`Thereafter`) is logged. The rest are dropped.
+  id: totrans-553
   prefs: []
   type: TYPE_NORMAL
 - en: 'The following example demonstrates how to build a new `zap.Logger` using a
     preconfigured `zap.Config` instance:'
+  id: totrans-554
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE61]'
+  id: totrans-555
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE61]'
 - en: The above example creates a new `zap.Logger` and sets it as Zap’s global logger.
     It does this in several steps.
+  id: totrans-556
   prefs: []
   type: TYPE_NORMAL
 - en: First, the example creates a new `zap.Config` struct. For convenience, this
     example uses the predefined `zap.NewDevelopmentConfig` function, which provides
     a `zap.Config` value that produces human-readable output and a threshold of `DebugLevel`
     and above.
+  id: totrans-557
   prefs: []
   type: TYPE_NORMAL
 - en: If you like, the `zap.NewProductionConfig` function, which returns a preconfigured
     `zap.Config` value with a threshold of `InfoLevel` and encodes events in JSON.
     If you really want to, you can even create your own `zap.Config` from scratch.
+  id: totrans-558
   prefs: []
   type: TYPE_NORMAL
 - en: Next, the example creates a new `zap.SamplingConfig` on the `zap.Config`, which
     instructs the Zap sampler to keep the first three of any similar events in a given
     second, and to drop all but every third message thereafter (each second).
+  id: totrans-559
   prefs: []
   type: TYPE_NORMAL
 - en: Note
+  id: totrans-560
   prefs:
   - PREF_H6
   type: TYPE_NORMAL
 - en: The `Hook` function is invoked after each sampling decision. The example will
     write a message if it sees that an event has been dropped.
+  id: totrans-561
   prefs: []
   type: TYPE_NORMAL
 - en: Finally, the example uses the Config’s `Build` method to construct a `zap.Logger`
     from the `Config`, and uses `zap.ReplaceGlobals` to replace Zap’s global Logger.
     Zap’s global logger and sugared logger can be accessed by using the `zap.L` and
     `zap.S` functions, respectively.
+  id: totrans-562
   prefs: []
   type: TYPE_NORMAL
 - en: 'But does it work as we expect? Well, let’s see:'
+  id: totrans-563
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE62]'
+  id: totrans-564
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE62]'
 - en: The above function logs 10 events, but with our sampling configuration we should
     see only the first 3 events, and then every third after that (6 and 9). Is that
     what we see?
+  id: totrans-565
   prefs: []
   type: TYPE_NORMAL
 - en: '[PRE63]'
+  id: totrans-566
   prefs: []
   type: TYPE_PRE
+  zh: '[PRE63]'
 - en: The output is exactly as we expected. Clearly, log sampling is a very powerful
     technique, and, when used properly, can provide significant value.
+  id: totrans-567
   prefs: []
   type: TYPE_NORMAL
 - en: Summary
+  id: totrans-568
   prefs:
   - PREF_H1
   type: TYPE_NORMAL
 - en: There’s a lot of hype around observability, and with its promises to dramatically
     shorten development feedback loops and generally make complexity manageable again,
     it’s easy to see why.
+  id: totrans-569
   prefs: []
   type: TYPE_NORMAL
 - en: I wrote a little at the start of this chapter about observability and its promises,
@@ -2714,84 +3543,103 @@
     great books on the horizon (most notably [*Observability Engineering*](https://oreil.ly/Cd1gs)
     by Charity Majors and Liz Fong-Jones (O’Reilly)), that void won’t go unfilled
     for long.
+  id: totrans-570
   prefs: []
   type: TYPE_NORMAL
 - en: By far, however, most of this chapter was spent talking about the Three Pillars
     of Observability in turn, specifically how to implement them using [OpenTelemetry](https://oreil.ly/zEgIp),
     where possible.
+  id: totrans-571
   prefs: []
   type: TYPE_NORMAL
 - en: All told, this was a challenging chapter. Observability is a vast subject about
     which not that much is written yet, and, as a result of its newness, the same
     is true of OpenTelemetry. Even its own documentation is limited and spotty in
     parts. On the plus side, I got to spend a lot of time in the source code.
+  id: totrans-572
   prefs: []
   type: TYPE_NORMAL
 - en: '![cngo 11in02](Images/cngo_11in02.png)'
+  id: totrans-573
   prefs: []
   type: TYPE_IMG
 - en: '^([1](ch11.xhtml#idm45983615999816-marker)) Stoll, Clifford. *High-Tech Heretic:
     Reflections of a Computer Contrarian*. Random House, September 2000.'
+  id: totrans-574
   prefs: []
   type: TYPE_NORMAL
 - en: ^([2](ch11.xhtml#idm45983615994840-marker)) Interestingly, this was also just
     after the AWS launched its Lambda functions as a service (FaaS) offering. Coincidence?
     Maybe.
+  id: totrans-575
   prefs: []
   type: TYPE_NORMAL
 - en: ^([3](ch11.xhtml#idm45983615991304-marker)) Assuming of course that all of our
     network and platform configurations are correct!
+  id: totrans-576
   prefs: []
   type: TYPE_NORMAL
 - en: ^([4](ch11.xhtml#idm45983615927544-marker)) I’m not one of the cool kids.
+  id: totrans-577
   prefs: []
   type: TYPE_NORMAL
 - en: ^([5](ch11.xhtml#idm45983615924216-marker)) In addition to Go, implementations
     exist for Python, Java, JavaScript, .NET, C++, Rust, PHP, Erlang/Elixir, Ruby,
     and Swift.
+  id: totrans-578
   prefs: []
   type: TYPE_NORMAL
 - en: ^([6](ch11.xhtml#idm45983615919256-marker)) If you’ve never seen [Charity Majors’
     blog](https://charity.wtf), I recommend that you check it out immediately. It’s
     one part genius plus one part experience, tied together with rainbows, cartoon
     unicorns, and a generous helping of rude language.
+  id: totrans-579
   prefs: []
   type: TYPE_NORMAL
 - en: ^([7](ch11.xhtml#idm45983615677880-marker)) Sigelman, Benjamin H., et al. “Dapper,
     a Large-Scale Distributed Systems Tracing Infrastructure.” *Google Technical Report*,
     Apr. 2010\. [*https://oreil.ly/Vh7Ig*](https://oreil.ly/Vh7Ig).
+  id: totrans-580
   prefs: []
   type: TYPE_NORMAL
 - en: ^([8](ch11.xhtml#idm45983615038696-marker)) Recall that the name “mux” is short
     for “HTTP request multiplexer.”
+  id: totrans-581
   prefs: []
   type: TYPE_NORMAL
 - en: ^([9](ch11.xhtml#idm45983614810104-marker)) That wins the record for longest
     package name, at least in this book.
+  id: totrans-582
   prefs: []
   type: TYPE_NORMAL
 - en: ^([10](ch11.xhtml#idm45983613782808-marker)) It can *also* refer to the numerical
     relationship between two database tables (i.e., *one-to-one*, *one-to-many*, or
     *many-to-many*), but that definition is arguably less relevant here.
+  id: totrans-583
   prefs: []
   type: TYPE_NORMAL
 - en: ^([11](ch11.xhtml#idm45983613739800-marker)) Whatever “better” means.
+  id: totrans-584
   prefs: []
   type: TYPE_NORMAL
 - en: ^([12](ch11.xhtml#idm45983613735976-marker)) Kiran, Oliver. “Exploring Prometheus
     Use Cases with Brian Brazil.” *The New Stack Makers*, 30 Oct. 2016\. [*https://oreil.ly/YDIek*](https://oreil.ly/YDIek).
+  id: totrans-585
   prefs: []
   type: TYPE_NORMAL
 - en: ^([13](ch11.xhtml#idm45983612468360-marker)) Any wrapping in the example is
     for the benefit of formatting for presentation only. Don’t use line breaks in
     your log events if you can help it.
+  id: totrans-586
   prefs: []
   type: TYPE_NORMAL
 - en: ^([14](ch11.xhtml#idm45983612398728-marker)) If they are, why are you producing
     them at all?
+  id: totrans-587
   prefs: []
   type: TYPE_NORMAL
 - en: ^([15](ch11.xhtml#idm45983611271368-marker)) This is a Go book, after all. At
     least that’s what I keep telling my incredibly patient editors.
+  id: totrans-588
   prefs: []
   type: TYPE_NORMAL
